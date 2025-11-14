@@ -1201,7 +1201,7 @@ export default function ProfessionalsPageContent({
                                         <div className="text-xs text-gray-600 mb-2 flex items-center flex-wrap gap-1">
                                           <Globe className="h-3 w-3 inline mr-1" />
                                           <span className="font-medium mr-1">Languages:</span>
-                                          {item.languages.slice(0, 3).map((lang, idx) => (
+                                          {item.languages.slice(0, 3).map((lang: string, idx: number) => (
                                             <span key={idx} className="inline-flex items-center">
                                               <span className="text-base mr-0.5">{getLanguageFlag(lang)}</span>
                                               <span>{lang}{idx < Math.min(2, item.languages.length - 1) ? ',' : ''}</span>
@@ -2248,7 +2248,7 @@ export default function ProfessionalsPageContent({
                                 <div className="text-[10px] text-gray-600 mt-2 flex items-center flex-wrap gap-1">
                                   <Globe className="h-2.5 w-2.5 inline mr-1" />
                                   <span className="font-medium mr-1">Languages:</span>
-                                  {item.languages.slice(0, 2).map((lang, idx) => (
+                                  {item.languages.slice(0, 2).map((lang: string, idx: number) => (
                                     <span key={idx} className="inline-flex items-center">
                                       <span className="text-xs mr-0.5">{getLanguageFlag(lang)}</span>
                                       <span>{lang}{idx < Math.min(1, item.languages.length - 1) ? ',' : ''}</span>
