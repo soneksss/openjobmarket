@@ -1,7 +1,14 @@
 import { createClient } from "@/lib/server"
 import { Resend } from "resend"
 
-const resend = new Resend(process.env.RESEND_API_KEY!)
+// Helper function to create Resend instance at runtime
+function getResendInstance() {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    throw new Error('Missing RESEND_API_KEY. Please add it to your environment variables.')
+  }
+  return new Resend(apiKey)
+}
 
 export interface EmailTemplate {
   subject: string
@@ -292,6 +299,7 @@ async function sendEmail(notification: any) {
 
   // Send email via Resend
   try {
+    const resend = getResendInstance()
     const { data, error: sendError } = await resend.emails.send({
       from: "Open Job Market <onboarding@resend.dev>", // Use verified domain in production
       to: [user.email],
