@@ -241,8 +241,8 @@ export default function OnboardingFlow({
         latitude: lat,
         longitude: lng,
         formatted_address: address,
-        city: null,
-        country: null,
+        city: "",
+        country: "",
       })
     }
   }
