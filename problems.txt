@@ -1,0 +1,4 @@
+1)Design. Boxes too large. not adapted for mobile phone.
+2)Admin page is created but need set up a proper admin login.
+3) Storage bucket not working, can't attach Company logo in Edit profile
+4) Messages between professional and company not delivered.

@@ -1,0 +1,99 @@
+🍪 Cookies Policy
+
+Effective Date: [24/09/2025]
+Open Job Market Ltd ("we", "our", "us") operates the website www.openjobmarket.com
+ (the "Platform").
+
+This Cookies Policy explains how we use cookies and similar technologies.
+
+1. What Are Cookies?
+
+Cookies are small text files placed on your device when you visit our Platform. They help us:
+
+Recognise your device
+
+Remember your preferences
+
+Improve performance and security
+
+Provide analytics and insights
+
+2. Types of Cookies We Use
+a) Strictly Necessary Cookies
+
+These cookies are essential for the Platform to function, such as:
+
+Logging into your account
+
+Security and fraud prevention
+
+Saving cookie preferences
+
+📌 You cannot disable these cookies.
+
+b) Performance & Analytics Cookies
+
+These cookies help us understand how users interact with the Platform, so we can improve it.
+
+Example: pages visited, clicks, time spent
+
+📌 We use privacy-friendly analytics through Supabase or third-party providers.
+
+c) Functional Cookies
+
+These cookies store your preferences (e.g., language, profile settings).
+
+d) Advertising Cookies (Future Use)
+
+If we introduce advertising or paid features in the future, we may use cookies to:
+
+Show relevant ads
+
+Measure ad performance
+
+Currently, we do not use advertising cookies.
+
+3. Third-Party Cookies
+
+Some cookies may be placed by trusted third parties, such as:
+
+Supabase (for secure authentication and data storage)
+
+Payment providers (for future billing features)
+
+Analytics services (if we integrate external tools)
+
+4. Your Cookie Choices
+
+When you first visit the Platform, you will see a cookie consent banner. You can:
+
+Accept all cookies
+
+Reject non-essential cookies
+
+Manage your preferences
+
+You can also change your settings at any time in your browser:
+
+Chrome: Settings > Privacy and security > Cookies
+
+Safari: Preferences > Privacy
+
+Firefox: Options > Privacy & Security
+
+5. How Long Do Cookies Last?
+
+Session cookies: deleted when you close your browser
+
+Persistent cookies: remain until they expire or you delete them
+
+6. Updates to This Policy
+
+We may update this Cookies Policy from time to time. Any changes will be posted on this page with an updated "Effective Date".
+
+7. Contact Us
+
+If you have any questions about this Cookies Policy:
+
+📧 [soneksss@gmail.com]
+🏢 Open Job Market Ltd, United Kingdom

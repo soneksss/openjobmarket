@@ -1,0 +1,88 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Script from "next/script";
+import Link from "next/link";
+
+export default function CookieConsent() {
+  const [visible, setVisible] = useState(false);
+  const [consent, setConsent] = useState<string | null>(null);
+
+  useEffect(() => {
+    const savedConsent = localStorage.getItem("cookie-consent");
+    if (!savedConsent) {
+      setVisible(true);
+    } else {
+      setConsent(savedConsent);
+    }
+  }, []);
+
+  const handleConsent = (choice: string) => {
+    localStorage.setItem("cookie-consent", choice);
+    setConsent(choice);
+    setVisible(false);
+  };
+
+  if (!visible && consent) {
+    // Show "Manage Cookies" button
+    return (
+      <>
+        {consent === "accepted" && (
+          <>
+            {/* ✅ Google Analytics Example (only loads if accepted) */}
+            <Script
+              src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'GA_MEASUREMENT_ID');
+              `}
+            </Script>
+          </>
+        )}
+
+        <button
+          onClick={() => setVisible(true)}
+          className="fixed bottom-4 right-4 bg-gray-700 hover:bg-gray-600 text-white text-sm px-3 py-2 rounded shadow-lg"
+        >
+          Manage Cookies
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 text-white p-4 shadow-lg">
+      <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+        <p className="text-sm">
+          🍪 We use cookies to make Open Job Market work and improve your
+          experience. Some are essential, others help us improve.{" "}
+          <Link
+            href="/cookies-policy"
+            className="underline text-blue-400 hover:text-blue-300"
+          >
+            Learn more
+          </Link>
+        </p>
+        <div className="flex gap-2 mt-2 md:mt-0">
+          <button
+            onClick={() => handleConsent("rejected")}
+            className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded"
+          >
+            Reject
+          </button>
+          <button
+            onClick={() => handleConsent("accepted")}
+            className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded"
+          >
+            Accept All
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,52 @@
+# robots.txt for OpenJobMarket
+# Allows all major search engines and AI crawlers to index public content
+
+# Default: Allow all crawlers
+User-agent: *
+Allow: /
+
+# Explicitly allow GPTBot (ChatGPT web crawler)
+User-agent: GPTBot
+Allow: /
+
+# Allow Google
+User-agent: Googlebot
+Allow: /
+
+# Allow Bing
+User-agent: Bingbot
+Allow: /
+
+# Allow other AI crawlers
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+# Disallow crawling of private/admin areas
+User-agent: *
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /onboarding/
+Disallow: /_next/
+Disallow: /.*\?*
+Disallow: /profile/edit
+Disallow: /company/profile/edit
+Disallow: /contractor/profile/edit
+Disallow: /homeowner/profile/edit
+
+# Allow public profile views
+Allow: /professionals/
+Allow: /jobs/
+Allow: /trades/
+Allow: /map
+Allow: /search
+
+# Sitemap location
+Sitemap: https://openjobmarket.com/sitemap.xml

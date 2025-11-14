@@ -1,0 +1,135 @@
+📜 Privacy Policy
+
+Effective Date: [24/09/2025]
+
+Open Job Market Ltd ("we", "our", "us") operates the website www.openjobmarket.com
+ (the "Platform").
+This Privacy Policy explains how we collect, use, share, and protect your personal information when you use the Platform.
+
+By using the Platform, you agree to this Privacy Policy.
+
+1. Information We Collect
+
+We may collect the following types of information:
+
+a) Account Information
+
+Name
+
+Email address
+
+Password (encrypted)
+
+Account type (Company, Professional/Talent, Admin)
+
+b) Profile Information (optional, chosen by you)
+
+Skills, experience, and trade information
+
+Job preferences
+
+Location (approximate or exact, if you choose)
+
+Whether your profile is visible in search
+
+c) Job Postings (Companies)
+
+Job title, description, requirements
+
+Company information
+
+d) Usage Information
+
+IP address, browser type, device type
+
+Pages visited and actions taken on the Platform
+
+e) Future Paid Services
+
+Billing details (if you purchase premium features)
+
+2. How We Use Your Information
+
+We use your data to:
+
+Provide and improve our services
+
+Match companies with relevant talents
+
+Allow talents to showcase their skills and find opportunities
+
+Securely manage accounts and authenticate users
+
+Communicate with you (e.g., updates, notifications)
+
+Comply with legal obligations
+
+We do not sell your personal data to third parties.
+
+3. Data Storage & Security
+
+Data is stored securely in Supabase cloud infrastructure.
+
+Passwords are encrypted and never stored in plain text.
+
+We use security measures (encryption, access controls) to protect your data.
+
+4. Data Sharing
+
+We may share data only with:
+
+Service providers (e.g., hosting, payment processors for future paid features)
+
+Legal authorities if required by law
+
+Other users, only to the extent you make your data visible (e.g., if you choose to appear in search)
+
+We do not sell or rent your personal information.
+
+5. Your Choices & Rights (GDPR)
+
+You have the right to:
+
+Access the personal data we hold about you
+
+Correct inaccurate or incomplete data
+
+Request deletion of your account and data
+
+Restrict or object to processing
+
+Export your data (data portability)
+
+Withdraw consent (e.g., for optional visibility)
+
+To exercise your rights, contact us at: [your email].
+
+6. Cookies & Tracking
+
+We may use cookies and similar technologies to improve your experience (e.g., login sessions, analytics).
+
+You can disable cookies in your browser, but some features may not work.
+
+7. Data Retention
+
+We keep your data as long as your account is active.
+
+If you delete your account, we delete or anonymize your data unless required for legal or security reasons.
+
+8. International Data Transfers
+
+Since our Platform is global, your data may be accessed outside the UK. We ensure appropriate safeguards (such as standard contractual clauses) are in place.
+
+9. Children’s Privacy
+
+Our Platform is not intended for users under 16. If we learn that we have collected data from a child under 16, we will delete it.
+
+10. Changes to This Privacy Policy
+
+We may update this Privacy Policy from time to time. If we make material changes, we will notify you by email or through the Platform.
+
+11. Contact Us
+
+For questions or to exercise your privacy rights, contact us at:
+📧 soneksss@gmail.com
+🏢 Open Job Market Ltd, United Kingdom

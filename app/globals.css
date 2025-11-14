@@ -1,0 +1,236 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+html {
+  font-size: 16px; /* Standard base font size */
+  -webkit-text-size-adjust: 100%; /* Prevent iOS font scaling */
+  -moz-text-size-adjust: 100%; /* Prevent Firefox font scaling */
+  text-size-adjust: 100%; /* Prevent general font scaling */
+  /* Added font smoothing and text rendering optimizations */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-size: 1rem; /* 16px base */
+  line-height: 1.5; /* Standard line height */
+  /* Added scaling reset and transform prevention */
+  margin: 0;
+  padding: 0;
+  zoom: 1;
+  transform: none !important;
+}
+
+:root {
+  /* Updated to blue-focused color scheme, eliminating black colors */
+  --background: #ffffff; /* Clean white for backgrounds */
+  --foreground: #1e40af; /* Strong blue for main text instead of gray */
+  --card: rgb(255, 255, 255); /* Very light blue for card backgrounds */
+  --card-foreground: #1d4ed8; /* Bright blue for card text */
+  --popover: #ffffff; /* White for popover backgrounds */
+  --popover-foreground: #1e40af; /* Blue for popover text */
+  --primary: rgb(34, 86, 199); /* Vibrant blue for primary actions */
+  --primary-foreground: #ffffff; /* White text on primary buttons */
+  --secondary: #3b82f6; /* Medium blue for secondary actions */
+  --secondary-foreground: #ffffff; /* White text on secondary buttons */
+  --muted: #f8fafc; /* Very light blue-gray for muted backgrounds */
+  --muted-foreground: #64748b; /* Blue-gray for muted text */
+  --accent: #1d4ed8; /* Bright blue for links and highlights */
+  --accent-foreground: #ffffff; /* White text on accent elements */
+  --destructive: #dc2626; /* Red for error states */
+  --destructive-foreground: #ffffff; /* White text on error elements */
+  --border: #e2e8f0; /* Light blue-gray for borders */
+  --input: #f8fafc; /* Light blue-gray background for input fields */
+  --ring: #2563eb; /* Vibrant blue for focus rings */
+  --chart-1: #2563eb; /* Vibrant blue for charts */
+  --chart-2: #3b82f6; /* Medium blue for charts */
+  --chart-3: #60a5fa; /* Light blue for charts */
+  --chart-4: #93c5fd; /* Very light blue for charts */
+  --chart-5: #dbeafe; /* Pale blue for charts */
+  --radius: 0.5rem; /* Rounded corners for modern look */
+  --sidebar: #ffffff; /* White sidebar background */
+  --sidebar-foreground: #1e40af; /* Blue sidebar text */
+  --sidebar-primary: #2563eb; /* Vibrant blue for primary sidebar actions */
+  --sidebar-primary-foreground: #ffffff; /* White text on primary sidebar elements */
+  --sidebar-accent: #1d4ed8; /* Bright blue for sidebar accents */
+  --sidebar-accent-foreground: #ffffff; /* White text on sidebar accents */
+  --sidebar-border: #e2e8f0; /* Light blue-gray sidebar borders */
+  --sidebar-ring: #2563eb; /* Vibrant blue focus rings in sidebar */
+}
+
+.dark {
+  /* Updated dark mode to use blue tones instead of black */
+  --background: #0f172a; /* Deep blue background instead of black */
+  --foreground: #e2e8f0; /* Light blue-gray text */
+  --card: #1e293b; /* Dark blue-gray for cards */
+  --card-foreground: #e2e8f0; /* Light blue-gray card text */
+  --popover: #1e293b; /* Dark blue-gray for popovers */
+  --popover-foreground: #e2e8f0; /* Light blue-gray popover text */
+  --primary: #3b82f6; /* Medium blue for dark mode visibility */
+  --primary-foreground: #ffffff; /* White text on bright buttons */
+  --secondary: #1e40af; /* Strong blue for secondary actions */
+  --secondary-foreground: #ffffff; /* White text on secondary buttons */
+  --muted: #334155; /* Medium blue-gray for muted backgrounds */
+  --muted-foreground: #94a3b8; /* Light blue-gray for muted text */
+  --accent: #60a5fa; /* Light blue for accents */
+  --accent-foreground: #0f172a; /* Dark blue text on accent elements */
+  --destructive: #ef4444; /* Bright red for visibility */
+  --destructive-foreground: #ffffff; /* White text on red */
+  --border: #334155; /* Medium blue-gray borders */
+  --input: #1e293b; /* Dark blue-gray input backgrounds */
+  --ring: #3b82f6; /* Medium blue focus rings */
+  --chart-1: #3b82f6; /* Medium blue for charts */
+  --chart-2: #60a5fa; /* Light blue for charts */
+  --chart-3: #93c5fd; /* Very light blue for charts */
+  --chart-4: #1e40af; /* Strong blue for charts */
+  --chart-5: #ef4444; /* Red accent for charts */
+  --sidebar: #1e293b; /* Dark blue-gray sidebar */
+  --sidebar-foreground: #e2e8f0; /* Light blue-gray text */
+  --sidebar-primary: #3b82f6; /* Medium blue for primary actions */
+  --sidebar-primary-foreground: #ffffff; /* White text */
+  --sidebar-accent: #60a5fa; /* Light blue accents */
+  --sidebar-accent-foreground: #0f172a; /* Dark blue text */
+  --sidebar-border: #334155; /* Medium blue-gray borders */
+  --sidebar-ring: #3b82f6; /* Medium blue focus rings */
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+} /* Added missing closing brace for @theme inline block */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    /* Added proper text sizing and container constraints */
+    font-size: 1rem; /* Ensure 16px base */
+    max-width: 100vw; /* Prevent horizontal overflow */
+    overflow-x: hidden; /* Hide horizontal scrollbar */
+  }
+
+  /* Added container and content width constraints */
+  .container {
+    @apply mx-auto px-4 sm:px-6 lg:px-8;
+    max-width: 1280px; /* Standard max width */
+  }
+
+  /* Ensure proper text scaling across all elements */
+  h1 {
+    font-size: 2.25rem;
+  } /* 36px */
+  h2 {
+    font-size: 1.875rem;
+  } /* 30px */
+  h3 {
+    font-size: 1.5rem;
+  } /* 24px */
+  h4 {
+    font-size: 1.25rem;
+  } /* 20px */
+  h5 {
+    font-size: 1.125rem;
+  } /* 18px */
+  h6 {
+    font-size: 1rem;
+  } /* 16px */
+
+  p,
+  div,
+  span {
+    font-size: 1rem; /* 16px base for all text */
+  }
+
+  button {
+    font-size: 0.875rem; /* 14px for buttons */
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 1rem; /* 16px to prevent zoom on iOS */
+  }
+}
+
+/* Leaflet popup customization for interactive elements */
+.leaflet-popup-content-wrapper {
+  pointer-events: auto !important;
+}
+
+.leaflet-popup-content {
+  pointer-events: auto !important;
+  /* Ensure enough width for the profile card */
+  min-width: 290px !important;
+  margin: 8px !important;
+}
+
+/* Ensure all interactive elements in popups are clickable */
+.leaflet-popup-content button,
+.leaflet-popup-content a,
+.leaflet-popup-content input,
+.leaflet-popup-content select {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+/* Remove default leaflet close button interference */
+.leaflet-popup-close-button {
+  pointer-events: auto !important;
+  z-index: 1000 !important;
+}
+
+/* Prevent popup from blocking clicks on its own content */
+.compact-popup .leaflet-popup-content-wrapper {
+  overflow: visible !important;
+}
+
+/* Remove number input spinner arrows */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}

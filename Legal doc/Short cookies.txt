@@ -1,0 +1,53 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+
+export default function CookieConsent() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const consent = localStorage.getItem("cookie-consent");
+    if (!consent) {
+      setVisible(true);
+    }
+  }, []);
+
+  const handleConsent = (choice: string) => {
+    localStorage.setItem("cookie-consent", choice);
+    setVisible(false);
+  };
+
+  if (!visible) return null;
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gray-900 text-white p-4 shadow-lg">
+      <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3">
+        <p className="text-sm">
+          🍪 We use cookies to make Open Job Market work and improve your
+          experience. Some are essential, others help us improve.{" "}
+          <Link
+            href="/cookies-policy"
+            className="underline text-blue-400 hover:text-blue-300"
+          >
+            Learn more
+          </Link>
+        </p>
+        <div className="flex gap-2 mt-2 md:mt-0">
+          <button
+            onClick={() => handleConsent("rejected")}
+            className="bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded"
+          >
+            Reject
+          </button>
+          <button
+            onClick={() => handleConsent("accepted")}
+            className="bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded"
+          >
+            Accept All
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

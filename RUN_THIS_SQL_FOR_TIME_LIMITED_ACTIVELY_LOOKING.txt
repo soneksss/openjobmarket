@@ -1,0 +1,46 @@
+===================================================================================
+TIME-LIMITED "ACTIVELY LOOKING" FEATURE - SQL MIGRATION
+===================================================================================
+
+INSTRUCTIONS:
+1. Open your Supabase SQL Editor
+2. Copy ALL the SQL code from the file: ADD_ACTIVELY_LOOKING_EXPIRATION.sql
+3. Paste it into the SQL Editor
+4. Click "Run" button
+5. You should see success messages
+
+WHAT THIS DOES:
+- Adds actively_looking_until field to professional_profiles table
+- Creates functions to automatically expire old "actively looking" statuses
+- Creates helper functions for getting time remaining and notifications
+- Adds index for performance
+
+AFTER RUNNING THE SQL:
+- Professionals will need to select a duration when enabling "Actively Looking"
+- Options: 1 day, 3 days, 5 days, 7 days (7 days for premium only)
+- Status will automatically expire after the selected time
+- Professionals must manually renew their status
+
+IMPORTANT:
+You need to call the expiration function periodically (every hour):
+
+Option 1: From your application code
+  - Call: supabase.rpc('expire_actively_looking_statuses')
+  - Run this every hour via a cron job
+
+Option 2: Using pg_cron (if enabled)
+  - The SQL file includes a cron schedule (commented out)
+  - Uncomment the cron.schedule section if you have pg_cron enabled
+
+===================================================================================
+
+The file to copy SQL from: ADD_ACTIVELY_LOOKING_EXPIRATION.sql
+
+After running, test by:
+1. Go to professional dashboard
+2. Toggle "Actively Looking" ON
+3. Select a duration (try 1 day for quick testing)
+4. See the expiration date displayed
+5. Status will automatically expire after the selected time
+
+===================================================================================

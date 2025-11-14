@@ -1,0 +1,108 @@
+📄 Terms & Conditions
+
+Last Updated: [Insert Date]
+
+Welcome to Open Job Market. These Terms & Conditions ("Terms") govern your use of our website www.openjobmarket.com
+ (the "Platform"), operated by Open Job Market Ltd, a company registered in the United Kingdom.
+
+By accessing or using the Platform, you agree to these Terms. If you do not agree, please do not use the Platform.
+
+1. Our Services
+
+For Companies: The Platform allows companies to search for and connect with professionals and trades ("Talents") globally, and to post job offers.
+
+For Talents: Professionals and tradespeople can create profiles, showcase skills, and search for job opportunities.
+
+Free Now, Paid Later: At present, the Platform is free to use. In the future, we may introduce paid features, such as fees for posting jobs or accessing premium services. Any fees will be clearly communicated before purchase.
+
+2. Account Registration
+
+You must create an account to access certain features.
+
+You agree to provide accurate, complete, and up-to-date information.
+
+You are responsible for maintaining the confidentiality of your login details.
+
+We reserve the right to suspend or terminate accounts that violate these Terms.
+
+3. User Responsibilities
+
+Companies are solely responsible for the accuracy, legality, and content of job postings.
+
+Talents are solely responsible for the accuracy of their profiles, skills, and any information they make visible.
+
+Users must not post false, misleading, fraudulent, or discriminatory content.
+
+Users are responsible for their own interactions with others on the Platform.
+
+4. Data Protection & Privacy
+
+We respect your privacy and comply with UK GDPR and other applicable data protection laws.
+
+User data is securely stored using Supabase.
+
+You may choose whether your personal data (e.g., name, contact details) is visible in search results.
+
+Our [Privacy Policy] explains in detail how your data is collected, used, and stored.
+
+5. Payments & Fees (Future Features)
+
+Currently, use of the Platform is free.
+
+In the future, certain services may require payment (e.g., job postings, premium visibility).
+
+All fees will be clearly displayed before purchase, and payments will be processed securely.
+
+We may change pricing from time to time, with reasonable notice.
+
+6. Prohibited Uses
+
+You agree not to use the Platform to:
+
+Post or share false, misleading, fraudulent, or illegal content.
+
+Discriminate based on race, gender, religion, disability, or any other protected characteristic.
+
+Send spam, unsolicited messages, or advertising.
+
+Attempt to scrape, copy, or extract data from the Platform.
+
+Harm, disrupt, or interfere with the security or functionality of the Platform.
+
+7. Intellectual Property
+
+All content, branding, and functionality of the Platform are owned by Open Job Market Ltd.
+
+Users retain rights to their own content but grant us a license to display and distribute it through the Platform.
+
+8. Disclaimer of Liability
+
+The Platform is provided "as is" and "as available".
+
+We do not guarantee the accuracy, completeness, or availability of job postings, profiles, or other content.
+
+We are not responsible for any interactions, contracts, or outcomes between companies and talents.
+
+9. Termination
+
+We may suspend or terminate your account if you breach these Terms.
+
+You may delete your account at any time.
+
+10. Governing Law & Jurisdiction
+
+These Terms are governed by and construed in accordance with the laws of England and Wales.
+
+Any disputes will be subject to the exclusive jurisdiction of the courts of England and Wales.
+
+11. Changes to These Terms
+
+We may update these Terms from time to time.
+
+Continued use of the Platform after changes means you accept the updated Terms.
+
+12. Contact Us
+
+For questions or concerns, please contact us at:
+📧 [soneksss@gmail.com]
+🏢 Open Job Market Ltd, United Kingdom

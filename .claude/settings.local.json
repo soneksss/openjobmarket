@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run lint)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(grep:*)",
+      "Bash(rm:*)",
+      "Bash(npm install:*)",
+      "Bash(mv:*)",
+      "Bash(npm run dev:*)",
+      "Bash(tasklist)",
+      "Bash(findstr:*)",
+      "Bash(curl:*)",
+      "Bash(taskkill //PID 30188 //F)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $5}')",
+      "Bash(taskkill //PID 31548 //F)",
+      "Bash(taskkill //PID 4352 //F)",
+      "Bash(taskkill /F /IM node.exe)",
+      "Bash(xargs -I {} taskkill //PID {} //F)",
+      "Bash(taskkill //PID 11708 //F)",
+      "Bash(taskkill //PID 25984 //F)",
+      "Bash(cat package.json)",
+      "Bash(awk '{print $2}')",
+      "Bash(npx supabase:*)",
+      "Bash(awk:*)",
+      "Bash(tee:*)",
+      "Bash(npm i:*)",
+      "Bash(timeout 300 npm run build:*)",
+      "Bash(dir:*)",
+      "Bash(timeout /t 8)",
+      "Bash(nul)",
+      "Bash(ping:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
