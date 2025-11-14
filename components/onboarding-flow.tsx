@@ -238,6 +238,7 @@ export default function OnboardingFlow({
     // Also store detailed location data if reverse geocoding provides it
     if (address) {
       setCompanyLocationData({
+        address: address,
         latitude: lat,
         longitude: lng,
         formatted_address: address,
