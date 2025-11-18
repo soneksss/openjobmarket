@@ -651,6 +651,8 @@ export default function ContractorMapView({
                       setSelectedContractor(contractor)
                       setShowContractorDetails(true)
                     }}
+                    showRadius={!!selectedLocationCoords}
+                    radiusKm={parseInt(radius) * 1.60934}
                     showMapPicker={showMapPicker}
                     onMapPick={handleMapLocationPick}
                     mapPickerLocation={mapPickerLocation}
@@ -1219,6 +1221,9 @@ export default function ContractorMapView({
                   zoom={10}
                   height="100%"
                   user={user}
+                  showRadius={!!selectedLocationCoords}
+                  radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                  radiusKm={parseInt(radius) * 1.60934}
                   selectedProfessionalId={selectedContractor?.id}
                   onProfileSelect={(profile) => {
                     const contractor = contractors.find(c => c.id === profile.id)

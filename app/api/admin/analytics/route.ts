@@ -1,3 +1,6 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { createClient } from "@supabase/supabase-js"
 import { getAdminUser } from "@/lib/admin-auth"
 import { NextResponse } from "next/server"

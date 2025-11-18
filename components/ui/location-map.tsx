@@ -110,6 +110,7 @@ const LocationMapComponent = forwardRef<LocationMapRef, LocationMapProps>(({
   return (
     <div style={{ height, width: '100%' }} className="rounded-md overflow-hidden border">
       <MapContainer
+        key={`location-map-${initialLat}-${initialLng}`}
         center={[initialLat, initialLng]}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}

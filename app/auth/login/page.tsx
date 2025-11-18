@@ -1,23 +1,20 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import LoginForm from "@/components/login-form"
 
 export default async function LoginPage() {
-  try {
-    // Check if user is already logged in
-    const supabase = await createClient()
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+  // Check if user is already logged in
+  const supabase = await createClient()
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
-    // If user is logged in, redirect to dashboard
-    if (session) {
-      redirect("/dashboard")
-    }
-  } catch (error) {
-    // If there's an error getting the session (e.g., after sign out),
-    // just continue to show the login form
-    console.log("[v0] Session check failed (likely after sign out):", error)
+  // If user is logged in, redirect to dashboard
+  if (session) {
+    redirect("/dashboard")
   }
 
   return (

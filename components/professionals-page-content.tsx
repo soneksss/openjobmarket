@@ -995,6 +995,9 @@ export default function ProfessionalsPageContent({
                           center={[center[0], center[1]]}
                           zoom={10}
                           height="100%"
+                          showRadius={!!selectedLocationCoords}
+                          radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                          radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
                           selectedJobId={selectedProfessionalId}
                           onJobSelect={(job) => {
                             setSelectedProfessionalId(job?.id || null)
@@ -1023,6 +1026,9 @@ export default function ProfessionalsPageContent({
                           zoom={10}
                           height="100%"
                           user={user}
+                          showRadius={!!selectedLocationCoords}
+                          radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                          radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
                           selectedProfessionalId={selectedProfessionalId}
                           onProfileSelect={(profile) => {
                             // Toggle selection: set ID if selecting, null if deselecting
@@ -2055,6 +2061,9 @@ export default function ProfessionalsPageContent({
                     center={[center[0], center[1]]}
                     zoom={10}
                     height="100%"
+                    showRadius={!!selectedLocationCoords}
+                    radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                    radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
                     selectedJobId={selectedProfessionalId}
                     onJobSelect={(job) => {
                       setSelectedProfessionalId(job?.id || null)
@@ -2083,6 +2092,9 @@ export default function ProfessionalsPageContent({
                     zoom={10}
                     height="100%"
                     user={user}
+                    showRadius={!!selectedLocationCoords}
+                    radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                    radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
                     selectedProfessionalId={selectedProfessionalId}
                     onProfileSelect={(profile) => {
                       // Toggle selection

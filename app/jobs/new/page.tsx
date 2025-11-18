@@ -1,5 +1,10 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/server"
+
+
 
 export default async function NewJobPage() {
   console.log("[v0] New job page loading...")

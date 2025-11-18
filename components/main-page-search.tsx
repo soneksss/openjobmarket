@@ -37,6 +37,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [showMapPicker, setShowMapPicker] = useState(false)
   const [mapPickerLocation, setMapPickerLocation] = useState<{ lat: number; lon: number; name: string } | null>(null)
   const [mapPickerRadius, setMapPickerRadius] = useState("10")
+  const [mapPickerKey, setMapPickerKey] = useState(0)
 
   // Full-screen map modal state for all users
   const [showMapModal, setShowMapModal] = useState(false)
@@ -487,6 +488,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('mainPageSearch'))
     }
+    setMapPickerKey(prev => prev + 1) // Increment key to force fresh map instance
     setShowMapPicker(true)
   }
 
@@ -494,7 +496,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     setMapPickerLocation({
       lat,
       lon,
-      name: `Location ${lat.toFixed(4)}, ${lon.toFixed(4)}`
+      name: `${lat.toFixed(4)}, ${lon.toFixed(4)}`
     })
   }
 
@@ -744,21 +746,21 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
   return (
     <div className="w-full">
-      <div className="bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-3 sm:p-4 md:p-6 shadow-xl border border-white/10">
-        <h2 className="text-sm sm:text-base md:text-xl font-bold text-white mb-3 sm:mb-4 md:mb-6 text-center">
+      <div className="bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-2 sm:p-3 md:p-4 shadow-xl border border-white/10">
+        <h2 className="text-xs sm:text-sm md:text-base font-bold text-white mb-2 sm:mb-2.5 md:mb-3 text-center">
           Search and Compare
         </h2>
 
-        <div className="flex flex-col sm:flex-col lg:flex-row gap-2 sm:gap-3 md:gap-4">
+        <div className="flex flex-col sm:flex-col lg:flex-row gap-1.5 sm:gap-2 md:gap-3">
           <div className="flex-1">
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="e.g. Software Engineer, Marketing, or Company name"
-              className="h-8 sm:h-10 md:h-12 text-sm md:text-base px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md"
+              className="h-7 sm:h-8 md:h-9 text-xs md:text-sm px-2 md:px-3 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md"
             />
           </div>
-          <div className="flex-1 flex gap-2">
+          <div className="flex-1 flex gap-1.5">
             <div className="flex-1">
               <LocationInput
                 value={location}
@@ -770,57 +772,55 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             </div>
             <Button
               onClick={handleMapPickerClick}
-              className="h-8 sm:h-10 md:h-12 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
+              className="h-7 sm:h-8 md:h-9 px-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
               title="Pick location on map"
               type="button"
             >
-              <Map className="h-4 w-4 sm:h-5 sm:w-5" />
+              <Map className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3 sm:mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 mt-2 sm:mt-2.5">
           <Button
             onClick={() => handleSearch("vacancies")}
             disabled={isSearching}
-            className="h-8 sm:h-10 md:h-12 text-xs sm:text-sm md:text-base font-bold bg-blue-500 hover:bg-blue-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
+            className="h-7 sm:h-8 md:h-9 text-xs sm:text-xs md:text-sm font-bold bg-blue-500 hover:bg-blue-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
           >
-            <Search className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+            <Search className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
             {isSearching ? "Searching..." : "Find Vacancies"}
           </Button>
           <Button
             onClick={() => handleSearch("jobs_tasks")}
             disabled={isSearching}
-            className="h-8 sm:h-10 md:h-12 text-xs sm:text-sm md:text-base font-bold bg-purple-500 hover:bg-purple-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
+            className="h-7 sm:h-8 md:h-9 text-xs sm:text-xs md:text-sm font-bold bg-purple-500 hover:bg-purple-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
           >
-            <Hammer className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+            <Hammer className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
             {isSearching ? "Searching..." : "Find Jobs (Tasks)"}
           </Button>
           <Button
             onClick={() => handleSearch("traders")}
             disabled={isSearching}
-            className="h-8 sm:h-10 md:h-12 text-xs sm:text-sm md:text-base font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
+            className="h-7 sm:h-8 md:h-9 text-xs sm:text-xs md:text-sm font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
           >
-            <Hammer className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+            <Hammer className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
             {isSearching ? "Searching..." : "Find Tradespeople"}
           </Button>
           <Button
             onClick={() => handleSearch("talents")}
             disabled={isSearching}
-            className="h-8 sm:h-10 md:h-12 text-xs sm:text-sm md:text-base font-bold bg-emerald-500 hover:bg-emerald-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
+            className="h-7 sm:h-8 md:h-9 text-xs sm:text-xs md:text-sm font-bold bg-emerald-500 hover:bg-emerald-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
           >
-            <Users className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+            <Users className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
             {isSearching ? "Searching..." : "Find Talent"}
           </Button>
         </div>
-      </div>
 
-      {/* Map Picker Modal */}
-      {showMapPicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col relative z-[10000]">
+        {/* Inline Map Picker */}
+        {showMapPicker && (
+          <div className="mt-4 p-4 bg-white rounded-lg border-2 border-blue-500 shadow-xl">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-3">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Pick Location on Map</h3>
                 <p className="text-sm text-gray-600">Click anywhere on the map to select your search location</p>
@@ -835,96 +835,77 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               </Button>
             </div>
 
+            {/* Radius Control */}
+            <div className="mb-3 flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <Target className="h-5 w-5 text-emerald-600 flex-shrink-0" />
+              <label className="text-sm font-semibold text-gray-900 whitespace-nowrap">Search Radius:</label>
+              <Select value={mapPickerRadius} onValueChange={setMapPickerRadius}>
+                <SelectTrigger className="w-32 h-9 text-sm font-medium border-gray-300 bg-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {[1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map((miles) => (
+                    <SelectItem key={miles} value={miles.toString()}>
+                      {miles} mile{miles !== 1 ? 's' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {mapPickerLocation && (
+                <div className="ml-auto flex items-center gap-2 text-sm text-gray-600">
+                  <MapPin className="h-4 w-4 text-blue-600" />
+                  <span>{mapPickerLocation.lat.toFixed(4)}, {mapPickerLocation.lon.toFixed(4)}</span>
+                </div>
+              )}
+            </div>
+
             {/* Map Area */}
-            <div className="flex-1 relative">
+            <div style={{ height: "500px", width: "100%", position: "relative" }}>
               <ProfessionalMap
-                key={`picker-${Date.now()}`}
+                key={`map-picker-${mapPickerKey}`}
                 professionals={[]}
                 center={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : { lat: 51.5074, lon: -0.1278 }}
                 zoom={8}
-                height="100%"
+                height="500px"
                 showRadius={!!mapPickerLocation}
                 radiusCenter={mapPickerLocation ? [mapPickerLocation.lat, mapPickerLocation.lon] : undefined}
                 radiusKm={parseInt(mapPickerRadius) * 1.60934} // Convert miles to km
                 onMapClick={handleMapLocationPick}
                 selectedLocation={mapPickerLocation ? [mapPickerLocation.lat, mapPickerLocation.lon] : undefined}
               />
-
-              {/* Radius Control Overlay - Top of Map */}
-              <div className="absolute top-4 right-4 z-[10000]">
-                <div className="bg-white rounded-lg shadow-xl p-3 border-2 border-emerald-500">
-                  <div className="flex items-center gap-3">
-                    <Target className="h-5 w-5 text-emerald-600 flex-shrink-0" />
-                    <label className="text-sm font-semibold text-gray-900 whitespace-nowrap">Search Radius:</label>
-                    <Select value={mapPickerRadius} onValueChange={setMapPickerRadius}>
-                      <SelectTrigger className="w-28 h-9 text-sm font-medium border-gray-300 bg-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] z-[10001]">
-                        {[1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map((miles) => (
-                          <SelectItem key={miles} value={miles.toString()}>
-                            {miles} mile{miles !== 1 ? 's' : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Location Display Overlay - Top Left */}
-              {mapPickerLocation && (
-                <div className="absolute top-4 left-4 z-[1000]">
-                  <div className="bg-white rounded-lg shadow-lg p-3 border">
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-5 w-5 text-blue-600" />
-                      <div className="text-sm">
-                        <div className="font-semibold text-gray-900">Selected Location</div>
-                        <div className="text-gray-600">{mapPickerLocation.lat.toFixed(4)}, {mapPickerLocation.lon.toFixed(4)}</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Crosshair indicator */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <Target className="h-8 w-8 text-red-500 opacity-70" />
-              </div>
             </div>
 
             {/* Controls */}
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  {mapPickerLocation ? (
-                    <span className="font-medium text-gray-900">
-                      Click "Use This Location" to confirm your selection
-                    </span>
-                  ) : (
-                    <span>
-                      Click anywhere on the map to select a location
-                    </span>
-                  )}
-                </div>
+            <div className="mt-3 flex flex-col sm:flex-row gap-3 items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="text-sm text-gray-600">
+                {mapPickerLocation ? (
+                  <span className="font-medium text-gray-900">
+                    Click "Use This Location" to confirm your selection
+                  </span>
+                ) : (
+                  <span>
+                    Click anywhere on the map to select a location
+                  </span>
+                )}
+              </div>
 
-                <div className="flex gap-2">
-                  <Button onClick={cancelMapPicker} variant="outline">
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={confirmMapPickerLocation}
-                    disabled={!mapPickerLocation}
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Use This Location
-                  </Button>
-                </div>
+              <div className="flex gap-2">
+                <Button onClick={cancelMapPicker} variant="outline" size="sm">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmMapPickerLocation}
+                  disabled={!mapPickerLocation}
+                  size="sm"
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Use This Location
+                </Button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Full-Screen Map Modal - Uses Same Component as Professionals Page */}
       {showMapModal && (

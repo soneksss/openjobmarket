@@ -1,6 +1,12 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import ProfessionalDashboard from "@/components/professional-dashboard"
+
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
 
 export default async function ProfessionalDashboardPage() {
   console.log("[PROFESSIONAL-DASHBOARD-PAGE] Loading...")

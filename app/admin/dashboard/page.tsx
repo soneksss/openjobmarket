@@ -6,6 +6,9 @@ import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 // Placeholder components for loading states
 function StatsCardSkeleton() {
   return (

@@ -1,3 +1,6 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { createClient } from "@/lib/server"
 import { notFound } from "next/navigation"
 import { Metadata } from "next"

@@ -1,3 +1,6 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { requirePermission } from "@/lib/admin-auth"
 import AdminUsersClient from "./admin-users-client"
 

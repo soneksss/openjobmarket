@@ -33,7 +33,8 @@
       "Bash(timeout /t 8)",
       "Bash(nul)",
       "Bash(ping:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(del .eslintrc.json)"
     ],
     "deny": [],
     "ask": []

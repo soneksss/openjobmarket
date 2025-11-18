@@ -1,7 +1,12 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { createClient } from "@/lib/server"
 import { Metadata } from "next"
 import JobMapView from "@/components/job-map-view"
 import { convertToAnnualSalary, type SalaryFrequency } from "@/lib/salary-utils"
+
+
 
 export const metadata: Metadata = {
   title: "Find Jobs Near You | Search Vacancies on the Map | OpenJobMarket",
@@ -50,6 +55,7 @@ export default async function JobsPage({
     salaryPeriod?: string
     saved?: string
     trainingProvided?: string
+    noExperienceRequired?: string
   }>
 }) {
   const supabase = await createClient()
@@ -399,10 +405,10 @@ export default async function JobsPage({
     query = query.eq("experience_level", params.level)
   }
 
-  // Training provided filter
-  if (params.trainingProvided === "true") {
-    console.log("[JOBS-PAGE] Applying training provided filter")
-    query = query.eq("training_provided", true)
+  // No experience required (Training provided) filter
+  if (params.noExperienceRequired === "true") {
+    console.log("[JOBS-PAGE] Applying no experience required filter")
+    query = query.eq("no_experience_required", true)
   }
 
   // Enhanced salary filtering with frequency conversion

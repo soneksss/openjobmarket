@@ -5,6 +5,9 @@ import NotificationPreferences from "@/components/notification-preferences"
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 export default async function PrivacyCentrePage() {
   const supabase = await createClient()
 

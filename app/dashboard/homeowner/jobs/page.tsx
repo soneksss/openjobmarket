@@ -1,3 +1,6 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"

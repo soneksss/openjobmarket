@@ -1,6 +1,12 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import { HomeownerDashboard } from "@/components/homeowner-dashboard"
+
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
 
 export default async function HomeownerDashboardPage() {
   console.log("[HOMEOWNER] Dashboard page loading...")

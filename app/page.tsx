@@ -9,6 +9,9 @@ import { GuestBanner } from "@/components/guest-banner"
 import { createClient } from "@/lib/server"
 import Link from "next/link"
 
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 export default async function HomePage() {
   console.log("[v0] HomePage rendering")
 
@@ -28,14 +31,14 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       {adminUser && (
-        <div className="w-full bg-white border-b border-gray-200 py-2 sm:py-4">
+        <div className="w-full bg-white border-b border-gray-200 py-1 sm:py-2">
           <div className="container mx-auto px-2 sm:px-4">
             <div className="flex justify-center">
               <Link href="/admin/dashboard">
                 <Button
                   variant="outline"
                   size="sm"
-                  className="px-3 sm:px-6 md:px-8 py-2 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg font-semibold bg-white hover:bg-gray-50 border-2 border-gray-200 hover:border-gray-300 shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
+                  className="px-2 sm:px-4 md:px-5 py-1.5 sm:py-2 md:py-2.5 text-xs sm:text-sm md:text-base font-semibold bg-white hover:bg-gray-50 border-2 border-gray-200 hover:border-gray-300 shadow-md hover:shadow-lg transition-all duration-200 transform hover:scale-105"
                 >
                   Admin Dashboard
                 </Button>
@@ -46,7 +49,7 @@ export default async function HomePage() {
       )}
 
       <section
-        className="relative py-3 sm:py-6 md:py-12 overflow-hidden"
+        className="relative py-1 sm:py-2 md:py-3 overflow-hidden"
         style={{
           backgroundImage: 'url(/London-buildings.png)',
           backgroundSize: 'contain',
@@ -61,7 +64,7 @@ export default async function HomePage() {
         <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-blue-300/20 rounded-full blur-lg animate-pulse delay-500"></div>
 
         <div className="container mx-auto px-2 sm:px-4 relative z-10">
-          <div className="text-center mb-2 sm:mb-4 md:mb-6">
+          <div className="text-center mb-1 sm:mb-2 md:mb-3">
             <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-2 sm:mb-4 md:mb-6 text-balance invisible">
               Find Your Dream Job
             </h1>
@@ -72,7 +75,7 @@ export default async function HomePage() {
 
           {/* Onboarding buttons above search - only for guests */}
           {!user && (
-            <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4 max-w-3xl mx-auto px-4">
+            <div className="flex flex-col sm:flex-row justify-center gap-1.5 mb-1.5 max-w-3xl mx-auto px-4">
               <OnboardingModal action="provider" />
               <OnboardingModal action="hiring" />
             </div>
@@ -85,18 +88,18 @@ export default async function HomePage() {
       {/* Guest banner - only show for unregistered users, hide after search */}
       {!user && <GuestBanner hideOnSearch={true} />}
 
-      <section className="py-12 md:py-20 bg-white">
+      <section className="py-3 md:py-5 bg-white">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-8 md:mb-12">
-            <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-balance text-blue-900">
+          <div className="text-center mb-2 md:mb-3">
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-1.5 text-balance text-blue-900">
               Success Stories
             </h2>
-            <p className="text-base md:text-xl text-gray-600 max-w-3xl mx-auto text-pretty px-2">
+            <p className="text-xs md:text-sm text-gray-600 max-w-3xl mx-auto text-pretty px-2">
               Real results from professionals and companies who found their perfect match just yesterday morning
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-3 md:gap-4 max-w-6xl mx-auto">
             <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:scale-[1.02] border-0 shadow-lg">
               <div className="aspect-video bg-gradient-to-br from-emerald-100 to-emerald-200 relative overflow-hidden">
                 <img
@@ -104,20 +107,20 @@ export default async function HomePage() {
                   alt="Team celebrating successful job placement"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                <div className="absolute top-1.5 left-1.5 bg-emerald-500 text-white px-1.5 py-0.5 rounded-full text-xs font-semibold">
                   Yesterday
                 </div>
               </div>
-              <div className="p-4 md:p-6">
-                <h3 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-gray-800">
+              <div className="p-2 md:p-3">
+                <h3 className="text-base md:text-lg font-bold mb-1 text-gray-800">
                   TechTeam Solutions - HR Director
                 </h3>
-                <p className="text-sm md:text-base text-gray-600 leading-relaxed mb-3 md:mb-4">
+                <p className="text-xs md:text-sm text-gray-600 leading-relaxed mb-1.5 md:mb-2">
                   "Our entire development team found better positions through Open Job Market. The collaborative
                   approach helped us all transition together to a startup that valued our teamwork."
                 </p>
-                <div className="flex items-center text-emerald-600 font-semibold text-sm md:text-base">
-                  <span className="text-xl md:text-2xl mr-2">👥</span>
+                <div className="flex items-center text-emerald-600 font-semibold text-xs md:text-sm">
+                  <span className="text-lg md:text-xl mr-1.5">👥</span>
                   <span>4 team members hired together</span>
                 </div>
               </div>
@@ -130,18 +133,18 @@ export default async function HomePage() {
                   alt="Professional woman working late achieving success"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                <div className="absolute top-1.5 left-1.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full text-xs font-semibold">
                   This Morning
                 </div>
               </div>
-              <div className="p-4 md:p-6">
-                <h3 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-gray-800">Maria R. - Data Scientist</h3>
-                <p className="text-sm md:text-base text-gray-600 leading-relaxed mb-3 md:mb-4">
+              <div className="p-2 md:p-3">
+                <h3 className="text-base md:text-lg font-bold mb-1 text-gray-800">Maria R. - Data Scientist</h3>
+                <p className="text-xs md:text-sm text-gray-600 leading-relaxed mb-1.5 md:mb-2">
                   "Working late nights on my current project, I quietly searched for remote opportunities. Found my
                   dream role at a Fortune 500 company with full remote flexibility and better work-life balance."
                 </p>
-                <div className="flex items-center text-blue-600 font-semibold text-sm md:text-base">
-                  <span className="text-xl md:text-2xl mr-2">🏠</span>
+                <div className="flex items-center text-blue-600 font-semibold text-xs md:text-sm">
+                  <span className="text-lg md:text-xl mr-1.5">🏠</span>
                   <span>100% remote position secured</span>
                 </div>
               </div>
@@ -154,31 +157,31 @@ export default async function HomePage() {
                   alt="Construction professional celebrating career advancement"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-semibold">
+                <div className="absolute top-1.5 left-1.5 bg-orange-500 text-white px-1.5 py-0.5 rounded-full text-xs font-semibold">
                   Yesterday
                 </div>
               </div>
-              <div className="p-4 md:p-6">
-                <h3 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-gray-800">James K. - Project Manager</h3>
-                <p className="text-sm md:text-base text-gray-600 leading-relaxed mb-3 md:mb-4">
+              <div className="p-2 md:p-3">
+                <h3 className="text-base md:text-lg font-bold mb-1 text-gray-800">James K. - Project Manager</h3>
+                <p className="text-xs md:text-sm text-gray-600 leading-relaxed mb-1.5 md:mb-2">
                   "From construction sites to corporate leadership. The platform helped me transition my project
                   management skills into a senior role at a major infrastructure company."
                 </p>
-                <div className="flex items-center text-orange-600 font-semibold text-sm md:text-base">
-                  <span className="text-xl md:text-2xl mr-2">⬆️</span>
+                <div className="flex items-center text-orange-600 font-semibold text-xs md:text-sm">
+                  <span className="text-lg md:text-xl mr-1.5">⬆️</span>
                   <span>Career advancement to leadership</span>
                 </div>
               </div>
             </Card>
           </div>
 
-          <div className="text-center mt-8 md:mt-12">
-            <p className="text-gray-500 text-base md:text-lg mb-4 md:mb-6">
+          <div className="text-center mt-2 md:mt-3">
+            <p className="text-gray-500 text-xs md:text-sm mb-2 md:mb-2.5">
               Join thousands who found their perfect match
             </p>
             <Button
-              size="lg"
-              className="px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200"
+              size="default"
+              className="px-3 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200"
               asChild
             >
               <Link href="/onboarding">Start Your Success Story</Link>
@@ -187,52 +190,52 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="py-12 md:py-20 bg-gradient-to-br from-blue-600 to-blue-800 relative overflow-hidden">
+      <section className="py-3 md:py-5 bg-gradient-to-br from-blue-600 to-blue-800 relative overflow-hidden">
         <div className="container mx-auto px-4 relative z-10">
-          <div className="text-center mb-8 md:mb-16">
-            <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-4 md:mb-6 text-white text-balance">
+          <div className="text-center mb-2 md:mb-4">
+            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-1.5 text-white text-balance">
               Why Choose Open Job Market?
             </h2>
-            <p className="text-base md:text-xl text-white/90 max-w-3xl mx-auto text-pretty px-2">
+            <p className="text-xs md:text-sm text-white/90 max-w-3xl mx-auto text-pretty px-2">
               Revolutionary features that transform how you find jobs and talent
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6 md:gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-3 md:gap-4 max-w-6xl mx-auto">
             <div className="text-center text-white">
-              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <svg className="w-8 h-8 md:w-10 md:h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-1.5 md:mb-2 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12,2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
                 </svg>
               </div>
-              <h3 className="text-xl md:text-2xl font-bold mb-3 md:mb-4">Map-Based Discovery</h3>
-              <p className="text-sm md:text-base text-white/90 leading-relaxed">
+              <h3 className="text-base md:text-lg font-bold mb-1.5 md:mb-2">Map-Based Discovery</h3>
+              <p className="text-xs md:text-xs text-white/90 leading-relaxed">
                 Visualize opportunities geographically. Find jobs and talent based on location, commute preferences, and
                 regional insights.
               </p>
             </div>
 
             <div className="text-center text-white">
-              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <svg className="w-8 h-8 md:w-10 md:h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-1.5 md:mb-2 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11.5C15.4,11.5 16,12.4 16,13V16C16,17.4 15.4,18 14.8,18H9.2C8.6,18 8,17.4 8,16V13C8,12.4 8.6,11.5 9.2,11.5V10C9.2,8.6 10.6,7 12,7M12,8.2C11.2,8.2 10.5,8.7 10.5,10V11.5H13.5V10C13.5,8.7 12.8,8.2 12,8.2Z" />
                 </svg>
               </div>
-              <h3 className="text-xl md:text-2xl font-bold mb-3 md:mb-4">Anonymous Job Search</h3>
-              <p className="text-sm md:text-base text-white/90 leading-relaxed">
+              <h3 className="text-base md:text-lg font-bold mb-1.5 md:mb-2">Anonymous Job Search</h3>
+              <p className="text-xs md:text-xs text-white/90 leading-relaxed">
                 Search for opportunities without revealing your identity. Your current employer will never know you're
                 looking.
               </p>
             </div>
 
             <div className="text-center text-white">
-              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-4 md:mb-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                <svg className="w-8 h-8 md:w-10 md:h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 md:w-12 md:h-12 mx-auto mb-1.5 md:mb-2 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <svg className="w-5 h-5 md:w-6 md:h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                 </svg>
               </div>
-              <h3 className="text-xl md:text-2xl font-bold mb-3 md:mb-4">Global Reach</h3>
-              <p className="text-sm md:text-base text-white/90 leading-relaxed">
+              <h3 className="text-base md:text-lg font-bold mb-1.5 md:mb-2">Global Reach</h3>
+              <p className="text-xs md:text-xs text-white/90 leading-relaxed">
                 Connect with opportunities worldwide. Remote work, international positions, and local jobs all in one
                 platform.
               </p>

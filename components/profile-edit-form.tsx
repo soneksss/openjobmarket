@@ -1077,12 +1077,12 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
               <AlertDialogHeader>
                 <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                 <AlertDialogDescription className="space-y-2 text-sm text-muted-foreground">
-                  <p>
+                  <div>
                     This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
-                  </p>
+                  </div>
                   {userData?.user_type === "professional" && (
                     <>
-                      <p className="text-sm font-medium">This will delete:</p>
+                      <div className="text-sm font-medium">This will delete:</div>
                       <ul className="text-sm list-disc pl-4 space-y-1">
                         <li>Your professional profile and all personal information</li>
                         <li>All job applications</li>
@@ -1094,9 +1094,9 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       </ul>
                     </>
                   )}
-                  <p className="text-sm font-medium text-red-600">
+                  <div className="text-sm font-medium text-red-600">
                     You will be immediately signed out and redirected to the homepage.
-                  </p>
+                  </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

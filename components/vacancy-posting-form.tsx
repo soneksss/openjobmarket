@@ -22,6 +22,7 @@ type VacancyFormData = {
   // Step 3: Job details
   jobType: "full-time" | "part-time" | "remote" | "contract" | "freelance" | "internship" | ""
   experienceLevels: string[] // Changed to array to support multiple levels
+  noExperienceRequired: boolean // Training provided checkbox
   skills: string[]
   languages: string[]
   benefits: string[]
@@ -98,6 +99,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
     description: "",
     jobType: "",
     experienceLevels: [],
+    noExperienceRequired: false,
     skills: [],
     languages: [],
     benefits: [],
@@ -322,6 +324,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         job_type: formData.jobType,
         experience_level: formData.experienceLevels.length > 0 ? formData.experienceLevels[0] : null, // Store first level for backward compatibility
         experience_levels: formData.experienceLevels.length > 0 ? formData.experienceLevels : null, // Store all levels as array
+        no_experience_required: formData.noExperienceRequired,
         is_tradespeople_job: false,
         salary_min: formData.salaryMin ? Number.parseInt(formData.salaryMin) : null,
         salary_max: formData.salaryMax ? Number.parseInt(formData.salaryMax) : null,
@@ -527,6 +530,28 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                   })}
                 </div>
               )}
+            </div>
+
+            <div>
+              <label className="flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-green-300 shadow-sm hover:shadow-md bg-green-50 dark:bg-green-900/20 border-green-200">
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.noExperienceRequired}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        noExperienceRequired: e.target.checked,
+                      }))
+                    }
+                    className="w-5 h-5 text-green-600 rounded border-2 border-gray-400 focus:ring-2 focus:ring-green-500 shadow-sm"
+                  />
+                  <div>
+                    <span className="font-medium text-green-800">No experience required (Training provided)</span>
+                    <p className="text-sm text-green-600">Perfect for entry-level candidates and career changers</p>
+                  </div>
+                </div>
+              </label>
             </div>
 
             <div>

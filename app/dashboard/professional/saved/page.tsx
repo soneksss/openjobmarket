@@ -1,3 +1,6 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
@@ -7,6 +10,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { BookmarkIcon, MapPin, Briefcase, Building, Calendar, DollarSign, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+
+
 
 export default async function SavedJobsPage() {
   try {

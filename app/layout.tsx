@@ -13,6 +13,9 @@ export const metadata: Metadata = {
   generator: "v0.app",
 }
 
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 export default async function RootLayout({
   children,
 }: Readonly<{

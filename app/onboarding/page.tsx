@@ -2,6 +2,9 @@ import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import OnboardingFlow from "@/components/onboarding-flow"
 
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 interface OnboardingPageProps {
   searchParams: Promise<{ verification_pending?: string }>
 }
@@ -69,17 +72,18 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
   if (existingUser) {
     // User already onboarded, check if they have the required profile
     if (existingUser.user_type === "professional") {
-      // Check if professional profile exists
+      // Check if professional profile exists and is complete
       const { data: professionalProfile } = await supabase
         .from("professional_profiles")
-        .select("id")
+        .select("id, first_name, last_name, title")
         .eq("user_id", user.id)
         .single()
 
-      if (professionalProfile) {
+      // Only redirect if profile exists AND is complete
+      if (professionalProfile && professionalProfile.first_name && professionalProfile.last_name && professionalProfile.title) {
         redirect("/dashboard/professional")
       }
-      // If no professional profile, continue with onboarding
+      // If no professional profile or incomplete, continue with onboarding
     } else if (existingUser.user_type === "homeowner") {
       // Check if homeowner profile exists
       const { data: homeownerProfile } = await supabase
@@ -93,17 +97,18 @@ export default async function OnboardingPage({ searchParams }: OnboardingPagePro
       }
       // If no homeowner profile, continue with onboarding
     } else {
-      // Check if company profile exists
+      // Check if company profile exists and is complete
       const { data: companyProfile } = await supabase
         .from("company_profiles")
-        .select("id")
+        .select("id, company_name, industry, location")
         .eq("user_id", user.id)
         .single()
 
-      if (companyProfile) {
+      // Only redirect if profile exists AND is complete
+      if (companyProfile && companyProfile.company_name && companyProfile.industry && companyProfile.location) {
         redirect("/dashboard/company")
       }
-      // If no company profile, continue with onboarding
+      // If no company profile or incomplete, continue with onboarding
     }
   }
 

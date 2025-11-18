@@ -3,6 +3,9 @@ import { getAdminUser } from "@/lib/admin-auth"
 import { redirect } from "next/navigation"
 import { AdminLayoutClient } from "@/components/admin-layout-client"
 
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 interface AdminLayoutProps {
   children: React.ReactNode
 }

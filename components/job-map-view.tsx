@@ -104,7 +104,7 @@ interface JobMapViewProps {
     salaryPeriod?: string
     saved?: string
     posted?: string
-    trainingProvided?: string
+    noExperienceRequired?: string
   }
   center: [number, number]
   categoriesSection?: React.ReactNode
@@ -130,7 +130,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
   const [salaryMin, setSalaryMin] = useState(searchParams.salaryMin || "")
   const [salaryMax, setSalaryMax] = useState(searchParams.salaryMax || "")
   const [radius, setRadius] = useState(searchParams.radius || "25")
-  const [trainingProvided, setTrainingProvided] = useState(searchParams.trainingProvided === "true")
+  const [noExperienceRequired, setNoExperienceRequired] = useState(searchParams.noExperienceRequired === "true")
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [searchError, setSearchError] = useState("")
 
@@ -294,7 +294,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
     if (salaryMin.trim()) params.set("salaryMin", salaryMin.trim())
     if (salaryMax.trim()) params.set("salaryMax", salaryMax.trim())
     if (radius !== "25") params.set("radius", radius)
-    if (trainingProvided) params.set("trainingProvided", "true")
+    if (noExperienceRequired) params.set("noExperienceRequired", "true")
 
     router.push(`${basePath}?${params.toString()}`)
   }
@@ -570,18 +570,18 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                       </div>
                     )}
 
-                    {/* Training Provided - Only for jobs page */}
+                    {/* No Experience Required - Only for jobs page */}
                     {basePath !== '/tasks' && (
                       <div>
-                        <label className="block text-white text-sm font-medium mb-3">Training Provided</label>
+                        <label className="block text-white text-sm font-medium mb-3">No Experience Required</label>
                         <label className="flex items-center space-x-2 cursor-pointer bg-white/20 rounded-lg p-2.5 hover:bg-white/30 transition-colors">
                           <input
                             type="checkbox"
-                            checked={trainingProvided}
-                            onChange={(e) => setTrainingProvided(e.target.checked)}
+                            checked={noExperienceRequired}
+                            onChange={(e) => setNoExperienceRequired(e.target.checked)}
                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
-                          <span className="text-sm text-white font-medium">Show only jobs with training</span>
+                          <span className="text-sm text-white font-medium">Training provided</span>
                         </label>
                       </div>
                     )}
@@ -649,6 +649,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                     height="100%"
                     showRadius={!!selectedLocation}
                     radiusCenter={selectedLocation ? [selectedLocation.lat, selectedLocation.lon] : undefined}
+                    radiusKm={parseInt(radius) * 1.60934}
                     selectedJobId={selectedJobId}
                     onJobSelect={(job) => setSelectedJobId(job?.id || null)}
                     onProfileSelect={(profile) => {
@@ -1337,7 +1338,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
             {/* Map Area */}
             <div className="flex-1 relative">
               <JobMap
-                key={`picker-${Date.now()}`}
+                key={`picker-${mapCenter[0]}-${mapCenter[1]}-${showMapPicker}`}
                 jobs={[]}
                 center={mapCenter}
                 zoom={8}
@@ -1546,18 +1547,18 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                       </div>
                     )}
 
-                    {/* Training Provided - Only for jobs page */}
+                    {/* No Experience Required - Only for jobs page */}
                     {basePath !== '/tasks' && (
                       <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
-                        <label className="block text-gray-900 text-sm font-semibold mb-3">Training Provided</label>
+                        <label className="block text-gray-900 text-sm font-semibold mb-3">No Experience Required</label>
                         <label className="flex items-center space-x-2 cursor-pointer bg-white rounded-lg p-2.5 hover:bg-gray-50 transition-colors border border-gray-200">
                           <input
                             type="checkbox"
-                            checked={trainingProvided}
-                            onChange={(e) => setTrainingProvided(e.target.checked)}
+                            checked={noExperienceRequired}
+                            onChange={(e) => setNoExperienceRequired(e.target.checked)}
                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
-                          <span className="text-sm text-gray-900 font-medium">Show only jobs with training</span>
+                          <span className="text-sm text-gray-900 font-medium">Training provided</span>
                         </label>
                       </div>
                     )}
@@ -1611,6 +1612,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                   height="100%"
                   showRadius={!!selectedLocation}
                   radiusCenter={selectedLocation ? [selectedLocation.lat, selectedLocation.lon] : undefined}
+                  radiusKm={parseInt(radius) * 1.60934}
                   selectedJobId={selectedJobId}
                   onJobSelect={(job) => setSelectedJobId(job?.id || null)}
                   onProfileSelect={(profile) => {

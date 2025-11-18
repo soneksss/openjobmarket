@@ -170,7 +170,7 @@ export function LocationInput({
           onFocus={() => setShowSuggestions(true)}
           onBlur={handleBlur}
           placeholder={placeholder}
-          className={`h-8 sm:h-10 md:h-12 text-sm md:text-base px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md w-full ${
+          className={`h-7 sm:h-8 md:h-9 text-xs md:text-sm px-2 md:px-3 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md w-full ${
             error || validationError ? "ring-2 ring-red-500" : ""
           } ${className}`}
         />

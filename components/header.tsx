@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -269,9 +270,16 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
                 router.push(targetUrl)
               }}
-              className="hover:opacity-80 transition-opacity cursor-pointer"
+              className="hover:opacity-80 transition-opacity cursor-pointer flex items-center"
             >
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-blue-600">Open Job Market</h1>
+              <Image
+                src="/Logo.png"
+                alt="Open Job Market"
+                width={180}
+                height={50}
+                className="h-8 sm:h-10 md:h-12 w-auto rounded-lg"
+                priority
+              />
             </div>
 
             <nav className="hidden md:flex items-center space-x-6">

@@ -1,5 +1,9 @@
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
+
 
 export default async function DashboardPage() {
   const supabase = await createClient()
