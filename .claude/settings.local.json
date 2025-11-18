@@ -34,7 +34,8 @@
       "Bash(nul)",
       "Bash(ping:*)",
       "Bash(cat:*)",
-      "Bash(del .eslintrc.json)"
+      "Bash(del .eslintrc.json)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
