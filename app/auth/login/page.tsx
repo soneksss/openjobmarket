@@ -1,12 +1,11 @@
-// Force dynamic rendering since we use cookies
-export const dynamic = 'force-dynamic'
-
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import LoginForm from "@/components/login-form"
 
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
+
 export default async function LoginPage() {
-  // Check if user is already logged in
   const supabase = await createClient()
   const {
     data: { session },

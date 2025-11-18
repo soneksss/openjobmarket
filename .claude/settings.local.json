@@ -35,7 +35,10 @@
       "Bash(ping:*)",
       "Bash(cat:*)",
       "Bash(del .eslintrc.json)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(npx next build:*)",
+      "Bash(node_modules/.bin/next build:*)",
+      "Bash(cmd //c \"npm run build\")"
     ],
     "deny": [],
     "ask": []

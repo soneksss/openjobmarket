@@ -1,12 +1,10 @@
-// Force dynamic rendering since we use cookies
-export const dynamic = 'force-dynamic'
-
 import { createClient } from "@/lib/server"
 import { Metadata } from "next"
 import JobMapView from "@/components/job-map-view"
 import { convertToAnnualSalary, type SalaryFrequency } from "@/lib/salary-utils"
 
-
+// Force dynamic rendering since we use cookies
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: "Find Jobs Near You | Search Vacancies on the Map | OpenJobMarket",
