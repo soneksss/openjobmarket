@@ -145,30 +145,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     })) || []
 
-  // Generate location-based pages for common searches
-  const locations = [
-    "london",
-    "manchester",
-    "birmingham",
-    "leeds",
-    "glasgow",
-    "liverpool",
-    "edinburgh",
-    "bristol",
-    "cardiff",
-    "sheffield",
-  ]
-
-  const trades = ["plumber", "electrician", "carpenter", "builder", "painter", "roofer"]
-
-  const locationPages: MetadataRoute.Sitemap = locations.flatMap((location) =>
-    trades.map((trade) => ({
-      url: `${baseUrl}/map?trade=${trade}&location=${location}`,
-      lastModified: new Date(),
-      changeFrequency: "daily" as const,
-      priority: 0.5,
-    }))
-  )
-
-  return [...staticPages, ...jobPages, ...professionalPages, ...locationPages]
+  return [...staticPages, ...jobPages, ...professionalPages]
 }
