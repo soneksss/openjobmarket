@@ -38,7 +38,8 @@
       "Bash(git add:*)",
       "Bash(npx next build:*)",
       "Bash(node_modules/.bin/next build:*)",
-      "Bash(cmd //c \"npm run build\")"
+      "Bash(cmd //c \"npm run build\")",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []
