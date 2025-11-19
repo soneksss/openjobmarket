@@ -39,7 +39,9 @@
       "Bash(npx next build:*)",
       "Bash(node_modules/.bin/next build:*)",
       "Bash(cmd //c \"npm run build\")",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git commit:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": [],
     "ask": []
