@@ -1,52 +1,97 @@
 # robots.txt for OpenJobMarket
+# https://openjobmarket.com/robots.txt
 # Allows all major search engines and AI crawlers to index public content
 
-# Default: Allow all crawlers
+# ============================================
+# Default Rules for All Crawlers
+# ============================================
 User-agent: *
-Allow: /
 
-# Explicitly allow GPTBot (ChatGPT web crawler)
+# Allow public pages
+Allow: /
+Allow: /jobs
+Allow: /jobs/
+Allow: /professionals
+Allow: /professionals/
+Allow: /contractors
+Allow: /contractors/
+Allow: /tasks
+Allow: /tasks/
+Allow: /search
+Allow: /contact
+Allow: /privacy
+Allow: /terms
+Allow: /cookies
+
+# Disallow private and admin areas
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+Disallow: /onboarding/
+Disallow: /messages/
+Disallow: /applications/
+Disallow: /account/
+Disallow: /billing/
+Disallow: /cv/preview
+
+# Disallow editing and management pages
+Disallow: /jobs/*/edit
+Disallow: /jobs/*/applications
+Disallow: /jobs/*/extend
+Disallow: /profile/edit
+Disallow: /company/profile/edit
+Disallow: /contractor/profile/edit
+Disallow: /homeowner/profile/edit
+Disallow: /homeowner/jobs/
+Disallow: /homeowner/profile/
+Disallow: /contractor/upgrade-to-employer
+Disallow: /homeowner/upgrade-to-jobseeker
+
+# Disallow Next.js internals
+Disallow: /_next/
+Disallow: /api/
+
+# ============================================
+# Google
+# ============================================
+User-agent: Googlebot
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+
+# ============================================
+# Bing
+# ============================================
+User-agent: Bingbot
+Allow: /
+Disallow: /dashboard/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /auth/
+
+# ============================================
+# AI Crawlers (Allowed)
+# ============================================
+
+# OpenAI GPT
 User-agent: GPTBot
 Allow: /
 
-# Allow Google
-User-agent: Googlebot
-Allow: /
-
-# Allow Bing
-User-agent: Bingbot
-Allow: /
-
-# Allow other AI crawlers
+# ChatGPT User
 User-agent: ChatGPT-User
 Allow: /
 
+# Anthropic Claude
 User-agent: anthropic-ai
 Allow: /
 
 User-agent: Claude-Web
 Allow: /
 
-# Disallow crawling of private/admin areas
-User-agent: *
-Disallow: /dashboard/
-Disallow: /admin/
-Disallow: /api/
-Disallow: /auth/
-Disallow: /onboarding/
-Disallow: /_next/
-Disallow: /.*\?*
-Disallow: /profile/edit
-Disallow: /company/profile/edit
-Disallow: /contractor/profile/edit
-Disallow: /homeowner/profile/edit
-
-# Allow public profile views
-Allow: /professionals/
-Allow: /jobs/
-Allow: /trades/
-Allow: /map
-Allow: /search
-
-# Sitemap location
+# ============================================
+# Sitemap
+# ============================================
 Sitemap: https://openjobmarket.com/sitemap.xml
