@@ -145,5 +145,60 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     })) || []
 
-  return [...staticPages, ...jobPages, ...professionalPages]
+  // Generate location-specific pages for major UK cities
+  const cities = [
+    "london", "manchester", "birmingham", "leeds", "glasgow",
+    "liverpool", "edinburgh", "bristol", "cardiff", "sheffield",
+    "newcastle", "nottingham", "southampton", "portsmouth", "leicester"
+  ]
+
+  const cityPages: MetadataRoute.Sitemap = cities.flatMap(city => [
+    {
+      url: `${baseUrl}/jobs?location=${encodeURIComponent(city)}`,
+      lastModified: new Date(),
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/professionals?location=${encodeURIComponent(city)}`,
+      lastModified: new Date(),
+      changeFrequency: "daily" as const,
+      priority: 0.7,
+    }
+  ])
+
+  // Generate job type pages
+  const jobTypes = [
+    "remote", "full-time", "part-time", "contract", "freelance",
+    "temporary", "internship", "apprenticeship"
+  ]
+
+  const jobTypePages: MetadataRoute.Sitemap = jobTypes.map(type => ({
+    url: `${baseUrl}/jobs?type=${encodeURIComponent(type)}`,
+    lastModified: new Date(),
+    changeFrequency: "daily" as const,
+    priority: 0.7,
+  }))
+
+  // Generate trade category pages
+  const trades = [
+    "plumber", "electrician", "carpenter", "builder", "painter",
+    "decorator", "roofer", "bricklayer", "plasterer", "tiler"
+  ]
+
+  const tradePages: MetadataRoute.Sitemap = trades.map(trade => ({
+    url: `${baseUrl}/contractors?trade=${encodeURIComponent(trade)}`,
+    lastModified: new Date(),
+    changeFrequency: "daily" as const,
+    priority: 0.7,
+  }))
+
+  return [
+    ...staticPages,
+    ...jobPages,
+    ...professionalPages,
+    ...cityPages,
+    ...jobTypePages,
+    ...tradePages
+  ]
 }
