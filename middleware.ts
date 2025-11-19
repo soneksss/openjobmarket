@@ -1,9 +1,6 @@
-import { updateSession } from "@/lib/middleware"
-import type { NextRequest } from "next/server"
+import { middleware as authMiddleware } from "@/lib/middleware"
 
-export async function middleware(request: NextRequest) {
-  return await updateSession(request)
-}
+export const middleware = authMiddleware
 
 export const config = {
   matcher: [
