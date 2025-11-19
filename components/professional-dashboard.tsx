@@ -790,47 +790,47 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
 
           <div className="lg:col-span-2 space-y-3 md:space-y-6">
             <div className="space-y-4">
-              <div className="grid grid-cols-4 gap-2 md:gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4">
                 <Button
                   onClick={handleBrowseJobs}
                   disabled={loadingJobs}
-                  className="h-auto p-3 md:p-4 flex-col bg-green-600 hover:bg-green-700 text-white border-0"
+                  className="h-auto p-2 sm:p-3 md:p-4 flex-col bg-green-600 hover:bg-green-700 text-white border-0"
                 >
-                  <Briefcase className="h-10 w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
-                  <span className="font-bold text-sm md:text-lg">
+                  <Briefcase className="h-7 w-7 sm:h-10 sm:w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
+                  <span className="font-bold text-xs sm:text-sm md:text-lg">
                     {loadingJobs ? "Loading..." : "Browse Jobs"}
                   </span>
                   <span className="text-xs opacity-70 hidden md:block">Find opportunities</span>
                 </Button>
                 <Button
                   asChild
-                  className="h-auto p-3 md:p-4 flex-col bg-orange-600 hover:bg-orange-700 text-white border-0"
+                  className="h-auto p-2 sm:p-3 md:p-4 flex-col bg-orange-600 hover:bg-orange-700 text-white border-0"
                 >
                   <Link href="/contractors">
-                    <Briefcase className="h-10 w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
-                    <span className="font-bold text-sm md:text-lg">Browse Contractors</span>
+                    <Briefcase className="h-7 w-7 sm:h-10 sm:w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
+                    <span className="font-bold text-xs sm:text-sm md:text-lg">Browse Contractors</span>
                     <span className="text-xs opacity-70 hidden md:block">Find Trades</span>
                   </Link>
                 </Button>
                 <Button
                   variant="outline"
                   asChild
-                  className="h-auto p-3 md:p-4 flex-col bg-transparent"
+                  className="h-auto p-2 sm:p-3 md:p-4 flex-col bg-transparent"
                 >
                   <Link href="/dashboard/professional/saved">
-                    <BookmarkIcon className="h-10 w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
-                    <span className="font-bold text-sm md:text-lg">Saved Jobs</span>
+                    <BookmarkIcon className="h-7 w-7 sm:h-10 sm:w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
+                    <span className="font-bold text-xs sm:text-sm md:text-lg">Saved Jobs</span>
                     <span className="text-xs opacity-70">({savedJobs.length})</span>
                   </Link>
                 </Button>
                 <Button
                   variant="outline"
                   asChild
-                  className="h-auto p-3 md:p-4 flex-col bg-transparent"
+                  className="h-auto p-2 sm:p-3 md:p-4 flex-col bg-transparent"
                 >
                   <Link href="/dashboard/professional/applications">
-                    <FileText className="h-10 w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
-                    <span className="font-bold text-sm md:text-lg">Applications</span>
+                    <FileText className="h-7 w-7 sm:h-10 sm:w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
+                    <span className="font-bold text-xs sm:text-sm md:text-lg">Applications</span>
                     <span className="text-xs opacity-70">({applications.length})</span>
                   </Link>
                 </Button>

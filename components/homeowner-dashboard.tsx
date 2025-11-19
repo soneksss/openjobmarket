@@ -250,25 +250,25 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
           {/* Middle & Right Columns - Main Content */}
           <div className="lg:col-span-3 space-y-4 md:space-y-8">
         {/* Quick Actions Card */}
-        <Card className="p-6">
-          <h3 className="text-xl font-semibold mb-4">Need help with your project? Post your job (task) with a clear description and budget, or search profiles of local tradespeople.</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-3 sm:p-4 md:p-6">
+          <h3 className="text-sm sm:text-base md:text-xl font-semibold mb-2 sm:mb-3 md:mb-4">Need help with your project? Post your job (task) with a clear description and budget, or search profiles of local tradespeople.</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
             <Button
               onClick={handleFindTradespeople}
-              className="w-full h-20 justify-start bg-orange-500 hover:bg-orange-600 text-white text-lg"
+              className="w-full h-auto py-3 sm:py-4 md:h-20 justify-start bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base md:text-lg"
             >
-              <Search className="w-6 h-6 mr-3" />
+              <Search className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 flex-shrink-0" />
               <div className="text-left">
-                <div className="font-semibold">Find Tradespeople</div>
-                <div className="text-xs opacity-90">Search for contractors nearby</div>
+                <div className="font-semibold text-sm sm:text-base">Find Tradespeople</div>
+                <div className="text-xs opacity-90 hidden sm:block">Search for contractors nearby</div>
               </div>
             </Button>
             <Link href="/dashboard/homeowner/post-job" className="block">
-              <Button className="w-full h-20 justify-start bg-blue-600 hover:bg-blue-700 text-white text-lg">
-                <Plus className="w-6 h-6 mr-3" />
+              <Button className="w-full h-auto py-3 sm:py-4 md:h-20 justify-start bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base md:text-lg">
+                <Plus className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 flex-shrink-0" />
                 <div className="text-left">
-                  <div className="font-semibold">Post a New Job</div>
-                  <div className="text-xs opacity-90">Create a job posting</div>
+                  <div className="font-semibold text-sm sm:text-base">Post a New Job</div>
+                  <div className="text-xs opacity-90 hidden sm:block">Create a job posting</div>
                 </div>
               </Button>
             </Link>
@@ -276,18 +276,18 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
         </Card>
 
         {/* Put Me on the Market Toggle */}
-        <Card className="p-6 mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
-          <div className="flex items-center justify-between">
+        <Card className="p-3 sm:p-4 md:p-6 mb-3 sm:mb-4 md:mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-0 sm:justify-between">
             <div className="flex-1">
-              <h3 className="text-xl font-bold text-gray-900 mb-2 flex items-center gap-2">
+              <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mb-1 sm:mb-2 flex items-center gap-2">
                 {onMarket ? (
-                  <ToggleRight className="w-6 h-6 text-green-600" />
+                  <ToggleRight className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" />
                 ) : (
-                  <ToggleLeft className="w-6 h-6 text-gray-400" />
+                  <ToggleLeft className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400 flex-shrink-0" />
                 )}
-                Put Me on the Market
+                <span className="text-sm sm:text-base md:text-xl">Put Me on the Market</span>
               </h3>
-              <p className="text-gray-600">
+              <p className="text-xs sm:text-sm md:text-base text-gray-600">
                 {onMarket ? (
                   <>
                     ✅ You're visible to employers! Your profile appears on the professionals map.
@@ -302,8 +302,8 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
             <Button
               onClick={handleToggleMarket}
               disabled={isTogglingMarket}
-              size="lg"
-              className={onMarket ? "bg-green-600 hover:bg-green-700" : ""}
+              size="sm"
+              className={`${onMarket ? "bg-green-600 hover:bg-green-700" : ""} sm:size-default md:size-lg flex-shrink-0 text-xs sm:text-sm`}
             >
               {isTogglingMarket ? "..." : onMarket ? "Turn Off" : "Turn On"}
             </Button>
@@ -311,39 +311,39 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
         </Card>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 md:gap-6 mb-4 sm:mb-6 md:mb-8">
+          <Card className="p-3 sm:p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Jobs Posted</p>
-                <h3 className="text-3xl font-bold text-gray-900 mt-2">{stats.totalJobs}</h3>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Total Jobs Posted</p>
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stats.totalJobs}</h3>
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <Briefcase className="w-6 h-6 text-blue-600" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Active Jobs</p>
-                <h3 className="text-3xl font-bold text-gray-900 mt-2">{stats.activeJobs}</h3>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Active Jobs</p>
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stats.activeJobs}</h3>
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <Clock className="w-6 h-6 text-green-600" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <Clock className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" />
               </div>
             </div>
           </Card>
 
-          <Card className="p-6">
+          <Card className="p-3 sm:p-4 md:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Completed Jobs</p>
-                <h3 className="text-3xl font-bold text-gray-900 mt-2">{stats.completedJobs}</h3>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Completed Jobs</p>
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mt-1 sm:mt-2">{stats.completedJobs}</h3>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="w-6 h-6 text-purple-600" />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-purple-600" />
               </div>
             </div>
           </Card>
@@ -351,71 +351,71 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
 
         {/* Recent Jobs */}
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">Your Jobs</h2>
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900">Your Jobs</h2>
             <Link href="/dashboard/homeowner/jobs">
-              <Button variant="outline">View All</Button>
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm">View All</Button>
             </Link>
           </div>
 
           {jobs.length === 0 ? (
-            <Card className="p-12 text-center">
-              <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No jobs yet</h3>
-              <p className="text-gray-600 mb-6">
+            <Card className="p-6 sm:p-8 md:p-12 text-center">
+              <Briefcase className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 text-gray-300 mx-auto mb-3 sm:mb-4" />
+              <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900 mb-2">No jobs yet</h3>
+              <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
                 Post your first job to get started with finding help for your tasks
               </p>
               <Link href="/dashboard/homeowner/post-job">
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
+                <Button size="sm" className="text-xs sm:text-sm md:text-base">
+                  <Plus className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Post Your First Job
                 </Button>
               </Link>
             </Card>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {jobs.slice(0, 5).map((job) => {
                 const statusInfo = getStatusInfo(job)
                 const expiryText = formatExpiryDate(job.expires_at)
 
                 return (
-                  <Card key={job.id} className="p-6 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
-                          <Badge className={statusInfo.color}>
+                  <Card key={job.id} className="p-3 sm:p-4 md:p-6 hover:shadow-md transition-shadow">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 truncate">{job.title}</h3>
+                          <Badge className={`${statusInfo.color} text-xs`}>
                             {statusInfo.text}
                           </Badge>
                           {job.is_tradespeople_job && (
-                            <Badge className="bg-purple-100 text-purple-800">
+                            <Badge className="bg-purple-100 text-purple-800 text-xs">
                               Tradespeople
                             </Badge>
                           )}
                         </div>
-                        <p className="text-gray-600 mb-3 line-clamp-2">
+                        <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-3 line-clamp-2">
                           {job.short_description || job.description}
                         </p>
-                        <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500">
                           <span className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            {job.location}
+                            <MapPin className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                            <span className="truncate">{job.location}</span>
                           </span>
                           {job.salary_min && job.salary_max && (
-                            <span>
+                            <span className="whitespace-nowrap">
                               £{job.salary_min} - £{job.salary_max}
                               {job.salary_frequency && ` ${job.salary_frequency.replace('_', ' ')}`}
                             </span>
                           )}
                           {expiryText && (
-                            <span className={statusInfo.text === 'Expired' ? 'text-red-600 font-medium' : ''}>
+                            <span className={`whitespace-nowrap ${statusInfo.text === 'Expired' ? 'text-red-600 font-medium' : ''}`}>
                               {expiryText}
                             </span>
                           )}
                         </div>
                       </div>
-                      <Link href={`/dashboard/homeowner/jobs/${job.id}`}>
-                        <Button variant="outline" size="sm">
+                      <Link href={`/dashboard/homeowner/jobs/${job.id}`} className="flex-shrink-0 w-full sm:w-auto">
+                        <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
                           View Details
                         </Button>
                       </Link>

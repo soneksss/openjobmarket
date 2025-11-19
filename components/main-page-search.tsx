@@ -15,6 +15,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { createClient } from "@/lib/client"
 
 interface MainPageSearchProps {
@@ -816,57 +824,52 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           </Button>
         </div>
 
-        {/* Inline Map Picker */}
-        {showMapPicker && (
-          <div className="mt-4 p-4 bg-white rounded-lg border-2 border-blue-500 shadow-xl">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Pick Location on Map</h3>
-                <p className="text-sm text-gray-600">Click anywhere on the map to select your search location</p>
-              </div>
-              <Button
-                onClick={cancelMapPicker}
-                variant="ghost"
-                size="sm"
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
+        {/* Map Picker Modal */}
+        <Dialog open={showMapPicker} onOpenChange={(open) => {
+          if (!open) cancelMapPicker()
+        }}>
+          <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[95vh] overflow-y-auto p-3 sm:p-6" showCloseButton={false}>
+            <DialogHeader>
+              <DialogTitle className="text-base sm:text-lg">Pick Location on Map</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                Click anywhere on the map to select your search location
+              </DialogDescription>
+            </DialogHeader>
 
             {/* Radius Control */}
-            <div className="mb-3 flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <Target className="h-5 w-5 text-emerald-600 flex-shrink-0" />
-              <label className="text-sm font-semibold text-gray-900 whitespace-nowrap">Search Radius:</label>
-              <Select value={mapPickerRadius} onValueChange={setMapPickerRadius}>
-                <SelectTrigger className="w-32 h-9 text-sm font-medium border-gray-300 bg-white">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {[1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map((miles) => (
-                    <SelectItem key={miles} value={miles.toString()}>
-                      {miles} mile{miles !== 1 ? 's' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                <Target className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 flex-shrink-0" />
+                <label className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap">Search Radius:</label>
+                <Select value={mapPickerRadius} onValueChange={setMapPickerRadius}>
+                  <SelectTrigger className="w-28 sm:w-32 h-8 sm:h-9 text-xs sm:text-sm font-medium border-gray-300 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[300px]">
+                    {[1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map((miles) => (
+                      <SelectItem key={miles} value={miles.toString()}>
+                        {miles} mile{miles !== 1 ? 's' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {mapPickerLocation && (
-                <div className="ml-auto flex items-center gap-2 text-sm text-gray-600">
-                  <MapPin className="h-4 w-4 text-blue-600" />
-                  <span>{mapPickerLocation.lat.toFixed(4)}, {mapPickerLocation.lon.toFixed(4)}</span>
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
+                  <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                  <span className="font-mono">{mapPickerLocation.lat.toFixed(4)}, {mapPickerLocation.lon.toFixed(4)}</span>
                 </div>
               )}
             </div>
 
             {/* Map Area */}
-            <div style={{ height: "500px", width: "100%", position: "relative" }}>
+            <div className="w-full h-[50vh] sm:h-[500px] rounded-lg overflow-hidden border border-gray-200">
               <ProfessionalMap
                 key={`map-picker-${mapPickerKey}`}
                 professionals={[]}
                 center={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : { lat: 51.5074, lon: -0.1278 }}
                 zoom={8}
-                height="500px"
+                height="100%"
                 showRadius={!!mapPickerLocation}
                 radiusCenter={mapPickerLocation ? [mapPickerLocation.lat, mapPickerLocation.lon] : undefined}
                 radiusKm={parseInt(mapPickerRadius) * 1.60934} // Convert miles to km
@@ -875,9 +878,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               />
             </div>
 
-            {/* Controls */}
-            <div className="mt-3 flex flex-col sm:flex-row gap-3 items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="text-sm text-gray-600">
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left mb-2 sm:mb-0 sm:flex-1">
                 {mapPickerLocation ? (
                   <span className="font-medium text-gray-900">
                     Click "Use This Location" to confirm your selection
@@ -889,22 +891,22 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 )}
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={cancelMapPicker} variant="outline" size="sm">
+              <div className="flex gap-2 justify-center sm:justify-end">
+                <Button onClick={cancelMapPicker} variant="outline" size="sm" className="flex-1 sm:flex-none">
                   Cancel
                 </Button>
                 <Button
                   onClick={confirmMapPickerLocation}
                   disabled={!mapPickerLocation}
                   size="sm"
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none"
                 >
                   Use This Location
                 </Button>
               </div>
-            </div>
-          </div>
-        )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Full-Screen Map Modal - Uses Same Component as Professionals Page */}

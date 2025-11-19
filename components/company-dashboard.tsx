@@ -818,19 +818,19 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Quick Actions */}
             <div className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
                 <Button asChild className="h-auto p-2 flex-col bg-green-500 hover:bg-green-600 text-white">
                   <Link href="/professionals">
-                    <Search className="h-5 w-5 mb-1" />
-                    <span className="font-semibold text-xs sm:text-sm">Find Talent</span>
-                    <span className="text-xs opacity-90 hidden sm:block">Search professionals</span>
+                    <Search className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
+                    <span className="font-semibold text-xs">Find Talent</span>
+                    <span className="text-xs opacity-90 hidden md:block">Search professionals</span>
                   </Link>
                 </Button>
                 <Button asChild className="h-auto p-2 flex-col bg-orange-500 hover:bg-orange-600 text-white">
                   <Link href="/contractors">
-                    <Users className="h-5 w-5 mb-1" />
-                    <span className="font-semibold text-xs sm:text-sm">Find Tradespeople</span>
-                    <span className="text-xs opacity-90 hidden sm:block">Search contractors</span>
+                    <Users className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
+                    <span className="font-semibold text-xs">Find Tradespeople</span>
+                    <span className="text-xs opacity-90 hidden md:block">Search contractors</span>
                   </Link>
                 </Button>
                 <Button
@@ -838,17 +838,17 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   disabled={loadingJobs}
                   className="h-auto p-2 flex-col bg-purple-500 hover:bg-purple-600 text-white"
                 >
-                  <Briefcase className="h-5 w-5 mb-1" />
-                  <span className="font-semibold text-xs sm:text-sm">
-                    {loadingJobs ? "Loading..." : "Search for Jobs"}
+                  <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
+                  <span className="font-semibold text-xs">
+                    {loadingJobs ? "Loading..." : "Search Jobs"}
                   </span>
-                  <span className="text-xs opacity-90 hidden sm:block">Find tasks</span>
+                  <span className="text-xs opacity-90 hidden md:block">Find tasks</span>
                 </Button>
                 <Button asChild className="h-auto p-2 flex-col bg-primary hover:bg-primary/90">
                   <Link href="/jobs/new">
-                    <Plus className="h-5 w-5 mb-1" />
-                    <span className="font-semibold text-xs sm:text-sm">Post New Job</span>
-                    <span className="text-xs opacity-90 hidden sm:block">Create job listing</span>
+                    <Plus className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
+                    <span className="font-semibold text-xs">Post New Job</span>
+                    <span className="text-xs opacity-90 hidden md:block">Create job listing</span>
                   </Link>
                 </Button>
                 <Button
@@ -857,16 +857,16 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   className="h-auto p-2 flex-col bg-transparent border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
                 >
                   <Link href="/dashboard/company/jobs">
-                    <Briefcase className="h-5 w-5 mb-1" />
-                    <span className="font-semibold text-xs sm:text-sm">Manage Jobs</span>
+                    <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
+                    <span className="font-semibold text-xs">Manage Jobs</span>
                     <span className="text-xs opacity-70">({jobs.length})</span>
                   </Link>
                 </Button>
                 <Button variant="outline" asChild className="h-auto p-2 flex-col bg-transparent">
                   <Link href="/dashboard/company/analytics">
-                    <BarChart3 className="h-5 w-5 mb-1" />
-                    <span className="font-semibold text-xs sm:text-sm">Analytics</span>
-                    <span className="text-xs opacity-70 hidden sm:block">View insights</span>
+                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
+                    <span className="font-semibold text-xs">Analytics</span>
+                    <span className="text-xs opacity-70 hidden md:block">View insights</span>
                   </Link>
                 </Button>
               </div>
@@ -879,44 +879,44 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Recent Jobs */}
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="p-3 sm:p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <CardTitle className="flex items-center text-foreground">
-                      <Briefcase className="h-5 w-5 mr-2" />
+                    <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
+                      <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                       Your Recent Posted Jobs
                     </CardTitle>
-                    <CardDescription>Latest vacancies you've posted (last 5)</CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">Latest vacancies you've posted (last 5)</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
+                  <Button variant="outline" size="sm" asChild className="text-xs">
                     <Link href="/dashboard/company/jobs">
-                      <Filter className="h-4 w-4 mr-2" />
+                      <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       View All
                     </Link>
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
                 {jobs.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <p className="text-sm">No jobs posted yet</p>
+                  <div className="text-center py-3 sm:py-4 text-muted-foreground">
+                    <p className="text-xs sm:text-sm">No jobs posted yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-3 sm:space-y-4">
                     {jobs.map((job) => (
                       <div
                         key={job.id}
-                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3 sm:gap-4"
                       >
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h4 className="font-medium text-foreground">{job.title}</h4>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <h4 className="font-medium text-foreground text-sm sm:text-base truncate">{job.title}</h4>
                             {getJobStatusBadge(job)}
                           </div>
-                          <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                            <span className="flex items-center">
-                              <MapPin className="h-3 w-3 mr-1" />
-                              {job.location}
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground">
+                            <span className="flex items-center whitespace-nowrap">
+                              <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                              <span className="truncate">{job.location}</span>
                             </span>
                             <Badge variant="outline" className="text-xs">
                               {job.job_type}
@@ -925,39 +925,39 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                               {job.work_location}
                             </Badge>
                           </div>
-                          <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-1">
-                            <span className="flex items-center">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-muted-foreground mt-1">
+                            <span className="flex items-center whitespace-nowrap">
                               <Users className="h-3 w-3 mr-1" />
-                              {job.applications_count} applications
+                              {job.applications_count} apps
                             </span>
-                            <span className="flex items-center">
+                            <span className="flex items-center whitespace-nowrap">
                               <Eye className="h-3 w-3 mr-1" />
                               {job.views_count} views
                             </span>
-                            <span className="flex items-center">
+                            <span className="flex items-center whitespace-nowrap hidden sm:flex">
                               <Calendar className="h-3 w-3 mr-1" />
                               Posted {formatDate(job.created_at)}
                             </span>
                             {job.expires_at && job.expiration_status !== "expired" && (
-                              <span className="flex items-center">
+                              <span className="flex items-center whitespace-nowrap">
                                 <Clock className="h-3 w-3 mr-1" />
                                 Expires {formatDate(job.expires_at)}
                               </span>
                             )}
                             {job.expiration_status === "expired" && job.expires_at && (
-                              <span className="flex items-center text-red-600">
+                              <span className="flex items-center text-red-600 whitespace-nowrap">
                                 <Clock className="h-3 w-3 mr-1" />
                                 Expired {formatDate(job.expires_at)}
                               </span>
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
                           {(job.expiration_status === "expired" || job.expiration_status === "expiring_soon") && (
                             <Button
                               size="sm"
                               variant="outline"
-                              className="bg-green-50 text-green-700 hover:bg-green-100"
+                              className="bg-green-50 text-green-700 hover:bg-green-100 text-xs"
                               asChild
                             >
                               <Link href={`/jobs/${job.id}/extend`}>
@@ -966,10 +966,10 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                               </Link>
                             </Button>
                           )}
-                          <Button size="sm" variant="outline" asChild>
-                            <Link href={`/jobs/${job.id}/applications`}>Applications ({job.applications_count})</Link>
+                          <Button size="sm" variant="outline" asChild className="text-xs">
+                            <Link href={`/jobs/${job.id}/applications`}>Apps ({job.applications_count})</Link>
                           </Button>
-                          <Button size="sm" variant="outline" asChild>
+                          <Button size="sm" variant="outline" asChild className="text-xs">
                             <Link href={`/jobs/${job.id}/edit`}>Edit</Link>
                           </Button>
                         </div>
