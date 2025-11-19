@@ -18,6 +18,7 @@ Allow: /contractors/
 Allow: /tasks
 Allow: /tasks/
 Allow: /search
+Allow: /about
 Allow: /contact
 Allow: /privacy
 Allow: /terms
