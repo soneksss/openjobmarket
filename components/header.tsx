@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3 } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
@@ -42,6 +42,118 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showUsefulInfoModal, setShowUsefulInfoModal] = useState<string | null>(null)
   const [showAboutModal, setShowAboutModal] = useState(false)
+  const [showHelpModal, setShowHelpModal] = useState(false)
+  const [expandedFAQ, setExpandedFAQ] = useState<number | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [coursesExpanded, setCoursesExpanded] = useState(false)
+  const [usefulInfoExpanded, setUsefulInfoExpanded] = useState(false)
+  const [helpExpanded, setHelpExpanded] = useState(false)
+
+  // FAQ data for Help Center
+  const faqs = [
+    {
+      category: "Getting Started",
+      questions: [
+        {
+          q: "How do I create an account?",
+          a: "Click 'Sign Up' in the header, choose whether you're a job seeker or employer, and fill in your details. You'll receive a verification email to activate your account."
+        },
+        {
+          q: "Is Open Job Market free to use?",
+          a: "Yes! Searching for jobs and browsing talent is completely free. Employers can post jobs and message candidates with our subscription plans."
+        },
+        {
+          q: "Can I use the platform anonymously?",
+          a: "Absolutely! You can browse jobs and search for opportunities without revealing your identity. Your current employer won't know you're looking."
+        }
+      ]
+    },
+    {
+      category: "For Job Seekers",
+      questions: [
+        {
+          q: "How do I search for jobs?",
+          a: "Use the search bar on the homepage to enter your desired job title, skill, or trade. Click one of the four search buttons (Vacancies, Jobs/Tasks, Tradespeople, Talent) to see results on an interactive map."
+        },
+        {
+          q: "How do employers find me?",
+          a: "Complete your profile with your skills, experience, and location. Enable 'Let employers find me' in your profile settings so recruiters can contact you directly."
+        },
+        {
+          q: "Can I apply to jobs without a full profile?",
+          a: "Yes, but a complete profile significantly increases your chances. Employers prefer candidates with detailed information, photos, and CVs."
+        }
+      ]
+    },
+    {
+      category: "For Employers",
+      questions: [
+        {
+          q: "How do I post a job?",
+          a: "After signing up as a company, go to your dashboard and click 'Post Job'. Fill in the job details, location, salary, and requirements, then publish."
+        },
+        {
+          q: "How do I find candidates?",
+          a: "Use the talent search feature to filter candidates by location, skills, experience, and availability. You can message them directly through the platform."
+        },
+        {
+          q: "What subscription plans are available?",
+          a: "We offer Basic, Professional, and Enterprise plans with varying features like job posts, candidate searches, and priority support. Visit your dashboard to view pricing."
+        }
+      ]
+    },
+    {
+      category: "For Tradespeople & Homeowners",
+      questions: [
+        {
+          q: "How do tradespeople get hired?",
+          a: "Create a profile showcasing your trade, services, certifications, and past work. Homeowners and businesses can find you through search or you can apply to posted jobs."
+        },
+        {
+          q: "How do homeowners hire tradespeople?",
+          a: "Post a job describing your project, or search for tradespeople in your area. Review profiles, check ratings, compare quotes, and hire directly."
+        },
+        {
+          q: "Are tradespeople verified?",
+          a: "Tradespeople can upload certifications, insurance documents, and professional registrations. Always check profiles for verified credentials before hiring."
+        }
+      ]
+    },
+    {
+      category: "Account & Privacy",
+      questions: [
+        {
+          q: "How do I delete my account?",
+          a: "Go to Account Settings > Privacy > Delete Account. Note that this action is permanent and cannot be undone."
+        },
+        {
+          q: "How is my data protected?",
+          a: "We use industry-standard encryption and security measures. Your personal data is never sold to third parties. Read our Privacy Policy for full details."
+        },
+        {
+          q: "Can I hide my profile from specific companies?",
+          a: "Yes! In your privacy settings, you can block specific companies from viewing your profile or contacting you."
+        }
+      ]
+    },
+    {
+      category: "Payments & Billing",
+      questions: [
+        {
+          q: "What payment methods do you accept?",
+          a: "We accept all major credit cards (Visa, Mastercard, Amex), debit cards, and PayPal through our secure payment processor Stripe."
+        },
+        {
+          q: "Can I cancel my subscription anytime?",
+          a: "Yes, you can cancel anytime from your subscription settings. You'll retain access until the end of your billing period."
+        },
+        {
+          q: "Do you offer refunds?",
+          a: "We offer a 14-day money-back guarantee for new subscriptions. Contact support if you're not satisfied with our service."
+        }
+      ]
+    }
+  ]
 
   // Listen for auth state changes
   useEffect(() => {
@@ -231,9 +343,9 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
   return (
     <header className="border-b bg-background">
-      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-3">
+      <div className="container mx-auto px-2 py-1">
         <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2">
             <div
               onClick={() => {
                 // If in modal mode, close the modal instead of navigating
@@ -275,24 +387,36 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
               <Image
                 src="/Logo.png"
                 alt="Open Job Market"
-                width={180}
-                height={50}
-                className="h-8 sm:h-10 md:h-12 w-auto rounded-lg"
+                width={100}
+                height={32}
+                className="h-8 w-auto max-h-8 flex-shrink-0"
                 priority
               />
             </div>
 
-            <nav className="hidden md:flex items-center space-x-6">
+            {/* Mobile Hamburger Menu Button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden p-2"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+
+            <nav className="hidden md:flex items-center space-x-2">
               <Button
                 variant="ghost"
+                size="sm"
                 onClick={() => setShowAboutModal(true)}
+                className="text-xs"
               >
                 About
               </Button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-1">
+                  <Button variant="ghost" size="sm" className="flex items-center space-x-1 text-xs">
                     <span>Courses</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
@@ -491,14 +615,37 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center space-x-1">
+                  <Button variant="ghost" size="sm" className="flex items-center space-x-1 text-xs">
                     <span>Help</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
-                  <DropdownMenuItem>
-                    <span className="text-muted-foreground">Coming soon...</span>
+                <DropdownMenuContent align="start" className="w-56">
+                  <div className="px-3 py-2 text-sm font-semibold border-b">Help & Support</div>
+
+                  <DropdownMenuItem onClick={() => setShowHelpModal(true)} className="cursor-pointer">
+                    <div className="flex flex-col items-start py-1">
+                      <span className="font-medium">Help Center & FAQ</span>
+                      <span className="text-xs text-muted-foreground">Common questions answered</span>
+                    </div>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <a href="mailto:support@openjobmarket.com" className="cursor-pointer">
+                      <div className="flex flex-col items-start py-1">
+                        <span className="font-medium">Contact Support</span>
+                        <span className="text-xs text-muted-foreground">Email our support team</span>
+                      </div>
+                    </a>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem asChild>
+                    <Link href="/contact" className="cursor-pointer">
+                      <div className="flex flex-col items-start py-1">
+                        <span className="font-medium">Report a Bug</span>
+                        <span className="text-xs text-muted-foreground">Help us improve</span>
+                      </div>
+                    </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -528,8 +675,14 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                 </div>
               ) : currentUser ? (
                 <div className="flex items-center space-x-2 sm:space-x-4">
-                  {/* Dashboard Button */}
-                  <Button asChild className="bg-green-600 hover:bg-green-700">
+                  {/* Dashboard Button - Text on mobile, Button on desktop */}
+                  <Link
+                    href="/dashboard"
+                    className="text-sm font-semibold text-green-600 hover:text-green-700 sm:hidden"
+                  >
+                    Dashboard
+                  </Link>
+                  <Button asChild size="sm" className="hidden sm:inline-flex bg-green-600 hover:bg-green-700 text-xs">
                     <Link href="/dashboard">Dashboard</Link>
                   </Button>
                   {/* Message Icon */}
@@ -538,10 +691,11 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-3 py-1 sm:py-2 hover:bg-accent"
+                        size="sm"
+                        className="flex items-center space-x-1 px-1 py-1 hover:bg-accent"
                       >
                         {profilePhotoUrl ? (
-                          <Avatar className="h-6 w-6 sm:h-8 sm:w-8 rounded-full">
+                          <Avatar className="h-6 w-6 rounded-full">
                             <AvatarImage
                               src={profilePhotoUrl}
                               className="object-cover w-full h-full rounded-full"
@@ -559,7 +713,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                         ) : (
                           <User className="h-4 w-4 sm:h-5 sm:w-5" />
                         )}
-                        <span className="text-xs sm:text-sm font-medium">
+                        <span className="hidden sm:inline text-xs sm:text-sm font-medium">
                           {(() => {
                             // Priority order for email display
                             const email = currentUser.email ||
@@ -579,7 +733,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             return 'User'
                           })()}
                         </span>
-                        <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                        <ChevronDown className="hidden sm:block h-3 w-3 sm:h-4 sm:w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56 sm:w-64">
@@ -973,6 +1127,83 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
         </div>
       )}
 
+      {/* Help Center & FAQ Modal */}
+      {showHelpModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-4xl max-h-[85vh] overflow-hidden bg-white rounded-lg shadow-2xl">
+            {/* Close button */}
+            <button
+              onClick={() => {
+                setShowHelpModal(false)
+                setExpandedFAQ(null)
+              }}
+              className="absolute top-4 right-4 z-10 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-600" />
+            </button>
+
+            {/* Modal Content */}
+            <div className="overflow-y-auto max-h-[85vh] p-8">
+              <h2 className="text-3xl font-bold text-blue-600 mb-2">Help Center & FAQ</h2>
+              <p className="text-gray-600 mb-8">Find answers to common questions about using Open Job Market</p>
+
+              <div className="space-y-6">
+                {faqs.map((category, categoryIndex) => (
+                  <div key={categoryIndex} className="border-b pb-6 last:border-b-0">
+                    <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center">
+                      <span className="w-2 h-2 bg-blue-600 rounded-full mr-3"></span>
+                      {category.category}
+                    </h3>
+                    <div className="space-y-3 ml-5">
+                      {category.questions.map((faq, faqIndex) => {
+                        const uniqueIndex = categoryIndex * 100 + faqIndex
+                        return (
+                          <div key={faqIndex} className="border rounded-lg">
+                            <button
+                              onClick={() => setExpandedFAQ(expandedFAQ === uniqueIndex ? null : uniqueIndex)}
+                              className="w-full text-left p-4 hover:bg-gray-50 flex items-center justify-between"
+                            >
+                              <span className="font-medium text-gray-800">{faq.q}</span>
+                              {expandedFAQ === uniqueIndex ? (
+                                <ChevronDown className="h-5 w-5 text-gray-500 flex-shrink-0 rotate-180" />
+                              ) : (
+                                <ChevronDown className="h-5 w-5 text-gray-500 flex-shrink-0" />
+                              )}
+                            </button>
+                            {expandedFAQ === uniqueIndex && (
+                              <div className="px-4 pb-4 text-gray-700 leading-relaxed">
+                                {faq.a}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 p-6 bg-blue-50 rounded-lg border-l-4 border-blue-500">
+                <h4 className="font-bold text-gray-800 mb-2">Still have questions?</h4>
+                <p className="text-gray-700 mb-3">Can't find the answer you're looking for? Our support team is here to help.</p>
+                <div className="flex gap-3">
+                  <Button asChild className="bg-blue-600 hover:bg-blue-700">
+                    <a href="mailto:support@openjobmarket.com">
+                      Contact Support
+                    </a>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link href="/contact">
+                      Report a Bug
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* About Modal */}
       {showAboutModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -1096,6 +1327,171 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
             </div>
           </div>
         </div>
+      )}
+
+      {/* Mobile Menu Panel */}
+      {mobileMenuOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 z-50 md:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+
+          {/* Menu Panel */}
+          <div className="fixed top-0 left-0 h-full w-72 bg-white z-50 shadow-2xl md:hidden overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-semibold">Menu</h2>
+              <button
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Menu Items */}
+            <div className="p-4 space-y-4">
+              {/* About */}
+              <div>
+                <button
+                  onClick={() => {
+                    setShowAboutModal(true)
+                    setMobileMenuOpen(false)
+                  }}
+                  className="w-full text-left font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  About
+                </button>
+              </div>
+
+              {/* Courses - Collapsible */}
+              <div className="border-b pb-2">
+                <button
+                  onClick={() => setCoursesExpanded(!coursesExpanded)}
+                  className="w-full flex items-center justify-between font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  <span>Courses</span>
+                  <ChevronRight className={`h-4 w-4 transition-transform ${coursesExpanded ? 'rotate-90' : ''}`} />
+                </button>
+                {coursesExpanded && (
+                  <div className="pl-3 mt-2 space-y-2 text-sm">
+                    <div className="font-medium text-gray-700 text-xs mb-1">Plumbing</div>
+                    <a href="https://www.ableskills.co.uk/plumbing-courses/" target="_blank" rel="noopener noreferrer" className="block text-blue-600 hover:text-blue-700 pl-2">
+                      Introduction to Plumbing
+                    </a>
+                    <a href="https://www.ableskills.co.uk/plumbing-courses/" target="_blank" rel="noopener noreferrer" className="block text-blue-600 hover:text-blue-700 pl-2">
+                      Level 2 Plumbing Course
+                    </a>
+
+                    <div className="font-medium text-gray-700 text-xs mb-1 mt-3">Electrical</div>
+                    <a href="https://www.tradeskills4u.co.uk/" target="_blank" rel="noopener noreferrer" className="block text-blue-600 hover:text-blue-700 pl-2">
+                      Level 2 Electrical Installations
+                    </a>
+
+                    <div className="font-medium text-gray-700 text-xs mb-1 mt-3">Bricklaying</div>
+                    <a href="https://plasteringworkshop.co.uk/product/one-day-bricklaying-3/" target="_blank" rel="noopener noreferrer" className="block text-blue-600 hover:text-blue-700 pl-2">
+                      1-Day Bricklaying Workshop
+                    </a>
+                    <a href="https://silvertrowel.co.uk/product/4-day-introduction-to-bricklaying-course/" target="_blank" rel="noopener noreferrer" className="block text-blue-600 hover:text-blue-700 pl-2">
+                      4-Day Introduction to Bricklaying
+                    </a>
+
+                    <div className="font-medium text-gray-700 text-xs mb-1 mt-3">Tiling</div>
+                    <a href="https://tradeteacher.co.uk/courses/5-day-wall-and-floor-tiling-course/" target="_blank" rel="noopener noreferrer" className="block text-blue-600 hover:text-blue-700 pl-2">
+                      5-Day Wall & Floor Tiling
+                    </a>
+                    <a href="https://www.tiling-courses.co.uk/4-day-fast-track-tiling-course/" target="_blank" rel="noopener noreferrer" className="block text-blue-600 hover:text-blue-700 pl-2">
+                      4-Day Fast-Track Tiling
+                    </a>
+                  </div>
+                )}
+              </div>
+
+              {/* Useful Info - Collapsible */}
+              <div className="border-b pb-2">
+                <button
+                  onClick={() => setUsefulInfoExpanded(!usefulInfoExpanded)}
+                  className="w-full flex items-center justify-between font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  <span>Useful Info</span>
+                  <ChevronRight className={`h-4 w-4 transition-transform ${usefulInfoExpanded ? 'rotate-90' : ''}`} />
+                </button>
+                {usefulInfoExpanded && (
+                  <div className="pl-3 mt-2 space-y-2 text-sm">
+                    <button
+                      onClick={() => {
+                        setShowUsefulInfoModal('jobseekers')
+                        setMobileMenuOpen(false)
+                      }}
+                      className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
+                    >
+                      For Jobseekers
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowUsefulInfoModal('employers')
+                        setMobileMenuOpen(false)
+                      }}
+                      className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
+                    >
+                      For Employers
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowUsefulInfoModal('tradespeople')
+                        setMobileMenuOpen(false)
+                      }}
+                      className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
+                    >
+                      For Tradespeople
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowUsefulInfoModal('homeowners')
+                        setMobileMenuOpen(false)
+                      }}
+                      className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
+                    >
+                      For Homeowners
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Help - Collapsible */}
+              <div className="border-b pb-2">
+                <button
+                  onClick={() => setHelpExpanded(!helpExpanded)}
+                  className="w-full flex items-center justify-between font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  <span>Help</span>
+                  <ChevronRight className={`h-4 w-4 transition-transform ${helpExpanded ? 'rotate-90' : ''}`} />
+                </button>
+                {helpExpanded && (
+                  <div className="pl-3 mt-2 space-y-2 text-sm">
+                    <button
+                      onClick={() => {
+                        setShowHelpModal(true)
+                        setMobileMenuOpen(false)
+                      }}
+                      className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
+                    >
+                      Help Center & FAQ
+                    </button>
+                    <a href="mailto:support@openjobmarket.com" className="block text-blue-600 hover:text-blue-700 pl-2">
+                      Contact Support
+                    </a>
+                    <a href="/contact" className="block text-blue-600 hover:text-blue-700 pl-2">
+                      Report a Bug
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </header>
   )

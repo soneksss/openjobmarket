@@ -9,8 +9,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Briefcase, MapPin, Edit, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff } from "lucide-react"
+import { Briefcase, MapPin, Edit, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Home } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
@@ -530,10 +531,25 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-2 py-4 md:px-4 md:py-8">
-        <div className="grid lg:grid-cols-3 gap-4 md:gap-8">
-          <div className="lg:col-span-1 space-y-3 md:space-y-6">
-            <Card>
+      <div className="container mx-auto px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 lg:py-8">
+        {/* Logo in top left corner - Always visible */}
+        <div className="flex justify-start mb-3">
+          <Link href="/">
+            <Image
+              src="/Logo.png"
+              alt="Open Job Market"
+              width={80}
+              height={80}
+              className="h-8 md:h-10 w-auto rounded-lg"
+              priority
+            />
+          </Link>
+        </div>
+
+        <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
+          <div className="lg:col-span-1 space-y-3 md:space-y-6 flex flex-col">
+            {/* Profile Card - Order 1 on mobile */}
+            <Card className="order-1 lg:order-none">
               <CardHeader className="pb-3 md:pb-6">
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-2 md:space-x-4 flex-1">
@@ -636,32 +652,38 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                 </div>
               </CardHeader>
               <CardContent className="space-y-3 md:space-y-4 pt-0">
+                {/* Location - Hidden on mobile */}
                 {location && (
-                  <div className="flex items-center text-sm md:text-base text-muted-foreground">
+                  <div className="hidden md:flex items-center text-sm md:text-base text-muted-foreground">
                     <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-2 flex-shrink-0" />
                     <span className="truncate">{location}</span>
                   </div>
                 )}
 
-                <LocationPicker
-                  latitude={latitude || undefined}
-                  longitude={longitude || undefined}
-                  onLocationSelect={handleLocationSelect}
-                  onLocationClear={handleLocationClear}
-                  className="w-full"
-                />
+                {/* Location Picker - Hidden on mobile */}
+                <div className="hidden md:block">
+                  <LocationPicker
+                    latitude={latitude || undefined}
+                    longitude={longitude || undefined}
+                    onLocationSelect={handleLocationSelect}
+                    onLocationClear={handleLocationClear}
+                    className="w-full"
+                  />
+                </div>
 
                 {profile.bio && <p className="text-sm md:text-base text-foreground">{profile.bio}</p>}
 
-                <div className="space-y-2">
+                {/* Experience Level - Hidden on mobile */}
+                <div className="hidden md:block space-y-2">
                   <h4 className="font-medium text-sm md:text-base text-foreground">Experience Level</h4>
                   <Badge variant="secondary" className="capitalize text-xs md:text-sm">
                     {profile.experience_level.replace("_", " ")}
                   </Badge>
                 </div>
 
+                {/* Skills - Hidden on mobile */}
                 {profile.skills && profile.skills.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="hidden md:block space-y-2">
                     <h4 className="font-medium text-sm md:text-base text-foreground">Skills</h4>
                     <div className="flex flex-wrap gap-1">
                       {profile.skills.slice(0, 4).map((skill) => (
@@ -678,7 +700,8 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                   </div>
                 )}
 
-                <div className="space-y-2">
+                {/* Salary Expectations - Hidden on mobile */}
+                <div className="hidden md:block space-y-2">
                   <h4 className="font-medium text-sm md:text-base text-foreground flex items-center">
                     Salary Expectations
                   </h4>
@@ -735,61 +758,12 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                 </div>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader className="pb-3 md:pb-6">
-                <CardTitle className="flex items-center text-foreground text-base md:text-lg">
-                  <FileText className="h-4 w-4 md:h-5 md:w-5 mr-2" />
-                  CV Builder
-                </CardTitle>
-                <CardDescription className="text-xs md:text-sm">
-                  Build your professional CV directly on the platform
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-4 md:py-8">
-                  <div className={`${hasCV ? 'bg-green-50 border-2 border-green-200' : 'bg-blue-50 border-2 border-blue-200'} rounded-lg p-3 md:p-6`}>
-                    <div className="flex justify-center mb-2 md:mb-3">
-                      <div className={`${hasCV ? 'bg-green-100' : 'bg-blue-100'} p-2 md:p-3 rounded-full`}>
-                        <FileText className={`h-6 w-6 md:h-8 md:w-8 ${hasCV ? 'text-green-600' : 'text-blue-600'}`} />
-                      </div>
-                    </div>
-                    {hasCV ? (
-                      <>
-                        <p className="text-base md:text-lg font-medium text-green-800 mb-1 md:mb-2">
-                          CV Ready
-                        </p>
-                        <p className="text-xs md:text-sm text-green-700 mb-3 md:mb-4">
-                          Your professional CV is built and ready for employers
-                        </p>
-                        <div className="flex flex-col sm:flex-row gap-2 justify-center mb-4">
-                          <Button className="bg-green-600 hover:bg-green-700 text-white text-xs md:text-sm" asChild>
-                            <Link href="/cv/builder">Edit CV</Link>
-                          </Button>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <p className="text-base md:text-lg font-medium text-blue-800 mb-1 md:mb-2">
-                          Build Your Professional CV
-                        </p>
-                        <p className="text-xs md:text-sm text-blue-700 mb-3 md:mb-4">
-                          Create a structured CV that employers can easily search and filter
-                        </p>
-                        <Button className="bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm mb-4" asChild>
-                          <Link href="/cv/builder">Start Building CV</Link>
-                        </Button>
-                      </>
-                    )}
-
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
-          <div className="lg:col-span-2 space-y-3 md:space-y-6">
-            <div className="space-y-4">
+          {/* Right column with buttons - Order 2 on mobile (right after profile) */}
+          <div className="lg:col-span-2 space-y-3 md:space-y-6 order-2 lg:order-none flex flex-col">
+            {/* Quick Action Buttons - Order 2 on mobile */}
+            <div className="space-y-4 order-2 lg:order-none flex flex-col">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4">
                 <Button
                   onClick={handleBrowseJobs}
@@ -842,40 +816,35 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
               </div>
             </div>
 
-
-            <Card>
-              <CardHeader className="pb-2 md:pb-3">
+            {/* Recent Applications Card - Order 3 on mobile, hidden on mobile when empty */}
+            <Card className={`order-3 lg:order-none ${applications.length === 0 ? 'hidden md:block' : ''}`}>
+              <CardHeader className="pb-2 md:pb-3 p-3 sm:p-4 md:p-6">
                 <CardTitle className="flex items-center text-foreground text-sm md:text-base">
                   <FileText className="h-4 w-4 mr-2" />
                   Recent Applications
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
                 {applications.length === 0 ? (
                   <div className="text-center py-3 md:py-4 text-muted-foreground">
-                    <FileText className="h-6 w-6 md:h-8 md:w-8 mx-auto mb-2 opacity-50" />
-                    <p className="font-medium mb-1 text-sm">No applications yet</p>
-                    <p className="text-xs mb-2">Start applying to jobs</p>
-                    <Button size="sm" asChild className="text-xs">
-                      <Link href="/jobs">Browse Jobs</Link>
-                    </Button>
+                    {/* Empty state - no content on mobile */}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {applications.slice(0, 3).map((application) => (
                       <div
                         key={application.id}
-                        className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors gap-2"
                       >
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-foreground text-sm truncate">
+                          <h4 className="font-medium text-foreground text-xs sm:text-sm truncate">
                             {application.jobs.title}
                           </h4>
                           <p className="text-xs text-muted-foreground truncate">
                             {application.jobs.company_profiles.company_name}
                           </p>
                         </div>
-                        <Badge className={`${getStatusColor(application.status)} text-xs ml-2 flex-shrink-0`}>
+                        <Badge className={`${getStatusColor(application.status)} text-xs flex-shrink-0 justify-center w-full sm:w-auto`}>
                           {application.status}
                         </Badge>
                       </div>
@@ -890,41 +859,37 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2 md:pb-3">
+            {/* Saved Jobs Card - Order 4 on mobile, hidden on mobile when empty */}
+            <Card className={`order-4 lg:order-none ${savedJobs.length === 0 ? 'hidden md:block' : ''}`}>
+              <CardHeader className="pb-2 md:pb-3 p-3 sm:p-4 md:p-6">
                 <CardTitle className="flex items-center text-foreground text-sm md:text-base">
                   <BookmarkIcon className="h-4 w-4 mr-2" />
                   Saved Jobs
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
                 {savedJobs.length === 0 ? (
                   <div className="text-center py-3 md:py-4 text-muted-foreground">
-                    <BookmarkIcon className="h-6 w-6 md:h-8 md:w-8 mx-auto mb-2 opacity-50" />
-                    <p className="font-medium mb-1 text-sm">No saved jobs yet</p>
-                    <p className="text-xs mb-2">Save jobs to apply later</p>
-                    <Button size="sm" asChild className="text-xs">
-                      <Link href="/jobs">Browse Jobs</Link>
-                    </Button>
+                    {/* Empty state - no content on mobile */}
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {savedJobs.slice(0, 3).map((savedJob) => (
                       <div
                         key={savedJob.id}
-                        className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors"
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors gap-2"
                       >
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-foreground text-sm truncate">
+                          <h4 className="font-medium text-foreground text-xs sm:text-sm truncate">
                             {savedJob.jobs.title}
                           </h4>
                           <p className="text-xs text-muted-foreground truncate">
                             {savedJob.jobs.company_profiles.company_name}
                           </p>
-                          <div className="flex items-center space-x-2 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-muted-foreground mt-1">
                             <span className="flex items-center truncate">
                               <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
-                              {savedJob.jobs.location}
+                              <span className="truncate">{savedJob.jobs.location}</span>
                             </span>
                             <Badge variant="outline" className="text-xs flex-shrink-0">
                               {savedJob.jobs.job_type}
@@ -935,7 +900,7 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                           size="sm"
                           variant="outline"
                           asChild
-                          className="ml-2 flex-shrink-0 text-xs bg-transparent"
+                          className="flex-shrink-0 text-xs bg-transparent w-full sm:w-auto"
                         >
                           <Link href={`/jobs/${savedJob.jobs.id}`}>View</Link>
                         </Button>
@@ -950,6 +915,19 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                 )}
               </CardContent>
             </Card>
+
+            {/* CV Builder Button - Order 5 on mobile (after buttons and cards) */}
+            <div className="order-5 lg:order-none">
+              <Button
+                className={`w-full h-auto py-3 text-sm md:text-base ${hasCV ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'} text-white`}
+                asChild
+              >
+                <Link href="/cv/builder">
+                  <FileText className="h-4 w-4 mr-2" />
+                  {hasCV ? 'Edit CV' : 'Start Building CV'}
+                </Link>
+              </Button>
+            </div>
 
           </div>
         </div>

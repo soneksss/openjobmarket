@@ -65,8 +65,19 @@ const MapUpdater = dynamic(
               console.log("[v0] Invalidating map size to fix tiles")
               map.invalidateSize()
             }
-          }, 300)
+          }, 500)
           return () => clearTimeout(timer)
+        }, [map])
+
+        // Additional invalidation when map is first ready
+        useEffect(() => {
+          if (map) {
+            const timer = setTimeout(() => {
+              console.log("[v0] Force invalidating map size on mount")
+              map.invalidateSize({ pan: false })
+            }, 100)
+            return () => clearTimeout(timer)
+          }
         }, [map])
 
         // Watch for container size changes
@@ -166,21 +177,41 @@ export function JobMap({
 }: JobMapProps) {
   const [isClient, setIsClient] = useState(false)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
+  const [mapKey, setMapKey] = useState(0)
+
+  // Force map re-render when center changes
+  useEffect(() => {
+    setMapKey((prev) => prev + 1)
+  }, [center[0], center[1]])
 
   useEffect(() => {
     setIsClient(true)
 
-    // Check if Leaflet is loaded
-    const checkLeaflet = () => {
-      if (typeof window !== 'undefined' && (window as any).L) {
+    // Load Leaflet if not already loaded
+    const loadLeaflet = () => {
+      if (typeof window !== 'undefined' && !(window as any).L) {
+        console.log('[JOB-MAP] Leaflet not loaded, loading now...')
+
+        // Load Leaflet JS (CSS is loaded inline in the component)
+        const script = document.createElement('script')
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+        script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='
+        script.crossOrigin = ''
+        script.onload = () => {
+          console.log('[JOB-MAP] Leaflet script loaded successfully')
+          setLeafletLoaded(true)
+        }
+        script.onerror = () => {
+          console.error('[JOB-MAP] Failed to load Leaflet script')
+        }
+        document.head.appendChild(script)
+      } else if ((window as any).L) {
+        console.log('[JOB-MAP] Leaflet already loaded')
         setLeafletLoaded(true)
-      } else {
-        // Retry after a short delay
-        setTimeout(checkLeaflet, 100)
       }
     }
 
-    checkLeaflet()
+    loadLeaflet()
   }, [])
 
   const validCenter: [number, number] =
@@ -203,7 +234,7 @@ export function JobMap({
 
   if (!isClient || !leafletLoaded) {
     return (
-      <div className="w-full bg-muted rounded-lg flex items-center justify-center" style={{ height }}>
+      <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center">
         <div className="text-center">
           <MapPin className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
           <p className="text-muted-foreground">Loading map...</p>
@@ -213,14 +244,14 @@ export function JobMap({
   }
 
   return (
-    <div className="w-full" style={{ height }}>
+    <div className="w-full h-full">
       <link
         rel="stylesheet"
         href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossOrigin=""
       />
-      <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%" }} className="rounded-lg" {...({} as any)}>
+      <MapContainer key={mapKey} center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%" }} className="rounded-lg" {...({} as any)}>
         <MapUpdater center={validCenter} zoom={zoom} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

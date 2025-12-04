@@ -169,8 +169,8 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-2 py-4 md:px-4 md:py-8">
-        <div className="grid lg:grid-cols-4 gap-4 md:gap-8">
+      <div className="container mx-auto px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 lg:py-8">
+        <div className="grid lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
           {/* Left Column - Profile */}
           <div className="lg:col-span-1 space-y-3 md:space-y-6">
             <Card>

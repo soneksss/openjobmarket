@@ -34,13 +34,13 @@ export function OnboardingModal({ action }: OnboardingModalProps) {
       {/* Trigger button */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`flex-1 sm:flex-none px-4 py-3 bg-gradient-to-r ${config.gradient} text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 group`}
+        className={`flex-1 sm:flex-none px-2 py-1.5 bg-gradient-to-r ${config.gradient} text-white font-semibold rounded-md shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 group`}
       >
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <Icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
-          <span className="text-sm md:text-base">{config.title}</span>
+        <div className="flex items-center justify-center gap-1.5 mb-0.5">
+          <Icon className="w-3 h-3 group-hover:scale-110 transition-transform" />
+          <span className="text-xs sm:text-sm">{config.title}</span>
         </div>
-        <p className="text-xs text-white/90 text-center">{config.subtitle}</p>
+        <p className="text-[10px] sm:text-xs text-white/90 text-center">{config.subtitle}</p>
       </button>
 
       {/* Modal */}

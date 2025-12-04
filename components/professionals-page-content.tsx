@@ -207,6 +207,9 @@ export default function ProfessionalsPageContent({
   // Banner state
   const [isBannerDismissed, setIsBannerDismissed] = useState(false)
 
+  // Mobile list view state - controls if list is full screen or split view
+  const [isListFullScreen, setIsListFullScreen] = useState(false)
+
   // Sign-up prompt modal state
   const [signUpPrompt, setSignUpPrompt] = useState<{
     isOpen: boolean
@@ -215,6 +218,22 @@ export default function ProfessionalsPageContent({
     isOpen: false,
     action: "message",
   })
+
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (isFullScreenMode || isModal) {
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+    }
+
+    return () => {
+      document.body.style.overflow = ''
+      document.documentElement.style.overflow = ''
+    }
+  }, [isFullScreenMode, isModal])
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -535,6 +554,9 @@ export default function ProfessionalsPageContent({
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Skip hero section when in modal mode */}
+      {!isModal && (
+      <>
       {/* Info banner for unauthenticated users - hide after search or if dismissed */}
       {!user && !isBannerDismissed && !hasSearchParams && (
         <div className="bg-blue-600 text-white py-2 px-4 text-center text-sm relative">
@@ -587,35 +609,40 @@ export default function ProfessionalsPageContent({
               </h2>
 
               {/* Main Search Inputs */}
-              <div className="flex flex-col sm:flex-col lg:flex-row gap-2 sm:gap-3 md:gap-4 mb-4">
-                <div className="flex-1">
+              <div className="space-y-2 sm:space-y-0 sm:flex sm:gap-2 mb-4">
+                {/* Search Input */}
+                <div className="sm:flex-1">
                   <Input
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                     placeholder={
                       isShowingTraders
-                        ? "e.g. Freelancer, Consultant, Trading Company"
+                        ? "e.g. Freelancer, Consultant"
                         : isEmployer
-                        ? "e.g. Software Engineer, React Developer"
-                        : "e.g. Marketing Manager, Sales"
+                        ? "e.g. Software Engineer"
+                        : "e.g. Marketing Manager"
                     }
-                    className="h-10 md:h-12 text-sm md:text-base px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-lg font-medium placeholder:text-gray-500 shadow-md"
+                    className="h-10 md:h-12 text-sm md:text-base px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-lg font-medium placeholder:text-gray-500 shadow-md w-full"
                   />
                 </div>
-                <div className="flex-1 flex gap-2">
+
+                {/* Location Input + Map Picker on mobile, separate on desktop */}
+                <div className="flex gap-2 sm:flex-1">
                   <div className="flex-1">
                     <LocationInput
                       value={locationFilter}
                       onChange={setLocationFilter}
                       onLocationSelect={handleLocationSelect}
-                      placeholder="e.g. London, New York, or Remote"
+                      placeholder="e.g. London"
                       error=""
                     />
                   </div>
+
+                  {/* Map Picker Button */}
                   <Button
                     onClick={handleMapPickerClick}
-                    className="h-10 md:h-12 px-3 md:px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                    className="h-10 md:h-12 px-3 md:px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
                     title="Pick location on map"
                   >
                     <Map className="h-4 w-4 md:h-5 md:w-5" />
@@ -661,8 +688,8 @@ export default function ProfessionalsPageContent({
                   className="flex items-center cursor-pointer mb-3"
                   onClick={() => !user ? setSignUpPrompt({ isOpen: true, action: "filter" }) : setShowAdvancedFilters(!showAdvancedFilters)}
                 >
-                  <Filter className="h-4 w-4 text-white mr-2" />
-                  <span className="text-white font-medium">Advanced Filters - Show only:</span>
+                  <Filter className="h-4 w-4 text-white" />
+                  <span className="text-white font-medium hidden sm:inline sm:ml-2">Advanced Filters - Show only:</span>
                   <ChevronDown className={`h-4 w-4 text-white ml-auto transition-transform ${showAdvancedFilters ? "rotate-180" : ""}`} />
                 </div>
 
@@ -1625,8 +1652,8 @@ export default function ProfessionalsPageContent({
 
       {/* Map Picker Modal */}
       {showMapPicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col relative z-[10000]">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col relative z-[100000]">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <div>
@@ -1659,7 +1686,7 @@ export default function ProfessionalsPageContent({
               />
 
               {/* Radius Control Overlay - Top of Map */}
-              <div className="absolute top-4 right-4 z-[10000]">
+              <div className="absolute top-4 right-4 z-[100]">
                 <div className="bg-white rounded-lg shadow-xl p-3 border-2 border-emerald-500">
                   <div className="flex items-center gap-3">
                     <Target className="h-5 w-5 text-emerald-600 flex-shrink-0" />
@@ -1671,7 +1698,7 @@ export default function ProfessionalsPageContent({
                       <SelectTrigger className="w-28 h-9 text-sm font-medium border-gray-300 bg-white">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="max-h-[300px] z-[10001]">
+                      <SelectContent className="max-h-[300px] z-[101]">
                         {[1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map((miles) => (
                           <SelectItem key={miles} value={miles.toString()}>
                             {miles} mile{miles !== 1 ? "s" : ""}
@@ -1736,6 +1763,8 @@ export default function ProfessionalsPageContent({
           </div>
         </div>
       )}
+      </>
+      )}
 
       {/* Floating Message Modal */}
       {messageModal?.isOpen && user && (
@@ -1756,70 +1785,64 @@ export default function ProfessionalsPageContent({
         action={signUpPrompt.action}
       />
 
-      {/* Full-Screen Map Mode (Google Maps Style) */}
-      {isFullScreenMode && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
-          {/* Site Header */}
+      {/* Full-Screen Map Mode (Google Maps Style) OR Modal Mode */}
+      {(isFullScreenMode || isModal) && (
+        <div className="fixed inset-0 z-[9999] bg-white flex flex-col overflow-hidden h-screen max-h-screen">
+          {/* Site Header - show in both full-screen and modal mode */}
           <Header user={user} isModal={isModal} onModalClose={onModalClose} />
 
-          {/* Top Search Bar (Fixed) */}
-          <div className="sticky top-0 z-20 bg-white shadow-lg border-b">
-            <div className="container mx-auto px-4 py-4">
+          {/* Top Search Bar (Fixed) - show in both full-screen and modal, but smaller in modal */}
+          {(isFullScreenMode || isModal) && <div className="sticky top-0 z-20 bg-white shadow-lg border-b">
+            <div className={`container mx-auto ${isModal ? 'px-1.5 py-1.5' : 'px-4 py-4'}`}>
               {/* Compact Search Bar */}
-              <div className="flex items-center gap-3">
+              <div className={`flex items-center ${isModal ? 'gap-0.5' : 'gap-3'}`}>
                 {/* Search Input */}
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder={
-                    isShowingTraders
-                      ? "e.g. Freelancer, Consultant, Trading Company"
-                      : isEmployer
-                      ? "e.g. Software Engineer, React Developer"
-                      : "e.g. Marketing Manager, Sales"
-                  }
-                  className="h-12 flex-1 bg-white/95 shadow-lg border-2 font-medium text-base"
+                  placeholder={isShowingJobs ? "Plumber" : "Search"}
+                  className={`${isModal ? 'h-7 text-xs px-1.5' : 'h-12 text-base px-4'} flex-1 bg-white/95 shadow-sm border font-medium`}
                 />
 
                 {/* Location Input */}
-                <div className="flex-1 flex gap-2">
-                  <div className="flex-1">
-                    <LocationInput
-                      value={locationFilter}
-                      onChange={setLocationFilter}
-                      onLocationSelect={handleLocationSelect}
-                      placeholder="e.g. London, New York"
-                      error=""
-                      className="h-12 bg-white/95 shadow-lg border-2 text-base"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleMapPickerClick}
-                    className="h-12 px-3 bg-blue-500 hover:bg-blue-600 shadow-lg"
-                    title="Pick location on map"
-                  >
-                    <Map className="h-5 w-5" />
-                  </Button>
+                <div className="flex-1">
+                  <LocationInput
+                    value={locationFilter}
+                    onChange={setLocationFilter}
+                    onLocationSelect={handleLocationSelect}
+                    placeholder="London"
+                    error=""
+                  />
                 </div>
+
+                {/* Map Picker Button */}
+                <Button
+                  onClick={handleMapPickerClick}
+                  size="sm"
+                  className={`${isModal ? 'h-7 px-1.5' : 'h-12 px-3'} bg-blue-500 hover:bg-blue-600 shadow-sm flex-shrink-0`}
+                  title="Pick location on map"
+                >
+                  <Map className={isModal ? "h-3 w-3" : "h-5 w-5"} />
+                </Button>
 
                 {/* Filters Button */}
                 <Button
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
                   variant="outline"
-                  className="h-12 px-4 bg-white shadow-lg"
+                  size="sm"
+                  className={`${isModal ? 'h-7 px-1.5' : 'h-12 px-4'} bg-white shadow-sm flex-shrink-0`}
                 >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
+                  <Filter className={isModal ? 'h-3 w-3' : 'h-4 w-4'} />
                 </Button>
 
                 {/* Search Button */}
                 <Button
                   onClick={() => handleSearch()}
-                  className="h-12 px-6 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg font-semibold"
+                  size="sm"
+                  className={`${isModal ? 'h-7 px-2 text-xs' : 'h-12 px-6'} bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm font-semibold flex-shrink-0`}
                 >
-                  <Search className="mr-2 h-5 w-5" />
-                  Search
+                  <Search className={isModal ? 'h-3 w-3' : 'h-5 w-5'} />
                 </Button>
 
                 {/* Exit Button */}
@@ -1833,10 +1856,11 @@ export default function ProfessionalsPageContent({
                     }
                   }}
                   variant="outline"
-                  className="h-12 px-3 bg-red-600 hover:bg-red-700 text-white shadow-lg border-red-600"
+                  size={isModal ? "sm" : "default"}
+                  className={`${isModal ? 'h-7 px-2' : 'h-12 px-3'} bg-red-600 hover:bg-red-700 text-white shadow-lg border-red-600`}
                   title="Exit full-screen"
                 >
-                  <X className="h-5 w-5" />
+                  <X className={isModal ? "h-3 w-3" : "h-5 w-5"} />
                 </Button>
               </div>
 
@@ -2047,13 +2071,262 @@ export default function ProfessionalsPageContent({
                 </div>
               )}
             </div>
+          </div>}
+
+          {/* Mobile & Desktop Layouts */}
+          <>
+          {/* Mobile: Stacked Layout - Map on top, List on bottom */}
+          <div className="flex md:!hidden flex-col flex-1 overflow-hidden h-full">
+            {/* Map Section - Top Half (hidden when list is full screen) */}
+            <div className={`relative transition-all duration-300 ${isListFullScreen ? 'h-0' : 'flex-1'}`}>
+              {shouldShowMap && (
+                isShowingJobs ? (
+                  <JobMap
+                    jobs={dataWithCoordinates as any}
+                    center={[center[0], center[1]]}
+                    zoom={10}
+                    height="100%"
+                    showRadius={!!selectedLocationCoords}
+                    radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                    radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
+                    selectedJobId={selectedProfessionalId}
+                    onJobSelect={(job) => {
+                      setSelectedProfessionalId(job?.id || null)
+                    }}
+                  />
+                ) : (
+                  <ProfessionalMap
+                    professionals={dataWithCoordinates.map((item: any) => ({
+                      id: item.id,
+                      name: isEmployer ? `${item.first_name || 'Professional'} ${item.last_name || 'User'}` : item.title || item.company_name || 'Unknown',
+                      title: item.title || item.industry || 'Professional',
+                      location: item.location || 'Location not specified',
+                      coordinates: { lat: item.latitude, lon: item.longitude },
+                      skills: item.skills || [],
+                      experience: item.experience_level || 'Not specified',
+                      avatar: item.profile_photo_url || item.logo_url || '/placeholder.svg',
+                      isAvailable: item.available_for_work || item.open_for_business || item.is_hiring || true,
+                      first_name: item.first_name,
+                      last_name: item.last_name,
+                      salary_min: item.salary_min,
+                      salary_max: item.salary_max,
+                      profile_photo_url: item.profile_photo_url || item.logo_url,
+                      experience_level: item.experience_level
+                    }))}
+                    center={{ lat: center[0], lon: center[1] }}
+                    zoom={10}
+                    height="100%"
+                    user={user}
+                    showRadius={!!selectedLocationCoords}
+                    radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                    radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
+                    selectedProfessionalId={selectedProfessionalId}
+                    onProfileSelect={(profile) => {
+                      setSelectedProfessionalId(profile?.id || null)
+                    }}
+                    onSendInquiry={(id, name) => handleSendInquiry(id, name)}
+                  />
+                )
+              )}
+
+              {/* Results Counter */}
+              <div className="absolute top-2 left-2 z-10">
+                <div className="bg-white rounded-lg shadow-lg px-2 py-1.5 border">
+                  <div className="flex items-center gap-1.5">
+                    <UserIcon className="h-4 w-4 text-blue-600" />
+                    <span className="font-semibold text-sm">
+                      {data.length} Found
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Draggable Divider - Show/Hide Map */}
+            <div className="relative h-0 z-20">
+              <button
+                onClick={() => setIsListFullScreen(!isListFullScreen)}
+                className="absolute -top-4 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-lg p-2 border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all"
+              >
+                {isListFullScreen ? (
+                  <ChevronDown className="h-4 w-4 text-gray-600" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-gray-600 rotate-180" />
+                )}
+              </button>
+            </div>
+
+            {/* List Section - Bottom Half */}
+            <div className={`bg-white border-t shadow-xl overflow-y-auto transition-all duration-300 ${isListFullScreen ? 'flex-1' : 'flex-1'}`}>
+              <div className="p-3">
+                {/* Show detail view if item selected, otherwise show list */}
+                {selectedProfessionalId ? (
+                  <div className="space-y-4">
+                    {/* Back button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedProfessionalId(null)}
+                      className="mb-2"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Back to List
+                    </Button>
+
+                    {/* Show selected job/professional details */}
+                    {data.filter(item => item.id === selectedProfessionalId).map((item: any) => (
+                      <div key={item.id}>
+                        {isShowingJobs ? (
+                          <JobCard job={item} isLoggedIn={!!user} isSelected={true} />
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="flex items-start gap-4">
+                              <Avatar className="h-16 w-16">
+                                <AvatarImage src={item.profile_photo_url || item.logo_url} />
+                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
+                                  {isEmployer
+                                    ? `${item.first_name?.[0] || ''}${item.last_name?.[0] || ''}`
+                                    : item.company_name?.[0] || item.title?.[0] || '?'}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1">
+                                <h2 className="text-lg font-bold">
+                                  {isEmployer ? `${item.first_name || ''} ${item.last_name || ''}` : item.company_name || item.title}
+                                </h2>
+                                <p className="text-sm text-gray-600">{item.title || item.industry}</p>
+                                <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
+                                  <MapPin className="h-4 w-4" />
+                                  <span>{item.location}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {item.bio && (
+                              <div>
+                                <h3 className="font-semibold text-sm mb-1">About</h3>
+                                <p className="text-sm text-gray-700">{item.bio}</p>
+                              </div>
+                            )}
+
+                            {item.skills && item.skills.length > 0 && (
+                              <div>
+                                <h3 className="font-semibold text-sm mb-2">Skills</h3>
+                                <div className="flex flex-wrap gap-2">
+                                  {item.skills.map((skill: string, idx: number) => (
+                                    <Badge key={idx} variant="secondary" className="text-xs">
+                                      {skill}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {(item.salary_min || item.salary_max) && (
+                              <div>
+                                <h3 className="font-semibold text-sm mb-1">Expected Salary</h3>
+                                <p className="text-green-600 font-medium">
+                                  {item.salary_min && item.salary_max
+                                    ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
+                                    : item.salary_min
+                                    ? `From £${item.salary_min.toLocaleString()}`
+                                    : `Up to £${item.salary_max?.toLocaleString()}`}
+                                </p>
+                              </div>
+                            )}
+
+                            {user && (
+                              <Button
+                                className="w-full bg-blue-600 hover:bg-blue-700"
+                                onClick={() => handleSendInquiry(item.id, isEmployer ? `${item.first_name} ${item.last_name}` : item.company_name)}
+                              >
+                                <MessageCircle className="h-4 w-4 mr-2" />
+                                Send Message
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="font-semibold text-base mb-3">
+                      {isEmployer ? "Professionals" : isShowingCompanies ? "Companies" : isShowingTraders ? "Traders" : "Professionals"}
+                    </h3>
+
+                    <div className="space-y-2">
+                      {data.map((item: any) => (
+                        <div
+                          key={item.id}
+                          ref={(el: HTMLDivElement | null) => { professionalCardRefs.current[item.id] = el }}
+                          className="bg-white rounded-lg shadow-sm border p-3 cursor-pointer transition-all border-gray-200 hover:border-blue-300"
+                          onClick={() => setSelectedProfessionalId(item.id)}
+                        >
+                          {isShowingJobs ? (
+                            <div className="space-y-2">
+                              <div className="flex items-start gap-3">
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-semibold text-sm line-clamp-2">{item.title}</h4>
+                                  <p className="text-xs text-gray-600">
+                                    {item.company_profiles?.company_name || `${item.poster_first_name} ${item.poster_last_name}`}
+                                  </p>
+                                  <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                    <MapPin className="h-3 w-3" />
+                                    <span className="truncate">{item.location}</span>
+                                  </div>
+                                  {(item.salary_min || item.salary_max) && (
+                                    <div className="flex items-center gap-1 text-xs text-green-600 font-medium mt-1">
+                                      <DollarSign className="h-3 w-3" />
+                                      <span>
+                                        {item.salary_min && item.salary_max
+                                          ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
+                                          : item.salary_min
+                                          ? `From £${item.salary_min.toLocaleString()}`
+                                          : `Up to £${item.salary_max?.toLocaleString()}`}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              <div className="flex items-start gap-3">
+                                <Avatar className="h-10 w-10">
+                                  <AvatarImage src={item.profile_photo_url || item.logo_url} />
+                                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold text-xs">
+                                    {isEmployer
+                                      ? `${item.first_name?.[0] || ''}${item.last_name?.[0] || ''}`
+                                      : item.company_name?.[0] || item.title?.[0] || '?'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="font-semibold text-sm">
+                                    {isEmployer ? `${item.first_name || ''} ${item.last_name || ''}` : item.company_name || item.title}
+                                  </h4>
+                                  <p className="text-xs text-gray-600 truncate">{item.title || item.industry}</p>
+                                  <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                                    <MapPin className="h-3 w-3" />
+                                    <span className="truncate">{item.location}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Main Content: Map + Sidebar with Resizable Panels */}
-          <PanelGroup direction="horizontal" className="flex-1">
+          {/* Desktop: Resizable Panels - Map on left, List on right */}
+          <PanelGroup direction="horizontal" className="!hidden md:!flex flex-1 overflow-hidden">
             {/* Map Panel */}
-            <Panel defaultSize={60} minSize={30}>
-              <div className="h-full relative">
+            <Panel defaultSize={60} minSize={30} className="relative" style={{ minHeight: '400px' }}>
+              <div className="absolute inset-0">
               {shouldShowMap && (
                 isShowingJobs ? (
                   <JobMap
@@ -2512,6 +2785,7 @@ export default function ProfessionalsPageContent({
               </div>
             </Panel>
           </PanelGroup>
+          </>
         </div>
       )}
     </div>

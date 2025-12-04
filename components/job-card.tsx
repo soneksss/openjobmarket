@@ -220,44 +220,47 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center gap-2 pt-2">
+                  <div className="flex items-center gap-1.5 sm:gap-2 pt-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-300 hover:bg-gray-50"
+                      className="border-gray-300 hover:bg-gray-50 px-2 py-1 h-auto text-xs sm:text-sm"
                       disabled={!isLoggedIn}
                       onClick={(e) => {
                         e.stopPropagation()
                         !isLoggedIn && setShowSignUpDialog(true)
                       }}
                     >
-                      <Heart className="h-4 w-4 mr-1" />
-                      Save
+                      <Heart className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      <span className="hidden sm:inline">Save</span>
+                      <span className="sm:hidden">Save</span>
                     </Button>
 
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-300 hover:bg-gray-50"
+                      className="border-gray-300 hover:bg-gray-50 px-2 py-1 h-auto text-xs sm:text-sm"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleContactClick()
                       }}
                     >
-                      <MessageCircle className="h-4 w-4 mr-1" />
-                      Contact
+                      <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      <span className="hidden sm:inline">Contact</span>
+                      <span className="sm:hidden">Contact</span>
                     </Button>
 
                     <Button
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 h-auto text-xs sm:text-sm flex-1 sm:flex-initial"
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation()
                         handleViewProfileClick()
                       }}
                     >
-                      <ExternalLink className="h-4 w-4 mr-1" />
-                      View Details
+                      <ExternalLink className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      <span className="hidden sm:inline">View Details</span>
+                      <span className="sm:hidden">Apply</span>
                     </Button>
                   </div>
                 </div>

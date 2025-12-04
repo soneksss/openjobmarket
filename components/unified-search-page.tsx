@@ -21,7 +21,7 @@ export function UnifiedSearchPage({ isSignedIn }: UnifiedSearchPageProps) {
   return (
     <>
       {/* Search Section */}
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto -mt-32 sm:mt-0">
         <MainPageSearch externalSearchQuery={categorySearch} />
       </div>
 

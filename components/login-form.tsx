@@ -148,7 +148,6 @@ export default function LoginForm() {
         if (!userData?.user_type) {
           // User exists but no profile type set - redirect to onboarding
           addLog('[LOGIN] No user type, redirecting to onboarding')
-          router.refresh()
           router.push("/onboarding")
           return
         }
@@ -167,11 +166,9 @@ export default function LoginForm() {
 
           if (hasCompleteProfile) {
             addLog('[LOGIN] Redirecting to professional dashboard')
-            router.refresh()
             router.push("/dashboard/professional")
           } else {
             addLog('[LOGIN] Redirecting to onboarding (incomplete)')
-            router.refresh()
             router.push("/onboarding")
           }
         } else if (userData.user_type === "company" || userData.user_type === "employer") {
@@ -185,20 +182,16 @@ export default function LoginForm() {
 
           if (hasCompleteProfile) {
             addLog('[LOGIN] Redirecting to company dashboard')
-            router.refresh()
             router.push("/dashboard/company")
           } else {
             addLog('[LOGIN] Redirecting to onboarding (incomplete)')
-            router.refresh()
             router.push("/onboarding")
           }
         } else if (userData.user_type === "admin") {
           addLog('[LOGIN] Redirecting to admin dashboard')
-          router.refresh()
           router.push("/admin")
         } else {
           addLog('[LOGIN] Unknown user type, redirecting to onboarding')
-          router.refresh()
           router.push("/onboarding")
         }
       }

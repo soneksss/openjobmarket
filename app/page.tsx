@@ -49,7 +49,7 @@ export default async function HomePage() {
       )}
 
       <section
-        className="relative py-1 sm:py-2 md:py-3 overflow-hidden"
+        className="relative py-0 sm:py-2 md:py-3 overflow-hidden"
         style={{
           backgroundImage: 'url(/London-buildings.png)',
           backgroundSize: 'contain',
@@ -75,7 +75,7 @@ export default async function HomePage() {
 
           {/* Onboarding buttons above search - only for guests */}
           {!user && (
-            <div className="flex flex-col sm:flex-row justify-center gap-1.5 mb-1.5 max-w-3xl mx-auto px-4">
+            <div className="flex flex-col sm:flex-row justify-center gap-1.5 mb-1.5 max-w-3xl mx-auto px-4 -mt-4 sm:mt-0">
               <OnboardingModal action="provider" />
               <OnboardingModal action="hiring" />
             </div>

@@ -41,7 +41,10 @@
       "Bash(cmd //c \"npm run build\")",
       "Bash(git checkout:*)",
       "Bash(git commit:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(timeout /t 2 /nobreak)",
+      "Bash(timeout /t 8 /nobreak)",
+      "Bash(timeout /t 5 /nobreak)"
     ],
     "deny": [],
     "ask": []

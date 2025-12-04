@@ -33,7 +33,8 @@ import {
   List,
   Maximize,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  ChevronUp
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -263,6 +264,13 @@ export default function ContractorMapView({
 
   // Map resize trigger
   const [mapResizeTrigger, setMapResizeTrigger] = useState(0)
+
+  // Mobile bottom sheet state - 'collapsed' shows handle only, 'half' shows 45%, 'expanded' shows 85%
+  const [bottomSheetPosition, setBottomSheetPosition] = useState<'collapsed' | 'half' | 'expanded'>('half')
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStartY, setDragStartY] = useState(0)
+  const [dragStartHeight, setDragStartHeight] = useState(0)
+  const bottomSheetRef = useRef<HTMLDivElement>(null)
 
   // Refs for contractor cards to enable scrolling
   const contractorCardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
@@ -1036,14 +1044,14 @@ export default function ContractorMapView({
           <div className="sticky top-0 z-20 bg-white shadow-lg border-b">
             <div className="container mx-auto px-4 py-4">
               {/* Compact Search Bar */}
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3">
                 {/* Search Input */}
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="e.g. Electrician, Plumber, Web Developer"
-                  className="h-12 flex-1 bg-white/95 shadow-lg border-2 font-medium text-base"
+                  placeholder="e.g. Electrician, Plumber"
+                  className="h-10 md:h-12 flex-1 bg-white/95 shadow-lg border-2 font-medium text-sm md:text-base"
                 />
 
                 {/* Location Input */}
@@ -1053,65 +1061,68 @@ export default function ContractorMapView({
                       value={locationFilter}
                       onChange={setLocationFilter}
                       onLocationSelect={handleLocationSelect}
-                      placeholder="e.g. London, New York, or Remote"
+                      placeholder="e.g. London, New York"
                       error=""
+                      className="h-10 md:h-12 text-sm md:text-base"
                     />
                   </div>
                   <Button
                     onClick={handleMapPickerClick}
-                    className="h-12 px-4 bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
+                    className="h-10 md:h-12 px-2 md:px-4 bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
                     title="Pick location on map"
                   >
-                    <Map className="h-5 w-5" />
+                    <Map className="h-4 w-4 md:h-5 md:w-5" />
                   </Button>
                 </div>
 
-                {/* Radius Select */}
-                <Select value={radius} onValueChange={setRadius}>
-                  <SelectTrigger className="w-32 h-12">
-                    <SelectValue placeholder="Radius" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[10, 20, 25, 50, 100].map((miles) => (
-                      <SelectItem key={miles} value={miles.toString()}>
-                        {miles} miles
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  {/* Radius Select - Hidden on mobile */}
+                  <Select value={radius} onValueChange={setRadius}>
+                    <SelectTrigger className="hidden md:flex w-32 h-12">
+                      <SelectValue placeholder="Radius" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[10, 20, 25, 50, 100].map((miles) => (
+                        <SelectItem key={miles} value={miles.toString()}>
+                          {miles} miles
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-                {/* Search Button */}
-                <Button
-                  onClick={handleSearch}
-                  className="bg-orange-500 hover:bg-orange-600 shrink-0 h-12 px-6"
-                >
-                  <Search className="h-4 w-4 mr-2" />
-                  Search
-                </Button>
+                  {/* Filters Dropdown Button */}
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    className="h-10 md:h-12 px-3 md:px-4 flex-1 md:flex-none"
+                  >
+                    <Filter className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Filters</span>
+                  </Button>
 
-                {/* Filters Dropdown Button */}
-                <Button
-                  variant="outline"
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className="shrink-0 h-12 px-4"
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
-                  <ChevronDown className={`h-4 w-4 ml-2 transition-transform ${showAdvancedFilters ? "rotate-180" : ""}`} />
-                </Button>
+                  {/* Search Button */}
+                  <Button
+                    onClick={handleSearch}
+                    className="bg-orange-500 hover:bg-orange-600 h-10 md:h-12 px-4 md:px-6 flex-1 md:flex-none"
+                  >
+                    <Search className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Search</span>
+                  </Button>
 
-                {/* Close Button */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setIsFullScreenMode(false)
-                    setShowAdvancedFilters(false)
-                  }}
-                  className="shrink-0 h-12"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                  {/* Close Button */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsFullScreenMode(false)
+                      setShowAdvancedFilters(false)
+                    }}
+                    className="h-10 md:h-12 px-2 md:px-3"
+                    title="Exit full-screen"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               {/* Advanced Filters Dropdown */}
@@ -1193,8 +1204,8 @@ export default function ContractorMapView({
             </div>
           </div>
 
-          {/* Fullscreen Map with Resizable Panels */}
-          <PanelGroup direction="horizontal" className="flex-1">
+          {/* Desktop Layout: Fullscreen Map with Resizable Panels (hidden - using bottom sheet for all) */}
+          <PanelGroup direction="horizontal" className="hidden flex-1">
             {/* Map Panel */}
             <Panel defaultSize={60} minSize={30}>
               <div className="h-full relative">
@@ -1507,6 +1518,258 @@ export default function ContractorMapView({
               </div>
             </Panel>
           </PanelGroup>
+
+          {/* Full-screen Map with Bottom Sheet (like Google Maps/Idealista/Rightmove) - ALL SCREENS */}
+          <div className="flex-1 relative">
+            {/* Full Screen Map */}
+            <div className="absolute inset-0">
+              <ProfessionalMap
+                key="mobile-fullscreen-map"
+                professionals={contractors
+                  .filter(c => c.latitude && c.longitude)
+                  .map(c => ({
+                    id: c.id,
+                    name: c.display_name,
+                    first_name: c.name.split(' ')[0] || '',
+                    last_name: c.name.split(' ')[1] || '',
+                    title: c.title || c.industry || 'Contractor',
+                    location: c.location,
+                    coordinates: { lat: c.latitude!, lon: c.longitude! },
+                    skills: c.skills || [],
+                    experience: '',
+                    avatar: c.photo_url || '',
+                    profile_photo_url: c.photo_url || '',
+                    isAvailable: true,
+                    user_id: c.user_id
+                  }))}
+                center={{ lat: center[0], lon: center[1] }}
+                zoom={10}
+                height="100%"
+                user={user}
+                showRadius={!!selectedLocationCoords}
+                radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                radiusKm={parseInt(radius) * 1.60934}
+                selectedProfessionalId={selectedContractor?.id}
+                onProfileSelect={(profile) => {
+                  const contractor = contractors.find(c => c.id === profile.id)
+                  if (contractor) {
+                    if (selectedContractor?.id === contractor.id) {
+                      setSelectedContractor(null)
+                      setExpandedContractorId(null)
+                    } else {
+                      setSelectedContractor(contractor)
+                      setExpandedContractorId(contractor.id)
+                      // Expand bottom sheet when selecting from map
+                      if (bottomSheetPosition === 'collapsed') {
+                        setBottomSheetPosition('half')
+                      }
+                    }
+                  }
+                }}
+              />
+
+              {/* Results Counter - Top Left */}
+              <div className="absolute top-2 left-2 z-10">
+                <div className="bg-white rounded-lg shadow-lg px-3 py-2 border">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-orange-600" />
+                    <span className="font-semibold text-sm">
+                      {contractors.length} {contractors.length !== 1 ? 'Tradespeople' : 'Tradesperson'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Sheet */}
+            <div
+              ref={bottomSheetRef}
+              className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-2xl z-20 flex flex-col transition-all duration-300 ease-out ${
+                isDragging ? 'transition-none' : ''
+              }`}
+              style={{
+                height: bottomSheetPosition === 'collapsed' ? '80px'
+                      : bottomSheetPosition === 'half' ? '45%'
+                      : '85%',
+                maxHeight: 'calc(100% - 60px)'
+              }}
+            >
+              {/* Drag Handle */}
+              <div
+                className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                onTouchStart={(e) => {
+                  setIsDragging(true)
+                  setDragStartY(e.touches[0].clientY)
+                  const rect = bottomSheetRef.current?.getBoundingClientRect()
+                  setDragStartHeight(rect?.height || 0)
+                }}
+                onTouchMove={(e) => {
+                  if (!isDragging) return
+                  const deltaY = dragStartY - e.touches[0].clientY
+                  const newHeight = dragStartHeight + deltaY
+                  const windowHeight = window.innerHeight
+                  const percentage = (newHeight / windowHeight) * 100
+
+                  // Snap to positions based on current drag
+                  if (percentage < 15) {
+                    setBottomSheetPosition('collapsed')
+                  } else if (percentage < 60) {
+                    setBottomSheetPosition('half')
+                  } else {
+                    setBottomSheetPosition('expanded')
+                  }
+                }}
+                onTouchEnd={() => {
+                  setIsDragging(false)
+                }}
+                onClick={() => {
+                  // Cycle through positions on tap
+                  if (bottomSheetPosition === 'collapsed') {
+                    setBottomSheetPosition('half')
+                  } else if (bottomSheetPosition === 'half') {
+                    setBottomSheetPosition('expanded')
+                  } else {
+                    setBottomSheetPosition('collapsed')
+                  }
+                }}
+              >
+                {/* Handle Bar */}
+                <div className="flex justify-center pt-3 pb-2">
+                  <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+                </div>
+
+                {/* Header */}
+                <div className="px-4 pb-3 border-b flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-base text-gray-900">
+                      {contractors.length} {contractors.length !== 1 ? 'Tradespeople' : 'Tradesperson'}
+                    </h3>
+                    {bottomSheetPosition !== 'collapsed' && (
+                      <p className="text-xs text-gray-500">Swipe up for full list</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {bottomSheetPosition !== 'collapsed' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setBottomSheetPosition('collapsed')
+                        }}
+                      >
+                        <ChevronDown className="h-5 w-5" />
+                      </Button>
+                    )}
+                    {bottomSheetPosition === 'collapsed' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setBottomSheetPosition('half')
+                        }}
+                      >
+                        <ChevronUp className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className={`flex-1 overflow-y-auto p-3 space-y-3 ${bottomSheetPosition === 'collapsed' ? 'hidden' : ''}`}>
+                {contractors.map((contractor) => {
+                  const isExpanded = expandedContractorId === contractor.id
+                  const isSelected = selectedContractor?.id === contractor.id
+
+                  return (
+                    <Card
+                      key={contractor.id}
+                      ref={(el) => {
+                        contractorCardRefs.current[contractor.id] = el
+                      }}
+                      className={`hover:shadow-lg transition-all cursor-pointer ${
+                        isSelected ? 'ring-2 ring-orange-500 shadow-xl' : ''
+                      }`}
+                      onClick={() => {
+                        if (selectedContractor?.id === contractor.id && isExpanded) {
+                          setSelectedContractor(null)
+                          setExpandedContractorId(null)
+                        } else {
+                          setSelectedContractor(contractor)
+                          setExpandedContractorId(contractor.id)
+                        }
+                      }}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex gap-3">
+                          <Avatar className="h-12 w-12 shrink-0">
+                            {contractor.photo_url && <AvatarImage src={contractor.photo_url} alt={contractor.name} />}
+                            <AvatarFallback className="bg-orange-100 text-orange-600 text-sm">
+                              {contractor.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm text-gray-900 truncate">{contractor.name}</h4>
+                                {contractor.title && (
+                                  <p className="text-xs text-gray-600">{contractor.title}</p>
+                                )}
+                                {contractor.industry && !contractor.title && (
+                                  <p className="text-xs text-gray-600">{contractor.industry}</p>
+                                )}
+                              </div>
+                              <Badge variant={contractor.type === 'company' ? 'default' : 'secondary'} className="shrink-0 text-xs">
+                                {contractor.type === 'company' ? 'Company' : 'Pro'}
+                              </Badge>
+                            </div>
+
+                            {/* Location */}
+                            <div className="flex items-center gap-1 text-xs text-gray-600 mb-2">
+                              <MapPin className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{contractor.location}</span>
+                            </div>
+
+                            {/* Expanded Details */}
+                            {isExpanded && contractor.description && (
+                              <p className="text-xs text-gray-600 mb-2 line-clamp-3">
+                                {contractor.description}
+                              </p>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleViewProfile(contractor.id)}
+                                className="flex-1 h-8 text-xs"
+                              >
+                                View
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSendInquiry(contractor.id, contractor.name)}
+                                className="flex-1 h-8 text-xs bg-orange-500 hover:bg-orange-600"
+                              >
+                                <Mail className="h-3 w-3 mr-1" />
+                                Contact
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

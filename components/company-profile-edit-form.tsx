@@ -355,18 +355,16 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
             <div className="space-y-3">
               <Label className="text-sm font-medium">Company Logo</Label>
               <div className="flex items-center space-x-4">
-                <div className="relative h-16 w-24 sm:h-20 sm:w-32 bg-muted rounded-lg overflow-hidden border-2 border-gray-300">
+                <div className="relative h-20 w-20 sm:h-24 sm:w-24 bg-muted rounded-lg overflow-hidden border-2 border-gray-300 flex items-center justify-center">
                   {logoUrl ? (
                     <img
                       src={logoUrl}
                       alt="Company logo"
-                      className="h-full w-full object-contain"
+                      className="max-h-full max-w-full object-contain"
                     />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center bg-muted">
-                      <div className="text-xs sm:text-sm font-medium text-muted-foreground text-center">
-                        {getInitials()}
-                      </div>
+                    <div className="text-xs sm:text-sm font-medium text-muted-foreground text-center">
+                      {getInitials()}
                     </div>
                   )}
                 </div>

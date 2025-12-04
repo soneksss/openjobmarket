@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -171,6 +172,13 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
   // User type state
   const [userType, setUserType] = useState<string | null>(null)
+
+  // Mobile bottom sheet state - 'collapsed' shows handle only, 'half' shows 40%, 'expanded' shows 85%
+  const [bottomSheetPosition, setBottomSheetPosition] = useState<'collapsed' | 'half' | 'expanded'>('half')
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStartY, setDragStartY] = useState(0)
+  const [dragStartHeight, setDragStartHeight] = useState(0)
+  const bottomSheetRef = useRef<HTMLDivElement>(null)
 
   // Refs for scrolling to selected jobs
   const jobCardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
@@ -1410,13 +1418,13 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
           {/* Top Search Bar */}
           <div className="sticky top-0 z-20 bg-white shadow-lg border-b">
             <div className="container mx-auto px-4 py-4">
-              <div className="flex items-center gap-3">
+              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3">
                 <Input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                   placeholder="e.g. Software Engineer, Marketing Manager"
-                  className="h-12 flex-1 bg-white/95 shadow-lg border-2 font-medium text-base"
+                  className="h-10 md:h-12 flex-1 bg-white/95 shadow-lg border-2 font-medium text-sm md:text-base"
                 />
                 <div className="flex-1 flex gap-2">
                   <div className="flex-1">
@@ -1426,47 +1434,49 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                       onLocationSelect={handleLocationSelect}
                       placeholder="e.g. London, New York"
                       error=""
-                      className="h-12 bg-white/95 shadow-lg border-2 text-base"
+                      className="h-10 md:h-12 bg-white/95 shadow-lg border-2 text-sm md:text-base"
                     />
                   </div>
                   <Button
                     onClick={handleMapPickerClick}
-                    className="h-12 px-3 bg-blue-500 hover:bg-blue-600 shadow-lg"
+                    className="h-10 md:h-12 px-2 md:px-3 bg-blue-500 hover:bg-blue-600 shadow-lg"
                     title="Pick location on map"
                   >
-                    <Map className="h-5 w-5" />
+                    <Map className="h-4 w-4 md:h-5 md:w-5" />
                   </Button>
                 </div>
-                <Button
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  variant="outline"
-                  className="h-12 px-4 bg-white shadow-lg"
-                >
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filters
-                </Button>
-                <Button
-                  onClick={handleSearch}
-                  className={`h-12 px-6 text-white shadow-lg font-semibold ${
-                    basePath === '/tasks'
-                      ? 'bg-purple-500 hover:bg-purple-600'
-                      : 'bg-emerald-500 hover:bg-emerald-600'
-                  }`}
-                >
-                  <Search className="mr-2 h-5 w-5" />
-                  Search
-                </Button>
-                <Button
-                  onClick={() => {
-                    setIsFullScreenMode(false)
-                    router.push(basePath)
-                  }}
-                  variant="outline"
-                  className="h-12 px-3 bg-white shadow-lg"
-                  title="Exit full-screen"
-                >
-                  <X className="h-5 w-5" />
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    variant="outline"
+                    className="h-10 md:h-12 px-3 md:px-4 bg-white shadow-lg flex-1 md:flex-none"
+                  >
+                    <Filter className="h-4 w-4 md:mr-2" />
+                    <span className="hidden md:inline">Filters</span>
+                  </Button>
+                  <Button
+                    onClick={handleSearch}
+                    className={`h-10 md:h-12 px-4 md:px-6 text-white shadow-lg font-semibold flex-1 md:flex-none ${
+                      basePath === '/tasks'
+                        ? 'bg-purple-500 hover:bg-purple-600'
+                        : 'bg-emerald-500 hover:bg-emerald-600'
+                    }`}
+                  >
+                    <Search className="mr-2 h-4 w-4 md:h-5 md:w-5" />
+                    <span className="hidden md:inline">Search</span>
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setIsFullScreenMode(false)
+                      router.push(basePath)
+                    }}
+                    variant="outline"
+                    className="h-10 md:h-12 px-2 md:px-3 bg-white shadow-lg"
+                    title="Exit full-screen"
+                  >
+                    <X className="h-4 w-4 md:h-5 md:w-5" />
+                  </Button>
+                </div>
               </div>
 
               {/* Search Error Message */}
@@ -1599,10 +1609,12 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
             </div>
           </div>
 
-          {/* Main Content: Map + Sidebar with Resizable Panels */}
-          <PanelGroup direction="horizontal" className="flex-1">
+          {/* Main Content: Map + Sidebar - Desktop: Resizable Panels, Mobile: Stacked */}
+
+          {/* Desktop Layout: Resizable Panels (visible on md and up) */}
+          <PanelGroup direction="horizontal" className="hidden md:flex flex-1">
             {/* Map Panel */}
-            <Panel defaultSize={60} minSize={30} className={activeView === "list" ? "hidden md:block" : ""}>
+            <Panel defaultSize={60} minSize={30}>
               <div className="h-full relative">
                 <JobMap
                   key={mapKey}
@@ -1641,30 +1653,14 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                     </div>
                   )}
                 </div>
-
-                {/* Mobile View Toggle (Bottom Center) */}
-                <div className="md:hidden absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-                  <Tabs value={activeView} onValueChange={(v) => setActiveView(v as "list" | "map")} className="w-auto">
-                    <TabsList className="bg-white shadow-lg border-2">
-                      <TabsTrigger value="map" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-                        <Map className="h-4 w-4 mr-2" />
-                        Map
-                      </TabsTrigger>
-                      <TabsTrigger value="list" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-                        <List className="h-4 w-4 mr-2" />
-                        List
-                      </TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                </div>
               </div>
             </Panel>
 
-            {/* Resize Handle - Hidden on mobile */}
-            <PanelResizeHandle className="hidden md:block w-2 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize" />
+            {/* Resize Handle */}
+            <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize" />
 
             {/* Right Sidebar - Job List Panel */}
-            <Panel defaultSize={40} minSize={25} className={`bg-white ${activeView === "map" ? "hidden md:block" : ""}`}>
+            <Panel defaultSize={40} minSize={25} className="bg-white">
               <div className="h-full bg-white border-l shadow-xl flex flex-col">
               <div className="p-4 border-b bg-gray-50">
                 <h3 className="font-semibold text-lg">
@@ -1910,24 +1906,397 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                 )}
               </div>
 
-              {/* Mobile View Toggle (Bottom) - Also in sidebar for convenience */}
-              <div className="md:hidden p-3 border-t bg-gray-50">
-                <Tabs value={activeView} onValueChange={(v) => setActiveView(v as "list" | "map")} className="w-full">
-                  <TabsList className="w-full grid grid-cols-2">
-                    <TabsTrigger value="map" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-                      <Map className="h-4 w-4 mr-2" />
-                      Map
-                    </TabsTrigger>
-                    <TabsTrigger value="list" className="data-[state=active]:bg-blue-500 data-[state=active]:text-white">
-                      <List className="h-4 w-4 mr-2" />
-                      List
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
               </div>
             </Panel>
           </PanelGroup>
+
+          {/* Full-screen Map with Bottom Sheet (like Google Maps/Idealista/Rightmove) - MOBILE ONLY */}
+          <div className="flex-1 relative md:hidden">
+            {/* Full Screen Map */}
+            <div className="absolute inset-0">
+              <JobMap
+                key={mapKey}
+                jobs={jobs}
+                center={mapCenter}
+                zoom={mapZoom}
+                height="100%"
+                showRadius={!!selectedLocation}
+                radiusCenter={selectedLocation ? [selectedLocation.lat, selectedLocation.lon] : undefined}
+                radiusKm={parseInt(radius) * 1.60934}
+                selectedJobId={selectedJobId}
+                onJobSelect={(job) => {
+                  setSelectedJobId(job?.id || null)
+                  // Expand bottom sheet when job is selected from map
+                  if (job && bottomSheetPosition === 'collapsed') {
+                    setBottomSheetPosition('half')
+                  }
+                }}
+                onProfileSelect={(profile) => {
+                  setSelectedProfile(profile)
+                  setBottomSheetPosition('expanded')
+                }}
+              />
+
+              {/* Results Counter - Top Left */}
+              <div className="absolute top-2 left-2 z-10">
+                <div className="bg-white rounded-lg shadow-lg px-3 py-2 border">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-blue-600" />
+                    <span className="font-semibold text-sm">
+                      {jobs.length} Job{jobs.length !== 1 ? "s" : ""}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Warning Message for "Any" Search Limit */}
+              {warningMessage && (
+                <div className="absolute top-14 left-2 right-2 z-10">
+                  <div className="bg-amber-500 text-white rounded-lg shadow-lg p-2 border border-amber-600">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <p className="text-xs font-medium">{warningMessage}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom Sheet */}
+            <div
+              ref={bottomSheetRef}
+              className={`absolute left-0 right-0 bottom-0 bg-white rounded-t-3xl shadow-2xl z-20 flex flex-col transition-all duration-300 ease-out ${
+                isDragging ? 'transition-none' : ''
+              }`}
+              style={{
+                height: bottomSheetPosition === 'collapsed' ? '80px'
+                      : bottomSheetPosition === 'half' ? '45%'
+                      : '85%',
+                maxHeight: 'calc(100% - 60px)'
+              }}
+            >
+              {/* Drag Handle */}
+              <div
+                className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
+                onTouchStart={(e) => {
+                  setIsDragging(true)
+                  setDragStartY(e.touches[0].clientY)
+                  const rect = bottomSheetRef.current?.getBoundingClientRect()
+                  setDragStartHeight(rect?.height || 0)
+                }}
+                onTouchMove={(e) => {
+                  if (!isDragging) return
+                  const deltaY = dragStartY - e.touches[0].clientY
+                  const newHeight = dragStartHeight + deltaY
+                  const windowHeight = window.innerHeight
+                  const percentage = (newHeight / windowHeight) * 100
+
+                  // Snap to positions based on current drag
+                  if (percentage < 15) {
+                    setBottomSheetPosition('collapsed')
+                  } else if (percentage < 60) {
+                    setBottomSheetPosition('half')
+                  } else {
+                    setBottomSheetPosition('expanded')
+                  }
+                }}
+                onTouchEnd={() => {
+                  setIsDragging(false)
+                }}
+                onClick={() => {
+                  // Cycle through positions on tap
+                  if (bottomSheetPosition === 'collapsed') {
+                    setBottomSheetPosition('half')
+                  } else if (bottomSheetPosition === 'half') {
+                    setBottomSheetPosition('expanded')
+                  } else {
+                    setBottomSheetPosition('collapsed')
+                  }
+                }}
+              >
+                {/* Handle Bar */}
+                <div className="flex justify-center pt-3 pb-2">
+                  <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
+                </div>
+
+                {/* Header */}
+                <div className="px-4 pb-3 border-b flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-base text-gray-900">
+                      {selectedProfile ? "Job Details" : `${jobs.length} Job${jobs.length !== 1 ? "s" : ""}`}
+                    </h3>
+                    {!selectedProfile && bottomSheetPosition !== 'collapsed' && (
+                      <p className="text-xs text-gray-500">Swipe up for full list</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {bottomSheetPosition !== 'collapsed' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setBottomSheetPosition('collapsed')
+                        }}
+                      >
+                        <ChevronDown className="h-5 w-5" />
+                      </Button>
+                    )}
+                    {bottomSheetPosition === 'collapsed' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setBottomSheetPosition('half')
+                        }}
+                      >
+                        <ChevronUp className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className={`flex-1 overflow-y-auto ${bottomSheetPosition === 'collapsed' ? 'hidden' : ''}`}>
+                {selectedProfile ? (
+                  /* Job Details */
+                  <div className="p-4">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedProfile(null)}
+                      className="mb-3"
+                    >
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Back to List
+                    </Button>
+                    <div className="space-y-4">
+                      <div>
+                        <h2 className="text-xl font-bold mb-2">{selectedProfile.title}</h2>
+                        <div className="flex items-center gap-2 text-gray-600 mb-2">
+                          <Building className="h-4 w-4" />
+                          <span>{selectedProfile.company_profiles?.company_name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-gray-600 mb-2">
+                          <MapPin className="h-4 w-4" />
+                          <span>{selectedProfile.location}</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge>{selectedProfile.job_type}</Badge>
+                      </div>
+                      {formatSalary(selectedProfile.salary_min, selectedProfile.salary_max) && (
+                        <div className="flex items-center gap-2 text-green-600 font-semibold">
+                          <DollarSign className="h-4 w-4" />
+                          {formatSalary(selectedProfile.salary_min, selectedProfile.salary_max)}
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-semibold mb-2">Description</h3>
+                        <p className="text-sm text-gray-600 whitespace-pre-line">
+                          {selectedProfile.description}
+                        </p>
+                      </div>
+                      <Button asChild className="w-full">
+                        <Link href={`/jobs/${selectedProfile.id}`}>View Full Details</Link>
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Job List */
+                  <div>
+                    {jobs.map((job) => {
+                      const isSelected = selectedJobId === job.id
+                      return (
+                        <div
+                          key={job.id}
+                          ref={(el) => { jobCardRefs.current[job.id] = el }}
+                          className={`p-4 border-b cursor-pointer transition-all ${
+                            isSelected
+                              ? "bg-blue-50 border-l-4 border-l-blue-500 shadow-md"
+                              : "hover:bg-gray-50 active:bg-gray-100"
+                          }`}
+                          onClick={() => {
+                            // Toggle selection when clicking job card
+                            setSelectedJobId(isSelected ? null : job.id)
+                          }}
+                        >
+                          <div className="flex items-center gap-3 mb-2">
+                            {(() => {
+                              const logoUrl = job.poster_logo_url || job.company_profiles?.logo_url
+                              const posterName =
+                                (job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
+                                job.company_profiles?.company_name ||
+                                "Anonymous"
+
+                              if (logoUrl) {
+                                return (
+                                  <div className="h-10 w-10 flex-shrink-0 relative rounded-full overflow-hidden bg-gray-100">
+                                    <Image
+                                      src={logoUrl}
+                                      alt={posterName}
+                                      fill
+                                      className="object-cover"
+                                    />
+                                  </div>
+                                )
+                              } else {
+                                return (
+                                  <Avatar className="h-10 w-10 flex-shrink-0">
+                                    <AvatarFallback className="bg-blue-50 text-blue-600 font-semibold text-xs">
+                                      {posterName.substring(0, 2).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                )
+                              }
+                            })()}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-semibold text-base mb-0 truncate">{job.title}</h3>
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm text-gray-600 truncate">
+                                  {(job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
+                                    job.company_profiles?.company_name ||
+                                    "Anonymous"}
+                                </p>
+                                {job.company_rating && (
+                                  <StarRating
+                                    rating={job.company_rating.average_rating}
+                                    totalReviews={job.company_rating.total_reviews}
+                                    size="sm"
+                                    showCount={true}
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 mb-2 flex-wrap">
+                            <Badge variant="outline" className="text-xs">{job.job_type}</Badge>
+                            <Badge variant="outline" className="text-xs">{job.work_location}</Badge>
+                          </div>
+                          {formatSalary(job.salary_min, job.salary_max) && (
+                            <div className="text-sm font-semibold text-green-600 mb-2">
+                              {formatSalary(job.salary_min, job.salary_max)}
+                            </div>
+                          )}
+
+                          {/* Short Description - Always visible */}
+                          <div className="mb-2">
+                            <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">
+                              {job.short_description || job.description}
+                            </p>
+                          </div>
+
+                          {/* Extended details - only show when selected */}
+                          {isSelected && (
+                            <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+                              {/* Location/Address */}
+                              <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{job.full_address || job.location}</span>
+                              </div>
+
+                              {/* Job Description */}
+                              <div>
+                                <h4 className="font-semibold text-sm text-gray-900 mb-1">Description</h4>
+                                <p className="text-sm text-gray-600 leading-relaxed line-clamp-4">
+                                  {job.description}
+                                </p>
+                              </div>
+
+                              {/* Skills Required */}
+                              {job.skills_required && job.skills_required.length > 0 && (
+                                <div>
+                                  <h4 className="font-semibold text-sm text-gray-900 mb-1 flex items-center gap-1">
+                                    <Award className="h-3 w-3" />
+                                    Skills Required
+                                  </h4>
+                                  <div className="flex flex-wrap gap-1">
+                                    {job.skills_required.map((skill: string, index: number) => (
+                                      <Badge key={index} variant="outline" className="text-xs">
+                                        {skill}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Company Details - Only show if company_profiles exists */}
+                              {job.company_profiles && job.company_profiles.industry && (
+                                <div>
+                                  <h4 className="font-semibold text-sm text-gray-900 mb-1 flex items-center gap-1">
+                                    <Building className="h-3 w-3" />
+                                    Company
+                                  </h4>
+                                  <p className="text-sm text-gray-600">
+                                    <span className="font-medium">Industry:</span> {job.company_profiles.industry}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Application Stats */}
+                              <div className="flex items-center gap-4 text-xs text-gray-500">
+                                <span className="flex items-center gap-1">
+                                  <Users className="h-3 w-3" />
+                                  {job.applications_count} applicant{job.applications_count !== 1 ? "s" : ""}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  Posted {formatDate(job.created_at)}
+                                </span>
+                              </div>
+
+                              {/* Action buttons */}
+                              <div className="flex gap-2">
+                                {userType === 'company' ? (
+                                  // For companies: Show Apply and View full details buttons
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      asChild
+                                      className="flex-1 bg-blue-600 hover:bg-blue-700"
+                                    >
+                                      <Link href={`${buildJobUrl(job.id)}#apply`}>
+                                        Apply
+                                      </Link>
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      asChild
+                                      variant="outline"
+                                      className="flex-1"
+                                    >
+                                      <Link href={buildJobUrl(job.id)}>
+                                        View full details
+                                      </Link>
+                                    </Button>
+                                  </>
+                                ) : (
+                                  // For professionals and others: Show single combined button
+                                  <Button
+                                    size="sm"
+                                    asChild
+                                    className="flex-1"
+                                  >
+                                    <Link href={buildJobUrl(job.id)}>
+                                      View Full Details & Apply
+                                    </Link>
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

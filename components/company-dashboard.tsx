@@ -545,8 +545,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
-        <div className="grid lg:grid-cols-4 gap-4 sm:gap-8">
+      <div className="container mx-auto px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4">
+        <div className="grid lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
           {/* Company Profile Section */}
           <div className="lg:col-span-1 space-y-3 sm:space-y-6">
             <Card>
@@ -556,7 +556,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   size="sm"
                   variant="outline"
                   asChild
-                  className="absolute top-2 right-2 h-8 w-8 p-0 sm:h-9 sm:w-9 bg-transparent z-10"
+                  className="absolute top-1 right-1 h-6 w-6 p-0 sm:h-9 sm:w-9 bg-transparent z-10"
                 >
                   <Link href="/company/profile/edit">
                     <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -564,14 +564,17 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                 </Button>
 
                 {/* Logo - Top Left */}
-                <div className="flex items-start space-x-3 mb-2">
+                <div className="flex items-start space-x-2 mb-1 sm:mb-2">
                   <div className="relative flex-shrink-0">
-                    <div className="h-12 w-12 sm:h-14 sm:w-14 bg-muted rounded-full overflow-hidden border flex items-center justify-center">
+                    <div className="h-10 w-10 sm:h-14 sm:w-14 bg-muted rounded-full overflow-hidden border flex items-center justify-center">
                       {profile.logo_url ? (
-                        <img
+                        <Image
                           src={profile.logo_url}
                           alt={`${profile.company_name} logo`}
+                          width={56}
+                          height={56}
                           className="h-full w-full object-contain"
+                          unoptimized
                         />
                       ) : (
                         <div className="text-sm sm:text-lg font-medium text-muted-foreground">
@@ -613,37 +616,37 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     </div>
 
                     {/* Company Name */}
-                    <h2 className="text-base sm:text-lg font-semibold text-foreground break-words mb-1 leading-tight">
+                    <h2 className="text-sm sm:text-lg font-semibold text-foreground break-words mb-0.5 sm:mb-1 leading-tight">
                       {profile.company_name}
                     </h2>
 
                     {/* Industry */}
-                    <p className="text-xs sm:text-sm text-muted-foreground break-words">{profile.industry}</p>
+                    <p className="text-[10px] sm:text-sm text-muted-foreground break-words">{profile.industry}</p>
                   </div>
                 </div>
 
                 {/* Toggles Section - Moved Below */}
-                <div className="space-y-2 pt-2 border-t">
+                <div className="space-y-1 sm:space-y-2 pt-1 sm:pt-2 border-t">
                   {/* Visibility Toggle */}
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
                     {profileVisible ? (
-                      <Eye className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
                     ) : (
-                      <EyeOff className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <EyeOff className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                     )}
                     <Switch
                       checked={profileVisible}
                       onCheckedChange={handleVisibilityToggle}
                       disabled={updatingVisibility}
-                      className="scale-90 data-[state=unchecked]:bg-muted-foreground/20"
+                      className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
                     />
-                    <p className="text-xs sm:text-sm text-muted-foreground flex-1">
-                      {profileVisible ? "Visible to all users" : "Hidden from all users"}
+                    <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
+                      {profileVisible ? "Visible" : "Hidden"}
                     </p>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
-                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
                           title="Learn more"
                         >
                           <Info className="h-3.5 w-3.5" />
@@ -661,25 +664,25 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </div>
 
                   {/* Available Toggle */}
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
                     {openForBusiness ? (
-                      <Store className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <Store className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
                     ) : (
-                      <Store className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <Store className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                     )}
                     <Switch
                       checked={openForBusiness}
                       onCheckedChange={handleBusinessStatusToggle}
                       disabled={updatingBusinessStatus}
-                      className="scale-90 data-[state=unchecked]:bg-muted-foreground/20"
+                      className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
                     />
-                    <p className="text-xs sm:text-sm text-muted-foreground flex-1">
+                    <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
                       {openForBusiness ? "Available" : "Not available"}
                     </p>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
-                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
                           title="Learn more"
                         >
                           <Info className="h-3.5 w-3.5" />
@@ -697,25 +700,25 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </div>
 
                   {/* Hiring Toggle */}
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
                     {hiring ? (
-                      <UserCheck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                      <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600 flex-shrink-0" />
                     ) : (
-                      <UserCheck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
                     )}
                     <Switch
                       checked={hiring}
                       onCheckedChange={handleHiringStatusToggle}
                       disabled={updatingHiringStatus}
-                      className="scale-90 data-[state=unchecked]:bg-muted-foreground/20"
+                      className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
                     />
-                    <p className="text-xs sm:text-sm text-muted-foreground flex-1">
+                    <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
                       {hiring ? "Hiring" : "Not hiring"}
                     </p>
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
-                          className="text-muted-foreground hover:text-foreground transition-colors"
+                          className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
                           title="Learn more"
                         >
                           <Info className="h-3.5 w-3.5" />
@@ -733,24 +736,24 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-1 p-3 sm:p-6 pt-1">
+              <CardContent className="space-y-0.5 sm:space-y-1 p-2 sm:p-6 pt-1">
                 {profile.location && (
-                  <div className="flex items-center text-xs sm:text-sm text-muted-foreground">
-                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />
+                  <div className="flex items-center text-[10px] sm:text-sm text-muted-foreground">
+                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
                     <span className="truncate">{profile.location}</span>
                   </div>
                 )}
 
                 {profile.description && (
-                  <p className="text-xs sm:text-sm text-foreground line-clamp-3">{profile.description}</p>
+                  <p className="text-[10px] sm:text-sm text-foreground line-clamp-2 sm:line-clamp-3 hidden sm:block">{profile.description}</p>
                 )}
 
-                <div className="space-y-1 sm:space-y-2">
-                  <h4 className="font-medium text-xs sm:text-sm text-foreground flex items-center">
-                    <Building2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                    Services
-                  </h4>
-                  {profile.services && profile.services.length > 0 ? (
+                {profile.services && profile.services.length > 0 && (
+                  <div className="space-y-0.5 sm:space-y-1 hidden sm:block">
+                    <h4 className="font-medium text-xs sm:text-sm text-foreground flex items-center">
+                      <Building2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
+                      Services
+                    </h4>
                     <div className="flex flex-wrap gap-1">
                       {profile.services.slice(0, 3).map((service, idx) => (
                         <Badge key={idx} variant="secondary" className="text-xs">
@@ -761,18 +764,18 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                         <span className="text-xs text-muted-foreground">+{profile.services.length - 3} more</span>
                       )}
                     </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">Not specified</p>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                <LocationPicker
-                  latitude={latitude || undefined}
-                  longitude={longitude || undefined}
-                  onLocationSelect={handleLocationSelect}
-                  onLocationClear={handleLocationClear}
-                  className="w-full"
-                />
+                <div className="hidden sm:block">
+                  <LocationPicker
+                    latitude={latitude || undefined}
+                    longitude={longitude || undefined}
+                    onLocationSelect={handleLocationSelect}
+                    onLocationClear={handleLocationClear}
+                    className="w-full"
+                  />
+                </div>
 
               </CardContent>
             </Card>
@@ -818,54 +821,54 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Quick Actions */}
             <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-3">
-                <Button asChild className="h-auto p-2 flex-col bg-green-500 hover:bg-green-600 text-white">
+              <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-3">
+                <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-green-500 hover:bg-green-600 text-white">
                   <Link href="/professionals">
-                    <Search className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
-                    <span className="font-semibold text-xs">Find Talent</span>
+                    <Search className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 mb-0.5" />
+                    <span className="font-semibold text-[10px] sm:text-xs leading-tight">Find Talent</span>
                     <span className="text-xs opacity-90 hidden md:block">Search professionals</span>
                   </Link>
                 </Button>
-                <Button asChild className="h-auto p-2 flex-col bg-orange-500 hover:bg-orange-600 text-white">
+                <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-orange-500 hover:bg-orange-600 text-white">
                   <Link href="/contractors">
-                    <Users className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
-                    <span className="font-semibold text-xs">Find Tradespeople</span>
+                    <Users className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 mb-0.5" />
+                    <span className="font-semibold text-[10px] sm:text-xs leading-tight">Trades</span>
                     <span className="text-xs opacity-90 hidden md:block">Search contractors</span>
                   </Link>
                 </Button>
                 <Button
                   onClick={handleSearchJobs}
                   disabled={loadingJobs}
-                  className="h-auto p-2 flex-col bg-purple-500 hover:bg-purple-600 text-white"
+                  className="h-auto p-1 sm:p-2 flex-col bg-purple-500 hover:bg-purple-600 text-white"
                 >
-                  <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
-                  <span className="font-semibold text-xs">
-                    {loadingJobs ? "Loading..." : "Search Jobs"}
+                  <Briefcase className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 mb-0.5" />
+                  <span className="font-semibold text-[10px] sm:text-xs leading-tight">
+                    {loadingJobs ? "..." : "Jobs"}
                   </span>
                   <span className="text-xs opacity-90 hidden md:block">Find tasks</span>
                 </Button>
-                <Button asChild className="h-auto p-2 flex-col bg-primary hover:bg-primary/90">
+                <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-primary hover:bg-primary/90">
                   <Link href="/jobs/new">
-                    <Plus className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
-                    <span className="font-semibold text-xs">Post New Job</span>
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 mb-0.5" />
+                    <span className="font-semibold text-[10px] sm:text-xs leading-tight">Post Job</span>
                     <span className="text-xs opacity-90 hidden md:block">Create job listing</span>
                   </Link>
                 </Button>
                 <Button
                   variant="outline"
                   asChild
-                  className="h-auto p-2 flex-col bg-transparent border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
+                  className="h-auto p-1 sm:p-2 flex-col bg-transparent border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
                 >
                   <Link href="/dashboard/company/jobs">
-                    <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
-                    <span className="font-semibold text-xs">Manage Jobs</span>
-                    <span className="text-xs opacity-70">({jobs.length})</span>
+                    <Briefcase className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 mb-0.5" />
+                    <span className="font-semibold text-[10px] sm:text-xs leading-tight">Manage</span>
+                    <span className="text-[9px] sm:text-xs opacity-70">({jobs.length})</span>
                   </Link>
                 </Button>
-                <Button variant="outline" asChild className="h-auto p-2 flex-col bg-transparent">
+                <Button variant="outline" asChild className="h-auto p-1 sm:p-2 flex-col bg-transparent">
                   <Link href="/dashboard/company/analytics">
-                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 mb-0.5 sm:mb-1" />
-                    <span className="font-semibold text-xs">Analytics</span>
+                    <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5 mb-0.5" />
+                    <span className="font-semibold text-[10px] sm:text-xs leading-tight">Analytics</span>
                     <span className="text-xs opacity-70 hidden md:block">View insights</span>
                   </Link>
                 </Button>
@@ -987,30 +990,30 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Applications Received */}
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="p-3 sm:p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <CardTitle className="flex items-center text-foreground">
-                      <Users className="h-5 w-5 mr-2" />
+                    <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
+                      <Users className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                       Applications Received
                     </CardTitle>
-                    <CardDescription>Candidates who applied to your posted jobs (last 5)</CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">Candidates who applied to your posted jobs (last 5)</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
+                  <Button variant="outline" size="sm" asChild className="text-xs w-full sm:w-auto">
                     <Link href="/dashboard/company/applications">
-                      <Filter className="h-4 w-4 mr-2" />
+                      <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       View All
                     </Link>
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
                 {receivedApplications.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <p className="text-sm">No applications received yet</p>
+                  <div className="text-center py-3 sm:py-4 text-muted-foreground">
+                    <p className="text-xs sm:text-sm">No applications received yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2 sm:space-y-3 md:space-y-4">
                     {receivedApplications.slice(0, 5).map((application) => {
                       // Determine display values based on applicant type
                       const isCompanyApplicant = application.applicant_type === "company"
@@ -1049,39 +1052,41 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                       return (
                         <div
                           key={application.id}
-                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 md:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-2 sm:gap-3"
                         >
-                          <div className="flex items-center space-x-4">
-                            <Avatar>
+                          <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
                               <AvatarImage
                                 src={displayAvatar}
                                 alt={displayName}
                               />
-                              <AvatarFallback>
+                              <AvatarFallback className="text-xs">
                                 {displayInitials}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <h4 className="font-medium text-foreground">
-                                {displayName}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-1 mb-0.5">
+                                <h4 className="font-medium text-foreground text-xs sm:text-sm truncate">
+                                  {displayName}
+                                </h4>
                                 {isCompanyApplicant && (
-                                  <Badge variant="outline" className="ml-2 text-xs">Company</Badge>
+                                  <Badge variant="outline" className="text-xs">Company</Badge>
                                 )}
-                              </h4>
-                              <p className="text-sm text-muted-foreground">{displayTitle}</p>
-                              <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-1">
-                                <span>Applied for: {application.jobs.title}</span>
-                                <span className="flex items-center">
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate hidden sm:block">{displayTitle}</p>
+                              <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-1 sm:gap-2 text-xs text-muted-foreground mt-1">
+                                <span className="truncate">For: {application.jobs.title}</span>
+                                <span className="hidden sm:flex items-center whitespace-nowrap">
                                   <MapPin className="h-3 w-3 mr-1" />
                                   {displayLocation}
                                 </span>
-                                <span>{formatDate(application.applied_at)}</span>
+                                <span className="hidden sm:inline whitespace-nowrap">{formatDate(application.applied_at)}</span>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge className={getStatusColor(application.status)}>{application.status}</Badge>
-                            <Button size="sm" asChild>
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <Badge className={`${getStatusColor(application.status)} text-xs flex-1 sm:flex-none justify-center`}>{application.status}</Badge>
+                            <Button size="sm" asChild className="flex-1 sm:flex-none text-xs">
                               <Link href={`/applications/${application.id}`}>Review</Link>
                             </Button>
                           </div>
@@ -1100,71 +1105,73 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Your Recent Applications (Submitted) */}
             <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
+              <CardHeader className="p-3 sm:p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
-                    <CardTitle className="flex items-center text-foreground">
-                      <FileText className="h-5 w-5 mr-2" />
+                    <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
+                      <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                       Your Recent Applications
                     </CardTitle>
-                    <CardDescription>Jobs you've applied to (last 5)</CardDescription>
+                    <CardDescription className="text-xs sm:text-sm">Jobs you've applied to (last 5)</CardDescription>
                   </div>
-                  <Button variant="outline" size="sm" asChild>
+                  <Button variant="outline" size="sm" asChild className="text-xs w-full sm:w-auto">
                     <Link href="/dashboard/company/my-applications">
-                      <Filter className="h-4 w-4 mr-2" />
+                      <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       View All
                     </Link>
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
                 {submittedApplications.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <p className="text-sm">No applications submitted yet</p>
+                  <div className="text-center py-3 sm:py-4 text-muted-foreground">
+                    <p className="text-xs sm:text-sm">No applications submitted yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-2 sm:space-y-3 md:space-y-4">
                     {submittedApplications.slice(0, 5).map((application) => {
                       const displayInitials = application.job_poster_name.substring(0, 2).toUpperCase()
 
                       return (
                         <div
                           key={application.id}
-                          className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 md:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-2 sm:gap-3"
                         >
-                          <div className="flex items-center space-x-4">
-                            <Avatar>
+                          <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
                               <AvatarImage
                                 src={application.job_poster_avatar || undefined}
                                 alt={application.job_poster_name}
                               />
-                              <AvatarFallback>
+                              <AvatarFallback className="text-xs">
                                 {displayInitials}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <h4 className="font-medium text-foreground">
-                                {application.jobs.title}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-1 mb-0.5">
+                                <h4 className="font-medium text-foreground text-xs sm:text-sm truncate">
+                                  {application.jobs.title}
+                                </h4>
                                 {application.jobs.is_tradespeople_job && (
-                                  <Badge variant="outline" className="ml-2 text-xs">Task</Badge>
+                                  <Badge variant="outline" className="text-xs">Task</Badge>
                                 )}
-                              </h4>
-                              <p className="text-sm text-muted-foreground">Posted by: {application.job_poster_name}</p>
-                              <div className="flex items-center space-x-4 text-xs text-muted-foreground mt-1">
-                                <span className="flex items-center">
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate">By: {application.job_poster_name}</p>
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-muted-foreground mt-1">
+                                <span className="hidden sm:flex items-center whitespace-nowrap">
                                   <MapPin className="h-3 w-3 mr-1" />
                                   {application.jobs.location}
                                 </span>
                                 <Badge variant="outline" className="text-xs">
                                   {application.jobs.job_type}
                                 </Badge>
-                                <span>{formatDate(application.applied_at)}</span>
+                                <span className="hidden sm:inline whitespace-nowrap">{formatDate(application.applied_at)}</span>
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <Badge className={getStatusColor(application.status)}>{application.status}</Badge>
-                            <Button size="sm" asChild>
+                          <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <Badge className={`${getStatusColor(application.status)} text-xs flex-1 sm:flex-none justify-center`}>{application.status}</Badge>
+                            <Button size="sm" asChild className="flex-1 sm:flex-none text-xs">
                               <Link href={`/jobs/${application.job_id}`}>View Job</Link>
                             </Button>
                           </div>
@@ -1172,7 +1179,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                       )
                     })}
                     {submittedApplications.length > 5 && (
-                      <Button variant="outline" asChild className="w-full bg-transparent">
+                      <Button variant="outline" asChild className="w-full bg-transparent text-xs">
                         <Link href="/dashboard/company/my-applications">View All My Applications</Link>
                       </Button>
                     )}

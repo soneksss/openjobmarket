@@ -40,6 +40,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [locationError, setLocationError] = useState("")
   const [user, setUser] = useState<any>(null)
   const [userType, setUserType] = useState<"professional" | "company" | null>(null)
+  const [selectedSearchType, setSelectedSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders">("vacancies")
 
   // Map picker state
   const [showMapPicker, setShowMapPicker] = useState(false)
@@ -51,6 +52,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [showMapModal, setShowMapModal] = useState(false)
   const [mapResults, setMapResults] = useState<any[]>([])
   const [searchType, setSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
+  const [modalSearchType, setModalSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
   const [mapCenter, setMapCenter] = useState<[number, number]>([51.5074, -0.1278])
 
   // Update search query from external source (e.g., category clicks)
@@ -206,7 +208,6 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
     console.log(`[MAIN-PAGE-SEARCH] Starting search for ${type}`)
     setIsSearching(true)
-    setSearchType(type)
 
     // Always show modal for all users (registered and unregistered)
     try {
@@ -481,6 +482,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       console.log(`[MAIN-PAGE-SEARCH] Setting results: ${results.length}, center:`, center, `searchType: ${type}`)
       setMapResults(results)
       setMapCenter(center)
+      setSearchType(type)
+      setModalSearchType(type)  // Store the type specifically for modal display
       setShowMapModal(true)
       console.log(`[MAIN-PAGE-SEARCH] Modal should now be visible`)
     } catch (error) {
@@ -534,7 +537,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       const searchLat = params.lat ? parseFloat(params.lat) : selectedLocation?.lat
       const searchLng = params.lng ? parseFloat(params.lng) : selectedLocation?.lon
 
-      if (searchType === "traders") {
+      if (modalSearchType === "traders") {
         // Fetch traders: self-employed professionals AND companies who trade
         let professionalResults: any[] = []
         let companyResults: any[] = []
@@ -623,7 +626,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         // Combine both results
         results = [...professionalResults, ...companyResults]
-      } else if (searchType === "talents") {
+      } else if (modalSearchType === "talents") {
         // Fetch all professionals (not just self-employed)
         let query = supabase
           .from("professional_profiles")
@@ -666,7 +669,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               }
             }))
         }
-      } else if (searchType === "vacancies" || searchType === "jobs_tasks") {
+      } else if (modalSearchType === "vacancies" || modalSearchType === "jobs_tasks") {
         // Fetch jobs - exclude expired ones
         // Vacancies = employee positions (is_tradespeople_job = false)
         // Jobs/Tasks = tradespeople work (is_tradespeople_job = true)
@@ -690,7 +693,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             )
           `)
           .eq("is_active", true)
-          .eq("is_tradespeople_job", searchType === "jobs_tasks") // true for jobs/tasks, false for vacancies
+          .eq("is_tradespeople_job", modalSearchType === "jobs_tasks") // true for jobs/tasks, false for vacancies
           .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
 
         if (searchTerm) {
@@ -754,73 +757,120 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
   return (
     <div className="w-full">
-      <div className="bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-2 sm:p-3 md:p-4 shadow-xl border border-white/10">
+      <div className="max-w-2xl mx-auto bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-2 sm:p-3 md:p-4 shadow-xl border border-white/10">
         <h2 className="text-xs sm:text-sm md:text-base font-bold text-white mb-2 sm:mb-2.5 md:mb-3 text-center">
           Search and Compare
         </h2>
 
-        <div className="flex flex-col sm:flex-col lg:flex-row gap-1.5 sm:gap-2 md:gap-3">
-          <div className="flex-1">
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="e.g. Software Engineer, Marketing, or Company name"
-              className="h-7 sm:h-8 md:h-9 text-xs md:text-sm px-2 md:px-3 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md"
-            />
-          </div>
-          <div className="flex-1 flex gap-1.5">
-            <div className="flex-1">
+        {/* Selectable Search Type Buttons */}
+        <div className="grid grid-cols-4 gap-1.5 mb-3">
+          <button
+            onClick={() => setSelectedSearchType("vacancies")}
+            className={`h-8 sm:h-9 text-xs sm:text-sm font-semibold rounded-md md:rounded-lg transition-all duration-200 ${
+              selectedSearchType === "vacancies"
+                ? "bg-blue-500 text-white shadow-lg scale-[1.02]"
+                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            Vacancies
+          </button>
+          <button
+            onClick={() => setSelectedSearchType("jobs_tasks")}
+            className={`h-8 sm:h-9 text-xs sm:text-sm font-semibold rounded-md md:rounded-lg transition-all duration-200 ${
+              selectedSearchType === "jobs_tasks"
+                ? "bg-purple-500 text-white shadow-lg scale-[1.02]"
+                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            Trade Jobs
+          </button>
+          <button
+            onClick={() => setSelectedSearchType("traders")}
+            className={`h-8 sm:h-9 text-xs sm:text-sm font-semibold rounded-md md:rounded-lg transition-all duration-200 ${
+              selectedSearchType === "traders"
+                ? "bg-orange-500 text-white shadow-lg scale-[1.02]"
+                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            Tradespeople
+          </button>
+          <button
+            onClick={() => setSelectedSearchType("talents")}
+            className={`h-8 sm:h-9 text-xs sm:text-sm font-semibold rounded-md md:rounded-lg transition-all duration-200 ${
+              selectedSearchType === "talents"
+                ? "bg-emerald-500 text-white shadow-lg scale-[1.02]"
+                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
+            }`}
+          >
+            Talents
+          </button>
+        </div>
+
+        {/* Search Inputs */}
+        <div className="flex flex-col gap-2">
+          {/* First row: Search input, Location input, Map picker */}
+          <div className="flex gap-2 items-start">
+            {/* Search input */}
+            <div className="flex-1 h-8 sm:h-9 md:h-10">
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={(e) => e.key === "Enter" && handleSearch(selectedSearchType)}
+                placeholder="e.g. Engineer, Marketing, Plumber"
+                className="h-full text-xs md:text-sm px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md w-full"
+              />
+            </div>
+
+            {/* Location input */}
+            <div className="flex-1 h-8 sm:h-9 md:h-10">
               <LocationInput
                 value={location}
                 onChange={setLocation}
                 onLocationSelect={handleLocationSelect}
-                placeholder="e.g. London, New York, or Remote"
+                placeholder="e.g. London, New York"
                 error={locationError}
               />
             </div>
+
+            {/* Map picker button */}
             <Button
               onClick={handleMapPickerClick}
-              className="h-7 sm:h-8 md:h-9 px-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
+              className="h-8 sm:h-9 md:h-10 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
               title="Pick location on map"
               type="button"
             >
-              <Map className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Map className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+            </Button>
+
+            {/* Search button - desktop only */}
+            <Button
+              onClick={() => handleSearch(selectedSearchType)}
+              disabled={isSearching}
+              className={`hidden sm:flex h-8 sm:h-9 md:h-10 px-4 sm:px-6 text-xs sm:text-sm font-bold text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 flex-shrink-0 ${
+                selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
+                selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
+                selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
+                "bg-emerald-600 hover:bg-emerald-700"
+              }`}
+            >
+              <Search className="h-4 w-4 mr-1.5" />
+              {isSearching ? "Searching..." : "Search"}
             </Button>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5 mt-2 sm:mt-2.5">
+          {/* Second row: Search button - mobile only */}
           <Button
-            onClick={() => handleSearch("vacancies")}
+            onClick={() => handleSearch(selectedSearchType)}
             disabled={isSearching}
-            className="h-7 sm:h-8 md:h-9 text-xs sm:text-xs md:text-sm font-bold bg-blue-500 hover:bg-blue-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
+            className={`sm:hidden h-8 text-xs font-bold text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 w-full ${
+              selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
+              selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
+              selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
+              "bg-emerald-600 hover:bg-emerald-700"
+            }`}
           >
-            <Search className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
-            {isSearching ? "Searching..." : "Find Vacancies"}
-          </Button>
-          <Button
-            onClick={() => handleSearch("jobs_tasks")}
-            disabled={isSearching}
-            className="h-7 sm:h-8 md:h-9 text-xs sm:text-xs md:text-sm font-bold bg-purple-500 hover:bg-purple-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
-          >
-            <Hammer className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
-            {isSearching ? "Searching..." : "Find Jobs (Tasks)"}
-          </Button>
-          <Button
-            onClick={() => handleSearch("traders")}
-            disabled={isSearching}
-            className="h-7 sm:h-8 md:h-9 text-xs sm:text-xs md:text-sm font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
-          >
-            <Hammer className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
-            {isSearching ? "Searching..." : "Find Tradespeople"}
-          </Button>
-          <Button
-            onClick={() => handleSearch("talents")}
-            disabled={isSearching}
-            className="h-7 sm:h-8 md:h-9 text-xs sm:text-xs md:text-sm font-bold bg-emerald-500 hover:bg-emerald-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01] disabled:opacity-50 disabled:transform-none"
-          >
-            <Users className="mr-1 sm:mr-1.5 h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
-            {isSearching ? "Searching..." : "Find Talent"}
+            <Search className="h-4 w-4 mr-1.5" />
+            {isSearching ? "Searching..." : "Search"}
           </Button>
         </div>
 
@@ -911,7 +961,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
       {/* Full-Screen Map Modal - Uses Same Component as Professionals Page */}
       {showMapModal && (
-        <div className="fixed inset-0 bg-white z-[9999] overflow-auto">
+        <div className="fixed inset-0 bg-white z-[9999]">
           {/* Use the same ProfessionalsPageContent component */}
           <ProfessionalsPageContent
             data={mapResults}
@@ -922,9 +972,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               location: location,
               lat: selectedLocation?.lat.toString(),
               lng: selectedLocation?.lon.toString(),
-              traders: searchType === "traders" ? "true" : undefined,
-              vacancies: searchType === "vacancies" ? "true" : undefined,
-              jobs_tasks: searchType === "jobs_tasks" ? "true" : undefined,
+              traders: modalSearchType === "traders" ? "true" : undefined,
+              vacancies: modalSearchType === "vacancies" ? "true" : undefined,
+              jobs_tasks: modalSearchType === "jobs_tasks" ? "true" : undefined,
+              talents: modalSearchType === "talents" ? "true" : undefined,
             } as any}
             center={mapCenter}
             isModal={true}
