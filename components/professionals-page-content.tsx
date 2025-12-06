@@ -1792,8 +1792,8 @@ export default function ProfessionalsPageContent({
           <Header user={user} isModal={isModal} onModalClose={onModalClose} />
 
           {/* Top Search Bar (Fixed) - show in both full-screen and modal, but smaller in modal */}
-          {(isFullScreenMode || isModal) && <div className="sticky top-0 z-20 bg-white shadow-lg border-b">
-            <div className={`container mx-auto ${isModal ? 'px-1.5 py-1.5' : 'px-4 py-4'}`}>
+          {(isFullScreenMode || isModal) && <div className="sticky top-0 z-20 bg-white shadow-lg border-b overflow-visible">
+            <div className={`container mx-auto ${isModal ? 'px-1.5 py-1.5' : 'px-4 py-4'} overflow-visible`}>
               {/* Compact Search Bar */}
               <div className={`flex items-center ${isModal ? 'gap-0.5' : 'gap-3'}`}>
                 {/* Search Input */}
@@ -1806,7 +1806,7 @@ export default function ProfessionalsPageContent({
                 />
 
                 {/* Location Input */}
-                <div className="flex-1">
+                <div className="flex-1 relative overflow-visible">
                   <LocationInput
                     value={locationFilter}
                     onChange={setLocationFilter}

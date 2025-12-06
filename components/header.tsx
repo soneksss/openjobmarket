@@ -951,7 +951,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
       {/* Useful Info Modals */}
       {showUsefulInfoModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100015] flex items-center justify-center p-4">
           <div className="relative w-full max-w-4xl max-h-[85vh] overflow-hidden bg-white rounded-lg shadow-2xl">
             {/* Close button */}
             <button
@@ -1129,7 +1129,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
       {/* Help Center & FAQ Modal */}
       {showHelpModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100015] flex items-center justify-center p-4">
           <div className="relative w-full max-w-4xl max-h-[85vh] overflow-hidden bg-white rounded-lg shadow-2xl">
             {/* Close button */}
             <button
@@ -1206,7 +1206,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
       {/* About Modal */}
       {showAboutModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100015] flex items-center justify-center p-4">
           <div className="relative w-full max-w-4xl max-h-[85vh] overflow-hidden bg-white rounded-lg shadow-2xl">
             {/* Close button */}
             <button
@@ -1334,12 +1334,12 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50 z-50 md:hidden"
+            className="fixed inset-0 bg-black/50 z-[100010] md:hidden"
             onClick={() => setMobileMenuOpen(false)}
           />
 
           {/* Menu Panel */}
-          <div className="fixed top-0 left-0 h-full w-72 bg-white z-50 shadow-2xl md:hidden overflow-y-auto">
+          <div className="fixed top-0 left-0 h-full w-72 bg-white z-[100011] shadow-2xl md:hidden overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold">Menu</h2>

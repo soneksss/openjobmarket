@@ -88,20 +88,23 @@ export function LocationInput({
       return
     }
 
+    console.log('[LocationInput] Searching for:', query)
     setIsLoading(true)
     setValidationError(null)
 
     try {
       // Using OpenStreetMap Nominatim API (free, no API key required)
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=gb,us,de,fr&addressdetails=1`,
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=gb,us,de,fr&addressdetails=1`
       )
 
       if (!response.ok) {
+        console.error('[LocationInput] API error:', response.status, response.statusText)
         throw new Error("Failed to fetch location suggestions")
       }
 
       const data: LocationSuggestion[] = await response.json()
+      console.log('[LocationInput] Found results:', data.length, data)
       setSuggestions(data)
 
       if (data.length === 0) {
@@ -118,6 +121,7 @@ export function LocationInput({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value
+    console.log('[LocationInput] Input changed to:', newValue)
     onChange(newValue)
     setShowSuggestions(true)
     setValidationError(null)
@@ -174,7 +178,7 @@ export function LocationInput({
             error || validationError ? "ring-2 ring-red-500" : ""
           } ${className}`}
         />
-        <div className="absolute inset-y-0 right-0 flex items-center pr-3 md:pr-4 pointer-events-none">
+        <div className="absolute inset-y-0 right-0 items-center pr-3 md:pr-4 pointer-events-none hidden md:flex">
           {isLoading ? (
             <div className="animate-spin h-5 w-5 border-2 border-gray-300 border-t-emerald-600 rounded-full" />
           ) : (
@@ -185,7 +189,7 @@ export function LocationInput({
 
       {/* Error message */}
       {(error || validationError) && (
-        <div className="flex items-center mt-2 text-sm text-red-400 bg-red-50 px-3 py-2 rounded-lg">
+        <div className="flex items-center mt-2 text-sm text-red-400 bg-red-50 px-3 py-2 rounded-lg relative z-[100001]">
           <AlertCircle className="h-4 w-4 mr-2" />
           {error || validationError}
         </div>
@@ -193,7 +197,13 @@ export function LocationInput({
 
       {/* Suggestions dropdown */}
       {showSuggestions && suggestions.length > 0 && (
-        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-60 overflow-auto">
+        <div
+          className="absolute z-[100001] w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-60 overflow-auto"
+          style={{
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+            border: '2px solid #10b981'
+          }}
+        >
           {suggestions.map((suggestion) => (
             <button
               key={suggestion.place_id}

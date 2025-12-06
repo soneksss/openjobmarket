@@ -36,6 +36,7 @@ import {
   Globe,
   Star,
   Info,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
@@ -545,26 +546,26 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4">
-        <div className="grid lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
-          {/* Company Profile Section */}
-          <div className="lg:col-span-1 space-y-3 sm:space-y-6">
+      <div className="container mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-4 md:py-6">
+        <div className="flex flex-col lg:grid lg:grid-cols-4 gap-1.5 sm:gap-5 md:gap-6 lg:gap-8">
+          {/* Company Profile Section - Order 1 on mobile */}
+          <div className="lg:col-span-1 space-y-4 sm:space-y-6 order-1">
             <Card>
-              <CardHeader className="p-2 sm:p-4 relative">
-                {/* Edit Button - Top Right Corner */}
+              <CardHeader className="p-3 sm:p-4 relative">
+                {/* Edit Button - Top Right Corner - Moved higher */}
                 <Button
                   size="sm"
                   variant="outline"
                   asChild
-                  className="absolute top-1 right-1 h-6 w-6 p-0 sm:h-9 sm:w-9 bg-transparent z-10"
+                  className="absolute -top-1 right-2 h-8 w-8 p-0 sm:h-9 sm:w-9 bg-white shadow-sm z-20"
                 >
                   <Link href="/company/profile/edit">
-                    <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <Edit className="h-4 w-4 sm:h-4 sm:w-4" />
                   </Link>
                 </Button>
 
-                {/* Logo - Top Left */}
-                <div className="flex items-start space-x-2 mb-1 sm:mb-2">
+                {/* Logo and Company Info */}
+                <div className="flex items-start gap-3 mb-3 sm:mb-2">
                   <div className="relative flex-shrink-0">
                     <div className="h-10 w-10 sm:h-14 sm:w-14 bg-muted rounded-full overflow-hidden border flex items-center justify-center">
                       {profile.logo_url ? (
@@ -599,11 +600,11 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     </div>
                   </div>
 
-                  {/* Company Info */}
-                  <div className="flex-1 min-w-0 pr-8">
+                  {/* Company Info - Center */}
+                  <div className="flex-1 min-w-0">
                     {/* Star Rating */}
                     <div
-                      className="mb-1.5 cursor-pointer hover:opacity-80 transition-opacity inline-block"
+                      className="mb-1 cursor-pointer hover:opacity-80 transition-opacity inline-block"
                       onClick={() => setShowReviewsModal(true)}
                       title="Click to view reviews"
                     >
@@ -616,17 +617,51 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     </div>
 
                     {/* Company Name */}
-                    <h2 className="text-sm sm:text-lg font-semibold text-foreground break-words mb-0.5 sm:mb-1 leading-tight">
+                    <h2 className="text-sm sm:text-lg font-bold text-foreground break-words mb-0.5 leading-tight">
                       {profile.company_name}
                     </h2>
 
                     {/* Industry */}
-                    <p className="text-[10px] sm:text-sm text-muted-foreground break-words">{profile.industry}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground break-words">{profile.industry}</p>
+
+                    {/* Location Icon - Mobile Only */}
+                    <button
+                      onClick={() => setShowLocationPicker(true)}
+                      className="flex lg:hidden items-center gap-1 mt-1.5 text-xs text-blue-600 hover:text-blue-700"
+                    >
+                      <MapPin className="h-3.5 w-3.5" />
+                      <span className="font-medium">Location</span>
+                    </button>
+                  </div>
+
+                  {/* Toggles - Right Side on Mobile */}
+                  <div className="flex lg:hidden flex-col gap-2 items-end">
+                    <Switch
+                      checked={profileVisible}
+                      onCheckedChange={handleVisibilityToggle}
+                      disabled={updatingVisibility}
+                      className="data-[state=checked]:bg-green-600"
+                      title={profileVisible ? "Visible" : "Hidden"}
+                    />
+                    <Switch
+                      checked={openForBusiness}
+                      onCheckedChange={handleBusinessStatusToggle}
+                      disabled={updatingBusinessStatus}
+                      className="data-[state=checked]:bg-blue-600"
+                      title={openForBusiness ? "Available" : "Not available"}
+                    />
+                    <Switch
+                      checked={hiring}
+                      onCheckedChange={handleHiringStatusToggle}
+                      disabled={updatingHiringStatus}
+                      className="data-[state=checked]:bg-emerald-600"
+                      title={hiring ? "Hiring" : "Not hiring"}
+                    />
                   </div>
                 </div>
 
-                {/* Toggles Section - Moved Below */}
-                <div className="space-y-1 sm:space-y-2 pt-1 sm:pt-2 border-t">
+                {/* Toggles Section - Desktop Only */}
+                <div className="hidden lg:block space-y-1 sm:space-y-2 pt-1 sm:pt-2 border-t">
                   {/* Visibility Toggle */}
                   <div className="flex items-center space-x-1.5 sm:space-x-2">
                     {profileVisible ? (
@@ -736,7 +771,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-0.5 sm:space-y-1 p-2 sm:p-6 pt-1">
+              <CardContent className="hidden lg:block space-y-0.5 sm:space-y-1 p-2 sm:p-6 pt-1">
                 {profile.location && (
                   <div className="flex items-center text-[10px] sm:text-sm text-muted-foreground">
                     <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
@@ -782,10 +817,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
           </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-3 space-y-4 sm:space-y-6">
-            {/* Stats Cards - Compact size */}
-            <div className="grid grid-cols-3 gap-2">
+          {/* Main Content - Reordered for mobile */}
+          <div className="lg:col-span-3 flex flex-col space-y-1.5 sm:space-y-6 order-2">
+            {/* Upper Section: Stats + Main Actions - Order 2 on mobile */}
+            <div className="order-2 lg:order-none space-y-1.5 sm:space-y-3">
+            {/* Stats Cards - Hidden on mobile, visible on desktop */}
+            <div className="hidden lg:grid grid-cols-3 gap-2">
               <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-2 h-16">
                 <div className="flex items-center justify-between h-full">
                   <div>
@@ -879,11 +916,29 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                 <AdminButton />
               </div>
             </div>
+            </div>
 
+            {/* Bottom Section: Cards - Order 3 on mobile */}
+            <div className="order-3 lg:order-none space-y-1.5 sm:space-y-4">
             {/* Recent Jobs */}
-            <Card>
-              <CardHeader className="p-3 sm:p-4 md:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <Card className="overflow-hidden">
+              <CardHeader className="px-2 py-1.5 sm:p-4 md:p-6">
+                {/* Mobile: Compact single line */}
+                <div className="flex lg:hidden items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Briefcase className="h-4 w-4 flex-shrink-0" />
+                    <CardTitle className="text-base font-semibold truncate">Your Posted Jobs</CardTitle>
+                    <Badge variant="secondary" className="text-sm">{jobs.length}</Badge>
+                  </div>
+                  <Button variant="outline" size="sm" asChild className="h-8 px-2">
+                    <Link href="/dashboard/company/jobs">
+                      <Eye className="h-4 w-4 mr-1" />
+                      <span className="text-sm">View</span>
+                    </Link>
+                  </Button>
+                </div>
+                {/* Desktop: Original layout */}
+                <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
                       <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -899,42 +954,42 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+              <CardContent className="p-0 sm:p-4 md:p-6">
                 {jobs.length === 0 ? (
-                  <div className="text-center py-3 sm:py-4 text-muted-foreground">
+                  <div className="hidden lg:block text-center py-3 sm:py-4 text-muted-foreground">
                     <p className="text-xs sm:text-sm">No jobs posted yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 sm:space-y-4">
-                    {jobs.map((job) => (
+                  <div className="space-y-0 sm:space-y-4">
+                    {jobs.map((job, index) => (
                       <div
                         key={job.id}
-                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3 sm:gap-4"
+                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between px-2 py-1.5 sm:p-4 border-0 sm:border rounded-none sm:rounded-lg hover:bg-muted/50 transition-colors gap-1.5 sm:gap-4 ${index > 0 ? 'border-t' : ''}`}
                       >
                         <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <h4 className="font-medium text-foreground text-sm sm:text-base truncate">{job.title}</h4>
+                          <div className="flex flex-wrap items-center gap-2 mb-0.5 sm:mb-1">
+                            <h4 className="font-medium text-foreground text-base sm:text-base truncate">{job.title}</h4>
                             {getJobStatusBadge(job)}
                           </div>
-                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs sm:text-sm text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-sm sm:text-sm text-muted-foreground">
                             <span className="flex items-center whitespace-nowrap">
-                              <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                              <MapPin className="h-4 w-4 mr-1 flex-shrink-0" />
                               <span className="truncate">{job.location}</span>
                             </span>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-sm">
                               {job.job_type}
                             </Badge>
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-sm">
                               {job.work_location}
                             </Badge>
                           </div>
-                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-muted-foreground mt-1">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-sm text-muted-foreground mt-0.5 sm:mt-1">
                             <span className="flex items-center whitespace-nowrap">
-                              <Users className="h-3 w-3 mr-1" />
+                              <Users className="h-4 w-4 mr-1" />
                               {job.applications_count} apps
                             </span>
                             <span className="flex items-center whitespace-nowrap">
-                              <Eye className="h-3 w-3 mr-1" />
+                              <Eye className="h-4 w-4 mr-1" />
                               {job.views_count} views
                             </span>
                             <span className="flex items-center whitespace-nowrap hidden sm:flex">
@@ -955,7 +1010,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
                           {(job.expiration_status === "expired" || job.expiration_status === "expiring_soon") && (
                             <Button
                               size="sm"
@@ -989,9 +1044,24 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             </Card>
 
             {/* Applications Received */}
-            <Card>
-              <CardHeader className="p-3 sm:p-4 md:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <Card className="overflow-hidden">
+              <CardHeader className="px-2 py-1.5 sm:p-4 md:p-6">
+                {/* Mobile: Compact single line */}
+                <div className="flex lg:hidden items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Users className="h-4 w-4 flex-shrink-0" />
+                    <CardTitle className="text-base font-semibold truncate">Applications</CardTitle>
+                    <Badge variant="secondary" className="text-sm">{receivedApplications.length}</Badge>
+                  </div>
+                  <Button variant="outline" size="sm" asChild className="h-8 px-2">
+                    <Link href="/dashboard/company/applications">
+                      <Eye className="h-4 w-4 mr-1" />
+                      <span className="text-sm">View</span>
+                    </Link>
+                  </Button>
+                </div>
+                {/* Desktop: Original layout */}
+                <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
                       <Users className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -1007,14 +1077,14 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+              <CardContent className="p-0 sm:p-4 md:p-6">
                 {receivedApplications.length === 0 ? (
-                  <div className="text-center py-3 sm:py-4 text-muted-foreground">
+                  <div className="hidden lg:block text-center py-3 sm:py-4 text-muted-foreground">
                     <p className="text-xs sm:text-sm">No applications received yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-2 sm:space-y-3 md:space-y-4">
-                    {receivedApplications.slice(0, 5).map((application) => {
+                  <div className="space-y-0 sm:space-y-3 md:space-y-4">
+                    {receivedApplications.slice(0, 5).map((application, index) => {
                       // Determine display values based on applicant type
                       const isCompanyApplicant = application.applicant_type === "company"
                       const isProfessionalApplicant = application.applicant_type === "professional"
@@ -1052,7 +1122,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                       return (
                         <div
                           key={application.id}
-                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 md:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-2 sm:gap-3"
+                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between px-2 py-1.5 sm:p-3 md:p-4 border-0 sm:border rounded-none sm:rounded-lg hover:bg-muted/50 transition-colors gap-1.5 sm:gap-3 ${index > 0 ? 'border-t' : ''}`}
                         >
                           <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
                             <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
@@ -1104,9 +1174,24 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             </Card>
 
             {/* Your Recent Applications (Submitted) */}
-            <Card>
-              <CardHeader className="p-3 sm:p-4 md:p-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <Card className="overflow-hidden">
+              <CardHeader className="px-2 py-1.5 sm:p-4 md:p-6">
+                {/* Mobile: Compact single line */}
+                <div className="flex lg:hidden items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <FileText className="h-4 w-4 flex-shrink-0" />
+                    <CardTitle className="text-base font-semibold truncate">My Applications</CardTitle>
+                    <Badge variant="secondary" className="text-sm">{submittedApplications.length}</Badge>
+                  </div>
+                  <Button variant="outline" size="sm" asChild className="h-8 px-2">
+                    <Link href="/dashboard/company/my-applications">
+                      <Eye className="h-4 w-4 mr-1" />
+                      <span className="text-sm">View</span>
+                    </Link>
+                  </Button>
+                </div>
+                {/* Desktop: Original layout */}
+                <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div>
                     <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
                       <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
@@ -1122,20 +1207,20 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-3 sm:p-4 md:p-6 pt-0">
+              <CardContent className="p-0 sm:p-4 md:p-6">
                 {submittedApplications.length === 0 ? (
-                  <div className="text-center py-3 sm:py-4 text-muted-foreground">
+                  <div className="hidden lg:block text-center py-3 sm:py-4 text-muted-foreground">
                     <p className="text-xs sm:text-sm">No applications submitted yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-2 sm:space-y-3 md:space-y-4">
-                    {submittedApplications.slice(0, 5).map((application) => {
+                  <div className="space-y-0 sm:space-y-3 md:space-y-4">
+                    {submittedApplications.slice(0, 5).map((application, index) => {
                       const displayInitials = application.job_poster_name.substring(0, 2).toUpperCase()
 
                       return (
                         <div
                           key={application.id}
-                          className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-2 sm:p-3 md:p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-2 sm:gap-3"
+                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between px-2 py-1.5 sm:p-3 md:p-4 border-0 sm:border rounded-none sm:rounded-lg hover:bg-muted/50 transition-colors gap-1.5 sm:gap-3 ${index > 0 ? 'border-t' : ''}`}
                         >
                           <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
                             <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
@@ -1187,6 +1272,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                 )}
               </CardContent>
             </Card>
+            </div>
           </div>
         </div>
       </div>
@@ -1287,6 +1373,36 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Location Picker Modal - Mobile Only */}
+      {showLocationPicker && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100000] flex items-center justify-center p-4 lg:hidden">
+          <div className="bg-white rounded-lg w-full max-w-md p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Update Location</h3>
+              <button
+                onClick={() => setShowLocationPicker(false)}
+                className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <LocationPicker
+              latitude={latitude || undefined}
+              longitude={longitude || undefined}
+              onLocationSelect={(lat, lng) => {
+                handleLocationSelect(lat, lng)
+                setShowLocationPicker(false)
+              }}
+              onLocationClear={() => {
+                handleLocationClear()
+                setShowLocationPicker(false)
+              }}
+              className="w-full"
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
