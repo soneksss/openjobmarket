@@ -23,6 +23,8 @@ interface LocationPickerProps {
   onLocationClear: () => void
   disabled?: boolean
   className?: string
+  isOpen?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function LocationPicker({
@@ -31,9 +33,15 @@ export function LocationPicker({
   onLocationSelect,
   onLocationClear,
   disabled = false,
-  className
+  className,
+  isOpen: externalIsOpen,
+  onOpenChange: externalOnOpenChange
 }: LocationPickerProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  const [internalIsOpen, setInternalIsOpen] = useState(false)
+
+  // Use external state if provided, otherwise use internal state
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen
+  const setIsOpen = externalOnOpenChange || setInternalIsOpen
   const [tempLocation, setTempLocation] = useState<{lat: number, lng: number} | null>(
     latitude && longitude ? {lat: latitude, lng: longitude} : null
   )
@@ -139,9 +147,12 @@ export function LocationPicker({
 
   const hasLocation = latitude && longitude
 
+  // If controlled externally, don't render the trigger button
+  const isControlled = externalIsOpen !== undefined
+
   return (
     <div className={className}>
-      {hasLocation ? (
+      {!isControlled && hasLocation ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
             <div className="flex items-center gap-2">
@@ -221,7 +232,7 @@ export function LocationPicker({
             </div>
           </div>
         </div>
-      ) : (
+      ) : !isControlled ? (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
             <Button
@@ -276,6 +287,70 @@ export function LocationPicker({
               <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress}>
                 {isGettingAddress ? 'Getting address...' : 'Save Location'}
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
+      {/* Controlled dialog (no trigger button) */}
+      {isControlled && (
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogContent className="max-w-5xl h-[85vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
+              <DialogTitle className="text-xl">Choose your location</DialogTitle>
+              <DialogDescription className="pt-2">
+                Click on the map to select your location, or use the "Locate Me" button
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex-1 relative min-h-0">
+              <LocationMap
+                ref={mapRef}
+                onLocationSelect={handleLocationSelect}
+                initialLat={latitude || 51.5074}
+                initialLng={longitude || -0.1278}
+              />
+              {/* Locate Me button overlay on map */}
+              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleLocateMe}
+                  disabled={isLocating}
+                  className="shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isLocating ? (
+                    <>
+                      <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
+                      Locating...
+                    </>
+                  ) : (
+                    <>
+                      <Crosshair className="h-4 w-4 mr-2" />
+                      Locate Me
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+            <div className="flex justify-between items-center pt-4 flex-shrink-0">
+              <Button variant="outline" onClick={handleCancel}>
+                Cancel
+              </Button>
+              <div className="flex gap-2">
+                {hasLocation && (
+                  <Button
+                    variant="outline"
+                    onClick={onLocationClear}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear Location
+                  </Button>
+                )}
+                <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress}>
+                  {isGettingAddress ? 'Getting address...' : 'Save Location'}
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

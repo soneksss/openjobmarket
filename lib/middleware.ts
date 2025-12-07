@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+// Force Node.js runtime to avoid Edge Runtime warnings with Supabase
+export const runtime = 'nodejs';
+
 export async function middleware(req: NextRequest) {
   let res = NextResponse.next({
     request: {
