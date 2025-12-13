@@ -1,3 +1,4 @@
+export const runtime = 'nodejs';
 import { Metadata } from "next"
 import { MapPin, Search, Users, Zap, Globe, MessageCircle, CheckCircle, Heart, TrendingUp } from "lucide-react"
 import { generateSEOMetadata } from "@/lib/seo-metadata"
