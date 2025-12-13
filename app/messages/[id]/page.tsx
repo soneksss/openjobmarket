@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useRouter, useParams } from "next/navigation"
+import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, Send, User } from "lucide-react"
 import { createClient } from "@/lib/client"
+import Link from "next/link"
 
 interface Message {
   id: string
@@ -24,16 +25,20 @@ export default function ConversationPage() {
 
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const otherUserId = params.id as string
+  const conversationId = params.id as string
+  const returnUrl = searchParams.get('returnUrl') ? decodeURIComponent(searchParams.get('returnUrl')!) : null
 
-  console.log('[CONVERSATION] Params:', params, 'otherUserId:', otherUserId)
+  console.log('[CONVERSATION] Params:', params, 'conversationId:', conversationId)
+  console.log('[CONVERSATION] Return URL:', returnUrl)
 
   const [user, setUser] = useState<any>(null)
   const [currentUserPhoto, setCurrentUserPhoto] = useState<string | undefined>(undefined)
   const [otherUser, setOtherUser] = useState<any>(null)
+  const [otherUserId, setOtherUserId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [loading, setLoading] = useState(true)
@@ -66,6 +71,30 @@ export default function ConversationPage() {
 
       setUser(currentUser)
       console.log('[CONVERSATION] Step 4: User state set')
+
+      // Fetch the conversation to determine the other participant
+      console.log('[CONVERSATION] Step 4.5: Fetching conversation...')
+      const { data: conversation, error: convError } = await supabase
+        .from("conversations")
+        .select("participant_1, participant_2")
+        .eq("id", conversationId)
+        .single()
+
+      console.log('[CONVERSATION] Step 4.6: Conversation retrieved:', !!conversation, 'error:', convError)
+
+      if (convError || !conversation) {
+        console.error('[CONVERSATION] Error fetching conversation:', convError)
+        setLoading(false)
+        return
+      }
+
+      // Determine which participant is the other user
+      const determinedOtherId = conversation.participant_1 === currentUser.id
+        ? conversation.participant_2
+        : conversation.participant_1
+
+      console.log('[CONVERSATION] Step 4.7: Other user determined:', determinedOtherId)
+      setOtherUserId(determinedOtherId)
 
       // Fetch current user's profile photo
       console.log('[CONVERSATION] Step 5: Fetching current user data...')
@@ -113,11 +142,11 @@ export default function ConversationPage() {
       }
 
       // Fetch other user's info
-      console.log('[CONVERSATION] Step 10: Fetching other user data for ID:', otherUserId)
+      console.log('[CONVERSATION] Step 10: Fetching other user data for ID:', determinedOtherId)
       const { data: userData, error: userDataError } = await supabase
         .from("users")
         .select("user_type, full_name, nickname, profile_photo_url, email")
-        .eq("id", otherUserId)
+        .eq("id", determinedOtherId)
         .single()
 
       console.log('[CONVERSATION] Step 11: Other user data retrieved:', !!userData, 'error:', userDataError)
@@ -133,7 +162,7 @@ export default function ConversationPage() {
           const { data: profData } = await supabase
             .from('professional_profiles')
             .select('first_name, last_name, profile_photo_url')
-            .eq('user_id', otherUserId)
+            .eq('user_id', determinedOtherId)
             .maybeSingle()
 
           console.log('[CONVERSATION] Step 13b: Professional profile retrieved:', !!profData)
@@ -147,7 +176,7 @@ export default function ConversationPage() {
           const { data: compData } = await supabase
             .from('company_profiles')
             .select('company_name, logo_url')
-            .eq('user_id', otherUserId)
+            .eq('user_id', determinedOtherId)
             .maybeSingle()
 
           console.log('[CONVERSATION] Step 13b: Company profile retrieved:', !!compData)
@@ -158,19 +187,19 @@ export default function ConversationPage() {
         }
 
         setOtherUser({
-          id: otherUserId,
+          id: determinedOtherId,
           name: displayName,
           profile_photo_url: photoUrl
         })
         console.log('[CONVERSATION] Step 14: Other user state set:', displayName)
       }
 
-      // Fetch all messages between these two users
-      console.log('[CONVERSATION] Step 15: Fetching messages...')
+      // Fetch all messages in this conversation
+      console.log('[CONVERSATION] Step 15: Fetching messages for conversation:', conversationId)
       const { data: messagesData, error } = await supabase
         .from("messages")
         .select("*")
-        .or(`and(sender_id.eq.${currentUser.id},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${currentUser.id})`)
+        .eq("conversation_id", conversationId)
         .order("created_at", { ascending: true })
 
       console.log('[CONVERSATION] Step 16: Messages retrieved:', messagesData?.length || 0, 'error:', error)
@@ -207,19 +236,11 @@ export default function ConversationPage() {
   }
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || sending) return
+    if (!newMessage.trim() || sending || !otherUserId) return
 
     setSending(true)
     try {
-      // Get or create conversation_id from existing messages
-      let conversationId = messages.length > 0 ? messages[0].conversation_id : null
-
-      // If no existing conversation, create a new conversation_id
-      if (!conversationId) {
-        conversationId = crypto.randomUUID()
-      }
-
-      console.log('[CONVERSATION] Sending message with conversation_id:', conversationId)
+      console.log('[CONVERSATION] Sending message with conversation_id:', conversationId, 'to recipient:', otherUserId)
 
       const { error } = await supabase
         .from("messages")
@@ -250,7 +271,7 @@ export default function ConversationPage() {
         content: newMessage.trim(),
         created_at: new Date().toISOString(),
         sender_id: user.id,
-        recipient_id: otherUserId,
+        recipient_id: otherUserId!,
         is_read: false,
         conversation_id: conversationId
       }
@@ -291,10 +312,19 @@ export default function ConversationPage() {
       <Card className="h-[calc(100vh-8rem)] flex flex-col">
         <CardHeader className="border-b">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => router.push('/messages')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
+            {returnUrl ? (
+              <Button variant="ghost" size="sm" asChild>
+                <Link href={returnUrl}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Search
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="ghost" size="sm" onClick={() => router.push('/messages')}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+            )}
             <Avatar className="h-10 w-10">
               <AvatarImage src={otherUser?.profile_photo_url} />
               <AvatarFallback>

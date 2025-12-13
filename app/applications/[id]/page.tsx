@@ -21,6 +21,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { CVDialog } from "@/components/cv-dialog"
+import ApplicationActions from "@/components/application-actions"
 
 interface ApplicationPageProps {
   params: Promise<{
@@ -301,7 +302,7 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
   }
 
   const formatSalary = (min?: number, max?: number) => {
-    if (!min && !max) return "Salary not specified"
+    if (!min && !max) return "Wages not specified"
     if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()}`
     if (min) return `From £${min.toLocaleString()}`
     if (max) return `Up to £${max.toLocaleString()}`
@@ -457,7 +458,7 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
                       <span>Applied {formatDate(application.applied_at)}</span>
                     </div>
                     <div>
-                      <span className="font-medium">Salary: </span>
+                      <span className="font-medium">Wages: </span>
                       {formatSalary(application.jobs.salary_min, application.jobs.salary_max)}
                     </div>
                   </div>
@@ -605,6 +606,25 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
                   <p className="text-xs text-muted-foreground mt-2">
                     Start a conversation with this applicant about their application.
                   </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {isJobPoster && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Application Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <ApplicationActions
+                    applicationId={id}
+                    currentStatus={application.status}
+                    professionalUserId={applicantUserId || ""}
+                    companyUserId={user.id}
+                    applicantEmail={displayEmail !== "Hidden (privacy settings)" ? displayEmail : undefined}
+                    applicantName={displayName}
+                    jobTitle={application.jobs.title}
+                  />
                 </CardContent>
               </Card>
             )}

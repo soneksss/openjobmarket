@@ -1612,7 +1612,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
           {/* Main Content: Map + Sidebar - Desktop: Resizable Panels, Mobile: Stacked */}
 
           {/* Desktop Layout: Resizable Panels (visible on md and up) */}
-          <PanelGroup direction="horizontal" className="hidden md:flex flex-1">
+          <PanelGroup direction="horizontal" className="!hidden md:!flex flex-1 overflow-hidden">
             {/* Map Panel */}
             <Panel defaultSize={60} minSize={30}>
               <div className="h-full relative">
@@ -1911,7 +1911,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
           </PanelGroup>
 
           {/* Full-screen Map with Bottom Sheet (like Google Maps/Idealista/Rightmove) - MOBILE ONLY */}
-          <div className="flex-1 relative md:hidden">
+          <div className="flex-1 relative !flex md:!hidden">
             {/* Full Screen Map */}
             <div className="absolute inset-0">
               <JobMap

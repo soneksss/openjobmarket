@@ -197,11 +197,27 @@ CREATE POLICY "Users can update their received messages" ON public.messages
     FOR UPDATE USING (auth.uid() = recipient_id);
 
 -- Privacy permissions policies
+-- Note: professional_id references professional_profiles.id, employer_id references users.id
 CREATE POLICY "Users can view their own privacy permissions" ON public.employer_privacy_permissions
-    FOR SELECT USING (auth.uid() = professional_id OR auth.uid() = employer_id);
+    FOR SELECT USING (
+        auth.uid() IN (SELECT user_id FROM professional_profiles WHERE id = professional_id)
+        OR auth.uid() = employer_id
+    );
 
-CREATE POLICY "Users can manage privacy permissions they granted" ON public.employer_privacy_permissions
-    FOR ALL USING (auth.uid() = professional_id);
+-- IMPORTANT: WITH CHECK clause is required for INSERT operations
+-- professional_id is professional_profiles.id, so we join to check if auth.uid() owns that profile
+CREATE POLICY "Professionals can manage their privacy permissions" ON public.employer_privacy_permissions
+    FOR ALL
+    USING (
+        auth.uid() IN (
+            SELECT user_id FROM professional_profiles WHERE id = professional_id
+        )
+    )
+    WITH CHECK (
+        auth.uid() IN (
+            SELECT user_id FROM professional_profiles WHERE id = professional_id
+        )
+    );
 
 -- Admin users policies
 CREATE POLICY "Only admins can view admin table" ON public.admin_users

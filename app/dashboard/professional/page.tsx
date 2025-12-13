@@ -102,6 +102,13 @@ export default async function ProfessionalDashboardPage() {
     userKeys: user ? Object.keys(user) : []
   })
 
+  console.log("[PROFESSIONAL-DASHBOARD-PAGE] Profile data:", {
+    hasProfile: !!profile,
+    profilePhotoUrl: profile?.profile_photo_url,
+    firstName: profile?.first_name,
+    lastName: profile?.last_name
+  })
+
   return (
     <ProfessionalDashboard
       user={user as any}

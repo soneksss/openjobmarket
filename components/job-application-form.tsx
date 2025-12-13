@@ -1,5 +1,6 @@
 "use client"
 
+// Fixed double modal issue by removing internal Dialog wrapper
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -7,14 +8,6 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Shield, Info, Send, Eye, EyeOff, User, Mail, Phone, MapPin, FileText, Plus, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
@@ -43,6 +36,7 @@ interface UserProfile {
   title: string
   location: string
   skills: string[]
+  spoken_languages?: string[]
   bio: string
   email?: string
   phone?: string
@@ -57,6 +51,7 @@ interface JobApplicationFormProps {
   userProfile: UserProfile
   hasApplied: boolean
   onApplicationSubmitted: () => void
+  onClose?: () => void
 }
 
 export default function JobApplicationForm({
@@ -64,6 +59,7 @@ export default function JobApplicationForm({
   userProfile,
   hasApplied,
   onApplicationSubmitted,
+  onClose,
 }: JobApplicationFormProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -71,12 +67,12 @@ export default function JobApplicationForm({
   const [coverLetter, setCoverLetter] = useState("")
   const [sharePersonalInfo, setSharePersonalInfo] = useState(true)
   const [attachCV, setAttachCV] = useState(true)
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [hasCV, setHasCV] = useState(false)
   const [checkingCV, setCheckingCV] = useState(true)
   const [submissionSuccess, setSubmissionSuccess] = useState(false)
   const [submissionError, setSubmissionError] = useState<string | null>(null)
   const [isCompany, setIsCompany] = useState(false)
+  const [freshProfile, setFreshProfile] = useState<UserProfile>(userProfile)
 
   // Helper functions to get poster details (company or homeowner)
   const getPosterName = () => {
@@ -93,10 +89,40 @@ export default function JobApplicationForm({
     return job.company_profiles?.user_id || job.homeowner_profiles?.user_id
   }
 
+  // Re-fetch profile data when modal opens to ensure fresh data
   useEffect(() => {
-    // Since userProfile is passed as prop, we know user is authenticated
-    // Just check CV availability
-    console.log("[JOB-APPLICATION] User is authenticated via props, checking CV availability...")
+    const fetchFreshProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        // Fetch fresh profile data
+        const { data: profile } = await supabase
+          .from("professional_profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .single()
+
+        if (profile) {
+          setFreshProfile({
+            ...profile,
+            email: user.email || profile.email || "",
+            phone: profile.phone
+          })
+          console.log("[JOB-APPLICATION] Fresh profile data loaded:", {
+            location: profile.location,
+            title: profile.title,
+            full_address: profile.full_address,
+            skills: profile.skills,
+            spoken_languages: profile.spoken_languages
+          })
+        }
+      } catch (error) {
+        console.error("[JOB-APPLICATION] Error fetching fresh profile:", error)
+      }
+    }
+
+    fetchFreshProfile()
     checkCVAvailability()
   }, [])
 
@@ -230,11 +256,11 @@ export default function JobApplicationForm({
       }
 
       console.log("[v0] Resetting form state")
-      setIsDialogOpen(false)
       setCoverLetter("")
       setSharePersonalInfo(false)
       setAttachCV(false)
       onApplicationSubmitted()
+      onClose?.()
       console.log("[v0] Job application process completed successfully")
 
       // Show success message using window notification (better than alert)
@@ -252,23 +278,25 @@ export default function JobApplicationForm({
   const getVisibleInfo = () => {
     if (sharePersonalInfo) {
       return {
-        name: `${userProfile.first_name} ${userProfile.last_name}`,
-        email: userProfile.hide_email ? "Hidden (privacy setting)" : (userProfile.email || "Email not in profile"),
-        phone: userProfile.phone || "Phone not in profile",
-        address: userProfile.full_address || userProfile.location,
-        title: userProfile.title,
-        bio: userProfile.bio,
-        skills: userProfile.skills,
+        name: `${freshProfile.first_name} ${freshProfile.last_name}`,
+        email: freshProfile.hide_email ? "Hidden (privacy setting)" : (freshProfile.email || "Email not in profile"),
+        phone: freshProfile.phone || "Phone not in profile",
+        address: freshProfile.full_address || freshProfile.location || "Location not in profile",
+        title: freshProfile.title || "Professional title not in profile",
+        bio: freshProfile.bio,
+        skills: freshProfile.skills,
+        spoken_languages: freshProfile.spoken_languages,
       }
     } else {
       return {
-        name: userProfile.nickname || `${userProfile.first_name} ${userProfile.last_name[0]}.`,
+        name: freshProfile.nickname || `${freshProfile.first_name} ${freshProfile.last_name[0]}.`,
         email: "Hidden (nickname mode)",
         phone: "Hidden (nickname mode)",
-        address: userProfile.location, // General location is always visible
-        title: userProfile.title,
-        bio: userProfile.bio,
-        skills: userProfile.skills,
+        address: freshProfile.location || "Location not in profile", // General location is always visible
+        title: freshProfile.title || "Professional title not in profile",
+        bio: freshProfile.bio,
+        skills: freshProfile.skills,
+        spoken_languages: freshProfile.spoken_languages,
       }
     }
   }
@@ -294,37 +322,17 @@ export default function JobApplicationForm({
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <Send className="h-5 w-5 mr-2" />
-          Apply for this Position
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="w-full">
-              <Send className="h-4 w-4 mr-2" />
-              Apply Now
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white">
-            {loading && (
-              <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
-                <div className="flex flex-col items-center space-y-3">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                  <p className="text-sm font-medium text-gray-700">Submitting your application...</p>
-                </div>
-              </div>
-            )}
+    <>
+      {loading && (
+        <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center space-y-3">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p className="text-sm font-medium text-gray-700">Submitting your application...</p>
+          </div>
+        </div>
+      )}
 
-            <DialogHeader>
-              <DialogTitle>Apply for {job.title}</DialogTitle>
-              <DialogDescription>Submit your application to {getPosterName()}</DialogDescription>
-            </DialogHeader>
-
-            <div className="space-y-6 mt-4">
+      <div className="space-y-6 mt-4">
               {/* Privacy Control Section - Hidden for companies */}
               {!isCompany && (
                 <Card className="border-2 border-blue-200 bg-blue-50/50">
@@ -350,17 +358,6 @@ export default function JobApplicationForm({
                       <Label htmlFor="sharePersonalInfo" className="text-base font-semibold cursor-pointer text-gray-900">
                         I agree to share my personal contact information with this User
                       </Label>
-                      <div className="flex items-start space-x-2 mt-3 text-sm text-gray-700">
-                        <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-blue-600" />
-                        <p>
-                          {sharePersonalInfo
-                            ? "Your full name, email, phone, and address will be visible to this User (respecting your individual privacy settings in your profile)."
-                            : "By default, users see your professional profile with nickname/initials. Your real name, phone, email, and full address remain private."}
-                        </p>
-                      </div>
-                      <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md text-sm text-green-800">
-                        <strong>💡 Tip:</strong> Revealing your personal information increases the chance of being hired.
-                      </div>
                     </div>
                   </div>
 
@@ -422,6 +419,23 @@ export default function JobApplicationForm({
                           </div>
                         </div>
                       )}
+                      {visibleInfo.spoken_languages && visibleInfo.spoken_languages.length > 0 && (
+                        <div className="mb-2">
+                          <span className="text-sm text-muted-foreground">Languages:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {visibleInfo.spoken_languages.slice(0, 5).map((language) => (
+                              <Badge key={language} variant="outline" className="text-xs bg-blue-50 border-blue-200 text-blue-700">
+                                {language}
+                              </Badge>
+                            ))}
+                            {visibleInfo.spoken_languages.length > 5 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{visibleInfo.spoken_languages.length - 5} more
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       {visibleInfo.bio && (
                         <div>
                           <span className="text-sm text-muted-foreground">Bio:</span>
@@ -435,24 +449,31 @@ export default function JobApplicationForm({
               )}
 
               {/* Cover Letter Section */}
-              <div className="space-y-2">
-                <Label htmlFor="coverLetter">Cover Letter (Optional)</Label>
-                <Textarea
-                  id="coverLetter"
-                  value={coverLetter}
-                  onChange={(e) => setCoverLetter(e.target.value)}
-                  placeholder="Tell the user why you're interested in this role and what makes you a great fit..."
-                  rows={6}
-                  className="resize-none"
-                />
-                <p className="text-xs text-muted-foreground">
-                  A personalized cover letter can help you stand out from other applicants.
-                </p>
-              </div>
+              <Card className="border-2 border-gray-200 bg-gray-50/50">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-lg flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-gray-600" />
+                    Cover Letter (Optional)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <Textarea
+                    id="coverLetter"
+                    value={coverLetter}
+                    onChange={(e) => setCoverLetter(e.target.value)}
+                    placeholder="Tell the employer why you're interested in this role and what makes you a great fit..."
+                    rows={6}
+                    className="resize-none bg-white border-2"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    A personalized cover letter can help you stand out from other applicants.
+                  </p>
+                </CardContent>
+              </Card>
 
               {/* Action Buttons */}
               <div className="flex justify-end space-x-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)} disabled={loading}>
+                <Button variant="outline" onClick={onClose} disabled={loading}>
                   Cancel
                 </Button>
                 <Button onClick={handleApply} disabled={loading} className="min-w-[140px]">
@@ -467,10 +488,8 @@ export default function JobApplicationForm({
                 </Button>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
 
-        {/* Success Notification */}
+      {/* Success Notification */}
         {submissionSuccess && (
           <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-right-5 duration-300">
             <Card className="border-2 border-green-500 bg-green-50 shadow-lg max-w-md">
@@ -529,7 +548,6 @@ export default function JobApplicationForm({
             </Card>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </>
   )
 }

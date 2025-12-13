@@ -44,6 +44,7 @@ export interface Job {
   salary_min?: number
   salary_max?: number
   skills_required: string[]
+  languages?: string[]
   benefits: string[]
   is_active: boolean
   applications_count: number

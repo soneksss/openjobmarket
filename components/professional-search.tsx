@@ -256,6 +256,20 @@ export default function ProfessionalSearch({ professionals, user, searchParams, 
                     <SelectItem value="false">Employees Only</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select
+                  value={searchParams.availability || "all"}
+                  onValueChange={(value) => updateSearchParams("availability", value)}
+                >
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Availability" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Availability</SelectItem>
+                    <SelectItem value="available_now">Available Now</SelectItem>
+                    <SelectItem value="available_week">Available Within a Week</SelectItem>
+                    <SelectItem value="available_month">Available Within a Month</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button variant="outline" onClick={clearFilters} size="sm">
                   <Filter className="h-4 w-4 mr-2" />
                   Clear

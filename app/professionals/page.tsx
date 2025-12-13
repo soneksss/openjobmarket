@@ -375,6 +375,10 @@ export default async function ProfessionalsPage({
         query = query.eq("is_self_employed", isSelfEmployed)
       }
 
+      if (params.availability && params.availability !== "all") {
+        query = query.eq("availability", params.availability)
+      }
+
       const { data: professionals } = await query
       let filteredProfessionals = professionals || []
 
@@ -615,9 +619,19 @@ export default async function ProfessionalsPage({
           .select(`
             *,
             company_profiles (
+              id,
               company_name,
               location,
-              industry
+              industry,
+              logo_url,
+              user_id
+            ),
+            homeowner_profiles (
+              id,
+              user_id,
+              first_name,
+              last_name,
+              profile_photo_url
             )
           `)
           .eq("is_active", true)
@@ -651,13 +665,49 @@ export default async function ProfessionalsPage({
         }
 
         const { data: jobs } = await query
-        data = jobs || []
+
+        // Fetch ratings for all companies in the job results
+        const companyUserIds = (jobs || [])
+          .map((job: any) => job.company_profiles?.user_id)
+          .filter(Boolean)
+
+        let companyRatings: { [key: string]: { average_rating: number; total_reviews: number } } = {}
+
+        if (companyUserIds.length > 0) {
+          const { data: ratingsData } = await supabase
+            .from("user_review_stats")
+            .select("user_id, average_rating, total_reviews")
+            .in("user_id", companyUserIds)
+
+          if (ratingsData) {
+            companyRatings = ratingsData.reduce((acc: any, rating: any) => {
+              acc[rating.user_id] = {
+                average_rating: rating.average_rating || 0,
+                total_reviews: rating.total_reviews || 0,
+              }
+              return acc
+            }, {})
+          }
+        }
+
+        // Enrich jobs with rating data
+        data = (jobs || []).map((job: any) => {
+          const ratings = job.company_profiles?.user_id
+            ? companyRatings[job.company_profiles.user_id] || { average_rating: 0, total_reviews: 0 }
+            : { average_rating: 0, total_reviews: 0 }
+
+          return {
+            ...job,
+            average_rating: ratings.average_rating,
+            total_reviews: ratings.total_reviews,
+          }
+        })
 
         // Set center for jobs
         if (params.lat && params.lng) {
           center = [Number.parseFloat(params.lat), Number.parseFloat(params.lng)]
         } else if (data.length > 0) {
-          const firstJobWithCoords = data.find((job) => job.latitude && job.longitude)
+          const firstJobWithCoords = data.find((job: any) => job.latitude && job.longitude)
           if (firstJobWithCoords) {
             center = [firstJobWithCoords.latitude, firstJobWithCoords.longitude]
           }

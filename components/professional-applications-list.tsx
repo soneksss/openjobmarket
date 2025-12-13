@@ -133,27 +133,27 @@ export default function ProfessionalApplicationsList({
     <div className="space-y-4">
       {applications.map((application) => (
         <Card key={application.id} className="border-2">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-start gap-4">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row items-start justify-between gap-3">
+              <div className="flex-1 w-full">
+                <div className="flex items-start gap-3 sm:gap-4">
                   {application.jobs.company_profiles.logo_url && (
                     <img
                       src={application.jobs.company_profiles.logo_url}
                       alt={application.jobs.company_profiles.company_name}
-                      className="w-12 h-12 rounded object-cover"
+                      className="w-10 h-10 sm:w-12 sm:h-12 rounded object-cover flex-shrink-0"
                     />
                   )}
-                  <div>
-                    <CardTitle className="text-xl mb-1">{application.jobs.title}</CardTitle>
-                    <p className="text-muted-foreground mb-2">{application.jobs.company_profiles.company_name}</p>
-                    <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-base sm:text-xl mb-1 break-words">{application.jobs.title}</CardTitle>
+                    <p className="text-sm sm:text-base text-muted-foreground mb-2 break-words">{application.jobs.company_profiles.company_name}</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
                       <span className="flex items-center">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        {application.jobs.location}
+                        <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                        <span className="break-words">{application.jobs.location}</span>
                       </span>
                       <span className="flex items-center">
-                        <Calendar className="h-4 w-4 mr-1" />
+                        <Calendar className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
                         Applied {formatDate(application.applied_at)}
                       </span>
                       <span className="capitalize">{application.jobs.job_type.replace("_", " ")}</span>
@@ -161,23 +161,23 @@ export default function ProfessionalApplicationsList({
                   </div>
                 </div>
               </div>
-              <Badge className={getStatusColor(application.status)} variant="secondary">
+              <Badge className={`${getStatusColor(application.status)} flex-shrink-0 self-start`} variant="secondary">
                 {application.status}
               </Badge>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
+          <CardContent className="pt-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="text-xs sm:text-sm text-muted-foreground">
                 {application.jobs.salary_min && application.jobs.salary_max && (
                   <span>
-                    Salary: £{application.jobs.salary_min.toLocaleString()} - £
+                    Wages: £{application.jobs.salary_min.toLocaleString()} - £
                     {application.jobs.salary_max.toLocaleString()}
                   </span>
                 )}
               </div>
-              <div className="flex items-center space-x-2">
-                <Button variant="outline" size="sm" asChild>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <Button variant="outline" size="sm" asChild className="w-full sm:w-auto">
                   <Link href={`/applications/${application.id}`}>
                     <Eye className="h-4 w-4 mr-2" />
                     View Details
@@ -189,7 +189,7 @@ export default function ProfessionalApplicationsList({
                       <Button
                         variant="outline"
                         size="sm"
-                        className="text-red-600 hover:text-red-700"
+                        className="text-red-600 hover:text-red-700 w-full sm:w-auto"
                         disabled={withdrawingId === application.id}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />

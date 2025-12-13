@@ -172,6 +172,12 @@ export default async function CompanyDashboardPage() {
   }
 
   console.log("[v0] Jobs found:", jobs?.length || 0)
+  console.log("[v0] Jobs data with is_tradespeople_job:", jobs?.map(j => ({
+    id: j.id,
+    title: j.title,
+    is_tradespeople_job: j.is_tradespeople_job,
+    job_type: j.job_type
+  })))
 
   // Get application counts for each job
   const jobIds = jobs?.map((job) => job.id) || []

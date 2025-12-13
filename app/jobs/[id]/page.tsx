@@ -83,7 +83,15 @@ export default async function JobDetailPage({
   const { id } = await params
   const search = await searchParams
 
-  console.log("[JOB-DETAIL] Loading job detail page:", { jobId: id, searchParams: search })
+  console.log("[JOB-DETAIL] Loading job detail page:", {
+    jobId: id,
+    searchParams: search,
+    searchParamsKeys: Object.keys(search),
+    query: search.query,
+    location: search.location,
+    lat: search.lat,
+    lon: search.lon
+  })
 
   // Get job details with company and homeowner information
   const { data: job, error: jobError } = await supabase

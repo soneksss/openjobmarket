@@ -12,7 +12,7 @@ import Link from "next/link"
 import { RateCompanyModal } from "@/components/rate-company-modal"
 
 interface Conversation {
-  id: string // conversation partner's user_id
+  id: string // conversation_id from the conversations table
   other_user: {
     id: string
     name: string
@@ -95,10 +95,11 @@ export default function MessagesPage() {
 
       console.log("[MESSAGES] Fetched", messages?.length || 0, "messages")
 
-      // Group messages by conversation partner
+      // Group messages by conversation_id
       const conversationMap = new Map<string, {
         messages: typeof messages,
-        other_user_id: string
+        other_user_id: string,
+        conversation_id: string | null
       }>()
 
       for (const message of messages || []) {
@@ -106,20 +107,26 @@ export default function MessagesPage() {
           ? message.recipient_id
           : message.sender_id
 
-        if (!conversationMap.has(other_user_id)) {
-          conversationMap.set(other_user_id, {
+        // Use conversation_id as the key, fallback to other_user_id for legacy messages
+        const conversationKey = message.conversation_id || other_user_id
+
+        if (!conversationMap.has(conversationKey)) {
+          conversationMap.set(conversationKey, {
             messages: [],
-            other_user_id
+            other_user_id,
+            conversation_id: message.conversation_id
           })
         }
 
-        conversationMap.get(other_user_id)!.messages.push(message)
+        conversationMap.get(conversationKey)!.messages.push(message)
       }
 
       // Build conversations array
       const conversationsData: Conversation[] = []
 
-      for (const [otherUserId, convData] of conversationMap) {
+      for (const [conversationKey, convData] of conversationMap) {
+        const otherUserId = convData.other_user_id
+
         if (!otherUserId || otherUserId === 'undefined' || otherUserId === 'null') {
           continue
         }
@@ -189,8 +196,11 @@ export default function MessagesPage() {
             msg => msg.recipient_id === currentUser.id && !msg.is_read
           )
 
+          // Use conversation_id if available, otherwise fallback to conversationKey
+          const conversationId = convData.conversation_id || conversationKey
+
           conversationsData.push({
-            id: otherUserId,
+            id: conversationId,
             other_user: {
               id: otherUserId,
               name: displayName,
@@ -238,11 +248,11 @@ export default function MessagesPage() {
     }
   }
 
-  const handleConversationClick = (otherUserId: string) => {
-    router.push(`/messages/${otherUserId}`)
+  const handleConversationClick = (conversationId: string) => {
+    router.push(`/messages/${conversationId}`)
   }
 
-  const handleDeleteConversation = async (otherUserId: string, e: React.MouseEvent) => {
+  const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent opening conversation
 
     if (!confirm("Delete this conversation? This cannot be undone.")) {
@@ -250,16 +260,27 @@ export default function MessagesPage() {
     }
 
     try {
-      // Delete all messages between these two users
-      const { error } = await supabase
+      // Delete all messages in this conversation
+      const { error: messagesError } = await supabase
         .from("messages")
         .delete()
-        .or(`and(sender_id.eq.${user.id},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${user.id})`)
+        .eq("conversation_id", conversationId)
 
-      if (error) throw error
+      if (messagesError) throw messagesError
+
+      // Delete the conversation itself
+      const { error: conversationError } = await supabase
+        .from("conversations")
+        .delete()
+        .eq("id", conversationId)
+
+      if (conversationError) {
+        console.error("[MESSAGES] Error deleting conversation record:", conversationError)
+        // Don't throw - messages are already deleted
+      }
 
       // Remove from local state
-      setConversations(prev => prev.filter(conv => conv.id !== otherUserId))
+      setConversations(prev => prev.filter(conv => conv.id !== conversationId))
     } catch (error) {
       console.error("[MESSAGES] Error deleting conversation:", error)
       alert("Failed to delete conversation")

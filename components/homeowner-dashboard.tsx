@@ -19,7 +19,8 @@ import {
   Eye,
   EyeOff,
   User,
-  Search
+  Search,
+  Users
 } from "lucide-react"
 import { useState } from "react"
 import { createClient } from "@/lib/client"
@@ -40,6 +41,8 @@ interface HomeownerJob {
   updated_at?: string
   is_tradespeople_job?: boolean
   work_location?: string
+  applications_count?: number
+  views_count?: number
 }
 
 interface HomeownerProfile {
@@ -407,6 +410,14 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
                               {job.salary_frequency && ` ${job.salary_frequency.replace('_', ' ')}`}
                             </span>
                           )}
+                          <span className="flex items-center gap-1 whitespace-nowrap">
+                            <Users className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                            {job.applications_count || 0} apps
+                          </span>
+                          <span className="flex items-center gap-1 whitespace-nowrap">
+                            <Eye className="w-3 h-3 sm:w-4 sm:h-4 flex-shrink-0" />
+                            {job.views_count || 0} views
+                          </span>
                           {expiryText && (
                             <span className={`whitespace-nowrap ${statusInfo.text === 'Expired' ? 'text-red-600 font-medium' : ''}`}>
                               {expiryText}

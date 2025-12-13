@@ -8,6 +8,7 @@ import { X, ArrowLeft, ArrowRight, Briefcase, Plus, XIcon } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
 
 type Props = {
   companyProfile: any
@@ -23,6 +24,8 @@ type VacancyFormData = {
   jobType: "full-time" | "part-time" | "remote" | "contract" | "freelance" | "internship" | ""
   experienceLevels: string[] // Changed to array to support multiple levels
   noExperienceRequired: boolean // Training provided checkbox
+  responsibilities: string[] // What the person will be doing
+  requirements: string[] // Qualifications, certifications, driving license, etc.
   skills: string[]
   languages: string[]
   benefits: string[]
@@ -70,7 +73,7 @@ const COMMON_SKILLS = [
 
 const COMMON_LANGUAGES = [
   "English", "Spanish", "French", "German", "Italian", "Portuguese",
-  "Chinese", "Japanese", "Arabic", "Russian", "Hindi"
+  "Chinese", "Japanese", "Arabic", "Russian", "Hindi", "Polish"
 ]
 
 const COMMON_BENEFITS = [
@@ -79,9 +82,22 @@ const COMMON_BENEFITS = [
   "Gym Membership", "Free Lunch", "Stock Options", "Bonus", "Pension"
 ]
 
+const COMMON_RESPONSIBILITIES = [
+  "Client Communication", "Project Management", "Team Collaboration",
+  "Report Writing", "Data Analysis", "Quality Assurance",
+  "Training & Mentoring", "Budget Management", "Strategic Planning"
+]
+
+const COMMON_REQUIREMENTS = [
+  "Driving License (Full UK)", "DBS Check", "Right to Work in UK",
+  "Professional Certification", "Degree Required", "Own Tools/Equipment",
+  "Own Vehicle", "First Aid Certified", "CRB Check", "Public Liability Insurance"
+]
+
 export default function VacancyPostingForm({ companyProfile }: Props) {
   const supabase = createClient()
   const router = useRouter()
+  const { toast } = useToast()
 
   const [open, setOpen] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
@@ -92,6 +108,8 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
   const [skillInput, setSkillInput] = useState("")
   const [languageInput, setLanguageInput] = useState("")
   const [benefitInput, setBenefitInput] = useState("")
+  const [responsibilityInput, setResponsibilityInput] = useState("")
+  const [requirementInput, setRequirementInput] = useState("")
 
   const [formData, setFormData] = useState<VacancyFormData>({
     activeDuration: "",
@@ -100,6 +118,8 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
     jobType: "",
     experienceLevels: [],
     noExperienceRequired: false,
+    responsibilities: [],
+    requirements: [],
     skills: [],
     languages: [],
     benefits: [],
@@ -192,6 +212,30 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
 
   const removeBenefit = (benefit: string) => {
     setFormData((prev) => ({ ...prev, benefits: prev.benefits.filter(b => b !== benefit) }))
+  }
+
+  const addResponsibility = (responsibility: string) => {
+    const trimmed = responsibility.trim()
+    if (trimmed && !formData.responsibilities.includes(trimmed)) {
+      setFormData((prev) => ({ ...prev, responsibilities: [...prev.responsibilities, trimmed] }))
+    }
+    setResponsibilityInput("")
+  }
+
+  const removeResponsibility = (responsibility: string) => {
+    setFormData((prev) => ({ ...prev, responsibilities: prev.responsibilities.filter(r => r !== responsibility) }))
+  }
+
+  const addRequirement = (requirement: string) => {
+    const trimmed = requirement.trim()
+    if (trimmed && !formData.requirements.includes(trimmed)) {
+      setFormData((prev) => ({ ...prev, requirements: [...prev.requirements, trimmed] }))
+    }
+    setRequirementInput("")
+  }
+
+  const removeRequirement = (requirement: string) => {
+    setFormData((prev) => ({ ...prev, requirements: prev.requirements.filter(r => r !== requirement) }))
   }
 
   const validateStep = (step: number): boolean => {
@@ -308,6 +352,13 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
       const daysToAdd = planDays[formData.activeDuration as keyof typeof planDays] || 7
       expirationDate.setDate(expirationDate.getDate() + daysToAdd)
 
+      // Map salary period to salary_frequency format (database constraint: per_hour, per_day, per_year)
+      const salaryFrequencyMap: Record<string, string> = {
+        hourly: "per_hour",
+        daily: "per_day",
+        yearly: "per_year"
+      }
+
       const payload = {
         company_id: companyProfile.id,
         homeowner_id: null,
@@ -322,15 +373,16 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         description: formData.description.trim(),
         short_description: formData.description.trim().substring(0, 200),
         job_type: formData.jobType,
-        experience_level: formData.experienceLevels.length > 0 ? formData.experienceLevels[0] : null, // Store first level for backward compatibility
-        experience_levels: formData.experienceLevels.length > 0 ? formData.experienceLevels : null, // Store all levels as array
+        experience_level: formData.experienceLevels.length > 0 ? formData.experienceLevels[0] : null,
         no_experience_required: formData.noExperienceRequired,
         is_tradespeople_job: false,
         salary_min: formData.salaryMin ? Number.parseInt(formData.salaryMin) : null,
         salary_max: formData.salaryMax ? Number.parseInt(formData.salaryMax) : null,
         salary_period: formData.salaryPeriod,
-        salary_frequency: `per_${formData.salaryPeriod}`, // Backward compatibility
-        skills: formData.skills.length > 0 ? formData.skills : null,
+        salary_frequency: salaryFrequencyMap[formData.salaryPeriod] || null,
+        responsibilities: formData.responsibilities.length > 0 ? formData.responsibilities : null,
+        requirements: formData.requirements.length > 0 ? formData.requirements : null,
+        skills_required: formData.skills.length > 0 ? formData.skills : null,
         languages: formData.languages.length > 0 ? formData.languages : null,
         benefits: formData.benefits.length > 0 ? formData.benefits : null,
         is_active: true,
@@ -355,10 +407,17 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         usage_type: "job"
       })
 
-      // Show success and redirect
-      alert(`Your vacancy has been posted successfully! It will be active until ${expirationDate.toLocaleDateString()}.`)
-      router.push("/dashboard/company")
-      router.refresh()
+      // Show success toast and redirect
+      toast({
+        title: "✓ Vacancy Posted Successfully",
+        description: `Your vacancy is now live and will be active until ${expirationDate.toLocaleDateString()}.`,
+        duration: 5000,
+      })
+
+      setTimeout(() => {
+        router.push("/dashboard/company")
+        router.refresh()
+      }, 1000)
     } catch (err: any) {
       console.error(err)
       setErr(err?.message || "Unexpected error")
@@ -556,6 +615,122 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
 
             <div>
               <label className="block text-sm font-medium mb-2">
+                Key Responsibilities (Optional)
+                <span className="text-xs text-gray-500 ml-2">What will the person be doing?</span>
+              </label>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={responsibilityInput}
+                    onChange={(e) => setResponsibilityInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addResponsibility(responsibilityInput)
+                      }
+                    }}
+                    placeholder="e.g., Managing client relationships"
+                    className="flex-1 shadow-sm"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => addResponsibility(responsibilityInput)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {COMMON_RESPONSIBILITIES.map((responsibility) => (
+                    <Badge
+                      key={responsibility}
+                      variant={formData.responsibilities.includes(responsibility) ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => formData.responsibilities.includes(responsibility) ? removeResponsibility(responsibility) : addResponsibility(responsibility)}
+                    >
+                      {responsibility}
+                    </Badge>
+                  ))}
+                </div>
+                {formData.responsibilities.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <span className="text-sm font-medium">Selected:</span>
+                    {formData.responsibilities.map((responsibility) => (
+                      <Badge key={responsibility} variant="default" className="gap-1">
+                        {responsibility}
+                        <XIcon
+                          className="h-3 w-3 cursor-pointer"
+                          onClick={() => removeResponsibility(responsibility)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Requirements (Optional)
+                <span className="text-xs text-gray-500 ml-2">Driving license, certifications, qualifications, etc.</span>
+              </label>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    value={requirementInput}
+                    onChange={(e) => setRequirementInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        addRequirement(requirementInput)
+                      }
+                    }}
+                    placeholder="e.g., Full UK Driving License"
+                    className="flex-1 shadow-sm"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => addRequirement(requirementInput)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {COMMON_REQUIREMENTS.map((requirement) => (
+                    <Badge
+                      key={requirement}
+                      variant={formData.requirements.includes(requirement) ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => formData.requirements.includes(requirement) ? removeRequirement(requirement) : addRequirement(requirement)}
+                    >
+                      {requirement}
+                    </Badge>
+                  ))}
+                </div>
+                {formData.requirements.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <span className="text-sm font-medium">Selected:</span>
+                    {formData.requirements.map((requirement) => (
+                      <Badge key={requirement} variant="default" className="gap-1">
+                        {requirement}
+                        <XIcon
+                          className="h-3 w-3 cursor-pointer"
+                          onClick={() => removeRequirement(requirement)}
+                        />
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
                 Required Skills (Optional)
               </label>
               <div className="space-y-2">
@@ -614,6 +789,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
             <div>
               <label className="block text-sm font-medium mb-2">
                 Languages (Optional)
+                <span className="text-xs text-gray-500 ml-2">Required or preferred languages</span>
               </label>
               <div className="space-y-2">
                 <div className="flex gap-2">
@@ -627,7 +803,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                         addLanguage(languageInput)
                       }
                     }}
-                    placeholder="Type a language and press Enter"
+                    placeholder="e.g., English"
                     className="flex-1 shadow-sm"
                   />
                   <Button

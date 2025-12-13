@@ -208,7 +208,12 @@ export function HomeownerJobActions({
       router.refresh()
     } catch (error) {
       console.error("Error deleting job:", error)
-      alert("Failed to delete job. Please try again.")
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete job. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setIsDeleting(false)
       setShowDeleteDialog(false)
@@ -227,7 +232,12 @@ export function HomeownerJobActions({
       router.refresh()
     } catch (error) {
       console.error("Error toggling job status:", error)
-      alert("Failed to update job status. Please try again.")
+      toast({
+        title: "Update Failed",
+        description: "Failed to update job status. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setIsToggling(false)
     }
@@ -261,7 +271,12 @@ export function HomeownerJobActions({
       setShowExtendDialog(false)
     } catch (error) {
       console.error("Error extending job:", error)
-      alert("Failed to extend job. Please try again.")
+      toast({
+        title: "Extension Failed",
+        description: "Failed to extend job. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setIsExtending(false)
     }

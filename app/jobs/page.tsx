@@ -118,6 +118,7 @@ export default async function JobsPage({
               jobs!inner (
                 *,
                 company_profiles (
+                  id,
                   company_name,
                   location,
                   industry,
@@ -190,6 +191,7 @@ export default async function JobsPage({
       .select(`
         *,
         company_profiles (
+          id,
           company_name,
           location,
           industry,
@@ -597,11 +599,16 @@ export default async function JobsPage({
     // Extract homeowner profile information if it exists
     const homeownerProfile = (job as any).homeowner_profiles
 
+    const ratings = job.company_profiles?.user_id
+      ? companyRatings[job.company_profiles.user_id] || { average_rating: 0, total_reviews: 0 }
+      : { average_rating: 0, total_reviews: 0 }
+
     const enrichedJob = {
       ...job,
-      company_rating: job.company_profiles?.user_id
-        ? companyRatings[job.company_profiles.user_id] || { average_rating: 0, total_reviews: 0 }
-        : { average_rating: 0, total_reviews: 0 },
+      company_rating: ratings,
+      // Add ratings at top level for JobCard component
+      average_rating: ratings.average_rating,
+      total_reviews: ratings.total_reviews,
       // Add poster information from homeowner profile if available
       poster_first_name: homeownerProfile?.first_name || null,
       poster_last_name: homeownerProfile?.last_name || null,

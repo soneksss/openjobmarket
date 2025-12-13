@@ -26,6 +26,7 @@ type JobFormData = {
   trainingProvided: boolean
   jobPhoto: File | null
   jobPhotoUrl: string | null
+  languages: string[]
   // Step 4: Location
   fullAddress: string
   locationCoords: { lat: number; lon: number } | null
@@ -139,6 +140,25 @@ const COMMON_TRADES = [
   "Welder",
 ]
 
+// Common languages for trade jobs
+const COMMON_LANGUAGES = [
+  "English",
+  "Spanish",
+  "Mandarin",
+  "French",
+  "German",
+  "Italian",
+  "Portuguese",
+  "Russian",
+  "Arabic",
+  "Polish",
+  "Turkish",
+  "Urdu",
+  "Bengali",
+  "Punjabi",
+  "Romanian",
+]
+
 export default function JobWizardModal({ companyProfile, userType }: Props) {
   const supabase = createClient()
   const router = useRouter()
@@ -153,6 +173,7 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([])
+  const [languageInput, setLanguageInput] = useState("")
 
   const [formData, setFormData] = useState<JobFormData>({
     activeDuration: "",
@@ -166,6 +187,7 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
     trainingProvided: false,
     jobPhoto: null,
     jobPhotoUrl: null,
+    languages: [],
     fullAddress: "",
     locationCoords: null,
   })
@@ -309,6 +331,25 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
       ...prev,
       jobPhoto: null,
       jobPhotoUrl: null,
+    }))
+  }
+
+  // Helper functions for managing languages
+  const addLanguage = (language: string) => {
+    const trimmed = language.trim()
+    if (trimmed && !formData.languages.includes(trimmed)) {
+      setFormData((prev) => ({
+        ...prev,
+        languages: [...prev.languages, trimmed],
+      }))
+      setLanguageInput("")
+    }
+  }
+
+  const removeLanguage = (language: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      languages: prev.languages.filter((lang) => lang !== language),
     }))
   }
 
@@ -481,6 +522,7 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
         salary_min: formData.payMin ? Number.parseInt(formData.payMin) : null,
         salary_max: formData.payMax ? Number.parseInt(formData.payMax) : null,
         salary_period: formData.payFrequency,
+        languages: formData.languages.length > 0 ? formData.languages : null,
         is_active: true,
         expires_at: expirationDate.toISOString(),
         created_at: new Date().toISOString(),
@@ -853,6 +895,77 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
                   </p>
                 </div>
               )}
+
+              {/* Languages - Optional for all job types */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-2">
+                  Languages (optional)
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  Specify any language requirements for this position
+                </p>
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={languageInput}
+                    onChange={(e) => setLanguageInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        addLanguage(languageInput)
+                      }
+                    }}
+                    className="flex-1 border rounded-lg p-2 text-sm shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Type a language and press Enter"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => addLanguage(languageInput)}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {COMMON_LANGUAGES.map((lang) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => addLanguage(lang)}
+                      disabled={formData.languages.includes(lang)}
+                      className={`px-3 py-1 rounded-full text-sm transition-colors ${
+                        formData.languages.includes(lang)
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                      }`}
+                    >
+                      {lang}
+                    </button>
+                  ))}
+                </div>
+                {formData.languages.length > 0 && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs font-medium text-gray-700 mb-2">Selected Languages:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {formData.languages.map((lang) => (
+                        <span
+                          key={lang}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-full text-sm"
+                        >
+                          {lang}
+                          <button
+                            type="button"
+                            onClick={() => removeLanguage(lang)}
+                            className="hover:bg-blue-700 rounded-full p-0.5"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )

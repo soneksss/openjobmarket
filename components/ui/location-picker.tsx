@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { MapPin, X, Crosshair } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog'
+import { useToast } from '@/hooks/use-toast'
 
 // Dynamically import the map component to avoid SSR issues
 const LocationMap = dynamic(() => import('./location-map'), {
@@ -37,6 +38,7 @@ export function LocationPicker({
   isOpen: externalIsOpen,
   onOpenChange: externalOnOpenChange
 }: LocationPickerProps) {
+  const { toast } = useToast()
   const [internalIsOpen, setInternalIsOpen] = useState(false)
 
   // Use external state if provided, otherwise use internal state
@@ -136,12 +138,22 @@ export function LocationPicker({
         }
       } catch (error) {
         console.error("Error getting location:", error)
-        alert("Unable to get your location. Please ensure location permissions are enabled.")
+        toast({
+          title: "Location Access Denied",
+          description: "Unable to get your location. Please ensure location permissions are enabled in your browser settings.",
+          variant: "destructive",
+          duration: 5000,
+        })
       } finally {
         setIsLocating(false)
       }
     } else {
-      alert("Geolocation is not supported by your browser")
+      toast({
+        title: "Geolocation Not Supported",
+        description: "Your browser does not support geolocation. Please enter your location manually or use a modern browser.",
+        variant: "destructive",
+        duration: 5000,
+      })
     }
   }
 

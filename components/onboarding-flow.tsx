@@ -193,14 +193,126 @@ export default function OnboardingFlow({
   }, [userType, step, user, dataPreFilled])
 
   const [newSkill, setNewSkill] = useState("")
+  const [showSkillSuggestions, setShowSkillSuggestions] = useState(false)
+  const [filteredSkillSuggestions, setFilteredSkillSuggestions] = useState<string[]>([])
 
-  const addSkill = () => {
-    if (newSkill.trim() && !professionalData.skills.includes(newSkill.trim())) {
+  // Define skill categories based on profession
+  const getRelevantSkills = (title: string): string[] => {
+    const titleLower = title.toLowerCase()
+
+    // Trade-specific skills
+    const tradeSkills = [
+      // Electrical
+      "Electrical Work", "Electrical Installation", "Electrical Testing", "18th Edition Wiring Regulations",
+      // Plumbing/Gas
+      "Plumbing", "Gas Fitting", "Gas Safe Registered", "Heating Systems", "Boiler Installation",
+      // Construction
+      "Carpentry", "Joinery", "Bricklaying", "Plastering", "Rendering", "Painting and Decorating",
+      "Roofing", "Tiling", "Groundwork", "Scaffolding", "Welding",
+      // Certifications
+      "CSCS Card", "First Aid at Work", "Health and Safety", "SMSTS", "SSSTS", "Forklift Operation", "IPAF",
+    ]
+
+    const programmingSkills = [
+      "JavaScript", "TypeScript", "Python", "Java", "C++", "C#", "PHP", "Ruby", "Go", "Swift", "Kotlin", "Rust",
+      "HTML", "CSS", "React", "Angular", "Vue.js", "Next.js", "Node.js", "Express.js", "Django", "Flask",
+      "SQL", "MySQL", "PostgreSQL", "MongoDB", "Redis", "AWS", "Azure", "Google Cloud", "Docker", "Kubernetes",
+    ]
+
+    const designSkills = [
+      "Photoshop", "Illustrator", "InDesign", "Figma", "Sketch", "Adobe XD", "After Effects", "Premiere Pro", "Canva",
+      "AutoCAD", "SolidWorks", "Revit", "SketchUp", "3D Modeling",
+    ]
+
+    const businessSkills = [
+      "Microsoft Office", "Excel", "PowerPoint", "Word", "Google Workspace", "Data Analysis", "Data Entry",
+      "Bookkeeping", "QuickBooks", "Sage", "Xero",
+      "Project Management", "Agile", "Scrum", "Jira", "Trello", "Asana",
+      "Digital Marketing", "SEO", "Social Media Marketing", "Content Marketing", "Email Marketing",
+    ]
+
+    const healthcareSkills = [
+      "Patient Care", "First Aid", "CPR", "Medication Administration", "Care Planning",
+      "Moving and Handling", "Safeguarding", "Dementia Care", "Mental Health Support", "Clinical Skills",
+    ]
+
+    const automotiveSkills = [
+      "Car Repair", "Engine Diagnostics", "MOT Testing", "Vehicle Maintenance", "Auto Electrical", "Bodywork", "Spray Painting",
+    ]
+
+    const softSkills = [
+      "Leadership", "Communication", "Teamwork", "Problem Solving", "Critical Thinking",
+      "Time Management", "Adaptability", "Customer Service", "Attention to Detail", "Organization",
+    ]
+
+    // Check if it's a trade profession
+    if (titleLower.includes("electr") || titleLower.includes("plumb") || titleLower.includes("carpenter") ||
+        titleLower.includes("builder") || titleLower.includes("roofer") || titleLower.includes("plaster") ||
+        titleLower.includes("painter") || titleLower.includes("decorator") || titleLower.includes("brick") ||
+        titleLower.includes("gas") || titleLower.includes("heating") || titleLower.includes("hvac") ||
+        titleLower.includes("welder") || titleLower.includes("scaffold")) {
+      return [...tradeSkills, ...softSkills]
+    }
+
+    // Check if it's tech/programming
+    if (titleLower.includes("develop") || titleLower.includes("engineer") || titleLower.includes("program") ||
+        titleLower.includes("software") || titleLower.includes("full stack") || titleLower.includes("frontend") ||
+        titleLower.includes("backend") || titleLower.includes("devops")) {
+      return [...programmingSkills, ...softSkills]
+    }
+
+    // Check if it's design
+    if (titleLower.includes("design") || titleLower.includes("ux") || titleLower.includes("ui") ||
+        titleLower.includes("graphic") || titleLower.includes("creative")) {
+      return [...designSkills, ...softSkills]
+    }
+
+    // Check if it's healthcare
+    if (titleLower.includes("nurse") || titleLower.includes("care") || titleLower.includes("health") ||
+        titleLower.includes("medical") || titleLower.includes("doctor")) {
+      return [...healthcareSkills, ...softSkills]
+    }
+
+    // Check if it's automotive
+    if (titleLower.includes("mechanic") || titleLower.includes("automotive") || titleLower.includes("mot")) {
+      return [...automotiveSkills, ...softSkills]
+    }
+
+    // Check if it's business/office
+    if (titleLower.includes("manager") || titleLower.includes("admin") || titleLower.includes("analyst") ||
+        titleLower.includes("marketing") || titleLower.includes("sales") || titleLower.includes("accountant")) {
+      return [...businessSkills, ...softSkills]
+    }
+
+    // Default: show all categories
+    return [...tradeSkills, ...programmingSkills, ...designSkills, ...businessSkills, ...healthcareSkills, ...automotiveSkills, ...softSkills]
+  }
+
+  // Update skill suggestions based on input and professional title
+  useEffect(() => {
+    if (newSkill.trim().length > 0) {
+      const relevantSkills = getRelevantSkills(professionalData.title || "")
+      const filtered = relevantSkills.filter(skill =>
+        skill.toLowerCase().includes(newSkill.toLowerCase()) &&
+        !professionalData.skills.includes(skill)
+      ).slice(0, 10) // Limit to 10 suggestions
+      setFilteredSkillSuggestions(filtered)
+      setShowSkillSuggestions(filtered.length > 0)
+    } else {
+      setShowSkillSuggestions(false)
+      setFilteredSkillSuggestions([])
+    }
+  }, [newSkill, professionalData.title, professionalData.skills])
+
+  const addSkill = (skillToAdd?: string) => {
+    const skill = skillToAdd !== undefined ? skillToAdd : newSkill
+    if (skill && skill.trim() && !professionalData.skills.includes(skill.trim())) {
       setProfessionalData((prev) => ({
         ...prev,
-        skills: [...prev.skills, newSkill.trim()],
+        skills: [...prev.skills, skill.trim()],
       }))
       setNewSkill("")
+      setShowSkillSuggestions(false)
     }
   }
 
@@ -449,13 +561,6 @@ export default function OnboardingFlow({
 
     setLoading(true)
 
-    // Create an abort controller with timeout
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => {
-      controller.abort()
-      console.error('[ONBOARDING] Operation timed out after 10 seconds')
-    }, 10000) // 10 second timeout
-
     try {
       console.log("Starting form submission...", {
         userType,
@@ -480,24 +585,41 @@ export default function OnboardingFlow({
 
       console.log("Upserting user data:", userData)
 
-      const userUpsertPromise = supabase
+      // Try direct upsert without timeout to see actual error
+      const { data: upsertData, error: userError } = await supabase
         .from("users")
         .upsert(userData, {
           onConflict: "id"
         })
+        .select()
 
-      const { error: userError } = await Promise.race([
-        userUpsertPromise,
-        new Promise<{ error: Error }>((_, reject) =>
-          setTimeout(() => reject(new Error('User upsert timed out after 10 seconds')), 10000)
-        )
-      ])
-
-      clearTimeout(timeoutId)
+      console.log("User upsert result:", { data: upsertData, error: userError })
 
       if (userError) {
-        console.error("User upsert error:", userError)
-        throw userError
+        console.error("User upsert error details:", {
+          message: userError.message,
+          details: userError.details,
+          hint: userError.hint,
+          code: userError.code
+        })
+
+        // If it's a permission error, try insert instead
+        if (userError.code === '42501' || userError.message?.includes('permission') || userError.message?.includes('policy')) {
+          console.log("Permission error detected, trying insert instead...")
+          const { data: insertData, error: insertError } = await supabase
+            .from("users")
+            .insert(userData)
+            .select()
+
+          console.log("User insert result:", { data: insertData, error: insertError })
+
+          if (insertError) {
+            console.error("User insert also failed:", insertError)
+            throw insertError
+          }
+        } else {
+          throw userError
+        }
       }
 
       console.log("User record created successfully")
@@ -540,50 +662,44 @@ export default function OnboardingFlow({
         console.log("Professional profile data:", profileData)
         console.log("Employment status value:", professionalData.employmentStatus, "Type:", typeof professionalData.employmentStatus)
 
-        // Try upsert first, fallback to insert if unique constraint doesn't exist yet
-        let profileError: any = null
-
         console.log("Attempting professional profile upsert...")
 
-        // First try upsert (works after migration)
-        const professionalUpsertPromise = supabase
+        // Try direct upsert without timeout
+        const { data: profileUpsertData, error: upsertError } = await supabase
           .from("professional_profiles")
           .upsert(profileData, {
             onConflict: "user_id"
           })
+          .select()
 
-        const upsertResult = await Promise.race([
-          professionalUpsertPromise,
-          new Promise<{ error: Error }>((_, reject) =>
-            setTimeout(() => reject(new Error('Professional profile upsert timed out after 10 seconds')), 10000)
-          )
-        ])
+        console.log("Professional profile upsert result:", { data: profileUpsertData, error: upsertError })
 
-        const upsertError = upsertResult.error
+        if (upsertError) {
+          console.error("Professional profile upsert error details:", {
+            message: upsertError.message,
+            details: upsertError.details,
+            hint: upsertError.hint,
+            code: upsertError.code
+          })
 
-        if (upsertError && upsertError.message?.includes("no unique or exclusion constraint")) {
-          // Fallback to insert if unique constraint doesn't exist (before migration)
-          console.log("Unique constraint not found, trying insert...")
+          // If unique constraint doesn't exist, try insert
+          if (upsertError.message?.includes("no unique or exclusion constraint")) {
+            console.log("Unique constraint not found, trying insert...")
 
-          const insertPromise = supabase
-            .from("professional_profiles")
-            .insert(profileData)
+            const { data: profileInsertData, error: insertError } = await supabase
+              .from("professional_profiles")
+              .insert(profileData)
+              .select()
 
-          const insertResult = await Promise.race([
-            insertPromise,
-            new Promise<{ error: Error }>((_, reject) =>
-              setTimeout(() => reject(new Error('Professional profile insert timed out after 10 seconds')), 10000)
-            )
-          ])
+            console.log("Professional profile insert result:", { data: profileInsertData, error: insertError })
 
-          profileError = insertResult.error
-        } else {
-          profileError = upsertError
-        }
-
-        if (profileError) {
-          console.error("Professional profile upsert error:", profileError)
-          throw profileError
+            if (insertError) {
+              console.error("Professional profile insert error:", insertError)
+              throw insertError
+            }
+          } else {
+            throw upsertError
+          }
         }
 
         console.log("Professional profile created successfully")
@@ -660,7 +776,7 @@ export default function OnboardingFlow({
         const upsertResult = await Promise.race([
           companyUpsertPromise,
           new Promise<{ error: Error }>((_, reject) =>
-            setTimeout(() => reject(new Error('Company profile upsert timed out after 10 seconds')), 10000)
+            setTimeout(() => reject(new Error('Company profile upsert timed out after 30 seconds')), 30000)
           )
         ])
 
@@ -677,7 +793,7 @@ export default function OnboardingFlow({
           const insertResult = await Promise.race([
             insertPromise,
             new Promise<{ error: Error }>((_, reject) =>
-              setTimeout(() => reject(new Error('Company profile insert timed out after 10 seconds')), 10000)
+              setTimeout(() => reject(new Error('Company profile insert timed out after 30 seconds')), 30000)
             )
           ])
 
@@ -1284,228 +1400,34 @@ export default function OnboardingFlow({
 
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
               <Label className="font-semibold">Skills</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add a skill (e.g., JavaScript, Project Management)"
-                  value={newSkill}
-                  onChange={(e) => setNewSkill(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
-                  list="skills-list"
-                  className="border-2"
-                />
-                <datalist id="skills-list">
-                  {/* Programming Languages */}
-                  <option value="JavaScript" />
-                  <option value="TypeScript" />
-                  <option value="Python" />
-                  <option value="Java" />
-                  <option value="C++" />
-                  <option value="C#" />
-                  <option value="PHP" />
-                  <option value="Ruby" />
-                  <option value="Go" />
-                  <option value="Swift" />
-                  <option value="Kotlin" />
-                  <option value="Rust" />
-                  <option value="R" />
-                  <option value="MATLAB" />
-                  <option value="Scala" />
-
-                  {/* Web Development */}
-                  <option value="HTML" />
-                  <option value="CSS" />
-                  <option value="React" />
-                  <option value="Angular" />
-                  <option value="Vue.js" />
-                  <option value="Next.js" />
-                  <option value="Node.js" />
-                  <option value="Express.js" />
-                  <option value="Django" />
-                  <option value="Flask" />
-                  <option value="Laravel" />
-                  <option value="WordPress" />
-                  <option value="Shopify" />
-
-                  {/* Databases */}
-                  <option value="SQL" />
-                  <option value="MySQL" />
-                  <option value="PostgreSQL" />
-                  <option value="MongoDB" />
-                  <option value="Redis" />
-                  <option value="Oracle" />
-                  <option value="Microsoft SQL Server" />
-
-                  {/* Cloud & DevOps */}
-                  <option value="AWS" />
-                  <option value="Azure" />
-                  <option value="Google Cloud" />
-                  <option value="Docker" />
-                  <option value="Kubernetes" />
-                  <option value="Jenkins" />
-                  <option value="CI/CD" />
-                  <option value="Terraform" />
-                  <option value="Linux" />
-                  <option value="Git" />
-                  <option value="GitHub" />
-
-                  {/* Design Tools */}
-                  <option value="Photoshop" />
-                  <option value="Illustrator" />
-                  <option value="InDesign" />
-                  <option value="Figma" />
-                  <option value="Sketch" />
-                  <option value="Adobe XD" />
-                  <option value="After Effects" />
-                  <option value="Premiere Pro" />
-                  <option value="Canva" />
-
-                  {/* CAD & Technical */}
-                  <option value="AutoCAD" />
-                  <option value="SolidWorks" />
-                  <option value="Revit" />
-                  <option value="SketchUp" />
-                  <option value="3D Modeling" />
-
-                  {/* Business & Office */}
-                  <option value="Microsoft Office" />
-                  <option value="Excel" />
-                  <option value="PowerPoint" />
-                  <option value="Word" />
-                  <option value="Google Workspace" />
-                  <option value="Data Analysis" />
-                  <option value="Data Entry" />
-                  <option value="Bookkeeping" />
-                  <option value="QuickBooks" />
-                  <option value="Sage" />
-                  <option value="Xero" />
-
-                  {/* Project Management */}
-                  <option value="Project Management" />
-                  <option value="Agile" />
-                  <option value="Scrum" />
-                  <option value="Jira" />
-                  <option value="Trello" />
-                  <option value="Asana" />
-                  <option value="Microsoft Project" />
-
-                  {/* Marketing & Sales */}
-                  <option value="Digital Marketing" />
-                  <option value="SEO" />
-                  <option value="Social Media Marketing" />
-                  <option value="Content Marketing" />
-                  <option value="Email Marketing" />
-                  <option value="Google Analytics" />
-                  <option value="Google Ads" />
-                  <option value="Facebook Ads" />
-                  <option value="Copywriting" />
-                  <option value="Sales" />
-                  <option value="Negotiation" />
-
-                  {/* Soft Skills */}
-                  <option value="Leadership" />
-                  <option value="Communication" />
-                  <option value="Teamwork" />
-                  <option value="Problem Solving" />
-                  <option value="Critical Thinking" />
-                  <option value="Time Management" />
-                  <option value="Adaptability" />
-                  <option value="Customer Service" />
-                  <option value="Attention to Detail" />
-                  <option value="Multitasking" />
-                  <option value="Organization" />
-
-                  {/* Trades & Construction */}
-                  <option value="Electrical Work" />
-                  <option value="Electrical Installation" />
-                  <option value="Electrical Testing" />
-                  <option value="18th Edition Wiring Regulations" />
-                  <option value="Plumbing" />
-                  <option value="Gas Fitting" />
-                  <option value="Gas Safe Registered" />
-                  <option value="Heating Systems" />
-                  <option value="Boiler Installation" />
-                  <option value="Carpentry" />
-                  <option value="Joinery" />
-                  <option value="Bricklaying" />
-                  <option value="Plastering" />
-                  <option value="Rendering" />
-                  <option value="Painting and Decorating" />
-                  <option value="Roofing" />
-                  <option value="Tiling" />
-                  <option value="Groundwork" />
-                  <option value="Scaffolding" />
-                  <option value="Welding" />
-                  <option value="CSCS Card" />
-                  <option value="First Aid at Work" />
-                  <option value="Health and Safety" />
-                  <option value="SMSTS" />
-                  <option value="SSSTS" />
-                  <option value="Forklift Operation" />
-                  <option value="IPAF" />
-
-                  {/* Automotive */}
-                  <option value="Car Repair" />
-                  <option value="Engine Diagnostics" />
-                  <option value="MOT Testing" />
-                  <option value="Vehicle Maintenance" />
-                  <option value="Auto Electrical" />
-                  <option value="Bodywork" />
-                  <option value="Spray Painting" />
-
-                  {/* Healthcare */}
-                  <option value="Patient Care" />
-                  <option value="First Aid" />
-                  <option value="CPR" />
-                  <option value="Medication Administration" />
-                  <option value="Care Planning" />
-                  <option value="Moving and Handling" />
-                  <option value="Safeguarding" />
-                  <option value="Dementia Care" />
-                  <option value="Mental Health Support" />
-                  <option value="Clinical Skills" />
-                  <option value="Medical Terminology" />
-
-                  {/* Education */}
-                  <option value="Lesson Planning" />
-                  <option value="Classroom Management" />
-                  <option value="Child Development" />
-                  <option value="Special Educational Needs" />
-                  <option value="Curriculum Development" />
-
-                  {/* Hospitality */}
-                  <option value="Food Preparation" />
-                  <option value="Food Safety" />
-                  <option value="Menu Planning" />
-                  <option value="Customer Relations" />
-                  <option value="Cash Handling" />
-                  <option value="Bar Management" />
-                  <option value="Table Service" />
-
-                  {/* Languages */}
-                  <option value="Bilingual" />
-                  <option value="Multilingual" />
-                  <option value="Translation" />
-                  <option value="Interpretation" />
-
-                  {/* Driving */}
-                  <option value="Driving Licence - Category B" />
-                  <option value="Driving Licence - Category C" />
-                  <option value="Driving Licence - Category D" />
-                  <option value="Forklift Licence" />
-                  <option value="ADR Licence" />
-                  <option value="CPC Driver Qualification" />
-
-                  {/* Other Technical */}
-                  <option value="Electronics" />
-                  <option value="Telecommunications" />
-                  <option value="Networking" />
-                  <option value="Cybersecurity" />
-                  <option value="Quality Assurance" />
-                  <option value="Quality Control" />
-                  <option value="Lean Manufacturing" />
-                  <option value="Six Sigma" />
-                </datalist>
-                <Button type="button" onClick={addSkill} size="icon">
+              <div className="flex gap-2 relative">
+                <div className="flex-1 relative">
+                  <Input
+                    placeholder="Add a skill (e.g., Plumbing, Electrical Installation)"
+                    value={newSkill}
+                    onChange={(e) => setNewSkill(e.target.value)}
+                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
+                    onFocus={() => newSkill.trim().length > 0 && setShowSkillSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSkillSuggestions(false), 200)}
+                    className="border-2"
+                  />
+                  {/* Custom dropdown positioned above input to avoid covering it */}
+                  {showSkillSuggestions && filteredSkillSuggestions.length > 0 && (
+                    <div className="absolute bottom-full left-0 right-0 mb-1 max-h-60 overflow-y-auto bg-white border-2 border-blue-500 rounded-lg shadow-lg z-50">
+                      {filteredSkillSuggestions.map((skill) => (
+                        <button
+                          key={skill}
+                          type="button"
+                          onClick={() => addSkill(skill)}
+                          className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors text-sm"
+                        >
+                          {skill}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <Button type="button" onClick={() => addSkill()} size="icon">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>

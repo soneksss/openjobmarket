@@ -29,6 +29,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 interface User {
   id: string
@@ -64,6 +65,7 @@ interface CompanyProfileEditFormProps {
 
 export default function CompanyProfileEditForm({ user, profile }: CompanyProfileEditFormProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -161,13 +163,23 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
     if (!allowedTypes.includes(file.type)) {
-      alert('Please upload a valid image file (JPEG, PNG, GIF, or WebP)')
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a valid image file (JPEG, PNG, GIF, or WebP)",
+        variant: "destructive",
+        duration: 5000,
+      })
       return
     }
 
     // Original file size validation (10MB before resize)
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB')
+      toast({
+        title: "File Too Large",
+        description: "File size must be less than 10MB",
+        variant: "destructive",
+        duration: 5000,
+      })
       return
     }
 
@@ -206,11 +218,26 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
         // Provide more specific error messages
         if (uploadError.message.includes('bucket')) {
-          alert("Storage bucket not configured. Please run the CREATE_STORAGE_BUCKETS.sql script in Supabase.")
+          toast({
+            title: "Storage Error",
+            description: "Storage bucket not configured. Please contact support.",
+            variant: "destructive",
+            duration: 5000,
+          })
         } else if (uploadError.message.includes('policy')) {
-          alert("Permission denied. Please ensure you're logged in and try again.")
+          toast({
+            title: "Permission Denied",
+            description: "Please ensure you're logged in and try again.",
+            variant: "destructive",
+            duration: 5000,
+          })
         } else {
-          alert(`Error uploading logo: ${uploadError.message}`)
+          toast({
+            title: "Upload Failed",
+            description: `Error uploading logo: ${uploadError.message}`,
+            variant: "destructive",
+            duration: 5000,
+          })
         }
         return
       }
@@ -224,13 +251,27 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
       console.log("[v0] Public URL generated:", publicUrl)
       setLogoUrl(publicUrl)
-      alert("Logo uploaded and optimized successfully!")
+      toast({
+        title: "✓ Logo Uploaded Successfully",
+        description: "Your logo has been uploaded and optimized.",
+        duration: 5000,
+      })
     } catch (error) {
       console.error("[v0] Unexpected error:", error)
       if (error instanceof Error && error.message.includes('canvas')) {
-        alert("Error processing image. Please try a different image file.")
+        toast({
+          title: "Image Processing Error",
+          description: "Error processing image. Please try a different image file.",
+          variant: "destructive",
+          duration: 5000,
+        })
       } else {
-        alert("Unexpected error uploading logo. Please try again.")
+        toast({
+          title: "Upload Failed",
+          description: "Unexpected error uploading logo. Please try again.",
+          variant: "destructive",
+          duration: 5000,
+        })
       }
     } finally {
       setUploading(false)
@@ -283,7 +324,12 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       router.push("/dashboard/company")
     } catch (error) {
       console.error("Error updating profile:", error)
-      alert("Error updating profile. Please try again.")
+      toast({
+        title: "Update Failed",
+        description: "Error updating profile. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setLoading(false)
     }
@@ -308,7 +354,12 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
       if (result.error) {
         console.error("[COMPANY_EDIT] Account deletion error:", result.error)
-        alert(`Error deleting account: ${result.error}`)
+        toast({
+          title: "Deletion Failed",
+          description: `Error deleting account: ${result.error}`,
+          variant: "destructive",
+          duration: 5000,
+        })
         setDeleting(false)
         return
       }
@@ -322,7 +373,12 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       // manualLogout will redirect to "/" and clear all storage
     } catch (error) {
       console.error("[COMPANY_EDIT] Unexpected error during account deletion:", error)
-      alert("An unexpected error occurred while deleting your account. Please try again.")
+      toast({
+        title: "Unexpected Error",
+        description: "An unexpected error occurred while deleting your account. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
       setDeleting(false)
     }
   }

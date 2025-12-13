@@ -47,6 +47,7 @@ import JobExpirationAlerts from "./job-expiration-alerts"
 import { LocationPicker } from "@/components/ui/location-picker"
 import { AdminButton } from "@/components/admin-button"
 import { StarRating } from "@/components/star-rating"
+import { useToast } from "@/hooks/use-toast"
 
 interface User {
   id: string
@@ -76,6 +77,7 @@ interface Job {
   work_location: string
   location: string
   is_active: boolean
+  is_tradespeople_job?: boolean
   applications_count: number
   views_count: number
   created_at: string
@@ -162,6 +164,7 @@ interface CompanyDashboardProps {
 
 export default function CompanyDashboard({ user, profile, jobs, receivedApplications, submittedApplications, stats, rating, reviews }: CompanyDashboardProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [profileVisible, setProfileVisible] = useState(profile.profile_visible ?? true)
   const [updatingVisibility, setUpdatingVisibility] = useState(false)
@@ -220,45 +223,120 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
   // Image resizing helper function
   const resizeImage = async (file: File, maxSize: number = 300): Promise<File> => {
+    console.log("[v0] [resizeImage] Starting resize for:", file.name, "Type:", file.type)
     return new Promise((resolve, reject) => {
       const img = new window.Image()
       img.onload = async () => {
+        console.log("[v0] [resizeImage] Image loaded successfully. Dimensions:", img.width, "x", img.height)
         try {
-          const canvas = document.createElement("canvas")
-
-          // Maintain aspect ratio
-          let { width, height } = img
-          if (width > height) {
-            if (width > maxSize) {
-              height *= maxSize / width
-              width = maxSize
-            }
-          } else {
-            if (height > maxSize) {
-              width *= maxSize / height
-              height = maxSize
-            }
+          // Validate image dimensions
+          if (img.width === 0 || img.height === 0) {
+            console.error("[v0] [resizeImage] Invalid dimensions:", img.width, img.height)
+            reject(new Error("IMAGE_DIMENSIONS_INVALID: Image has invalid dimensions"))
+            return
           }
 
-          canvas.width = width
-          canvas.height = height
+          // Check if image is too large to process
+          if (img.width > 10000 || img.height > 10000) {
+            console.error("[v0] [resizeImage] Image too large:", img.width, img.height)
+            reject(new Error("IMAGE_TOO_LARGE: Image dimensions exceed 10000x10000 pixels"))
+            return
+          }
 
-          // Use pica for high-quality resizing
-          const picaInstance = pica()
-          await picaInstance.resize(img, canvas)
+          const canvas = document.createElement("canvas")
+          console.log("[v0] [resizeImage] Canvas created")
 
-          // Convert to WebP for better compression
-          const blob = await picaInstance.toBlob(canvas, "image/webp", 0.85)
+          // Create square image for circular logo display
+          // Calculate crop dimensions to get a square from the center
+          const size = Math.min(img.width, img.height)
+          const cropX = (img.width - size) / 2
+          const cropY = (img.height - size) / 2
+
+          // Set canvas to square dimensions
+          canvas.width = maxSize
+          canvas.height = maxSize
+          console.log("[v0] [resizeImage] Target dimensions:", maxSize, "x", maxSize, "(square)")
+          console.log("[v0] [resizeImage] Cropping from center:", { cropX, cropY, size })
+
+          let blob: Blob | null = null
+
+          // Try using pica for high-quality resizing first
+          try {
+            console.log("[v0] [resizeImage] Starting pica resize...")
+            const picaInstance = pica()
+
+            // Create a temporary canvas with the cropped square from the original image
+            const tempCanvas = document.createElement("canvas")
+            tempCanvas.width = size
+            tempCanvas.height = size
+            const tempCtx = tempCanvas.getContext("2d")
+            if (!tempCtx) {
+              throw new Error("Failed to get temp canvas context")
+            }
+
+            // Draw the cropped square portion
+            tempCtx.drawImage(img, cropX, cropY, size, size, 0, 0, size, size)
+            console.log("[v0] [resizeImage] Cropped source canvas created")
+
+            // Resize the cropped square to the target size
+            await picaInstance.resize(tempCanvas, canvas)
+            console.log("[v0] [resizeImage] Pica resize completed")
+
+            // Convert to WebP for better compression
+            console.log("[v0] [resizeImage] Converting to WebP...")
+            blob = await picaInstance.toBlob(canvas, "image/webp", 0.85)
+            console.log("[v0] [resizeImage] WebP conversion completed. Blob size:", blob?.size || 0)
+          } catch (picaError) {
+            console.warn("[v0] [resizeImage] Pica failed, falling back to native canvas:", picaError)
+
+            // Fallback to native canvas resizing
+            const ctx = canvas.getContext("2d")
+            if (!ctx) {
+              reject(new Error("IMAGE_PROCESSING_FAILED: Failed to get canvas context"))
+              return
+            }
+
+            // Use native canvas drawing with crop parameters (works with fingerprinting protection)
+            // drawImage(source, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight)
+            ctx.drawImage(img, cropX, cropY, size, size, 0, 0, maxSize, maxSize)
+            console.log("[v0] [resizeImage] Native canvas resize completed with center crop")
+
+            // Convert to WebP using canvas.toBlob
+            blob = await new Promise<Blob | null>((blobResolve) => {
+              canvas.toBlob(blobResolve, "image/webp", 0.85)
+            })
+            console.log("[v0] [resizeImage] Native WebP conversion completed. Blob size:", blob?.size || 0)
+          }
+
+          if (!blob || blob.size === 0) {
+            console.error("[v0] [resizeImage] Blob creation failed")
+            reject(new Error("IMAGE_CONVERSION_FAILED: Failed to convert image to WebP format"))
+            return
+          }
+
           const resizedFile = new File([blob], "logo.webp", { type: "image/webp" })
+          console.log("[v0] [resizeImage] Resized file created successfully")
 
           URL.revokeObjectURL(img.src)
           resolve(resizedFile)
         } catch (error) {
-          reject(error)
+          console.error("[v0] [resizeImage] Error during processing:", error)
+          URL.revokeObjectURL(img.src)
+          if (error instanceof Error) {
+            reject(error)
+          } else {
+            reject(new Error("IMAGE_PROCESSING_FAILED: Unknown error during image processing"))
+          }
         }
       }
-      img.onerror = reject
-      img.src = URL.createObjectURL(file)
+      img.onerror = (event) => {
+        console.error("[v0] [resizeImage] Image load failed:", event)
+        URL.revokeObjectURL(img.src)
+        reject(new Error("IMAGE_LOAD_FAILED: Unable to load image. The file may be corrupted or in an unsupported format"))
+      }
+      const objectUrl = URL.createObjectURL(file)
+      console.log("[v0] [resizeImage] Object URL created:", objectUrl)
+      img.src = objectUrl
     })
   }
 
@@ -266,16 +344,37 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     const file = event.target.files?.[0]
     if (!file) return
 
+    // Check browser support for required APIs
+    if (typeof window === 'undefined' || !window.Image) {
+      toast({
+        title: "Browser Not Supported",
+        description: "Your browser does not support the required image processing features. Please use a modern browser like Chrome, Firefox, Edge, or Safari.",
+        variant: "destructive",
+        duration: 5000,
+      })
+      return
+    }
+
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
     if (!allowedTypes.includes(file.type)) {
-      alert('Please upload a valid image file (JPEG, PNG, GIF, or WebP)')
+      toast({
+        title: "Invalid File Type",
+        description: `Please upload a valid image file. Supported formats: JPEG, PNG, GIF, WebP. You selected: ${file.type || 'Unknown type'}`,
+        variant: "destructive",
+        duration: 5000,
+      })
       return
     }
 
     // Original file size validation (10MB before resize)
     if (file.size > 10 * 1024 * 1024) {
-      alert('File size must be less than 10MB')
+      toast({
+        title: "File Too Large",
+        description: `The file size is ${(file.size / 1024 / 1024).toFixed(2)}MB, which exceeds the 10MB limit. Please compress the image or use a smaller file.`,
+        variant: "destructive",
+        duration: 5000,
+      })
       return
     }
 
@@ -284,8 +383,10 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       const supabase = createClient()
       console.log("[v0] Starting logo upload and resize for file:", file.name, "Size:", (file.size / 1024 / 1024).toFixed(2) + "MB")
 
+      console.log("[v0] About to call resizeImage...")
       // Resize and optimize the image
       const resizedFile = await resizeImage(file, 300)
+      console.log("[v0] resizeImage completed successfully")
       console.log("[v0] Image resized:", "New size:", (resizedFile.size / 1024).toFixed(2) + "KB")
 
       const fileName = `${user.id}/logo.webp`
@@ -315,11 +416,26 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
         // Provide more specific error messages
         if (uploadError.message.includes('bucket')) {
-          alert("Storage bucket not configured. Please run the CREATE_STORAGE_BUCKETS.sql script in Supabase.")
+          toast({
+            title: "Storage Error",
+            description: "Storage bucket not configured. Please contact support.",
+            variant: "destructive",
+            duration: 5000,
+          })
         } else if (uploadError.message.includes('policy')) {
-          alert("Permission denied. Please ensure you're logged in and try again.")
+          toast({
+            title: "Permission Denied",
+            description: "Please ensure you're logged in and try again.",
+            variant: "destructive",
+            duration: 5000,
+          })
         } else {
-          alert(`Error uploading logo: ${uploadError.message}`)
+          toast({
+            title: "Upload Failed",
+            description: `Error uploading logo: ${uploadError.message}`,
+            variant: "destructive",
+            duration: 5000,
+          })
         }
         return
       }
@@ -341,21 +457,107 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
       if (updateError) {
         console.error("[v0] Error updating profile with logo URL:", updateError)
-        alert("Logo uploaded but failed to update profile. Please refresh the page.")
+        toast({
+          title: "Update Failed",
+          description: "Logo uploaded but failed to update profile. Please refresh the page.",
+          variant: "destructive",
+          duration: 5000,
+        })
         return
       }
 
-      // Refresh the page to show the new logo
-      window.location.reload()
+      console.log("[v0] Logo upload completed successfully!")
+
+      // Show success toast
+      toast({
+        title: "✓ Logo Updated Successfully",
+        description: "Your profile logo has been updated. The page will reload to show the changes.",
+        duration: 2000,
+      })
+
+      // Refresh the page to show the new logo (after a short delay for the toast)
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (error) {
       console.error("[v0] Unexpected error:", error)
-      if (error instanceof Error && error.message.includes('canvas')) {
-        alert("Error processing image. Please try a different image file.")
+
+      if (error instanceof Error) {
+        const errorMessage = error.message
+
+        // Parse custom error codes from resizeImage
+        if (errorMessage.includes('IMAGE_LOAD_FAILED')) {
+          toast({
+            title: "Failed to Load Image",
+            description: "The image file could not be loaded. The file may be corrupted or in an unsupported format. Try using a different image file.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('IMAGE_DIMENSIONS_INVALID')) {
+          toast({
+            title: "Invalid Image Dimensions",
+            description: "The image has invalid or zero dimensions. Please choose a different image file.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('IMAGE_TOO_LARGE')) {
+          toast({
+            title: "Image Too Large",
+            description: "The image dimensions exceed 10,000x10,000 pixels. Please resize the image to smaller dimensions (e.g., 2000x2000 or less).",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('IMAGE_CONVERSION_FAILED')) {
+          toast({
+            title: "Image Conversion Failed",
+            description: "Failed to convert your image to WebP format. Try using a different browser (Chrome or Edge recommended) or a different image file.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('IMAGE_PROCESSING_FAILED')) {
+          toast({
+            title: "Image Processing Failed",
+            description: "An error occurred while processing your image. Try using a smaller image file or closing other browser tabs to free up memory.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('canvas')) {
+          toast({
+            title: "Canvas Processing Error",
+            description: "Your browser encountered an error while processing the image. Try using a different browser (Chrome or Edge work best).",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('memory') || errorMessage.includes('quota')) {
+          toast({
+            title: "Memory Error",
+            description: "Your browser ran out of memory while processing the image. Try using a smaller image file or closing other browser tabs.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else {
+          toast({
+            title: "Upload Error",
+            description: `${errorMessage}. If this problem persists, try using a different image file or browser.`,
+            variant: "destructive",
+            duration: 5000,
+          })
+        }
       } else {
-        alert("Unexpected error uploading logo. Please try again.")
+        toast({
+          title: "Unexpected Error",
+          description: "An unexpected error occurred while uploading your logo. Please try again with a different image file.",
+          variant: "destructive",
+          duration: 5000,
+        })
       }
     } finally {
       setUploadingLogo(false)
+      // Reset the file input so the same file can be selected again
+      const fileInputs = document.querySelectorAll<HTMLInputElement>('#logo-upload, #logo-upload-desktop')
+      fileInputs.forEach(input => {
+        if (input) input.value = ''
+      })
     }
   }
 
@@ -373,9 +575,19 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
         console.error("[v0] Error updating company visibility:", error.message)
         if (error.message.includes("column") && error.message.includes("profile_visible")) {
           console.log("[v0] Company visibility feature not yet available - database migration needed")
-          alert("Company visibility feature will be available soon. Database migration required.")
+          toast({
+            title: "Feature Unavailable",
+            description: "Company visibility feature will be available soon. Database migration required.",
+            variant: "destructive",
+            duration: 5000,
+          })
         } else {
-          alert(`Error updating visibility: ${error.message}`)
+          toast({
+            title: "Update Failed",
+            description: `Error updating visibility: ${error.message}`,
+            variant: "destructive",
+            duration: 5000,
+          })
         }
         return
       }
@@ -384,7 +596,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       console.log("[v0] Company visibility updated successfully:", visible)
     } catch (error) {
       console.error("[v0] Error updating company visibility:", error)
-      alert("Error updating visibility. Please try again.")
+      toast({
+        title: "Update Failed",
+        description: "Error updating visibility. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setUpdatingVisibility(false)
     }
@@ -409,7 +626,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           console.log("[v0] Open for business feature not yet available - database migration needed")
           // Column doesn't exist yet, but keep UI updated
         } else {
-          alert(`Error updating business status: ${error.message}`)
+          toast({
+            title: "Update Failed",
+            description: `Error updating business status: ${error.message}`,
+            variant: "destructive",
+            duration: 5000,
+          })
           // Revert on actual error
           setOpenForBusiness(!status)
         }
@@ -419,7 +641,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       console.log("[v0] Business status updated successfully:", status)
     } catch (error) {
       console.error("[v0] Error updating business status:", error)
-      alert("Error updating business status. Please try again.")
+      toast({
+        title: "Update Failed",
+        description: "Error updating business status. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
       setOpenForBusiness(!status) // Revert on error
     } finally {
       setUpdatingBusinessStatus(false)
@@ -445,7 +672,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           console.log("[v0] Hiring status feature not yet available - database migration needed")
           // Column doesn't exist yet, but keep UI updated
         } else {
-          alert(`Error updating hiring status: ${error.message}`)
+          toast({
+            title: "Update Failed",
+            description: `Error updating hiring status: ${error.message}`,
+            variant: "destructive",
+            duration: 5000,
+          })
           // Revert on actual error
           setHiring(!status)
         }
@@ -455,7 +687,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       console.log("[v0] Hiring status updated successfully:", status)
     } catch (error) {
       console.error("[v0] Error updating hiring status:", error)
-      alert("Error updating hiring status. Please try again.")
+      toast({
+        title: "Update Failed",
+        description: "Error updating hiring status. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
       setHiring(!status) // Revert on error
     } finally {
       setUpdatingHiringStatus(false)
@@ -1051,6 +1288,15 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                           <div className="flex flex-wrap items-center gap-2 mb-0.5 sm:mb-1">
                             <h4 className="font-medium text-foreground text-lg sm:text-xl truncate">{job.title}</h4>
                             {getJobStatusBadge(job)}
+                            {job.is_tradespeople_job ? (
+                              <Badge className="bg-purple-100 text-purple-700 border-purple-300">
+                                Trade Job
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+                                Vacancy
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-base sm:text-lg text-muted-foreground">
                             <span className="flex items-center whitespace-nowrap">

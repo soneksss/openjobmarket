@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Briefcase, MapPin, Edit, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Home } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
@@ -89,6 +88,13 @@ interface ProfessionalDashboardProps {
 }
 
 export default function ProfessionalDashboard({ user, profile, applications, savedJobs, hasCV }: ProfessionalDashboardProps) {
+  console.log("[PROFESSIONAL-DASHBOARD] Component received profile:", {
+    hasProfile: !!profile,
+    profilePhotoUrl: profile?.profile_photo_url,
+    firstName: profile?.first_name,
+    lastName: profile?.last_name
+  })
+
   const [profileVisible, setProfileVisible] = useState(profile.profile_visible ?? true)
   const [updatingVisibility, setUpdatingVisibility] = useState(false)
   const [activelyLooking, setActivelyLooking] = useState(profile.actively_looking ?? false)
@@ -498,7 +504,7 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
   const handleBrowseJobs = () => {
     setLoadingJobs(true)
 
-    // Get user's location
+    // Navigate to main page with Vacancies tab selected
     if (!latitude || !longitude) {
       // Try to get current geolocation
       if (navigator.geolocation) {
@@ -506,25 +512,25 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
           (position) => {
             const userLat = position.coords.latitude
             const userLon = position.coords.longitude
-            // Navigate to jobs page with location pre-filled
-            router.push(`/jobs?lat=${userLat}&lng=${userLon}&radius=10`)
+            // Navigate to main page with Vacancies tab and location
+            router.push(`/?tab=vacancies&lat=${userLat}&lng=${userLon}&radius=10`)
             setLoadingJobs(false)
           },
           (error) => {
             console.error("Error getting location:", error)
-            // Navigate to jobs page without location - user can set it there
-            router.push("/jobs")
+            // Navigate to main page with Vacancies tab, no location
+            router.push("/?tab=vacancies")
             setLoadingJobs(false)
           }
         )
       } else {
-        // Navigate to jobs page without location
-        router.push("/jobs")
+        // Navigate to main page with Vacancies tab
+        router.push("/?tab=vacancies")
         setLoadingJobs(false)
       }
     } else {
-      // Navigate to jobs page with profile location
-      router.push(`/jobs?lat=${latitude}&lng=${longitude}&radius=10&location=${encodeURIComponent(location)}`)
+      // Navigate to main page with Vacancies tab and profile location
+      router.push(`/?tab=vacancies&lat=${latitude}&lng=${longitude}&radius=10&location=${encodeURIComponent(location)}`)
       setLoadingJobs(false)
     }
   }
@@ -532,20 +538,6 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-2 sm:px-3 md:px-4 py-2 sm:py-3 md:py-4 lg:py-8">
-        {/* Logo in top left corner - Always visible */}
-        <div className="flex justify-start mb-3">
-          <Link href="/">
-            <Image
-              src="/Logo.png"
-              alt="Open Job Market"
-              width={80}
-              height={80}
-              className="h-8 md:h-10 w-auto rounded-lg"
-              priority
-            />
-          </Link>
-        </div>
-
         <div className="flex flex-col lg:grid lg:grid-cols-3 gap-3 sm:gap-4 md:gap-6 lg:gap-8">
           <div className="lg:col-span-1 space-y-3 md:space-y-6 flex flex-col">
             {/* Profile Card - Order 1 on mobile */}
@@ -555,7 +547,7 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                   <div className="flex items-start space-x-2 md:space-x-4 flex-1">
                     <Avatar className="h-12 w-12 md:h-16 md:w-16 rounded-full">
                       <AvatarImage
-                        src={profile.profile_photo_url || user.profile_photo_url || "/placeholder.svg"}
+                        src={profile.profile_photo_url || "/placeholder.svg"}
                         className="object-cover w-full h-full rounded-full"
                       />
                       <AvatarFallback className="text-sm md:text-lg rounded-full">
@@ -768,11 +760,11 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                 <Button
                   onClick={handleBrowseJobs}
                   disabled={loadingJobs}
-                  className="h-auto p-2 sm:p-3 md:p-4 flex-col bg-green-600 hover:bg-green-700 text-white border-0"
+                  className="h-auto p-2 sm:p-3 md:p-4 flex-col bg-blue-600 hover:bg-blue-700 text-white border-0"
                 >
                   <Briefcase className="h-7 w-7 sm:h-10 sm:w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
                   <span className="font-bold text-xs sm:text-sm md:text-lg">
-                    {loadingJobs ? "Loading..." : "Browse Jobs"}
+                    {loadingJobs ? "Loading..." : "Browse Vacancies"}
                   </span>
                   <span className="text-xs opacity-70 hidden md:block">Find opportunities</span>
                 </Button>
@@ -780,9 +772,9 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                   asChild
                   className="h-auto p-2 sm:p-3 md:p-4 flex-col bg-orange-600 hover:bg-orange-700 text-white border-0"
                 >
-                  <Link href="/contractors">
+                  <Link href="/?tab=traders">
                     <Briefcase className="h-7 w-7 sm:h-10 sm:w-10 md:h-12 md:w-12 mb-1 md:mb-2" />
-                    <span className="font-bold text-xs sm:text-sm md:text-lg">Browse Contractors</span>
+                    <span className="font-bold text-xs sm:text-sm md:text-lg">Browse Tradespeople</span>
                     <span className="text-xs opacity-70 hidden md:block">Find Trades</span>
                   </Link>
                 </Button>

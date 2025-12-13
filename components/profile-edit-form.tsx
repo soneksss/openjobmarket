@@ -94,6 +94,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
   const [uploading, setUploading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [photoUploaded, setPhotoUploaded] = useState(false)
 
   // Form state
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(userData?.profile_photo_url || "")
@@ -244,7 +245,10 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
         data: { publicUrl },
       } = supabase.storage.from(bucketName).getPublicUrl(fileName)
 
+      console.log("[PROFILE-EDIT] Photo uploaded to storage successfully:", publicUrl)
+      console.log("[PROFILE-EDIT] IMPORTANT: Photo will be saved to database when you click 'Save Changes'")
       setProfilePhotoUrl(publicUrl)
+      setPhotoUploaded(true)
     } catch (error) {
       console.error("Error:", error)
       alert("Error processing image. Please try again.")
@@ -316,6 +320,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
 
       // Update professional profile if exists
       if (professionalProfile && userData?.user_type === "professional") {
+        console.log("[PROFILE-EDIT] Saving profile photo URL to database:", profilePhotoUrl || "(none)")
         const profileUpdateData: any = {
           profile_photo_url: profilePhotoUrl || null,
           phone: phone || null,
@@ -366,7 +371,11 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
 
       // Show success message
       setSaveSuccess(true)
+      setPhotoUploaded(false) // Clear photo uploaded flag
       setTimeout(() => setSaveSuccess(false), 3000) // Hide after 3 seconds
+
+      // Refresh to invalidate server-side cache and re-fetch updated data
+      router.refresh()
 
       // Redirect back to dashboard after a short delay
       setTimeout(() => {
@@ -447,6 +456,17 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
           <div>
             <p className="text-green-800 font-medium">Profile updated successfully!</p>
             <p className="text-green-700 text-sm">You will be redirected to your dashboard shortly.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Photo Uploaded Reminder */}
+      {photoUploaded && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center space-x-3">
+          <Upload className="h-5 w-5 text-blue-600" />
+          <div>
+            <p className="text-blue-800 font-medium">Photo uploaded successfully!</p>
+            <p className="text-blue-700 text-sm">Don't forget to click "Save Changes" at the bottom to save your profile photo.</p>
           </div>
         </div>
       )}

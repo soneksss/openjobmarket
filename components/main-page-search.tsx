@@ -4,8 +4,8 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LocationInput } from "@/components/location-input"
-import { Search, Users, Hammer, Map, X, Target, MapPin } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { Search, Users, Hammer, Map, X, Target, MapPin, SlidersHorizontal } from "lucide-react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ProfessionalMap } from "@/components/professional-map"
 import ProfessionalsPageContent from "@/components/professionals-page-content"
 import {
@@ -32,6 +32,7 @@ interface MainPageSearchProps {
 
 export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: MainPageSearchProps = {}) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = createClient()
   const [searchQuery, setSearchQuery] = useState("")
   const [location, setLocation] = useState("")
@@ -40,6 +41,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [locationError, setLocationError] = useState("")
   const [user, setUser] = useState<any>(null)
   const [userType, setUserType] = useState<"professional" | "company" | null>(null)
+  const [userProfile, setUserProfile] = useState<any>(null)
   const [selectedSearchType, setSelectedSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders">("vacancies")
 
   // Map picker state
@@ -48,12 +50,38 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [mapPickerRadius, setMapPickerRadius] = useState("10")
   const [mapPickerKey, setMapPickerKey] = useState(0)
 
+  // Filter panel state
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Filter values state
+  const [jobType, setJobType] = useState("all")
+  const [experienceLevel, setExperienceLevel] = useState("all")
+  const [workLocation, setWorkLocation] = useState("all")
+  const [salaryRange, setSalaryRange] = useState("all")
+  const [noExperienceRequired, setNoExperienceRequired] = useState(false)
+  const [drivingLicenseRequired, setDrivingLicenseRequired] = useState(false)
+  const [ownTransportRequired, setOwnTransportRequired] = useState(false)
+  const [tradeCategory, setTradeCategory] = useState("all")
+  const [urgency, setUrgency] = useState("all")
+  const [budgetRange, setBudgetRange] = useState("all")
+  const [tradeJobType, setTradeJobType] = useState("all")
+  const [distance, setDistance] = useState("10")
+  const [employmentStatus, setEmploymentStatus] = useState("all")
+  const [hasCVUploaded, setHasCVUploaded] = useState(false)
+  const [hasDrivingLicense, setHasDrivingLicense] = useState(false)
+  const [hasOwnTransport, setHasOwnTransport] = useState(false)
+  const [willingToRelocate, setWillingToRelocate] = useState(false)
+  const [availableForBusiness, setAvailableForBusiness] = useState(false)
+
   // Full-screen map modal state for all users
   const [showMapModal, setShowMapModal] = useState(false)
   const [mapResults, setMapResults] = useState<any[]>([])
   const [searchType, setSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
   const [modalSearchType, setModalSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
   const [mapCenter, setMapCenter] = useState<[number, number]>([51.5074, -0.1278])
+
+  // State for restoring search from "Back to Search"
+  const [restoreSearch, setRestoreSearch] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
 
   // Update search query from external source (e.g., category clicks)
   useEffect(() => {
@@ -80,8 +108,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .single()
 
         setUserType(userData?.user_type || null)
+
+        // Fetch professional profile if user is a professional
+        const { data: profileData } = await supabase
+          .from("professional_profiles")
+          .select("id, first_name, last_name")
+          .eq("user_id", user.id)
+          .maybeSingle()
+
+        setUserProfile(profileData)
       } else {
         setUserType(null)
+        setUserProfile(null)
       }
     }
     checkUser()
@@ -97,13 +135,77 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .single()
 
         setUserType(userData?.user_type || null)
+
+        // Fetch professional profile if user is a professional
+        const { data: profileData } = await supabase
+          .from("professional_profiles")
+          .select("id, first_name, last_name")
+          .eq("user_id", session.user.id)
+          .maybeSingle()
+
+        setUserProfile(profileData)
       } else {
         setUserType(null)
+        setUserProfile(null)
       }
     })
 
     return () => subscription.unsubscribe()
   }, [supabase])
+
+  // Handle tab URL parameter and restore search state from "Back to Search"
+  useEffect(() => {
+    const tab = searchParams?.get('tab')
+    console.log("[MAIN-PAGE-SEARCH] URL changed, all searchParams:", {
+      tab,
+      query: searchParams?.get('query'),
+      location: searchParams?.get('location'),
+      lat: searchParams?.get('lat'),
+      lon: searchParams?.get('lon')
+    })
+
+    if (tab) {
+      console.log("[MAIN-PAGE-SEARCH] Tab parameter detected:", tab)
+      if (tab === 'vacancies' || tab === 'jobs_tasks' || tab === 'talents' || tab === 'traders') {
+        setSelectedSearchType(tab)
+        console.log("[MAIN-PAGE-SEARCH] Selected search type set to:", tab)
+
+        // Check if we're returning from a job detail page with search params
+        const query = searchParams?.get('query')
+        const locationName = searchParams?.get('location')
+        const lat = searchParams?.get('lat')
+        const lon = searchParams?.get('lon')
+
+        if (query && locationName && lat && lon) {
+          console.log("[MAIN-PAGE-SEARCH] ✅ Restoring search from job detail return:", {
+            query, locationName, lat, lon
+          })
+          // Restore search state
+          setSearchQuery(query)
+          setLocation(locationName)
+          setSelectedLocation({ lat: parseFloat(lat), lon: parseFloat(lon) })
+          // Set a flag to trigger search after state is updated
+          setRestoreSearch(tab)
+        } else {
+          console.log("[MAIN-PAGE-SEARCH] ❌ Missing search params - not restoring:", {
+            hasQuery: !!query,
+            hasLocation: !!locationName,
+            hasLat: !!lat,
+            hasLon: !!lon
+          })
+        }
+      }
+    }
+  }, [searchParams])
+
+  // Separate effect to trigger search after state restoration
+  useEffect(() => {
+    if (restoreSearch && searchQuery && location && selectedLocation) {
+      console.log("[MAIN-PAGE-SEARCH] State restored, triggering search for:", restoreSearch)
+      handleSearch(restoreSearch)
+      setRestoreSearch(null) // Clear the flag
+    }
+  }, [restoreSearch, searchQuery, location, selectedLocation])
 
   // Utility function to format address in short format
   const formatShortAddress = (suggestion: any): string => {
@@ -185,13 +287,20 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   }
 
   const validateSearch = () => {
-    if (!searchQuery.trim()) {
+    // Allow empty search query if "No experience required" is checked AND location is set
+    const canSkipSearchQuery = noExperienceRequired && location.trim() && selectedLocation
+
+    if (!searchQuery.trim() && !canSkipSearchQuery) {
       return "Please enter a search term"
     }
-    if (!location.trim()) {
+
+    // Allow empty location if work location is "Remote"
+    const canSkipLocation = workLocation === "remote"
+
+    if (!location.trim() && !canSkipLocation) {
       return "Please select a location"
     }
-    if (!selectedLocation) {
+    if (!selectedLocation && !canSkipLocation) {
       setLocationError("Please select a valid location from the list")
       return "Please select a valid location from the list"
     }
@@ -756,7 +865,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
 
   return (
-    <div className="w-full">
+    <div className="w-full relative z-[100]">
       <div className="max-w-2xl mx-auto bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-2 sm:p-3 md:p-4 shadow-xl border border-white/10">
         <h2 className="text-xs sm:text-sm md:text-base font-bold text-white mb-2 sm:mb-2.5 md:mb-3 text-center">
           Search and Compare
@@ -856,22 +965,487 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               <Search className="h-4 w-4 mr-1.5" />
               {isSearching ? "Searching..." : "Search"}
             </Button>
+
+            {/* Filter button - desktop only */}
+            <Button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`hidden sm:flex h-8 sm:h-9 md:h-10 px-3 sm:px-4 text-xs sm:text-sm font-bold text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 ${
+                selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
+                selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
+                selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
+                "bg-emerald-600 hover:bg-emerald-700"
+              } ${showFilters ? "ring-2 ring-white/50" : ""}`}
+              title="Toggle filters"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </Button>
           </div>
 
-          {/* Second row: Search button - mobile only */}
-          <Button
-            onClick={() => handleSearch(selectedSearchType)}
-            disabled={isSearching}
-            className={`sm:hidden h-8 text-xs font-bold text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 w-full ${
-              selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
-              selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
-              selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
-              "bg-emerald-600 hover:bg-emerald-700"
-            }`}
-          >
-            <Search className="h-4 w-4 mr-1.5" />
-            {isSearching ? "Searching..." : "Search"}
-          </Button>
+          {/* Second row: Search and Filter buttons - mobile only */}
+          <div className="sm:hidden flex gap-2">
+            <Button
+              onClick={() => handleSearch(selectedSearchType)}
+              disabled={isSearching}
+              className={`flex-1 h-8 text-xs font-bold text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 ${
+                selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
+                selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
+                selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
+                "bg-emerald-600 hover:bg-emerald-700"
+              }`}
+            >
+              <Search className="h-4 w-4 mr-1.5" />
+              {isSearching ? "Searching..." : "Search"}
+            </Button>
+
+            {/* Filter button - mobile */}
+            <Button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`h-8 px-3 text-xs font-bold text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 ${
+                selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
+                selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
+                selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
+                "bg-emerald-600 hover:bg-emerald-700"
+              } ${showFilters ? "ring-2 ring-white/50" : ""}`}
+              title="Toggle filters"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* Filter Panel - shows when showFilters is true */}
+          {showFilters && (
+            <div className="mt-3 p-3 sm:p-4 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
+              <h3 className="text-xs sm:text-sm font-bold text-white mb-3 flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4" />
+                Filters
+                {selectedSearchType === "vacancies" && " - Job Vacancies"}
+                {selectedSearchType === "jobs_tasks" && " - Trade Jobs"}
+                {selectedSearchType === "traders" && " - Tradespeople"}
+                {selectedSearchType === "talents" && " - Talents"}
+              </h3>
+
+              {/* Vacancies Filters */}
+              {selectedSearchType === "vacancies" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Job Type</label>
+                    <Select value={jobType} onValueChange={setJobType}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="full-time">Full-time</SelectItem>
+                        <SelectItem value="part-time">Part-time</SelectItem>
+                        <SelectItem value="contract">Contract</SelectItem>
+                        <SelectItem value="temporary">Temporary</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Experience Level</label>
+                    <Select value={experienceLevel} onValueChange={setExperienceLevel}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Levels</SelectItem>
+                        <SelectItem value="entry">Entry Level</SelectItem>
+                        <SelectItem value="mid">Mid Level</SelectItem>
+                        <SelectItem value="senior">Senior Level</SelectItem>
+                        <SelectItem value="lead">Lead/Principal</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Work Location</label>
+                    <Select value={workLocation} onValueChange={setWorkLocation}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Locations</SelectItem>
+                        <SelectItem value="remote">Remote</SelectItem>
+                        <SelectItem value="hybrid">Hybrid</SelectItem>
+                        <SelectItem value="on-site">On-site</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Salary Range</label>
+                    <Select value={salaryRange} onValueChange={setSalaryRange}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Any Salary</SelectItem>
+                        <SelectItem value="0-30k">Under £30k</SelectItem>
+                        <SelectItem value="30-50k">£30k - £50k</SelectItem>
+                        <SelectItem value="50-75k">£50k - £75k</SelectItem>
+                        <SelectItem value="75-100k">£75k - £100k</SelectItem>
+                        <SelectItem value="100k+">£100k+</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Skills Input */}
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-white/70 mb-1.5 block">Required Skills</label>
+                    <Input
+                      placeholder="e.g. React, Python, Project Management"
+                      className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                    />
+                  </div>
+
+                  {/* Checkbox filters for Vacancies */}
+                  <div className="sm:col-span-2 space-y-2 mt-2">
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={noExperienceRequired}
+                        onChange={(e) => setNoExperienceRequired(e.target.checked)}
+                      />
+                      <span>No experience required (Training provided)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={drivingLicenseRequired}
+                        onChange={(e) => setDrivingLicenseRequired(e.target.checked)}
+                      />
+                      <span>Driving license required</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={ownTransportRequired}
+                        onChange={(e) => setOwnTransportRequired(e.target.checked)}
+                      />
+                      <span>Own transport required</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Trade Jobs Filters */}
+              {selectedSearchType === "jobs_tasks" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Trade Category</label>
+                    <Select value={tradeCategory} onValueChange={setTradeCategory}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Trades</SelectItem>
+                        <SelectItem value="construction">Construction</SelectItem>
+                        <SelectItem value="plumbing">Plumbing</SelectItem>
+                        <SelectItem value="electrical">Electrical</SelectItem>
+                        <SelectItem value="carpentry">Carpentry</SelectItem>
+                        <SelectItem value="painting">Painting & Decorating</SelectItem>
+                        <SelectItem value="roofing">Roofing</SelectItem>
+                        <SelectItem value="landscaping">Landscaping</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Urgency</label>
+                    <Select value={urgency} onValueChange={setUrgency}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Any Time</SelectItem>
+                        <SelectItem value="urgent">Urgent (ASAP)</SelectItem>
+                        <SelectItem value="week">Within a Week</SelectItem>
+                        <SelectItem value="month">Within a Month</SelectItem>
+                        <SelectItem value="flexible">Flexible</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Budget Range</label>
+                    <Select value={budgetRange} onValueChange={setBudgetRange}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Any Budget</SelectItem>
+                        <SelectItem value="0-500">Under £500</SelectItem>
+                        <SelectItem value="500-1k">£500 - £1k</SelectItem>
+                        <SelectItem value="1k-5k">£1k - £5k</SelectItem>
+                        <SelectItem value="5k-10k">£5k - £10k</SelectItem>
+                        <SelectItem value="10k+">£10k+</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Job Type</label>
+                    <Select value={tradeJobType} onValueChange={setTradeJobType}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="one-off">One-off Job</SelectItem>
+                        <SelectItem value="ongoing">Ongoing Work</SelectItem>
+                        <SelectItem value="emergency">Emergency</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Checkbox filters for Trade Jobs */}
+                  <div className="sm:col-span-2 space-y-2 mt-2">
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={noExperienceRequired}
+                        onChange={(e) => setNoExperienceRequired(e.target.checked)}
+                      />
+                      <span>No experience required</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={drivingLicenseRequired}
+                        onChange={(e) => setDrivingLicenseRequired(e.target.checked)}
+                      />
+                      <span>Driving license required</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={ownTransportRequired}
+                        onChange={(e) => setOwnTransportRequired(e.target.checked)}
+                      />
+                      <span>Own transport required</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Tradespeople Filters */}
+              {selectedSearchType === "traders" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Distance</label>
+                    <Select value={distance} onValueChange={setDistance}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">Within 5 miles</SelectItem>
+                        <SelectItem value="10">Within 10 miles</SelectItem>
+                        <SelectItem value="25">Within 25 miles</SelectItem>
+                        <SelectItem value="50">Within 50 miles</SelectItem>
+                        <SelectItem value="100">Within 100 miles</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Urgency</label>
+                    <Select value={urgency} onValueChange={setUrgency}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Any Time</SelectItem>
+                        <SelectItem value="urgent">Urgent (ASAP)</SelectItem>
+                        <SelectItem value="week">Within a Week</SelectItem>
+                        <SelectItem value="month">Within a Month</SelectItem>
+                        <SelectItem value="flexible">Flexible</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Job Type</label>
+                    <Select value={tradeJobType} onValueChange={setTradeJobType}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="one-off">One-off Job</SelectItem>
+                        <SelectItem value="ongoing">Ongoing Work</SelectItem>
+                        <SelectItem value="emergency">Emergency</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Trade Category Input */}
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Trade Category</label>
+                    <Select value={tradeCategory} onValueChange={setTradeCategory}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Trades</SelectItem>
+                        <SelectItem value="construction">Construction</SelectItem>
+                        <SelectItem value="plumbing">Plumbing</SelectItem>
+                        <SelectItem value="electrical">Electrical</SelectItem>
+                        <SelectItem value="carpentry">Carpentry</SelectItem>
+                        <SelectItem value="painting">Painting & Decorating</SelectItem>
+                        <SelectItem value="roofing">Roofing</SelectItem>
+                        <SelectItem value="landscaping">Landscaping</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Checkbox filters for Tradespeople */}
+                  <div className="sm:col-span-2 space-y-2 mt-2">
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={availableForBusiness}
+                        onChange={(e) => setAvailableForBusiness(e.target.checked)}
+                      />
+                      <span>24/7 Service</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Talents Filters */}
+              {selectedSearchType === "talents" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Experience Level</label>
+                    <Select value={experienceLevel} onValueChange={setExperienceLevel}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Levels</SelectItem>
+                        <SelectItem value="entry">Entry Level (0-2 yrs)</SelectItem>
+                        <SelectItem value="mid">Mid Level (3-5 yrs)</SelectItem>
+                        <SelectItem value="senior">Senior (6-10 yrs)</SelectItem>
+                        <SelectItem value="expert">Expert (10+ yrs)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Employment Status</label>
+                    <Select value={employmentStatus} onValueChange={setEmploymentStatus}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Any Status</SelectItem>
+                        <SelectItem value="unemployed">Looking for Work</SelectItem>
+                        <SelectItem value="employed">Open to Opportunities</SelectItem>
+                        <SelectItem value="self-employed">Self-employed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Distance</label>
+                    <Select value={distance} onValueChange={setDistance}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">Within 5 miles</SelectItem>
+                        <SelectItem value="10">Within 10 miles</SelectItem>
+                        <SelectItem value="25">Within 25 miles</SelectItem>
+                        <SelectItem value="50">Within 50 miles</SelectItem>
+                        <SelectItem value="100">Within 100 miles</SelectItem>
+                        <SelectItem value="remote">Remote (any location)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Checkbox filters for Talents */}
+                  <div className="sm:col-span-2 space-y-2 mt-2">
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={hasCVUploaded}
+                        onChange={(e) => setHasCVUploaded(e.target.checked)}
+                      />
+                      <span>Has CV uploaded</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={hasDrivingLicense}
+                        onChange={(e) => setHasDrivingLicense(e.target.checked)}
+                      />
+                      <span>Has driving license</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={hasOwnTransport}
+                        onChange={(e) => setHasOwnTransport(e.target.checked)}
+                      />
+                      <span>Has own transport</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        checked={willingToRelocate}
+                        onChange={(e) => setWillingToRelocate(e.target.checked)}
+                      />
+                      <span>Willing to relocate</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Clear Filters Button */}
+              <div className="flex gap-2 mt-4 pt-3 border-t border-white/10">
+                <Button
+                  onClick={() => {
+                    // Reset all filters to default values
+                    setJobType("all")
+                    setExperienceLevel("all")
+                    setWorkLocation("all")
+                    setSalaryRange("all")
+                    setNoExperienceRequired(false)
+                    setDrivingLicenseRequired(false)
+                    setOwnTransportRequired(false)
+                    setTradeCategory("all")
+                    setUrgency("all")
+                    setBudgetRange("all")
+                    setTradeJobType("all")
+                    setDistance("10")
+                    setEmploymentStatus("all")
+                    setHasCVUploaded(false)
+                    setHasDrivingLicense(false)
+                    setHasOwnTransport(false)
+                    setWillingToRelocate(false)
+                    setAvailableForBusiness(false)
+                  }}
+                  variant="outline"
+                  className="flex-1 h-8 text-xs bg-white/5 border-white/20 text-white hover:bg-white/10"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Map Picker Modal */}
@@ -967,6 +1541,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             data={mapResults}
             user={user}
             userType={userType}
+            userProfile={userProfile}
             searchParams={{
               search: searchQuery,
               location: location,

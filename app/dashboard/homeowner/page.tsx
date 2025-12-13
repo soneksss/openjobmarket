@@ -79,7 +79,9 @@ export default async function HomeownerDashboardPage() {
       created_at,
       updated_at,
       is_tradespeople_job,
-      work_location
+      work_location,
+      applications_count,
+      views_count
     `)
     .eq("homeowner_id", profile.id)
     .order("created_at", { ascending: false })

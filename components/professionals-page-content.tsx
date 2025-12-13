@@ -117,6 +117,7 @@ interface ProfessionalsPageContentProps {
   data: Professional[] | Job[] | Company[]
   user: any | null
   userType: "professional" | "company" | null
+  userProfile?: any | null
   searchParams: {
     search?: string
     location?: string
@@ -144,6 +145,7 @@ export default function ProfessionalsPageContent({
   data,
   user,
   userType,
+  userProfile,
   searchParams,
   center,
   isModal = false,
@@ -537,7 +539,18 @@ export default function ProfessionalsPageContent({
       setSignUpPrompt({ isOpen: true, action: "message" })
       return
     }
-    router.push(`/jobs/${jobId}`)
+    // Build URL with search parameters to enable "Back to Search"
+    console.log("[PROFESSIONALS-PAGE] Building job URL with searchParams:", searchParams)
+    const params = new URLSearchParams()
+    if (searchParams.search) params.set('query', searchParams.search)
+    if (searchParams.location) params.set('location', searchParams.location)
+    if (searchParams.lat) params.set('lat', searchParams.lat)
+    if (searchParams.lng) params.set('lon', searchParams.lng)
+
+    const queryString = params.toString()
+    const finalUrl = `/jobs/${jobId}${queryString ? `?${queryString}` : ''}`
+    console.log("[PROFESSIONALS-PAGE] Navigating to:", finalUrl)
+    router.push(finalUrl)
   }
 
   const handleSaveJob = async (jobId: string) => {
@@ -1138,10 +1151,12 @@ export default function ProfessionalsPageContent({
                                     job={item}
                                     isLoggedIn={!!user}
                                     isSelected={isSelected}
+                                    userProfile={userProfile}
                                     onSelect={() => {
                                       // Toggle selection
                                       setSelectedProfessionalId(isSelected ? null : item.id)
                                     }}
+                                    onApply={handleApplyToJob}
                                   />
                                 )
                               }
@@ -2130,7 +2145,7 @@ export default function ProfessionalsPageContent({
               )}
 
               {/* Results Counter */}
-              <div className="absolute top-2 left-2 z-10">
+              <div className="absolute top-2 right-2 z-10">
                 <div className="bg-white rounded-lg shadow-lg px-2 py-1.5 border">
                   <div className="flex items-center gap-1.5">
                     <UserIcon className="h-4 w-4 text-blue-600" />
@@ -2177,7 +2192,7 @@ export default function ProfessionalsPageContent({
                     {data.filter(item => item.id === selectedProfessionalId).map((item: any) => (
                       <div key={item.id}>
                         {isShowingJobs ? (
-                          <JobCard job={item} isLoggedIn={!!user} isSelected={true} />
+                          <JobCard job={item} isLoggedIn={!!user} isSelected={true} userProfile={userProfile} />
                         ) : (
                           <div className="space-y-4">
                             <div className="flex items-start gap-4">
@@ -2448,6 +2463,7 @@ export default function ProfessionalsPageContent({
                             job={item}
                             isLoggedIn={!!user}
                             isSelected={isSelected}
+                            userProfile={userProfile}
                             onSelect={() => {
                               // Toggle selection
                               setSelectedProfessionalId(isSelected ? null : item.id)

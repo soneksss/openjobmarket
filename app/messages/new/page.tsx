@@ -36,6 +36,7 @@ function NewMessagePage() {
   const [recipientInfo, setRecipientInfo] = useState<any>(null)
   const [loadingRecipient, setLoadingRecipient] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [returnUrl, setReturnUrl] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -64,8 +65,10 @@ function NewMessagePage() {
     // ✅ Grab params from URL
     const recipient = searchParams.get("recipient")
     const subjectParam = searchParams.get("subject")
+    const returnUrlParam = searchParams.get("returnUrl")
     if (recipient) setRecipientId(recipient)
     if (subjectParam) setSubject(subjectParam)
+    if (returnUrlParam) setReturnUrl(decodeURIComponent(returnUrlParam))
 
     checkAuth()
   }, [searchParams, supabase])
@@ -169,6 +172,7 @@ function NewMessagePage() {
       const { error: messageError } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         sender_id: user.id,
+        recipient_id: recipientId,
         content: message,
       })
 
@@ -178,7 +182,12 @@ function NewMessagePage() {
         return
       }
 
-      router.push(`/messages/${conversationId}`)
+      // Navigate to conversation page, passing returnUrl if available
+      if (returnUrl) {
+        router.push(`/messages/${conversationId}?returnUrl=${encodeURIComponent(returnUrl)}`)
+      } else {
+        router.push(`/messages/${conversationId}`)
+      }
     } catch (err) {
       console.error("[v0] Error sending message:", err)
       setErrorMsg("Unexpected error while sending message.")
@@ -220,10 +229,17 @@ function NewMessagePage() {
   return (
     <div className="container mx-auto p-6 max-w-2xl">
       <div className="mb-6">
-        <Link href="/messages" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Messages
-        </Link>
+        {returnUrl ? (
+          <Link href={returnUrl} className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Search Results
+          </Link>
+        ) : (
+          <Link href="/messages" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Messages
+          </Link>
+        )}
       </div>
 
       <Card>

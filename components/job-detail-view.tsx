@@ -122,6 +122,7 @@ export default function JobDetailView({
   const [isInquiryDialogOpen, setIsInquiryDialogOpen] = useState(false)
   const [inquiryMessage, setInquiryMessage] = useState("")
   const [showReviewsModal, setShowReviewsModal] = useState(false)
+  const [showApplicationModal, setShowApplicationModal] = useState(false)
 
   // Debug: Log if job photo exists
   useEffect(() => {
@@ -164,11 +165,26 @@ export default function JobDetailView({
   const posterLogo = getPosterLogo()
   const posterInitials = getPosterInitials()
 
-  // Build back URL with search params - use /tasks for task jobs, /jobs for regular jobs
-  const basePath = job.is_tradespeople_job ? '/tasks' : '/jobs'
+  // Get poster profile URL
+  const getPosterProfileUrl = () => {
+    if (job.company_profiles) {
+      return `/companies/${job.company_profiles.id}`
+    }
+    if (job.homeowner_profiles) {
+      return `/homeowner/${job.homeowner_profiles.user_id}`
+    }
+    return null
+  }
+
+  const posterProfileUrl = getPosterProfileUrl()
+
+  // Build back URL with search params - redirect to main page with modal open
+  const tabParam = job.is_tradespeople_job ? 'jobs_tasks' : 'vacancies'
+  console.log("[JOB-DETAIL-VIEW] Building back URL with searchParams:", searchParams)
   const backUrl = searchParams && Object.keys(searchParams).length > 0
-    ? `${basePath}?${new URLSearchParams(searchParams as Record<string, string>).toString()}`
-    : basePath
+    ? `/?tab=${tabParam}&${new URLSearchParams(searchParams as Record<string, string>).toString()}`
+    : `/?tab=${tabParam}`
+  console.log("[JOB-DETAIL-VIEW] Back URL:", backUrl)
   const [isSaved, setIsSaved] = useState(false)
   const [sessionValidated, setSessionValidated] = useState(false)
   const [sessionError, setSessionError] = useState<string | null>(null)
@@ -192,7 +208,12 @@ export default function JobDetailView({
     if (userProfile) {
       checkIfJobSaved()
     }
-  }, [job, user, userProfile, hasApplied, companyStatus])
+
+    // Auto-open application modal if apply=true in URL
+    if (searchParams?.apply === 'true' && userProfile && !hasApplied) {
+      setShowApplicationModal(true)
+    }
+  }, [job, user, userProfile, hasApplied, companyStatus, searchParams])
 
   const validateSession = async () => {
     try {
@@ -230,7 +251,7 @@ export default function JobDetailView({
   }
 
   const formatSalary = (min?: number, max?: number) => {
-    if (!min && !max) return "Salary not specified"
+    if (!min && !max) return "Wages not specified"
     if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()} per hour`
     if (min) return `£${min.toLocaleString()}+ per hour`
     return `Up to £${max?.toLocaleString()} per hour`
@@ -369,9 +390,96 @@ export default function JobDetailView({
             {/* Job Header */}
             <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
               <CardHeader className="pb-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                  <div className="flex-1 w-full">
+                    {/* Company Logo, Name, and Rating - Above Title */}
+                    <div className="flex items-center gap-3 mb-4">
+                      {posterProfileUrl ? (
+                        <Link
+                          href={posterProfileUrl}
+                          className="flex items-center gap-3 hover:opacity-80 transition-opacity group"
+                        >
+                          {posterLogo ? (
+                            <div className="h-10 w-10 flex-shrink-0 relative rounded-full overflow-hidden border-2 border-gray-300 bg-gray-100 group-hover:border-blue-500 transition-colors">
+                              <Image
+                                src={posterLogo}
+                                alt={posterName}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <Avatar className="h-10 w-10 border-2 border-gray-300 group-hover:border-blue-500 transition-colors">
+                              <AvatarFallback className="text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                                {posterInitials}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                          <div>
+                            <span className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{posterName}</span>
+                            <div
+                              className="mt-1 cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setShowReviewsModal(true)
+                              }}
+                              title="Click to view reviews"
+                            >
+                              <StarRating
+                                rating={companyRating.average_rating}
+                                totalReviews={companyRating.total_reviews}
+                                size="sm"
+                                showCount={true}
+                              />
+                            </div>
+                          </div>
+                        </Link>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          {posterLogo ? (
+                            <div className="h-10 w-10 flex-shrink-0 relative rounded-full overflow-hidden border-2 border-gray-300 bg-gray-100">
+                              <Image
+                                src={posterLogo}
+                                alt={posterName}
+                                fill
+                                className="object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <Avatar className="h-10 w-10 border-2 border-gray-300">
+                              <AvatarFallback className="text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                                {posterInitials}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                          <div>
+                            <span className="text-base font-semibold text-gray-900">{posterName}</span>
+                            <div
+                              className="mt-1 cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                setShowReviewsModal(true)
+                              }}
+                              title="Click to view reviews"
+                            >
+                              <StarRating
+                                rating={companyRating.average_rating}
+                                totalReviews={companyRating.total_reviews}
+                                size="sm"
+                                showCount={true}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Job Title */}
                     <h1 className="text-3xl font-bold mb-3 text-gray-900 leading-tight">{job.title}</h1>
+
+                    {/* Job Badges */}
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <span className="flex items-center text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
                         <MapPin className="h-4 w-4 mr-1" />
@@ -392,34 +500,12 @@ export default function JobDetailView({
                     </div>
                   </div>
 
-                  {/* Posted By Section - Top Right Corner */}
-                  <div className="flex flex-col items-end gap-2 ml-4">
-                    {!job.is_active && (
-                      <Badge variant="secondary" className="bg-red-100 text-red-700">
-                        Inactive
-                      </Badge>
-                    )}
-                    <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg border border-gray-200">
-                      <span className="text-xs text-gray-500 font-medium">Posted by</span>
-                      {posterLogo ? (
-                        <div className="h-8 w-8 flex-shrink-0 relative rounded-full overflow-hidden border border-gray-300 bg-gray-100">
-                          <Image
-                            src={posterLogo}
-                            alt={posterName}
-                            fill
-                            className="object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <Avatar className="h-8 w-8 border border-gray-300">
-                          <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-                            {posterInitials}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                      <span className="text-sm font-semibold text-gray-900">{posterName}</span>
-                    </div>
-                  </div>
+                  {/* Status Badge - Top Right */}
+                  {!job.is_active && (
+                    <Badge variant="secondary" className="bg-red-100 text-red-700 flex-shrink-0 self-start">
+                      Inactive
+                    </Badge>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
@@ -569,14 +655,35 @@ export default function JobDetailView({
               </Card>
             )}
 
-            {/* Job Application Form */}
+            {/* Apply Button */}
             {userProfile && (
-              <JobApplicationForm
-                job={job}
-                userProfile={userProfile as any}
-                hasApplied={hasApplied}
-                onApplicationSubmitted={() => router.refresh()}
-              />
+              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
+                <CardContent className="p-8 text-center">
+                  <h3 className="text-xl font-semibold mb-3 text-gray-900">
+                    {hasApplied ? "Application Submitted" : "Ready to Apply?"}
+                  </h3>
+                  <p className="text-gray-600 mb-6 leading-relaxed">
+                    {hasApplied
+                      ? "You have already applied to this position. Check your applications to see the status."
+                      : "Review what information will be shared and submit your application."}
+                  </p>
+                  <Button
+                    onClick={() => !hasApplied && setShowApplicationModal(true)}
+                    className={hasApplied
+                      ? "bg-green-600 text-white px-8 py-3 cursor-not-allowed opacity-90"
+                      : "bg-blue-600 hover:bg-blue-700 px-8 py-3"
+                    }
+                    disabled={hasApplied}
+                  >
+                    {hasApplied ? "Applied" : "Apply Now"}
+                  </Button>
+                  {hasApplied && (
+                    <Button asChild variant="outline" className="px-8 py-3 mt-4">
+                      <Link href="/dashboard/professional/applications">View Applications</Link>
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             )}
 
             {!user && (
@@ -772,6 +879,32 @@ export default function JobDetailView({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Application Modal */}
+      {userProfile && (
+        <Dialog open={showApplicationModal} onOpenChange={setShowApplicationModal}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">
+                Apply for {job.title}
+              </DialogTitle>
+              <DialogDescription>
+                Review what information will be shared with the employer and submit your application.
+              </DialogDescription>
+            </DialogHeader>
+            <JobApplicationForm
+              job={job}
+              userProfile={userProfile as any}
+              hasApplied={hasApplied}
+              onApplicationSubmitted={() => {
+                setShowApplicationModal(false)
+                router.refresh()
+              }}
+              onClose={() => setShowApplicationModal(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
