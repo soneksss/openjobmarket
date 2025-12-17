@@ -20,7 +20,7 @@ import {
   UserIcon,
   ExternalLink,
   Filter,
-  DollarSign,
+  PoundSterling,
   Users,
   MessageCircle,
   Building,
@@ -1375,7 +1375,7 @@ export default function ProfessionalsPageContent({
                                           {item.price_list && (
                                             <div>
                                               <h4 className="font-semibold text-sm text-gray-900 mb-2 flex items-center gap-2">
-                                                <DollarSign className="h-4 w-4 text-green-600" />
+                                                <PoundSterling className="h-4 w-4 text-green-600" />
                                                 Price List
                                               </h4>
                                               <div className="bg-green-50 border border-green-200 rounded-md p-3">
@@ -1667,8 +1667,8 @@ export default function ProfessionalsPageContent({
 
       {/* Map Picker Modal */}
       {showMapPicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col relative z-[100000]">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col relative z-[1000000]">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
               <div>
@@ -2091,7 +2091,7 @@ export default function ProfessionalsPageContent({
           {/* Mobile & Desktop Layouts */}
           <>
           {/* Mobile: Stacked Layout - Map on top, List on bottom */}
-          <div className="flex md:!hidden flex-col flex-1 overflow-hidden h-full">
+          <div className="flex md:!hidden flex-col flex-1 overflow-hidden">
             {/* Map Section - Top Half (hidden when list is full screen) */}
             <div className={`relative transition-all duration-300 ${isListFullScreen ? 'h-0' : 'flex-1'}`}>
               {shouldShowMap && (
@@ -2291,7 +2291,7 @@ export default function ProfessionalsPageContent({
                                   </div>
                                   {(item.salary_min || item.salary_max) && (
                                     <div className="flex items-center gap-1 text-xs text-green-600 font-medium mt-1">
-                                      <DollarSign className="h-3 w-3" />
+                                      <PoundSterling className="h-3 w-3" />
                                       <span>
                                         {item.salary_min && item.salary_max
                                           ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`

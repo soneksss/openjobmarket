@@ -45,10 +45,9 @@ interface JobExtensionFormProps {
 
 const TIMELINE_OPTIONS = [
   { value: "3_days", label: "3 days", price: 0, displayPrice: "Free" },
+  { value: "5_days", label: "5 days", price: 0, displayPrice: "Free" },
   { value: "7_days", label: "7 days", price: 0, displayPrice: "Free" },
-  { value: "2_weeks", label: "2 weeks", price: 0, displayPrice: "Free" },
-  { value: "3_weeks", label: "3 weeks", price: 0, displayPrice: "Free" },
-  { value: "4_weeks", label: "4 weeks", price: 0, displayPrice: "Free" },
+  { value: "14_days", label: "14 days", price: 0, displayPrice: "Free" },
 ]
 
 export default function JobExtensionForm({ job, companyProfile }: JobExtensionFormProps) {
@@ -81,10 +80,10 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
     const now = new Date()
     const daysToAdd =
       {
+        "3_days": 3,
+        "5_days": 5,
         "7_days": 7,
-        "2_weeks": 14,
-        "3_weeks": 21,
-        "4_weeks": 28,
+        "14_days": 14,
       }[selectedOption.value] || 7
 
     const newDate = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000)
@@ -115,10 +114,10 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
         const newExpirationDate = calculateNewExpirationDate()
         const daysExtended =
           {
+            "3_days": 3,
+            "5_days": 5,
             "7_days": 7,
-            "2_weeks": 14,
-            "3_weeks": 21,
-            "4_weeks": 28,
+            "14_days": 14,
           }[selectedOption.value] || 7
 
         alert(

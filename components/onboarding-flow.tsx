@@ -137,6 +137,8 @@ export default function OnboardingFlow({
 
   // UI state for adding services
   const [newService, setNewService] = useState("")
+  const [showServiceSuggestions, setShowServiceSuggestions] = useState(false)
+  const [filteredServiceSuggestions, setFilteredServiceSuggestions] = useState<string[]>([])
 
   // Pre-fill form with data from signup (user metadata and users table)
   useEffect(() => {
@@ -144,6 +146,10 @@ export default function OnboardingFlow({
       if (dataPreFilled) return // Only run once
 
       try {
+        // Check localStorage first for saved draft
+        const savedProfessionalData = localStorage.getItem(`onboarding_professional_${user.id}`)
+        const savedCompanyData = localStorage.getItem(`onboarding_company_${user.id}`)
+
         // Fetch user data from database
         const { data: userData, error: userError } = await supabase
           .from("users")
@@ -157,28 +163,50 @@ export default function OnboardingFlow({
 
         // Pre-fill professional form
         if (userType === "professional") {
-          setProfessionalData(prev => ({
-            ...prev,
-            firstName: user.user_metadata?.first_name || "",
-            lastName: user.user_metadata?.last_name || "",
-            latitude: userData?.latitude || null,
-            longitude: userData?.longitude || null,
-          }))
-
-          console.log("Pre-filled professional form with signup data")
+          if (savedProfessionalData) {
+            // Load from localStorage if exists
+            try {
+              const parsed = JSON.parse(savedProfessionalData)
+              setProfessionalData(parsed)
+              console.log("Loaded professional form from localStorage")
+            } catch (e) {
+              console.error("Error parsing saved professional data:", e)
+            }
+          } else {
+            // Otherwise use signup data
+            setProfessionalData(prev => ({
+              ...prev,
+              firstName: user.user_metadata?.first_name || "",
+              lastName: user.user_metadata?.last_name || "",
+              latitude: userData?.latitude || null,
+              longitude: userData?.longitude || null,
+            }))
+            console.log("Pre-filled professional form with signup data")
+          }
         }
 
         // Pre-fill company form
         if (userType === "company") {
-          setCompanyData(prev => ({
-            ...prev,
-            companyName: user.user_metadata?.company_name || "",
-            latitude: userData?.latitude || null,
-            longitude: userData?.longitude || null,
-            location: userData?.location || "",
-          }))
-
-          console.log("Pre-filled company form with signup data")
+          if (savedCompanyData) {
+            // Load from localStorage if exists
+            try {
+              const parsed = JSON.parse(savedCompanyData)
+              setCompanyData(parsed)
+              console.log("Loaded company form from localStorage")
+            } catch (e) {
+              console.error("Error parsing saved company data:", e)
+            }
+          } else {
+            // Otherwise use signup data
+            setCompanyData(prev => ({
+              ...prev,
+              companyName: user.user_metadata?.company_name || "",
+              latitude: userData?.latitude || null,
+              longitude: userData?.longitude || null,
+              location: userData?.location || "",
+            }))
+            console.log("Pre-filled company form with signup data")
+          }
         }
 
         setDataPreFilled(true)
@@ -191,6 +219,22 @@ export default function OnboardingFlow({
       preFillFormData()
     }
   }, [userType, step, user, dataPreFilled])
+
+  // Save professional form data to localStorage whenever it changes
+  useEffect(() => {
+    if (userType === "professional" && dataPreFilled && step === 2) {
+      localStorage.setItem(`onboarding_professional_${user.id}`, JSON.stringify(professionalData))
+      console.log("Saved professional form to localStorage")
+    }
+  }, [professionalData, userType, dataPreFilled, step, user.id])
+
+  // Save company form data to localStorage whenever it changes
+  useEffect(() => {
+    if (userType === "company" && dataPreFilled && step === 2) {
+      localStorage.setItem(`onboarding_company_${user.id}`, JSON.stringify(companyData))
+      console.log("Saved company form to localStorage")
+    }
+  }, [companyData, userType, dataPreFilled, step, user.id])
 
   const [newSkill, setNewSkill] = useState("")
   const [showSkillSuggestions, setShowSkillSuggestions] = useState(false)
@@ -322,6 +366,130 @@ export default function OnboardingFlow({
       skills: prev.skills.filter((s) => s !== skill),
     }))
   }
+
+  // Get relevant service suggestions based on company industry
+  const getRelevantServices = (industry: string): string[] => {
+    const industryLower = industry.toLowerCase()
+
+    const constructionServices = [
+      "General Construction", "New Build Construction", "Renovations", "Extensions",
+      "Electrical Installation", "Electrical Repairs", "Rewiring", "Emergency Electrical",
+      "Plumbing Installation", "Plumbing Repairs", "Boiler Installation", "Central Heating",
+      "Bathroom Installation", "Kitchen Installation", "Carpentry", "Custom Joinery",
+      "Painting Interior", "Painting Exterior", "Decorating", "Wallpapering",
+      "Roofing Repairs", "New Roof Installation", "Roof Maintenance", "Guttering",
+      "Plastering", "Rendering", "Drywall", "Ceiling Work",
+      "Tiling", "Flooring Installation", "Bricklaying", "Groundwork",
+    ]
+
+    const techServices = [
+      "Web Development", "Mobile App Development", "Software Development",
+      "IT Support", "Network Setup", "Cloud Migration", "Cybersecurity",
+      "Database Management", "System Integration", "API Development",
+      "UI/UX Design", "Website Design", "E-commerce Development",
+      "SEO Services", "Digital Marketing", "Social Media Management",
+    ]
+
+    const healthcareServices = [
+      "General Consultation", "Health Assessment", "Treatment Plans",
+      "Home Care", "Personal Care", "Nursing Care", "Medication Management",
+      "Physiotherapy", "Physical Rehabilitation", "Pain Management",
+      "Mental Health Counseling", "Therapy Sessions", "Wellness Programs",
+      "Dental Checkup", "Dental Cleaning", "Dental Treatment",
+    ]
+
+    const businessServices = [
+      "Business Consulting", "Strategy Development", "Market Research",
+      "Accounting Services", "Bookkeeping", "Tax Preparation", "Payroll Services",
+      "Legal Advice", "Contract Review", "Legal Representation",
+      "Marketing Strategy", "Brand Development", "Content Creation",
+      "HR Consulting", "Recruitment Services", "Training Programs",
+    ]
+
+    const cleaningServices = [
+      "House Cleaning", "Deep Cleaning", "Regular Cleaning",
+      "Office Cleaning", "Commercial Cleaning", "End of Tenancy Cleaning",
+      "Carpet Cleaning", "Window Cleaning", "Pressure Washing",
+    ]
+
+    const gardeningServices = [
+      "Garden Maintenance", "Lawn Mowing", "Hedge Trimming",
+      "Garden Design", "Landscaping", "Patio Installation",
+      "Tree Surgery", "Stump Removal", "Fence Installation",
+    ]
+
+    const automotiveServices = [
+      "Car Servicing", "MOT Testing", "Vehicle Repairs",
+      "Engine Diagnostics", "Brake Repairs", "Tyre Fitting",
+      "Auto Electrical", "Bodywork Repairs", "Spray Painting",
+    ]
+
+    // Match industry to relevant services
+    if (industryLower.includes("construction") || industryLower.includes("building") ||
+        industryLower.includes("electrical") || industryLower.includes("plumbing") ||
+        industryLower.includes("carpentry") || industryLower.includes("painting") ||
+        industryLower.includes("roofing") || industryLower.includes("hvac")) {
+      return constructionServices
+    }
+
+    if (industryLower.includes("technology") || industryLower.includes("software") ||
+        industryLower.includes("it ") || industryLower.includes("web") ||
+        industryLower.includes("digital")) {
+      return techServices
+    }
+
+    if (industryLower.includes("health") || industryLower.includes("medical") ||
+        industryLower.includes("care") || industryLower.includes("dental") ||
+        industryLower.includes("nursing")) {
+      return healthcareServices
+    }
+
+    if (industryLower.includes("business") || industryLower.includes("consulting") ||
+        industryLower.includes("accounting") || industryLower.includes("legal") ||
+        industryLower.includes("marketing") || industryLower.includes("hr")) {
+      return businessServices
+    }
+
+    if (industryLower.includes("cleaning")) {
+      return cleaningServices
+    }
+
+    if (industryLower.includes("garden") || industryLower.includes("landscaping")) {
+      return gardeningServices
+    }
+
+    if (industryLower.includes("automotive") || industryLower.includes("vehicle") ||
+        industryLower.includes("mechanic")) {
+      return automotiveServices
+    }
+
+    // Default: show all services
+    return [
+      ...constructionServices,
+      ...techServices,
+      ...healthcareServices,
+      ...businessServices,
+      ...cleaningServices,
+      ...gardeningServices,
+      ...automotiveServices,
+    ]
+  }
+
+  // Update service suggestions based on input and company industry
+  useEffect(() => {
+    if (newService.trim().length > 0) {
+      const relevantServices = getRelevantServices(companyData.industry || "")
+      const filtered = relevantServices.filter(service =>
+        service.toLowerCase().includes(newService.toLowerCase()) &&
+        !companyData.services.includes(service)
+      ).slice(0, 10) // Limit to 10 suggestions
+      setFilteredServiceSuggestions(filtered)
+      setShowServiceSuggestions(filtered.length > 0)
+    } else {
+      setShowServiceSuggestions(false)
+      setFilteredServiceSuggestions([])
+    }
+  }, [newService, companyData.industry, companyData.services])
 
   const handleLocationSelect = (lat: number, lng: number) => {
     setProfessionalData((prev) => ({
@@ -703,6 +871,8 @@ export default function OnboardingFlow({
         }
 
         console.log("Professional profile created successfully")
+        // Clear localStorage draft after successful submission
+        localStorage.removeItem(`onboarding_professional_${user.id}`)
         router.push("/dashboard/professional")
       } else {
         // Create company profile
@@ -808,6 +978,8 @@ export default function OnboardingFlow({
         }
 
         console.log("Company profile created successfully")
+        // Clear localStorage draft after successful submission
+        localStorage.removeItem(`onboarding_company_${user.id}`)
         router.push("/dashboard/company")
       }
     } catch (error: any) {
@@ -1874,9 +2046,99 @@ export default function OnboardingFlow({
                 placeholder="e.g. Technology, Healthcare, Construction"
                 value={companyData.industry}
                 onChange={(e) => setCompanyData((prev) => ({ ...prev, industry: e.target.value }))}
+                list="industry-list"
                 required
                 className="border-2"
               />
+              <datalist id="industry-list">
+                {/* Construction & Trades */}
+                <option value="Construction" />
+                <option value="Building & Construction" />
+                <option value="Electrical Services" />
+                <option value="Plumbing & Heating" />
+                <option value="Carpentry & Joinery" />
+                <option value="Painting & Decorating" />
+                <option value="Roofing" />
+                <option value="HVAC Services" />
+                <option value="General Contracting" />
+
+                {/* Technology */}
+                <option value="Information Technology" />
+                <option value="Software Development" />
+                <option value="IT Services & Consulting" />
+                <option value="Cybersecurity" />
+                <option value="Cloud Services" />
+                <option value="Web Development" />
+                <option value="Mobile App Development" />
+
+                {/* Healthcare */}
+                <option value="Healthcare" />
+                <option value="Medical Services" />
+                <option value="Dental Care" />
+                <option value="Mental Health Services" />
+                <option value="Home Care Services" />
+                <option value="Nursing Services" />
+                <option value="Physiotherapy" />
+
+                {/* Business Services */}
+                <option value="Business Consulting" />
+                <option value="Accounting & Finance" />
+                <option value="Legal Services" />
+                <option value="Marketing & Advertising" />
+                <option value="Human Resources" />
+                <option value="Recruitment" />
+                <option value="Event Management" />
+
+                {/* Retail & E-commerce */}
+                <option value="Retail" />
+                <option value="E-commerce" />
+                <option value="Wholesale" />
+
+                {/* Hospitality & Food */}
+                <option value="Hospitality" />
+                <option value="Restaurants & Catering" />
+                <option value="Hotels & Accommodation" />
+                <option value="Food & Beverage" />
+
+                {/* Education */}
+                <option value="Education" />
+                <option value="Training & Development" />
+                <option value="Tutoring Services" />
+
+                {/* Real Estate & Property */}
+                <option value="Real Estate" />
+                <option value="Property Management" />
+                <option value="Estate Agency" />
+
+                {/* Transportation & Logistics */}
+                <option value="Transportation" />
+                <option value="Logistics & Distribution" />
+                <option value="Courier Services" />
+
+                {/* Creative & Design */}
+                <option value="Graphic Design" />
+                <option value="Web Design" />
+                <option value="Photography" />
+                <option value="Video Production" />
+                <option value="Creative Services" />
+
+                {/* Automotive */}
+                <option value="Automotive Repair" />
+                <option value="Vehicle Services" />
+
+                {/* Home Services */}
+                <option value="Cleaning Services" />
+                <option value="Landscaping & Gardening" />
+                <option value="Pest Control" />
+                <option value="Security Services" />
+
+                {/* Manufacturing */}
+                <option value="Manufacturing" />
+                <option value="Engineering" />
+
+                {/* Other */}
+                <option value="Other Services" />
+              </datalist>
             </div>
 
             {/* Optional Section */}
@@ -1924,21 +2186,48 @@ export default function OnboardingFlow({
               {/* Services */}
               <div className="space-y-2">
                 <Label>Services Offered (Optional)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add a service (e.g., Electrical installation, Plumbing)"
-                    value={newService}
-                    onChange={(e) => setNewService(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        if (newService.trim() && !companyData.services.includes(newService.trim())) {
-                          setCompanyData((prev) => ({ ...prev, services: [...prev.services, newService.trim()] }))
-                          setNewService("")
+                <div className="flex gap-2 relative">
+                  <div className="flex-1 relative">
+                    <Input
+                      placeholder="Add a service (e.g., Electrical installation, Plumbing)"
+                      value={newService}
+                      onChange={(e) => setNewService(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          if (newService.trim() && !companyData.services.includes(newService.trim())) {
+                            setCompanyData((prev) => ({ ...prev, services: [...prev.services, newService.trim()] }))
+                            setNewService("")
+                            setShowServiceSuggestions(false)
+                          }
                         }
-                      }
-                    }}
-                  />
+                      }}
+                      onFocus={() => newService.trim().length > 0 && setShowServiceSuggestions(true)}
+                      onBlur={() => setTimeout(() => setShowServiceSuggestions(false), 200)}
+                      className="border-2"
+                    />
+                    {/* Service suggestions dropdown */}
+                    {showServiceSuggestions && filteredServiceSuggestions.length > 0 && (
+                      <div className="absolute bottom-full left-0 right-0 mb-1 max-h-60 overflow-y-auto bg-white border-2 border-blue-500 rounded-lg shadow-lg z-50">
+                        {filteredServiceSuggestions.map((service) => (
+                          <button
+                            key={service}
+                            type="button"
+                            onClick={() => {
+                              if (!companyData.services.includes(service)) {
+                                setCompanyData((prev) => ({ ...prev, services: [...prev.services, service] }))
+                                setNewService("")
+                                setShowServiceSuggestions(false)
+                              }
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors text-sm"
+                          >
+                            {service}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <Button
                     type="button"
                     variant="outline"
@@ -1946,6 +2235,7 @@ export default function OnboardingFlow({
                       if (newService.trim() && !companyData.services.includes(newService.trim())) {
                         setCompanyData((prev) => ({ ...prev, services: [...prev.services, newService.trim()] }))
                         setNewService("")
+                        setShowServiceSuggestions(false)
                       }
                     }}
                   >

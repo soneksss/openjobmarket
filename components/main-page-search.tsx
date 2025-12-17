@@ -79,9 +79,95 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [searchType, setSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
   const [modalSearchType, setModalSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
   const [mapCenter, setMapCenter] = useState<[number, number]>([51.5074, -0.1278])
+  const [resultLimitReached, setResultLimitReached] = useState(false)
 
   // State for restoring search from "Back to Search"
   const [restoreSearch, setRestoreSearch] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
+
+  // Autocomplete state
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([])
+
+  // Debug: Component mount
+  useEffect(() => {
+    console.log('[AUTOCOMPLETE] Component mounted, search type:', selectedSearchType)
+  }, [])
+
+  // Get suggestions - unified list for all search types
+  const getSuggestions = (): string[] => {
+    return [
+      // Professional & Office Jobs
+      "Software Engineer", "Web Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer",
+      "Mobile Developer", "DevOps Engineer", "Data Scientist", "Machine Learning Engineer",
+      "Project Manager", "Product Manager", "Scrum Master", "Business Analyst", "Product Owner",
+      "Marketing Manager", "Digital Marketer", "SEO Specialist", "Content Creator", "Social Media Manager",
+      "UX/UI Designer", "Graphic Designer", "Product Designer", "Web Designer",
+      "Sales Representative", "Sales Manager", "Account Manager", "Customer Success",
+      "Accountant", "Financial Analyst", "Finance Manager",
+      "HR Manager", "HR Specialist", "Recruiter",
+      "Data Analyst", "Quality Assurance", "Test Engineer",
+      "Network Engineer", "Network Administrator", "Database Administrator", "IT Support", "Security Analyst",
+      "Legal Advisor", "Compliance Officer", "Risk Manager",
+      "Operations Manager", "Supply Chain Manager", "Warehouse Manager", "Logistics Coordinator",
+      "Customer Service", "Administrative Assistant", "Support Engineer",
+      "Content Writer", "Copywriter", "Technical Writer", "Video Editor", "Photographer",
+      "Teacher", "Nurse", "Pharmacist", "Physiotherapist",
+
+      // Trades & Construction
+      "Plumber", "Plumbing", "Emergency Plumber", "Gas Engineer", "Heating Engineer", "Boiler Installer",
+      "Electrician", "Electrical Work", "Rewiring", "Consumer Unit Upgrade",
+      "Carpenter", "Carpentry", "Kitchen Fitter", "Joiner",
+      "Builder", "Construction Manager", "General Builder", "Site Manager",
+      "Bricklayer", "Bricklaying", "Groundworker",
+      "Plasterer", "Plastering", "Rendering Specialist",
+      "Painter", "Painter & Decorator", "Painting & Decorating", "Decorator",
+      "Roofer", "Roofing", "Roofing Repair", "Guttering",
+      "Tiler", "Tiling", "Bathroom Fitter", "Bathroom Installation",
+      "Flooring Specialist", "Flooring", "Carpet Fitter",
+      "Window Fitter", "Window Installation", "Door Installation", "Glazier",
+      "Kitchen Fitter", "Kitchen Installation",
+      "Landscaper", "Gardener", "Garden Landscaping", "Tree Surgeon", "Tree Surgery",
+      "Paving", "Paving Contractor", "Decking",
+      "Fencing", "Fencing Contractor",
+      "Handyman", "General Maintenance",
+      "Locksmith", "Security Specialist",
+      "CCTV Installer", "CCTV Installation", "Alarm Engineer", "Alarm System",
+      "Drainage Specialist", "Drainage Work", "Blocked Drain",
+      "Damp Proofing", "Waterproofing",
+      "Scaffolder", "Scaffolding",
+      "Architect", "Surveyor", "Interior Designer", "Structural Engineer",
+      "Civil Engineer", "Mechanical Engineer", "Electrical Engineer",
+      "Health & Safety Officer",
+      "Solar Panel Installer", "Solar Panels", "Renewable Energy", "Air Conditioning",
+      "Conservatory", "Loft Conversion", "Extension Building", "Garage Conversion",
+
+      // Other Trades & Services
+      "Mechanic", "Auto Electrician", "Vehicle Technician",
+      "Warehouse Operative", "Driver", "Delivery Driver", "HGV Driver",
+      "Cleaner", "Cleaning Services", "Deep Cleaning",
+      "Pest Control", "Exterminator"
+    ]
+  }
+
+  // Filter suggestions based on search query
+  useEffect(() => {
+    console.log('[AUTOCOMPLETE] useEffect running - searchQuery:', searchQuery)
+    if (searchQuery.trim().length >= 1) {
+      const suggestions = getSuggestions()
+      console.log('[AUTOCOMPLETE] Total suggestions available:', suggestions.length)
+      const filtered = suggestions.filter(suggestion =>
+        suggestion.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      console.log('[AUTOCOMPLETE] Filtered suggestions:', filtered.length, filtered)
+      setFilteredSuggestions(filtered.slice(0, 8)) // Show max 8 suggestions
+      setShowSuggestions(filtered.length > 0)
+      console.log('[AUTOCOMPLETE] Setting showSuggestions to:', filtered.length > 0)
+    } else {
+      console.log('[AUTOCOMPLETE] Search query empty, hiding suggestions')
+      setShowSuggestions(false)
+      setFilteredSuggestions([])
+    }
+  }, [searchQuery])
 
   // Update search query from external source (e.g., category clicks)
   useEffect(() => {
@@ -287,11 +373,22 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   }
 
   const validateSearch = () => {
-    // Allow empty search query if "No experience required" is checked AND location is set
-    const canSkipSearchQuery = noExperienceRequired && location.trim() && selectedLocation
+    // Allow empty search query if filters are selected OR "No experience required" is checked
+    const hasVacancyFilters = jobType !== "all" || experienceLevel !== "all" || workLocation !== "all" ||
+                              salaryRange !== "all" || noExperienceRequired || drivingLicenseRequired || ownTransportRequired
+    const hasTradeJobFilters = tradeCategory !== "all" || urgency !== "all" || budgetRange !== "all" || tradeJobType !== "all"
+    const hasTraderFilters = tradeCategory !== "all" || availableForBusiness
+    const hasTalentFilters = experienceLevel !== "all" || employmentStatus !== "all" || hasCVUploaded ||
+                             hasDrivingLicense || hasOwnTransport || willingToRelocate
+
+    const canSkipSearchQuery =
+      (selectedSearchType === "vacancies" && hasVacancyFilters) ||
+      (selectedSearchType === "jobs_tasks" && hasTradeJobFilters) ||
+      (selectedSearchType === "traders" && hasTraderFilters) ||
+      (selectedSearchType === "talents" && hasTalentFilters)
 
     if (!searchQuery.trim() && !canSkipSearchQuery) {
-      return "Please enter a search term"
+      return "Please enter a search term or select at least one filter"
     }
 
     // Allow empty location if work location is "Remote"
@@ -317,17 +414,92 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
     console.log(`[MAIN-PAGE-SEARCH] Starting search for ${type}`)
     setIsSearching(true)
+    setResultLimitReached(false) // Reset limit warning
 
     // Always show modal for all users (registered and unregistered)
     try {
       let results: any[] = []
+      const RESULT_LIMIT = 100
+
+      // Get radius value in miles
+      const radiusMiles = parseInt(distance) || 10
 
       if (type === "traders") {
-        // Fetch traders: self-employed professionals AND companies who trade
+        console.log(`[MAIN-PAGE-SEARCH] Fetching traders/contractors`)
+        // Fetch traders: contractors AND self-employed professionals AND companies who trade
+        let contractorResults: any[] = []
         let professionalResults: any[] = []
         let companyResults: any[] = []
 
-        // Fetch self-employed professionals
+        // Fetch contractors (primary source for tradespeople)
+        let contractorQuery = supabase
+          .from("contractor_profiles")
+          .select("*")
+
+        if (searchQuery.trim()) {
+          contractorQuery = contractorQuery.or(`company_name.ilike.%${searchQuery.trim()}%,industry.ilike.%${searchQuery.trim()}%`)
+        }
+
+        // Apply trader filters
+        console.log(`[MAIN-PAGE-SEARCH] Applying trader filters:`, { tradeCategory, availableForBusiness, distance })
+
+        // Trade Category filter
+        if (tradeCategory !== "all") {
+          let categoryValue = tradeCategory
+          if (tradeCategory === "construction") categoryValue = "Construction"
+          if (tradeCategory === "plumbing") categoryValue = "Plumbing"
+          if (tradeCategory === "electrical") categoryValue = "Electrical"
+          if (tradeCategory === "carpentry") categoryValue = "Carpentry"
+          if (tradeCategory === "painting") categoryValue = "Painting"
+          if (tradeCategory === "roofing") categoryValue = "Roofing"
+          if (tradeCategory === "landscaping") categoryValue = "Landscaping"
+
+          console.log(`[MAIN-PAGE-SEARCH] Filtering by industry: ${categoryValue}`)
+          contractorQuery = contractorQuery.ilike("industry", `%${categoryValue}%`)
+        }
+
+        // 24/7 Service filter
+        if (availableForBusiness) {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering by available_247: true`)
+          contractorQuery = contractorQuery.eq("available_247", true)
+        }
+
+        // Apply location-based radius filtering
+        if (selectedLocation) {
+          const lat = selectedLocation.lat
+          const lon = selectedLocation.lon
+          const radiusMiles = parseInt(distance) || 10
+          const radiusKm = radiusMiles * 1.60934
+          const latDelta = radiusKm / 111.0
+          const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
+
+          console.log(`[MAIN-PAGE-SEARCH] Applying location filter: ${radiusMiles} miles radius`)
+
+          contractorQuery = contractorQuery
+            .gte("latitude", lat - latDelta)
+            .lte("latitude", lat + latDelta)
+            .gte("longitude", lon - lngDelta)
+            .lte("longitude", lon + lngDelta)
+        }
+
+        const { data: contractorData } = await contractorQuery.limit(RESULT_LIMIT + 1)
+
+        if (contractorData) {
+          contractorResults = contractorData
+            .filter(item => item.latitude && item.longitude)
+            .map(item => ({
+              ...item,
+              id: item.id,
+              name: item.company_name || 'Contractor',
+              coordinates: {
+                lat: item.latitude,
+                lon: item.longitude
+              },
+              type: 'contractor'
+            }))
+        }
+
+        // Fetch self-employed professionals as well
         let profQuery = supabase
           .from("professional_profiles")
           .select("*")
@@ -341,10 +513,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         // Apply location-based radius filtering
         if (selectedLocation) {
-          const radius = 10
           const lat = selectedLocation.lat
           const lon = selectedLocation.lon
-          const radiusKm = radius * 1.60934
+          const radiusMiles = parseInt(distance) || 10
+          const radiusKm = radiusMiles * 1.60934
           const latDelta = radiusKm / 111.0
           const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
 
@@ -355,7 +527,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", lon + lngDelta)
         }
 
-        const { data: profData } = await profQuery.limit(50)
+        const { data: profData } = await profQuery.limit(RESULT_LIMIT + 1)
 
         if (profData) {
           professionalResults = profData
@@ -384,10 +556,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         // Apply location-based radius filtering
         if (selectedLocation) {
-          const radius = 10
           const lat = selectedLocation.lat
           const lon = selectedLocation.lon
-          const radiusKm = radius * 1.60934
+          const radiusMiles = parseInt(distance) || 10
+          const radiusKm = radiusMiles * 1.60934
           const latDelta = radiusKm / 111.0
           const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
 
@@ -398,7 +570,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", lon + lngDelta)
         }
 
-        const { data: companyData } = await companyQuery.limit(50)
+        const { data: companyData } = await companyQuery.limit(RESULT_LIMIT + 1)
 
         if (companyData) {
           companyResults = companyData
@@ -415,9 +587,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             }))
         }
 
-        // Combine both results
-        results = [...professionalResults, ...companyResults]
+        // Combine all results
+        results = [...contractorResults, ...professionalResults, ...companyResults]
       } else if (type === "talents") {
+        console.log(`[MAIN-PAGE-SEARCH] Fetching talents/professionals`)
         // Fetch all professionals (not just self-employed)
         let query = supabase
           .from("professional_profiles")
@@ -429,12 +602,58 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           query = query.or(`first_name.ilike.%${searchQuery.trim()}%,last_name.ilike.%${searchQuery.trim()}%,title.ilike.%${searchQuery.trim()}%`)
         }
 
+        // Apply talent filters
+        console.log(`[MAIN-PAGE-SEARCH] Applying talent filters:`, { experienceLevel, employmentStatus, hasCVUploaded, hasDrivingLicense, hasOwnTransport, willingToRelocate })
+
+        // Experience Level filter
+        if (experienceLevel !== "all") {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering by experience_level: ${experienceLevel}`)
+          query = query.eq("experience_level", experienceLevel)
+        }
+
+        // Employment Status filter
+        if (employmentStatus !== "all") {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering by employment_status: ${employmentStatus}`)
+          if (employmentStatus === "self-employed") {
+            query = query.eq("is_self_employed", true)
+          } else {
+            query = query.eq("employment_status", employmentStatus)
+          }
+        }
+
+        // Has CV uploaded filter
+        if (hasCVUploaded) {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering by has CV uploaded`)
+          // Note: CV is stored in separate cvs table, we'll filter this in post-processing
+          // or we need to join with cvs table
+        }
+
+        // Has driving license filter
+        if (hasDrivingLicense) {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering by has_driving_licence: true`)
+          query = query.eq("has_driving_licence", true)
+        }
+
+        // Has own transport filter
+        if (hasOwnTransport) {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering by has_own_transport: true`)
+          query = query.eq("has_own_transport", true)
+        }
+
+        // Willing to relocate filter
+        if (willingToRelocate) {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering by ready_to_relocate: true`)
+          query = query.eq("ready_to_relocate", true)
+        }
+
         // Apply location-based radius filtering if coordinates are available
-        if (selectedLocation) {
-          const radius = 10 // Default to 10 miles radius
+        if (selectedLocation && distance !== "remote") {
           const lat = selectedLocation.lat
           const lon = selectedLocation.lon
-          const radiusKm = radius * 1.60934 // Convert miles to km
+          const radiusMiles = parseInt(distance) || 10
+          const radiusKm = radiusMiles * 1.60934 // Convert miles to km
+
+          console.log(`[MAIN-PAGE-SEARCH] Applying location filter: ${radiusMiles} miles radius`)
 
           // Use bounding box approximation for radius search
           const latDelta = radiusKm / 111.0 // Rough conversion: 1 degree ≈ 111 km
@@ -446,7 +665,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           )
         }
 
-        const { data, error } = await query.limit(50)
+        const { data, error } = await query.limit(RESULT_LIMIT + 1)
 
         if (!error && data) {
           // Transform data to match ProfessionalMap expected format
@@ -490,13 +709,133 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .eq("is_tradespeople_job", type === "jobs_tasks") // true for jobs/tasks, false for vacancies
           .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
 
+        // Apply filters for vacancies (regular jobs)
+        if (type === "vacancies") {
+          console.log(`[MAIN-PAGE-SEARCH] Applying vacancy filters:`, { jobType, experienceLevel, workLocation, noExperienceRequired, salaryRange })
+
+          // Job Type filter
+          if (jobType !== "all") {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by job_type: ${jobType}`)
+            query = query.eq("job_type", jobType)
+          }
+
+          // Experience Level filter
+          if (experienceLevel !== "all") {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by experience_level: ${experienceLevel}`)
+            query = query.eq("experience_level", experienceLevel)
+          }
+
+          // Work Location filter
+          if (workLocation !== "all") {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by work_location: ${workLocation}`)
+            query = query.eq("work_location", workLocation)
+          }
+
+          // No Experience Required filter
+          if (noExperienceRequired) {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by no_experience_required: true`)
+            query = query.eq("no_experience_required", true)
+          }
+
+          // Driving License Required filter
+          if (drivingLicenseRequired) {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by driving license required`)
+            // Filter for jobs where requirements array contains driving license
+            // Using OR to match common variations
+            query = query.or('requirements.cs.{"Driving License (Full UK)"},requirements.cs.{"Driving License"},requirements.cs.{"Driver\'s License"},requirements.cs.{"Full UK Driving License"}')
+          }
+
+          // Own Transport Required filter
+          if (ownTransportRequired) {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by own transport required`)
+            // Filter for jobs where requirements array contains own vehicle/transport
+            query = query.or('requirements.cs.{"Own Vehicle"},requirements.cs.{"Own Transport"},requirements.cs.{"Own Tools/Equipment"}')
+          }
+
+          // Salary Range filter
+          if (salaryRange !== "all") {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by salary range: ${salaryRange}`)
+            switch (salaryRange) {
+              case "0-30k":
+                query = query.lte("salary_max", 30000)
+                break
+              case "30-50k":
+                query = query.gte("salary_min", 30000).lte("salary_max", 50000)
+                break
+              case "50-75k":
+                query = query.gte("salary_min", 50000).lte("salary_max", 75000)
+                break
+              case "75-100k":
+                query = query.gte("salary_min", 75000).lte("salary_max", 100000)
+                break
+              case "100k+":
+                query = query.gte("salary_min", 100000)
+                break
+            }
+          }
+        }
+
+        // Apply filters for trade jobs
+        if (type === "jobs_tasks") {
+          console.log(`[MAIN-PAGE-SEARCH] Applying trade job filters:`, { tradeCategory, urgency, budgetRange, tradeJobType })
+
+          // Trade Category filter
+          if (tradeCategory !== "all") {
+            // Map filter values to actual category values
+            let categoryValue = tradeCategory
+            if (tradeCategory === "construction") categoryValue = "Construction"
+            if (tradeCategory === "plumbing") categoryValue = "Plumbing"
+            if (tradeCategory === "electrical") categoryValue = "Electrical"
+            if (tradeCategory === "carpentry") categoryValue = "Carpentry"
+            if (tradeCategory === "painting") categoryValue = "Painting & Decorating"
+            if (tradeCategory === "roofing") categoryValue = "Roofing"
+            if (tradeCategory === "landscaping") categoryValue = "Gardening"
+
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by category: ${categoryValue}`)
+            query = query.eq("category", categoryValue)
+          }
+
+          // Urgency filter
+          if (urgency !== "all") {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by urgency: ${urgency}`)
+            query = query.eq("urgency", urgency)
+          }
+
+          // Job Type filter
+          if (tradeJobType !== "all") {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by job_type: ${tradeJobType}`)
+            query = query.eq("job_type", tradeJobType)
+          }
+
+          // Budget Range filter
+          if (budgetRange !== "all") {
+            console.log(`[MAIN-PAGE-SEARCH] Filtering by budget range: ${budgetRange}`)
+            switch (budgetRange) {
+              case "0-500":
+                query = query.lte("budget_max", 500)
+                break
+              case "500-1k":
+                query = query.gte("budget_min", 500).lte("budget_max", 1000)
+                break
+              case "1k-5k":
+                query = query.gte("budget_min", 1000).lte("budget_max", 5000)
+                break
+              case "5k-10k":
+                query = query.gte("budget_min", 5000).lte("budget_max", 10000)
+                break
+              case "10k+":
+                query = query.gte("budget_min", 10000)
+                break
+            }
+          }
+        }
+
         // Apply location-based radius filtering if coordinates are available
         if (selectedLocation) {
-          console.log(`[MAIN-PAGE-SEARCH] Applying location filter:`, selectedLocation)
-          const radius = 10 // Default to 10 miles radius
+          console.log(`[MAIN-PAGE-SEARCH] Applying location filter with radius ${radiusMiles} miles:`, selectedLocation)
           const lat = selectedLocation.lat
           const lon = selectedLocation.lon
-          const radiusKm = radius * 1.60934 // Convert miles to km
+          const radiusKm = radiusMiles * 1.60934 // Convert miles to km
 
           // Use bounding box approximation for radius search
           const latDelta = radiusKm / 111.0 // Rough conversion: 1 degree ≈ 111 km
@@ -537,7 +876,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         console.log(`[MAIN-PAGE-SEARCH] Executing query...`)
-        const { data, error } = await query.limit(50)
+        const { data, error } = await query.limit(RESULT_LIMIT + 1)
         console.log(`[MAIN-PAGE-SEARCH] Query completed. Error:`, error, `Data count:`, data?.length)
 
         if (error) {
@@ -583,6 +922,15 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
       }
 
+      // Check if result limit was reached and trim if necessary
+      if (results.length > RESULT_LIMIT) {
+        console.log(`[MAIN-PAGE-SEARCH] Result limit reached: ${results.length} results found, showing first ${RESULT_LIMIT}`)
+        results = results.slice(0, RESULT_LIMIT)
+        setResultLimitReached(true)
+      } else {
+        setResultLimitReached(false)
+      }
+
       // Dispatch event to hide guest banner BEFORE showing modal
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new Event('mainPageSearch'))
@@ -597,6 +945,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       console.log(`[MAIN-PAGE-SEARCH] Modal should now be visible`)
     } catch (error) {
       console.error("[MAIN-PAGE-SEARCH] Search error:", error)
+      // Ensure loading state is reset even on error
+      alert("Search failed. Please try again.")
     } finally {
       setIsSearching(false)
       console.log(`[MAIN-PAGE-SEARCH] Search completed, isSearching set to false`)
@@ -676,7 +1026,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", searchLng + lngDelta)
         }
 
-        const { data: profData } = await profQuery.limit(50)
+        const { data: profData } = await profQuery.limit(RESULT_LIMIT + 1)
 
         if (profData) {
           professionalResults = profData
@@ -716,7 +1066,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", searchLng + lngDelta)
         }
 
-        const { data: companyData } = await companyQuery.limit(50)
+        const { data: companyData } = await companyQuery.limit(RESULT_LIMIT + 1)
 
         if (companyData) {
           companyResults = companyData
@@ -763,7 +1113,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", searchLng + lngDelta)
         }
 
-        const { data, error } = await query.limit(50)
+        const { data, error } = await query.limit(RESULT_LIMIT + 1)
 
         if (!error && data) {
           results = data
@@ -824,7 +1174,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           )
         }
 
-        const { data, error } = await query.limit(50)
+        const { data, error } = await query.limit(RESULT_LIMIT + 1)
 
         if (error) {
           console.error(`[MAIN-PAGE-SEARCH-MODAL] Query error:`, error)
@@ -919,15 +1269,45 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         <div className="flex flex-col gap-2">
           {/* First row: Search input, Location input, Map picker */}
           <div className="flex gap-2 items-start">
-            {/* Search input */}
-            <div className="flex-1 h-8 sm:h-9 md:h-10">
+            {/* Search input with autocomplete */}
+            <div className="flex-1 h-8 sm:h-9 md:h-10 relative">
               <Input
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  console.log('[AUTOCOMPLETE-INPUT] onChange triggered:', e.target.value)
+                  setSearchQuery(e.target.value)
+                }}
                 onKeyPress={(e) => e.key === "Enter" && handleSearch(selectedSearchType)}
+                onBlur={() => {
+                  // Delay to allow click on suggestion
+                  setTimeout(() => {
+                    setShowSuggestions(false)
+                  }, 200)
+                }}
                 placeholder="e.g. Engineer, Marketing, Plumber"
                 className="h-full text-xs md:text-sm px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md w-full"
               />
+
+              {/* Autocomplete suggestions dropdown */}
+              {showSuggestions && filteredSuggestions.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-[100] max-h-64 overflow-y-auto">
+                  {filteredSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onMouseDown={(e) => {
+                        // Prevent blur event on input
+                        e.preventDefault()
+                        setSearchQuery(suggestion)
+                        setShowSuggestions(false)
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-emerald-50 hover:text-emerald-700 transition-colors first:rounded-t-lg last:rounded-b-lg border-b border-gray-100 last:border-b-0"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Location input */}
@@ -1068,8 +1448,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                       <SelectContent>
                         <SelectItem value="all">All Locations</SelectItem>
                         <SelectItem value="remote">Remote</SelectItem>
-                        <SelectItem value="hybrid">Hybrid</SelectItem>
-                        <SelectItem value="on-site">On-site</SelectItem>
+                        <SelectItem value="onsite">On-site</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1137,13 +1516,13 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               {selectedSearchType === "jobs_tasks" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Trade Category</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">Industry</label>
                     <Select value={tradeCategory} onValueChange={setTradeCategory}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Trades</SelectItem>
+                        <SelectItem value="all">All Industries</SelectItem>
                         <SelectItem value="construction">Construction</SelectItem>
                         <SelectItem value="plumbing">Plumbing</SelectItem>
                         <SelectItem value="electrical">Electrical</SelectItem>
@@ -1536,6 +1915,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       {/* Full-Screen Map Modal - Uses Same Component as Professionals Page */}
       {showMapModal && (
         <div className="fixed inset-0 bg-white z-[9999]">
+          {/* Warning banner when result limit is reached */}
+          {resultLimitReached && (
+            <div className="bg-orange-50 border-b border-orange-200 px-4 py-3 text-center">
+              <p className="text-sm text-orange-800">
+                <span className="font-semibold">More than 100 results found.</span> Showing first 100 results.
+                Please reduce the search radius or use filters to narrow your search for more specific results.
+              </p>
+            </div>
+          )}
+
           {/* Use the same ProfessionalsPageContent component */}
           <ProfessionalsPageContent
             data={mapResults}
