@@ -966,9 +966,6 @@ export default function ContractorMapView({
                   alt="Home renovation completed"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-                  This Week
-                </div>
               </div>
               <div className="p-4 md:p-6">
                 <h3 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-gray-800">
@@ -991,9 +988,6 @@ export default function ContractorMapView({
                   alt="Electrician at work"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-                  Yesterday
-                </div>
               </div>
               <div className="p-4 md:p-6">
                 <h3 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-gray-800">John's Electrical Work</h3>
@@ -1014,9 +1008,6 @@ export default function ContractorMapView({
                   alt="Home construction"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-                  Last Week
-                </div>
               </div>
               <div className="p-4 md:p-6">
                 <h3 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-gray-800">Emma's Garden Project</h3>

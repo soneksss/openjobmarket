@@ -67,8 +67,8 @@ export default async function AccountSettingsPage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">Manage your password and security settings</p>
-                <Button variant="outline" className="w-full" disabled>
-                  Coming Soon
+                <Button variant="outline" className="w-full" asChild>
+                  <Link href="/account/security">Manage Security</Link>
                 </Button>
               </CardContent>
             </Card>

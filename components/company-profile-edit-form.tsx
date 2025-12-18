@@ -112,9 +112,14 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     }
   }, [])
 
-  // Image resizing helper function
+  // Image resizing helper function with timeout
   const resizeImage = async (file: File, maxSize: number = 300): Promise<File> => {
     return new Promise((resolve, reject) => {
+      // Add timeout to prevent hanging
+      const timeoutId = setTimeout(() => {
+        reject(new Error('Image processing timeout'))
+      }, 30000) // 30 second timeout
+
       const img = new Image()
       img.onload = async () => {
         try {
@@ -146,12 +151,18 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
           const resizedFile = new File([blob], "logo.webp", { type: "image/webp" })
 
           URL.revokeObjectURL(img.src)
+          clearTimeout(timeoutId)
           resolve(resizedFile)
         } catch (error) {
+          clearTimeout(timeoutId)
+          URL.revokeObjectURL(img.src)
           reject(error)
         }
       }
-      img.onerror = reject
+      img.onerror = (error) => {
+        clearTimeout(timeoutId)
+        reject(error)
+      }
       img.src = URL.createObjectURL(file)
     })
   }
@@ -258,7 +269,14 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       })
     } catch (error) {
       console.error("[v0] Unexpected error:", error)
-      if (error instanceof Error && error.message.includes('canvas')) {
+      if (error instanceof Error && error.message.includes('timeout')) {
+        toast({
+          title: "Upload Timeout",
+          description: "Image processing took too long. Please try a smaller image or a different file.",
+          variant: "destructive",
+          duration: 5000,
+        })
+      } else if (error instanceof Error && error.message.includes('canvas')) {
         toast({
           title: "Image Processing Error",
           description: "Error processing image. Please try a different image file.",

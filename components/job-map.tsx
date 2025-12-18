@@ -38,7 +38,7 @@ function createCustomIcon(isSelected: boolean) {
   })
 }
 
-const MapUpdater = dynamic(
+const MapSizeHandler = dynamic(
   () =>
     Promise.all([
       import("react-leaflet"),
@@ -47,22 +47,14 @@ const MapUpdater = dynamic(
       const { useMap } = leafletMod
       const { useEffect } = reactMod
 
-      function MapUpdaterComponent({ center, zoom }: { center: [number, number]; zoom: number }) {
+      function MapSizeHandlerComponent() {
         const map = useMap()
-
-        // Set view on mount
-        useEffect(() => {
-          if (map && map.setView) {
-            console.log("[v0] Setting map view to:", center, "zoom:", zoom)
-            map.setView(center, zoom)
-          }
-        }, [map, center, zoom])
 
         // Fix map size after initial render (for resizable panels)
         useEffect(() => {
           const timer = setTimeout(() => {
             if (map) {
-              console.log("[v0] Invalidating map size to fix tiles")
+              console.log("[JobMap] Invalidating map size to fix tiles")
               map.invalidateSize()
             }
           }, 500)
@@ -73,7 +65,7 @@ const MapUpdater = dynamic(
         useEffect(() => {
           if (map) {
             const timer = setTimeout(() => {
-              console.log("[v0] Force invalidating map size on mount")
+              console.log("[JobMap] Force invalidating map size on mount")
               map.invalidateSize({ pan: false })
             }, 100)
             return () => clearTimeout(timer)
@@ -86,7 +78,7 @@ const MapUpdater = dynamic(
 
           const container = map.getContainer()
           const resizeObserver = new ResizeObserver(() => {
-            console.log("[v0] Container resized, invalidating map size")
+            console.log("[JobMap] Container resized, invalidating map size")
             map.invalidateSize()
           })
 
@@ -100,7 +92,7 @@ const MapUpdater = dynamic(
         return null
       }
 
-      return MapUpdaterComponent
+      return MapSizeHandlerComponent
     }),
   { ssr: false },
 )
@@ -120,6 +112,45 @@ const MapClickHandler = dynamic(
       }
 
       return MapClickHandlerComponent
+    }),
+  { ssr: false },
+)
+
+// Component to center map on selected job
+const JobCenterer = dynamic(
+  () =>
+    Promise.all([
+      import("react-leaflet"),
+      import("react")
+    ]).then(([leafletMod, reactMod]) => {
+      const { useMap } = leafletMod
+      const { useEffect } = reactMod
+
+      function JobCentererComponent({ selectedJob }: { selectedJob: any }) {
+        const map = useMap()
+
+        useEffect(() => {
+          if (map && selectedJob && selectedJob.latitude && selectedJob.longitude) {
+            const jobLocation: [number, number] = [selectedJob.latitude, selectedJob.longitude]
+
+            // Check if job location is visible in current map bounds
+            const bounds = map.getBounds()
+            const isVisible = bounds.contains(jobLocation)
+
+            // Only pan if job is not visible, keep current zoom
+            if (!isVisible) {
+              console.log("[JobMap] Panning to job location:", jobLocation)
+              map.panTo(jobLocation, { animate: true, duration: 0.5 })
+            } else {
+              console.log("[JobMap] Job already visible, no pan needed")
+            }
+          }
+        }, [map, selectedJob])
+
+        return null
+      }
+
+      return JobCentererComponent
     }),
   { ssr: false },
 )
@@ -177,12 +208,6 @@ export function JobMap({
 }: JobMapProps) {
   const [isClient, setIsClient] = useState(false)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
-  const [mapKey, setMapKey] = useState(0)
-
-  // Force map re-render when center changes
-  useEffect(() => {
-    setMapKey((prev) => prev + 1)
-  }, [center[0], center[1]])
 
   useEffect(() => {
     setIsClient(true)
@@ -251,8 +276,9 @@ export function JobMap({
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossOrigin=""
       />
-      <MapContainer key={mapKey} center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%" }} className="rounded-lg" {...({} as any)}>
-        <MapUpdater center={validCenter} zoom={zoom} />
+      <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%" }} className="rounded-lg" {...({} as any)}>
+        <MapSizeHandler />
+        <JobCenterer selectedJob={selectedJobId ? jobs.find(j => j.id === selectedJobId) : null} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

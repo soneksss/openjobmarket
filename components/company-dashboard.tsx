@@ -749,36 +749,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
   const handleSearchJobs = () => {
     setLoadingJobs(true)
-
-    // Get user's location
-    if (!latitude || !longitude) {
-      // Try to get current geolocation
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const userLat = position.coords.latitude
-            const userLon = position.coords.longitude
-            // Navigate to tasks page with location pre-filled
-            router.push(`/tasks?lat=${userLat}&lng=${userLon}&radius=10`)
-            setLoadingJobs(false)
-          },
-          (error) => {
-            console.error("Error getting location:", error)
-            // Navigate to tasks page without location - user can set it there
-            router.push("/tasks")
-            setLoadingJobs(false)
-          }
-        )
-      } else {
-        // Navigate to tasks page without location
-        router.push("/tasks")
-        setLoadingJobs(false)
-      }
-    } else {
-      // Navigate to tasks page with profile location
-      router.push(`/tasks?lat=${latitude}&lng=${longitude}&radius=10&location=${encodeURIComponent(profile.location)}`)
-      setLoadingJobs(false)
-    }
+    // Navigate to main page with Trade Jobs tab selected
+    router.push("/?tab=jobs_tasks")
+    setLoadingJobs(false)
   }
 
   return (
@@ -1178,14 +1151,14 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             <div className="space-y-4">
               <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-3">
                 <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-green-500 hover:bg-green-600 text-white">
-                  <Link href="/professionals">
+                  <Link href="/?tab=talents">
                     <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
                     <span className="font-semibold text-sm sm:text-base leading-tight">Find Talent</span>
                     <span className="text-sm opacity-90 hidden md:block">Search professionals</span>
                   </Link>
                 </Button>
                 <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-orange-500 hover:bg-orange-600 text-white">
-                  <Link href="/contractors">
+                  <Link href="/?tab=traders">
                     <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
                     <span className="font-semibold text-sm sm:text-base leading-tight">Trades</span>
                     <span className="text-sm opacity-90 hidden md:block">Search contractors</span>

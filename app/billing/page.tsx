@@ -82,30 +82,35 @@ export default function BillingPage() {
             </div>
 
             <div className="grid md:grid-cols-2 gap-6 mb-8 max-w-2xl mx-auto">
-              <Card className="border-2 border-blue-200">
+              <Card className="border-2 border-gray-300 bg-gray-50/50">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-lg">Starter Plan</CardTitle>
-                    <Badge variant="secondary">Free</Badge>
+                    <Badge variant="secondary">Auto-Assigned</Badge>
                   </div>
                   <p className="text-2xl font-bold">
                     £0<span className="text-sm font-normal">/month</span>
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Automatically assigned on signup
+                    {subscriptionsEnabled
+                      ? 'Automatically applied to all companies when subscriptions are enabled'
+                      : 'Default plan for all companies'}
                   </p>
                 </CardHeader>
                 <CardContent>
                   <ul className="space-y-2 text-sm mb-4">
-                    <li>• Post up to 5 jobs per month</li>
-                    <li>• Contact up to 10 professionals</li>
-                    <li>• Basic job search & discovery</li>
-                    <li>• Map-based professional search</li>
-                    <li>• Standard support</li>
+                    <li>• Post 1 job at a time</li>
+                    <li>• Send up to 5 messages per month</li>
+                    <li>• Limited search filters</li>
+                    <li>• Standard visibility</li>
+                    <li>• Basic support</li>
                   </ul>
-                  <Button variant="outline" className="w-full" asChild>
-                    <Link href="/auth/sign-up">Get Started Free</Link>
+                  <Button variant="outline" className="w-full" disabled>
+                    Automatically Applied
                   </Button>
+                  <p className="text-xs text-center text-muted-foreground mt-2">
+                    This plan is automatically assigned to all new companies
+                  </p>
                 </CardContent>
               </Card>
 

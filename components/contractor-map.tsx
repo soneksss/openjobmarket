@@ -286,14 +286,25 @@ export default function ContractorMap({
   useEffect(() => {
     if (mapInstanceRef.current && !isLoading) {
       updateMarkers()
+
+      // Center map on selected contractor if not visible
+      if (selectedContractor && selectedContractor.latitude && selectedContractor.longitude) {
+        const contractorLocation: [number, number] = [selectedContractor.latitude, selectedContractor.longitude]
+
+        // Check if contractor location is visible in current map bounds
+        const bounds = mapInstanceRef.current.getBounds()
+        const isVisible = bounds.contains(contractorLocation)
+
+        // Only pan if contractor is not visible, keep current zoom
+        if (!isVisible) {
+          console.log("[ContractorMap] Panning to contractor location:", contractorLocation)
+          mapInstanceRef.current.panTo(contractorLocation, { animate: true, duration: 0.5 })
+        } else {
+          console.log("[ContractorMap] Contractor already visible, no pan needed")
+        }
+      }
     }
   }, [contractors, selectedContractor, isLoading])
-
-  useEffect(() => {
-    if (mapInstanceRef.current && !isLoading) {
-      mapInstanceRef.current.setView(center, 10)
-    }
-  }, [center, isLoading])
 
   useEffect(() => {
     if (mapInstanceRef.current && !isLoading) {

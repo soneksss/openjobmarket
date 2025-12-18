@@ -14,6 +14,17 @@ const nextConfig = {
     // Temporarily ignore build errors to fix deployment
     ignoreBuildErrors: true,
   },
+  // Empty turbopack config to allow webpack config (for build compatibility)
+  turbopack: {},
+  webpack: (config, { isServer }) => {
+    // Suppress source map warnings from node_modules
+    config.ignoreWarnings = [
+      { module: /node_modules/ },
+      /Failed to parse source map/,
+      /sourceMapURL could not be parsed/,
+    ]
+    return config
+  },
 }
 
 export default nextConfig

@@ -510,13 +510,13 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* Job Type - Hide for tasks page */}
                     {basePath !== '/tasks' && (
-                      <div>
-                        <label className="block text-white text-sm font-medium mb-1">Job Type</label>
+                      <div className="p-3 bg-blue-50/90 backdrop-blur-sm rounded-lg border border-blue-200/50">
+                        <label className="block text-gray-900 text-sm font-semibold mb-2">Job Type</label>
                         <Select
                           value={searchParams.type || "all"}
                           onValueChange={(value) => updateSearchParams("type", value)}
                         >
-                          <SelectTrigger className="w-full h-10 text-sm bg-white border-0 rounded-lg">
+                          <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -534,13 +534,13 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
                     {/* Jobs Posted Date Filter - Only for tasks page */}
                     {basePath === '/tasks' && (
-                      <div>
-                        <label className="block text-white text-sm font-medium mb-1">Jobs Posted</label>
+                      <div className="p-3 bg-blue-50/90 backdrop-blur-sm rounded-lg border border-blue-200/50">
+                        <label className="block text-gray-900 text-sm font-semibold mb-2">Jobs Posted</label>
                         <Select
                           value={searchParams.posted || "all"}
                           onValueChange={(value) => updateSearchParams("posted", value)}
                         >
-                          <SelectTrigger className="w-full h-10 text-sm bg-white border-0 rounded-lg">
+                          <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -557,13 +557,13 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
                     {/* Experience Level - Hide for tasks page */}
                     {basePath !== '/tasks' && (
-                      <div>
-                        <label className="block text-white text-sm font-medium mb-1">Experience Level</label>
+                      <div className="p-3 bg-purple-50/90 backdrop-blur-sm rounded-lg border border-purple-200/50">
+                        <label className="block text-gray-900 text-sm font-semibold mb-2">Experience Level</label>
                         <Select
                           value={searchParams.level || "all"}
                           onValueChange={(value) => updateSearchParams("level", value)}
                         >
-                          <SelectTrigger className="w-full h-10 text-sm bg-white border-0 rounded-lg">
+                          <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -580,23 +580,23 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
                     {/* No Experience Required - Only for jobs page */}
                     {basePath !== '/tasks' && (
-                      <div>
-                        <label className="block text-white text-sm font-medium mb-3">No Experience Required</label>
-                        <label className="flex items-center space-x-2 cursor-pointer bg-white/20 rounded-lg p-2.5 hover:bg-white/30 transition-colors">
+                      <div className="p-3 bg-amber-50/90 backdrop-blur-sm rounded-lg border border-amber-200/50">
+                        <label className="block text-gray-900 text-sm font-semibold mb-3">No Experience Required</label>
+                        <label className="flex items-center space-x-2 cursor-pointer bg-white rounded-lg p-2.5 hover:bg-gray-50 transition-colors border border-gray-200">
                           <input
                             type="checkbox"
                             checked={noExperienceRequired}
                             onChange={(e) => setNoExperienceRequired(e.target.checked)}
                             className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                           />
-                          <span className="text-sm text-white font-medium">Training provided</span>
+                          <span className="text-sm text-gray-900 font-medium">Training provided</span>
                         </label>
                       </div>
                     )}
 
                     {/* Salary/Price Range */}
-                    <div>
-                      <label className="block text-white text-sm font-medium mb-1">
+                    <div className="p-3 bg-emerald-50/90 backdrop-blur-sm rounded-lg border border-emerald-200/50">
+                      <label className="block text-gray-900 text-sm font-semibold mb-2">
                         {basePath === '/tasks' ? 'Min price (£)' : 'Min Salary (£)'}
                       </label>
                       <Input
@@ -604,23 +604,23 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                         placeholder={basePath === '/tasks' ? 'e.g. 100' : 'e.g. 30000'}
                         value={salaryMin}
                         onChange={(e) => setSalaryMin(e.target.value)}
-                        className="h-10 text-sm bg-white border-0 rounded-lg"
+                        className="h-10 text-sm bg-white font-medium"
                       />
                     </div>
 
                     {/* Search Radius */}
-                    <div>
-                      <label className="block text-white text-sm font-medium mb-1">Search Radius</label>
+                    <div className="p-3 bg-indigo-50/90 backdrop-blur-sm rounded-lg border border-indigo-200/50">
+                      <label className="block text-gray-900 text-sm font-semibold mb-2">Search Radius</label>
                       <Select value={radius} onValueChange={setRadius}>
-                        <SelectTrigger className="w-full h-10 text-sm bg-white border-0 rounded-lg">
+                        <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="10">10 miles</SelectItem>
-                          <SelectItem value="20">20 miles</SelectItem>
-                          <SelectItem value="30">30 miles</SelectItem>
-                          <SelectItem value="50">50 miles</SelectItem>
-                          <SelectItem value="100">100 miles</SelectItem>
+                          {[5, 10, 15, 20, 25, 30, 40, 50].map((miles) => (
+                            <SelectItem key={miles} value={miles.toString()}>
+                              {miles} miles
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1183,9 +1183,6 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                   alt="Team collaboration"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4 bg-emerald-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-                  This Week
-                </div>
               </div>
               <div className="p-4 md:p-6">
                 <h3 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-gray-800">
@@ -1208,9 +1205,6 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                   alt="UX Designer at work"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-                  Yesterday
-                </div>
               </div>
               <div className="p-4 md:p-6">
                 <h3 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-gray-800">Sarah M. - UX Designer</h3>
@@ -1231,9 +1225,6 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                   alt="Project Manager"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-semibold shadow-lg">
-                  Last Week
-                </div>
               </div>
               <div className="p-4 md:p-6">
                 <h3 className="text-lg md:text-xl font-bold mb-2 md:mb-3 text-gray-800">James K. - Project Manager</h3>
@@ -1488,11 +1479,11 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
               {/* Advanced Filters */}
               {showAdvancedFilters && (
-                <div className="mt-3 p-4 bg-white rounded-lg shadow-md border-2 border-gray-200">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="mt-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {/* Job Type - Hide for tasks page */}
                     {basePath !== '/tasks' && (
-                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="p-3 bg-blue-50/90 backdrop-blur-sm rounded-lg border border-blue-200/50">
                         <label className="block text-gray-900 text-sm font-semibold mb-2">Job Type</label>
                         <Select
                           value={searchParams.type || "all"}
@@ -1503,10 +1494,12 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="all">All Types</SelectItem>
+                            <SelectItem value="remote">🌍 Remote</SelectItem>
                             <SelectItem value="full-time">Full-time</SelectItem>
                             <SelectItem value="part-time">Part-time</SelectItem>
                             <SelectItem value="contract">Contract</SelectItem>
                             <SelectItem value="freelance">Freelance</SelectItem>
+                            <SelectItem value="internship">Internship</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1514,7 +1507,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
                     {/* Jobs Posted Date Filter - Only for tasks page */}
                     {basePath === '/tasks' && (
-                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="p-3 bg-blue-50/90 backdrop-blur-sm rounded-lg border border-blue-200/50">
                         <label className="block text-gray-900 text-sm font-semibold mb-2">Jobs Posted</label>
                         <Select
                           value={searchParams.posted || "all"}
@@ -1537,7 +1530,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
                     {/* Experience Level - Hide for tasks page */}
                     {basePath !== '/tasks' && (
-                      <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
+                      <div className="p-3 bg-purple-50/90 backdrop-blur-sm rounded-lg border border-purple-200/50">
                         <label className="block text-gray-900 text-sm font-semibold mb-2">Experience Level</label>
                         <Select
                           value={searchParams.level || "all"}
@@ -1552,6 +1545,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                             <SelectItem value="mid">Mid Level</SelectItem>
                             <SelectItem value="senior">Senior</SelectItem>
                             <SelectItem value="lead">Lead</SelectItem>
+                            <SelectItem value="executive">Executive</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1559,7 +1553,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
                     {/* No Experience Required - Only for jobs page */}
                     {basePath !== '/tasks' && (
-                      <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                      <div className="p-3 bg-amber-50/90 backdrop-blur-sm rounded-lg border border-amber-200/50">
                         <label className="block text-gray-900 text-sm font-semibold mb-3">No Experience Required</label>
                         <label className="flex items-center space-x-2 cursor-pointer bg-white rounded-lg p-2.5 hover:bg-gray-50 transition-colors border border-gray-200">
                           <input
@@ -1574,21 +1568,21 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                     )}
 
                     {/* Salary/Price Range */}
-                    <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                    <div className="p-3 bg-emerald-50/90 backdrop-blur-sm rounded-lg border border-emerald-200/50">
                       <label className="block text-gray-900 text-sm font-semibold mb-2">
                         {basePath === '/tasks' ? 'Min price (£)' : 'Min Salary (£)'}
                       </label>
                       <Input
+                        type="number"
                         placeholder={basePath === '/tasks' ? 'e.g. 100' : 'e.g. 30000'}
                         value={salaryMin}
-                        type="number"
                         onChange={(e) => setSalaryMin(e.target.value)}
                         className="h-10 text-sm bg-white font-medium"
                       />
                     </div>
 
                     {/* Search Radius */}
-                    <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+                    <div className="p-3 bg-indigo-50/90 backdrop-blur-sm rounded-lg border border-indigo-200/50">
                       <label className="block text-gray-900 text-sm font-semibold mb-2">Search Radius</label>
                       <Select value={radius} onValueChange={setRadius}>
                         <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">

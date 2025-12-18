@@ -179,6 +179,7 @@ export default function ProfessionalsPageContent({
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null)
   const professionalCardRefs = useRef<{[key: string]: HTMLElement | null}>({})
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
 
   // Scroll to selected professional card
   useEffect(() => {
@@ -268,6 +269,11 @@ export default function ProfessionalsPageContent({
       setIsFullScreenMode(true)
     }
   }, [searchParams.search, searchParams.location, searchParams.lat, searchParams.lng, searchParams.traders])
+
+  // Debug: Monitor showMapPicker state changes
+  useEffect(() => {
+    console.log('[MAP-PICKER] showMapPicker state changed to:', showMapPicker)
+  }, [showMapPicker])
 
   // Clear filter parameters for unregistered users
   useEffect(() => {
@@ -392,7 +398,9 @@ export default function ProfessionalsPageContent({
   }
 
   const handleMapPickerClick = () => {
+    console.log('[MAP-PICKER] Button clicked, opening map picker modal')
     setShowMapPicker(true)
+    console.log('[MAP-PICKER] showMapPicker state set to true')
   }
 
   const handleMapLocationPick = (lat: number, lon: number) => {
@@ -569,9 +577,9 @@ export default function ProfessionalsPageContent({
     <div className="min-h-screen bg-background">
       {/* Skip hero section when in modal mode */}
       {!isModal && (
-      <>
-      {/* Info banner for unauthenticated users - hide after search or if dismissed */}
-      {!user && !isBannerDismissed && !hasSearchParams && (
+        <div>
+          {/* Info banner for unauthenticated users - hide after search or if dismissed */}
+          {!user && !isBannerDismissed && !hasSearchParams && (
         <div className="bg-blue-600 text-white py-2 px-4 text-center text-sm relative">
           <span className="font-medium">Browsing as a guest.</span>
           {" "}
@@ -1018,6 +1026,10 @@ export default function ProfessionalsPageContent({
           </div>
         </section>
       )}
+      </div>
+    )}
+
+
 
       {/* Search Results Section - Moved up to appear right after search card */}
       {!isFullScreenMode && (searchParams.search || searchParams.location || searchParams.level || searchParams.skills || searchParams.type || searchParams.salaryMin) ? (
@@ -1667,12 +1679,12 @@ export default function ProfessionalsPageContent({
 
       {/* Map Picker Modal */}
       {showMapPicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999999] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999999] flex items-center justify-center p-4" onClick={() => console.log('[MAP-PICKER] Modal backdrop clicked')}>
           <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col relative z-[1000000]">
-            {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Pick Location on Map</h3>
+              {/* Header */}
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Pick Location on Map</h3>
                 <p className="text-sm text-gray-600">Click anywhere on the map to select your search location</p>
               </div>
               <Button
@@ -1777,8 +1789,6 @@ export default function ProfessionalsPageContent({
             </div>
           </div>
         </div>
-      )}
-      </>
       )}
 
       {/* Floating Message Modal */}
@@ -2275,7 +2285,13 @@ export default function ProfessionalsPageContent({
                           key={item.id}
                           ref={(el: HTMLDivElement | null) => { professionalCardRefs.current[item.id] = el }}
                           className="bg-white rounded-lg shadow-sm border p-3 cursor-pointer transition-all border-gray-200 hover:border-blue-300"
-                          onClick={() => setSelectedProfessionalId(item.id)}
+                          onClick={() => {
+                            setSelectedProfessionalId(item.id)
+                            // Toggle expansion for jobs
+                            if (isShowingJobs) {
+                              setExpandedJobId(expandedJobId === item.id ? null : item.id)
+                            }
+                          }}
                         >
                           {isShowingJobs ? (
                             <div className="space-y-2">
@@ -2285,11 +2301,19 @@ export default function ProfessionalsPageContent({
                                   <p className="text-xs text-gray-600">
                                     {item.company_profiles?.company_name || `${item.poster_first_name} ${item.poster_last_name}`}
                                   </p>
+
+                                  {/* Description - show truncated or full based on expanded state */}
+                                  {item.description && (
+                                    <p className={`text-xs text-gray-700 mt-2 ${expandedJobId === item.id ? '' : 'line-clamp-2'}`}>
+                                      {item.description}
+                                    </p>
+                                  )}
+
                                   <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
                                     <MapPin className="h-3 w-3" />
                                     <span className="truncate">{item.location}</span>
                                   </div>
-                                  {(item.salary_min || item.salary_max) && (
+                                  {(item.salary_min || item.salary_max || item.budget_min || item.budget_max) && (
                                     <div className="flex items-center gap-1 text-xs text-green-600 font-medium mt-1">
                                       <PoundSterling className="h-3 w-3" />
                                       <span>
@@ -2297,9 +2321,24 @@ export default function ProfessionalsPageContent({
                                           ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
                                           : item.salary_min
                                           ? `From £${item.salary_min.toLocaleString()}`
-                                          : `Up to £${item.salary_max?.toLocaleString()}`}
+                                          : item.salary_max
+                                          ? `Up to £${item.salary_max.toLocaleString()}`
+                                          : item.budget_min && item.budget_max
+                                          ? `£${item.budget_min.toLocaleString()} - £${item.budget_max.toLocaleString()}`
+                                          : item.budget_min
+                                          ? `From £${item.budget_min.toLocaleString()}`
+                                          : item.budget_max
+                                          ? `Up to £${item.budget_max.toLocaleString()}`
+                                          : ''}
                                       </span>
                                     </div>
+                                  )}
+
+                                  {/* Show "Tap to expand/collapse" hint */}
+                                  {item.description && item.description.length > 100 && (
+                                    <p className="text-xs text-blue-500 mt-1">
+                                      {expandedJobId === item.id ? 'Tap to collapse' : 'Tap to see full description'}
+                                    </p>
                                   )}
                                 </div>
                               </div>

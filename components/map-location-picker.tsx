@@ -196,7 +196,6 @@ export function MapLocationPicker({
           <MapPin className="h-5 w-5" />
           Select Job Location
         </CardTitle>
-        <p className="text-sm text-muted-foreground">{placeholder}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Search input */}
@@ -297,16 +296,6 @@ export function MapLocationPicker({
             </div>
           )}
 
-          {!value && (
-            <div className="absolute top-4 left-4 right-4 z-10 pointer-events-none">
-              <div className="bg-white/90 backdrop-blur-sm rounded-lg shadow-md p-3 border">
-                <p className="text-sm text-gray-700 text-center">
-                  <MapPin className="inline h-4 w-4 mr-1" />
-                  Click anywhere on the map to select a job location
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>

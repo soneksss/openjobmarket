@@ -66,9 +66,8 @@ const EXPERIENCE_LEVEL_OPTIONS = [
 ]
 
 const COMMON_SKILLS = [
-  "JavaScript", "TypeScript", "Python", "Java", "C++", "React", "Node.js", "SQL",
-  "AWS", "Docker", "Kubernetes", "Git", "Agile", "Project Management",
-  "Communication", "Leadership", "Problem Solving", "Teamwork"
+  "Communication", "Leadership", "Problem Solving", "Teamwork",
+  "Project Management", "Agile", "Time Management", "Customer Service"
 ]
 
 const COMMON_LANGUAGES = [

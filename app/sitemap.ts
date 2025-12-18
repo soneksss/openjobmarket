@@ -19,24 +19,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      url: `${baseUrl}/professionals`,
-      lastModified: new Date(),
-      changeFrequency: "hourly",
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/contractors`,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/tasks`,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.8,
-    },
-    {
       url: `${baseUrl}/search`,
       lastModified: new Date(),
       changeFrequency: "daily",
@@ -166,7 +148,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
-      url: `${baseUrl}/professionals?location=${encodeURIComponent(city)}`,
+      url: `${baseUrl}/?tab=talents&location=${encodeURIComponent(city)}`,
       lastModified: new Date(),
       changeFrequency: "daily" as const,
       priority: 0.7,
@@ -193,7 +175,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]
 
   const tradePages: MetadataRoute.Sitemap = trades.map(trade => ({
-    url: `${baseUrl}/contractors?trade=${encodeURIComponent(trade)}`,
+    url: `${baseUrl}/?tab=traders&trade=${encodeURIComponent(trade)}`,
     lastModified: new Date(),
     changeFrequency: "daily" as const,
     priority: 0.7,

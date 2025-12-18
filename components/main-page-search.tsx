@@ -482,7 +482,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", lon + lngDelta)
         }
 
-        const { data: contractorData } = await contractorQuery.limit(RESULT_LIMIT + 1)
+        console.log(`[MAIN-PAGE-SEARCH] Executing contractor query...`)
+        const { data: contractorData, error: contractorError } = await contractorQuery.limit(RESULT_LIMIT + 1)
+
+        if (contractorError) {
+          console.error(`[MAIN-PAGE-SEARCH] Contractor query error:`, contractorError)
+        } else {
+          console.log(`[MAIN-PAGE-SEARCH] Contractor query returned ${contractorData?.length || 0} results`)
+        }
 
         if (contractorData) {
           contractorResults = contractorData
@@ -527,7 +534,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", lon + lngDelta)
         }
 
-        const { data: profData } = await profQuery.limit(RESULT_LIMIT + 1)
+        console.log(`[MAIN-PAGE-SEARCH] Executing professional query...`)
+        const { data: profData, error: profError } = await profQuery.limit(RESULT_LIMIT + 1)
+
+        if (profError) {
+          console.error(`[MAIN-PAGE-SEARCH] Professional query error:`, profError)
+        } else {
+          console.log(`[MAIN-PAGE-SEARCH] Professional query returned ${profData?.length || 0} results`)
+        }
 
         if (profData) {
           professionalResults = profData
@@ -570,7 +584,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", lon + lngDelta)
         }
 
-        const { data: companyData } = await companyQuery.limit(RESULT_LIMIT + 1)
+        console.log(`[MAIN-PAGE-SEARCH] Executing company query...`)
+        const { data: companyData, error: companyError } = await companyQuery.limit(RESULT_LIMIT + 1)
+
+        if (companyError) {
+          console.error(`[MAIN-PAGE-SEARCH] Company query error:`, companyError)
+        } else {
+          console.log(`[MAIN-PAGE-SEARCH] Company query returned ${companyData?.length || 0} results`)
+        }
 
         if (companyData) {
           companyResults = companyData
@@ -588,7 +609,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         // Combine all results
+        console.log(`[MAIN-PAGE-SEARCH] Combining trader results: contractors=${contractorResults.length}, professionals=${professionalResults.length}, companies=${companyResults.length}`)
         results = [...contractorResults, ...professionalResults, ...companyResults]
+        console.log(`[MAIN-PAGE-SEARCH] Total trader results: ${results.length}`)
       } else if (type === "talents") {
         console.log(`[MAIN-PAGE-SEARCH] Fetching talents/professionals`)
         // Fetch all professionals (not just self-employed)
@@ -974,6 +997,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     if (mapPickerLocation) {
       setLocation(mapPickerLocation.name)
       setSelectedLocation({ lat: mapPickerLocation.lat, lon: mapPickerLocation.lon })
+      setDistance(mapPickerRadius) // Apply the selected radius to distance filter
       setShowMapPicker(false)
       setLocationError("")
     }
@@ -1827,11 +1851,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           )}
         </div>
 
-        {/* Map Picker Modal */}
-        <Dialog open={showMapPicker} onOpenChange={(open) => {
-          if (!open) cancelMapPicker()
-        }}>
-          <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[95vh] overflow-y-auto p-3 sm:p-6" showCloseButton={false}>
+        {/* Map Picker Modal - High z-index to appear above the search results modal */}
+        <div style={{ zIndex: 10000, position: 'relative' }}>
+          <Dialog open={showMapPicker} onOpenChange={(open) => {
+            if (!open) cancelMapPicker()
+          }}>
+            <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[95vh] overflow-y-auto p-3 sm:p-6" showCloseButton={false}>
             <DialogHeader>
               <DialogTitle className="text-base sm:text-lg">Pick Location on Map</DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
@@ -1910,11 +1935,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Full-Screen Map Modal - Uses Same Component as Professionals Page */}
       {showMapModal && (
-        <div className="fixed inset-0 bg-white z-[9999]">
+        <div className="fixed inset-0 bg-white z-[9999]" style={{ zIndex: 9999 }}>
           {/* Warning banner when result limit is reached */}
           {resultLimitReached && (
             <div className="bg-orange-50 border-b border-orange-200 px-4 py-3 text-center">
@@ -1936,10 +1962,29 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               location: location,
               lat: selectedLocation?.lat.toString(),
               lng: selectedLocation?.lon.toString(),
+              radius: distance,
               traders: modalSearchType === "traders" ? "true" : undefined,
               vacancies: modalSearchType === "vacancies" ? "true" : undefined,
               jobs_tasks: modalSearchType === "jobs_tasks" ? "true" : undefined,
               talents: modalSearchType === "talents" ? "true" : undefined,
+              // Pass all filter values
+              jobType: jobType !== "all" ? jobType : undefined,
+              experienceLevel: experienceLevel !== "all" ? experienceLevel : undefined,
+              workLocation: workLocation !== "all" ? workLocation : undefined,
+              salaryRange: salaryRange !== "all" ? salaryRange : undefined,
+              noExperienceRequired: noExperienceRequired ? "true" : undefined,
+              drivingLicenseRequired: drivingLicenseRequired ? "true" : undefined,
+              ownTransportRequired: ownTransportRequired ? "true" : undefined,
+              tradeCategory: tradeCategory !== "all" ? tradeCategory : undefined,
+              urgency: urgency !== "all" ? urgency : undefined,
+              budgetRange: budgetRange !== "all" ? budgetRange : undefined,
+              tradeJobType: tradeJobType !== "all" ? tradeJobType : undefined,
+              employmentStatus: employmentStatus !== "all" ? employmentStatus : undefined,
+              hasCVUploaded: hasCVUploaded ? "true" : undefined,
+              hasDrivingLicense: hasDrivingLicense ? "true" : undefined,
+              hasOwnTransport: hasOwnTransport ? "true" : undefined,
+              willingToRelocate: willingToRelocate ? "true" : undefined,
+              availableForBusiness: availableForBusiness ? "true" : undefined,
             } as any}
             center={mapCenter}
             isModal={true}

@@ -95,7 +95,7 @@ export default async function HomePage() {
               Success Stories
             </h2>
             <p className="text-xs md:text-sm text-gray-600 max-w-3xl mx-auto text-pretty px-2">
-              Real results from professionals and companies who found their perfect match just yesterday morning
+              Real results from professionals and companies who found their perfect match
             </p>
           </div>
 
@@ -107,9 +107,6 @@ export default async function HomePage() {
                   alt="Team celebrating successful job placement"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-1.5 left-1.5 bg-emerald-500 text-white px-1.5 py-0.5 rounded-full text-xs font-semibold">
-                  Yesterday
-                </div>
               </div>
               <div className="p-2 md:p-3">
                 <h3 className="text-base md:text-lg font-bold mb-1 text-gray-800">
@@ -133,9 +130,6 @@ export default async function HomePage() {
                   alt="Professional woman working late achieving success"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-1.5 left-1.5 bg-blue-500 text-white px-1.5 py-0.5 rounded-full text-xs font-semibold">
-                  This Morning
-                </div>
               </div>
               <div className="p-2 md:p-3">
                 <h3 className="text-base md:text-lg font-bold mb-1 text-gray-800">Maria R. - Data Scientist</h3>
@@ -157,9 +151,6 @@ export default async function HomePage() {
                   alt="Construction professional celebrating career advancement"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute top-1.5 left-1.5 bg-orange-500 text-white px-1.5 py-0.5 rounded-full text-xs font-semibold">
-                  Yesterday
-                </div>
               </div>
               <div className="p-2 md:p-3">
                 <h3 className="text-base md:text-lg font-bold mb-1 text-gray-800">James K. - Project Manager</h3>

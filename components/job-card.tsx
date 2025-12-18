@@ -339,7 +339,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               )}
 
               {/* Short Description */}
-              <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+              <p className={`text-sm text-gray-600 mb-2 ${!isExpanded ? 'line-clamp-2' : ''}`}>
                 {isExpanded ? longDesc : (shortDesc?.substring(0, 120) + (shortDesc && shortDesc.length > 120 ? "..." : ""))}
               </p>
 

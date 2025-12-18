@@ -149,25 +149,8 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
   }
 
   const handleFindTradespeople = () => {
-    // Get user's location and navigate to contractors page
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLat = position.coords.latitude
-          const userLon = position.coords.longitude
-          // Navigate to contractors page with location pre-filled
-          router.push(`/contractors?lat=${userLat}&lng=${userLon}&radius=10`)
-        },
-        (error) => {
-          console.error("Error getting location:", error)
-          // Navigate to contractors page without location - user can set it there
-          router.push("/contractors")
-        }
-      )
-    } else {
-      // Navigate to contractors page without location
-      router.push("/contractors")
-    }
+    // Navigate to main page with traders tab selected
+    router.push("/?tab=traders")
   }
 
   return (

@@ -40,25 +40,19 @@ function createCustomIcon(isSelected: boolean) {
   })
 }
 
-const MapUpdater = dynamic(
+const MapSizeHandler = dynamic(
   () =>
     import("react-leaflet").then((mod) => {
       const { useMap } = mod
 
-      function MapUpdaterComponent({ center, zoom }: { center: [number, number]; zoom: number }) {
+      function MapSizeHandlerComponent() {
         const map = useMap()
-
-        useEffect(() => {
-          if (map && map.setView) {
-            map.setView(center, zoom)
-          }
-        }, [map, center, zoom])
 
         // Fix map size after initial render (for resizable panels)
         useEffect(() => {
           const timer = setTimeout(() => {
             if (map) {
-              console.log("[PROFESSIONAL-MAP] Invalidating map size to fix tiles")
+              console.log("[ProfessionalMap] Invalidating map size to fix tiles")
               map.invalidateSize()
             }
           }, 300)
@@ -71,7 +65,7 @@ const MapUpdater = dynamic(
 
           const container = map.getContainer()
           const resizeObserver = new ResizeObserver(() => {
-            console.log("[PROFESSIONAL-MAP] Container resized, invalidating map size")
+            console.log("[ProfessionalMap] Container resized, invalidating map size")
             map.invalidateSize()
           })
 
@@ -85,7 +79,7 @@ const MapUpdater = dynamic(
         return null
       }
 
-      return MapUpdaterComponent
+      return MapSizeHandlerComponent
     }),
   { ssr: false },
 )
@@ -105,6 +99,45 @@ const MapClickHandler = dynamic(
       }
 
       return MapClickHandlerComponent
+    }),
+  { ssr: false },
+)
+
+// Component to center map on selected professional
+const ProfessionalCenterer = dynamic(
+  () =>
+    Promise.all([
+      import("react-leaflet"),
+      import("react")
+    ]).then(([leafletMod, reactMod]) => {
+      const { useMap } = leafletMod
+      const { useEffect } = reactMod
+
+      function ProfessionalCentererComponent({ selectedProfessional }: { selectedProfessional: any }) {
+        const map = useMap()
+
+        useEffect(() => {
+          if (map && selectedProfessional && selectedProfessional.coordinates?.lat && selectedProfessional.coordinates?.lon) {
+            const profLocation: [number, number] = [selectedProfessional.coordinates.lat, selectedProfessional.coordinates.lon]
+
+            // Check if professional location is visible in current map bounds
+            const bounds = map.getBounds()
+            const isVisible = bounds.contains(profLocation)
+
+            // Only pan if professional is not visible, keep current zoom
+            if (!isVisible) {
+              console.log("[ProfessionalMap] Panning to professional location:", profLocation)
+              map.panTo(profLocation, { animate: true, duration: 0.5 })
+            } else {
+              console.log("[ProfessionalMap] Professional already visible, no pan needed")
+            }
+          }
+        }, [map, selectedProfessional])
+
+        return null
+      }
+
+      return ProfessionalCentererComponent
     }),
   { ssr: false },
 )
@@ -163,7 +196,6 @@ export function ProfessionalMap({
 }: ProfessionalMapProps) {
   const [isClient, setIsClient] = useState(false)
   const [sendingMessage, setSendingMessage] = useState<string | null>(null)
-  const [mapKey, setMapKey] = useState(0) // Added key to force map re-render
   const router = useRouter()
   const supabase = createClient()
 
@@ -180,11 +212,6 @@ export function ProfessionalMap({
   useEffect(() => {
     setIsClient(true)
   }, [])
-
-  useEffect(() => {
-    setMapKey((prev) => prev + 1)
-    console.log(`[v0] Map center updated to: [${center.lat}, ${center.lon}] zoom: ${zoom}`)
-  }, [center.lat, center.lon, zoom])
 
   // Convert center object to array for Leaflet
   const centerArray: [number, number] = [center.lat, center.lon]
@@ -219,14 +246,14 @@ export function ProfessionalMap({
         crossOrigin=""
       />
       <MapContainer
-        key={mapKey}
         center={centerArray}
         zoom={zoom}
         style={{ height: "100%", width: "100%" }}
         className="rounded-lg"
         {...({} as any)}
       >
-        <MapUpdater center={centerArray} zoom={zoom} />
+        <MapSizeHandler />
+        <ProfessionalCenterer selectedProfessional={selectedProfessionalId ? professionals.find(p => p.id === selectedProfessionalId) : null} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

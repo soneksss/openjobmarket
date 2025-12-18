@@ -407,16 +407,14 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
             <nav className="hidden md:flex items-center space-x-2">
               <Button
                 variant="ghost"
-                size="sm"
                 onClick={() => setShowAboutModal(true)}
-                className="text-xs"
               >
                 About
               </Button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center space-x-1 text-xs">
+                  <Button variant="ghost" className="flex items-center space-x-1">
                     <span>Courses</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
@@ -615,7 +613,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="flex items-center space-x-1 text-xs">
+                  <Button variant="ghost" className="flex items-center space-x-1">
                     <span>Help</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
@@ -1223,10 +1221,12 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
               <div className="space-y-6">
                 <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg p-6 border-l-4 border-blue-500">
-                  <h3 className="text-2xl font-bold text-gray-800 mb-3">What We Do</h3>
-                  <p className="text-lg text-gray-700 leading-relaxed">
-                    Open Job Market is a revolutionary platform that connects job seekers with employers, and homeowners with skilled tradespeople.
-                    We've created the easiest, most transparent way to find opportunities or hire talent—all in one place.
+                  <h3 className="text-2xl font-bold text-gray-800 mb-3">What Is Open Job Market?</h3>
+                  <p className="text-lg text-gray-700 leading-relaxed mb-3">
+                    Open Job Market is an award-nominated, map-based platform to search, compare, and connect with jobs, talent, skilled tradespeople, and trade work — all in one place.
+                  </p>
+                  <p className="text-base text-gray-600 italic">
+                    Recognized by industry experts as one of the most promising startups of the year.
                   </p>
                 </div>
 
