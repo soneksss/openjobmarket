@@ -382,7 +382,7 @@ export function MessageIcon({ user }: MessageIconProps) {
           />
 
           {/* Messages Dropdown */}
-          <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-lg shadow-lg border z-50">
+          <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:top-full mt-2 sm:w-80 bg-white rounded-lg shadow-lg border z-50">
             <div className="p-4 border-b">
               <div className="flex items-center justify-between">
                 <div>

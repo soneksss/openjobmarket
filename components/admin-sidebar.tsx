@@ -3,11 +3,13 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, FileText, Settings, BarChart3, Scale, GraduationCap, Bug } from "lucide-react"
+import { LayoutDashboard, Users, FileText, Settings, BarChart3, Scale, GraduationCap, Bug, X } from "lucide-react"
 import type { AdminUser } from "@/lib/admin"
 
 interface AdminSidebarProps {
   adminUser: AdminUser
+  isOpen: boolean
+  onClose: () => void
 }
 
 const navigation = [
@@ -53,16 +55,38 @@ const navigation = [
   },
 ]
 
-export function AdminSidebar({ adminUser }: AdminSidebarProps) {
+export function AdminSidebar({ adminUser, isOpen, onClose }: AdminSidebarProps) {
   const pathname = usePathname()
 
   return (
-    <div className="flex h-full w-64 flex-col bg-white shadow-lg">
-      {/* Logo */}
-      <div className="flex h-16 items-center justify-center border-b border-gray-200">
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 flex h-full w-64 flex-col bg-white shadow-lg transition-transform duration-300",
+          "lg:static lg:transform-none",
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        )}
+      >
+      {/* Logo and Close Button */}
+      <div className="flex h-16 items-center justify-between border-b border-gray-200 px-4">
         <Link href="/admin/dashboard" className="flex items-center space-x-2">
           <div className="text-xl font-bold text-blue-600">Admin Panel</div>
         </Link>
+        <button
+          onClick={onClose}
+          className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        >
+          <X className="h-5 w-5 text-gray-600" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -73,6 +97,12 @@ export function AdminSidebar({ adminUser }: AdminSidebarProps) {
             <Link
               key={item.name}
               href={item.href}
+              onClick={() => {
+                // Close mobile menu when clicking a link
+                if (window.innerWidth < 1024) {
+                  onClose()
+                }
+              }}
               className={cn(
                 "flex items-center space-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900",
@@ -101,5 +131,6 @@ export function AdminSidebar({ adminUser }: AdminSidebarProps) {
         </div>
       </div>
     </div>
+    </>
   )
 }

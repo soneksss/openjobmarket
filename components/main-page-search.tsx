@@ -406,6 +406,25 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
   const handleSearch = async (type: "vacancies" | "jobs_tasks" | "talents" | "traders") => {
     console.log(`[MAIN-PAGE-SEARCH] handleSearch called with type: ${type}`)
+
+    // Check if sign-in is required to search
+    try {
+      const { data: signinRequired, error: signinError } = await supabase.rpc('is_signin_required_to_search')
+
+      if (signinError) {
+        console.error('[MAIN-PAGE-SEARCH] Error checking signin requirement:', signinError)
+      } else if (signinRequired && !user) {
+        console.log('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
+        // Redirect to sign-up page to encourage new user registration
+        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
+        router.push(`/auth/sign-up?redirect=${returnUrl}`)
+        return
+      }
+    } catch (err) {
+      console.error('[MAIN-PAGE-SEARCH] Exception checking signin requirement:', err)
+      // Continue with search on error (fail open for better UX)
+    }
+
     const error = validateSearch()
     if (error) {
       console.log(`[MAIN-PAGE-SEARCH] Validation error: ${error}`)

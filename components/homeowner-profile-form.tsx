@@ -11,6 +11,8 @@ import { createClient } from "@/lib/client"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, Loader2, ToggleLeft, ToggleRight, Upload } from "lucide-react"
 import Link from "next/link"
+import pica from "pica"
+import { useToast } from "@/hooks/use-toast"
 
 interface HomeownerProfile {
   id: string
@@ -46,6 +48,7 @@ export function HomeownerProfileForm({ profile: initialProfile, userId }: Homeow
   const searchParams = useSearchParams()
   const setupMarket = searchParams.get("setup_market") === "true"
   const supabase = createClient()
+  const { toast } = useToast()
 
   const [profile, setProfile] = useState<HomeownerProfile>(initialProfile)
   const [isLoading, setIsLoading] = useState(false)
@@ -65,48 +68,118 @@ export function HomeownerProfileForm({ profile: initialProfile, userId }: Homeow
     setProfile({ ...profile, on_market: !showMarketFields })
   }
 
-  const resizeImage = (file: File, maxSize: number): Promise<File> => {
+  const resizeImage = async (file: File, maxSize: number = 300): Promise<File> => {
+    console.log("[Homeowner Photo] Starting resize for:", file.name, "Type:", file.type)
     return new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => {
+      const img = new window.Image()
+      img.onload = async () => {
+        console.log("[Homeowner Photo] Image loaded successfully. Dimensions:", img.width, "x", img.height)
         try {
-          const canvas = document.createElement("canvas")
-          canvas.width = maxSize
-          canvas.height = maxSize
-
-          const ctx = canvas.getContext("2d")
-          if (!ctx) {
-            reject(new Error("Could not get canvas context"))
+          // Validate image dimensions
+          if (img.width === 0 || img.height === 0) {
+            console.error("[Homeowner Photo] Invalid dimensions:", img.width, img.height)
+            reject(new Error("IMAGE_DIMENSIONS_INVALID: Image has invalid dimensions"))
             return
           }
 
+          // Check if image is too large to process
+          if (img.width > 10000 || img.height > 10000) {
+            console.error("[Homeowner Photo] Image too large:", img.width, img.height)
+            reject(new Error("IMAGE_TOO_LARGE: Image dimensions exceed 10000x10000 pixels"))
+            return
+          }
+
+          const canvas = document.createElement("canvas")
+          console.log("[Homeowner Photo] Canvas created")
+
+          // Create square image for circular photo display
           const size = Math.min(img.width, img.height)
-          const x = (img.width - size) / 2
-          const y = (img.height - size) / 2
+          const cropX = (img.width - size) / 2
+          const cropY = (img.height - size) / 2
 
-          ctx.drawImage(img, x, y, size, size, 0, 0, maxSize, maxSize)
+          canvas.width = maxSize
+          canvas.height = maxSize
+          console.log("[Homeowner Photo] Target dimensions:", maxSize, "x", maxSize, "(square)")
+          console.log("[Homeowner Photo] Cropping from center:", { cropX, cropY, size })
 
-          canvas.toBlob(
-            (blob) => {
-              if (!blob) {
-                reject(new Error("Could not create blob"))
-                return
-              }
-              const resizedFile = new File([blob], file.name, {
-                type: "image/jpeg",
-                lastModified: Date.now(),
-              })
-              resolve(resizedFile)
-            },
-            "image/jpeg",
-            0.8
-          )
+          let blob: Blob | null = null
+
+          // Try using pica for high-quality resizing first
+          try {
+            console.log("[Homeowner Photo] Starting pica resize...")
+            const picaInstance = pica()
+
+            // Create a temporary canvas with the cropped square
+            const tempCanvas = document.createElement("canvas")
+            tempCanvas.width = size
+            tempCanvas.height = size
+            const tempCtx = tempCanvas.getContext("2d")
+            if (!tempCtx) {
+              throw new Error("Failed to get temp canvas context")
+            }
+
+            // Draw the cropped square portion
+            tempCtx.drawImage(img, cropX, cropY, size, size, 0, 0, size, size)
+            console.log("[Homeowner Photo] Cropped source canvas created")
+
+            // Resize to target size
+            await picaInstance.resize(tempCanvas, canvas)
+            console.log("[Homeowner Photo] Pica resize completed")
+
+            // Convert to WebP for better compression
+            console.log("[Homeowner Photo] Converting to WebP...")
+            blob = await picaInstance.toBlob(canvas, "image/webp", 0.85)
+            console.log("[Homeowner Photo] WebP conversion completed. Blob size:", blob?.size || 0)
+          } catch (picaError) {
+            console.warn("[Homeowner Photo] Pica failed, falling back to native canvas:", picaError)
+
+            // Fallback to native canvas resizing
+            const ctx = canvas.getContext("2d")
+            if (!ctx) {
+              reject(new Error("IMAGE_PROCESSING_FAILED: Failed to get canvas context"))
+              return
+            }
+
+            // Use native canvas drawing with crop parameters
+            ctx.drawImage(img, cropX, cropY, size, size, 0, 0, maxSize, maxSize)
+            console.log("[Homeowner Photo] Native canvas resize completed with center crop")
+
+            // Convert to WebP using canvas.toBlob
+            blob = await new Promise<Blob | null>((blobResolve) => {
+              canvas.toBlob(blobResolve, "image/webp", 0.85)
+            })
+            console.log("[Homeowner Photo] Native WebP conversion completed. Blob size:", blob?.size || 0)
+          }
+
+          if (!blob || blob.size === 0) {
+            console.error("[Homeowner Photo] Blob creation failed")
+            reject(new Error("IMAGE_CONVERSION_FAILED: Failed to convert image to WebP format"))
+            return
+          }
+
+          const resizedFile = new File([blob], "profile-photo.webp", { type: "image/webp" })
+          console.log("[Homeowner Photo] Resized file created successfully")
+
+          URL.revokeObjectURL(img.src)
+          resolve(resizedFile)
         } catch (error) {
-          reject(error)
+          console.error("[Homeowner Photo] Error during processing:", error)
+          URL.revokeObjectURL(img.src)
+          if (error instanceof Error) {
+            reject(error)
+          } else {
+            reject(new Error("IMAGE_PROCESSING_FAILED: Unknown error during image processing"))
+          }
         }
       }
-      img.onerror = () => reject(new Error("Could not load image"))
-      img.src = URL.createObjectURL(file)
+      img.onerror = (event) => {
+        console.error("[Homeowner Photo] Image load failed:", event)
+        URL.revokeObjectURL(img.src)
+        reject(new Error("IMAGE_LOAD_FAILED: Unable to load image. The file may be corrupted or in an unsupported format"))
+      }
+      const objectUrl = URL.createObjectURL(file)
+      console.log("[Homeowner Photo] Object URL created:", objectUrl)
+      img.src = objectUrl
     })
   }
 
@@ -114,64 +187,220 @@ export function HomeownerProfileForm({ profile: initialProfile, userId }: Homeow
     const file = event.target.files?.[0]
     if (!file) return
 
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file.")
+    // Check browser support for required APIs
+    if (typeof window === 'undefined' || !window.Image) {
+      toast({
+        title: "Browser Not Supported",
+        description: "Your browser does not support the required image processing features. Please use a modern browser like Chrome, Firefox, Edge, or Safari.",
+        variant: "destructive",
+        duration: 5000,
+      })
       return
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image size must be less than 5MB.")
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File Type",
+        description: `Please upload a valid image file. Supported formats: JPEG, PNG, GIF, WebP. You selected: ${file.type || 'Unknown type'}`,
+        variant: "destructive",
+        duration: 5000,
+      })
+      return
+    }
+
+    // Original file size validation (10MB before resize)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: `The file size is ${(file.size / 1024 / 1024).toFixed(2)}MB, which exceeds the 10MB limit. Please compress the image or use a smaller file.`,
+        variant: "destructive",
+        duration: 5000,
+      })
       return
     }
 
     setUploading(true)
     try {
+      console.log("[Homeowner Photo] Starting photo upload for file:", file.name, "Size:", (file.size / 1024 / 1024).toFixed(2) + "MB")
+
+      console.log("[Homeowner Photo] About to call resizeImage...")
+      // Resize and optimize the image
       const resizedFile = await resizeImage(file, 300)
-      const fileName = `${userId}/${userId}-${Date.now()}.jpg`
+      console.log("[Homeowner Photo] resizeImage completed successfully")
+      console.log("[Homeowner Photo] Image resized:", "New size:", (resizedFile.size / 1024).toFixed(2) + "KB")
+
+      const fileName = `${userId}/profile-photo.webp`
 
       // Delete old photo if exists
       if (profile.profile_photo_url) {
-        const oldFileName = profile.profile_photo_url.split("/").pop()
-        if (oldFileName) {
-          await supabase.storage.from("profile-photos").remove([`${userId}/${oldFileName}`])
+        try {
+          const oldPath = profile.profile_photo_url.split('/').slice(-2).join('/') // Get userId/filename
+          console.log("[Homeowner Photo] Attempting to delete old photo:", oldPath)
+          await supabase.storage.from("profile-photos").remove([oldPath])
+        } catch (deleteError) {
+          console.warn("[Homeowner Photo] Could not delete old photo:", deleteError)
+          // Continue with upload even if deletion fails
         }
       }
 
-      const { error: uploadError } = await supabase.storage
+      // Upload resized photo
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("profile-photos")
         .upload(fileName, resizedFile, {
           cacheControl: "3600",
-          upsert: false,
+          upsert: true, // Allow overwriting if file exists
         })
 
       if (uploadError) {
-        console.error("Upload error:", uploadError)
-        alert("Error uploading photo. Please try again.")
+        console.error("[Homeowner Photo] Upload error:", uploadError)
+
+        // Provide more specific error messages
+        if (uploadError.message.includes('bucket')) {
+          toast({
+            title: "Storage Error",
+            description: "Storage bucket not configured. Please contact support.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (uploadError.message.includes('policy')) {
+          toast({
+            title: "Permission Denied",
+            description: "Please ensure you're logged in and try again.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else {
+          toast({
+            title: "Upload Failed",
+            description: `Error uploading photo: ${uploadError.message}`,
+            variant: "destructive",
+            duration: 5000,
+          })
+        }
         return
       }
 
+      console.log("[Homeowner Photo] Upload successful:", uploadData)
+
+      // Get the public URL
       const {
         data: { publicUrl },
       } = supabase.storage.from("profile-photos").getPublicUrl(fileName)
 
-      // Update profile with new photo URL
+      console.log("[Homeowner Photo] Public URL generated:", publicUrl)
+
+      // Update the profile in the database
       const { error: updateError } = await supabase
         .from("homeowner_profiles")
         .update({ profile_photo_url: publicUrl })
         .eq("id", profile.id)
 
       if (updateError) {
-        console.error("Error updating profile:", updateError)
-        alert("Error updating profile. Please try again.")
+        console.error("[Homeowner Photo] Error updating profile with photo URL:", updateError)
+        toast({
+          title: "Update Failed",
+          description: "Photo uploaded but failed to update profile. Please refresh the page.",
+          variant: "destructive",
+          duration: 5000,
+        })
         return
       }
 
+      console.log("[Homeowner Photo] Photo upload completed successfully!")
+
+      // Show success toast
+      toast({
+        title: "✓ Photo Updated Successfully",
+        description: "Your profile photo has been updated. The page will reload to show the changes.",
+        duration: 2000,
+      })
+
+      // Update local state and refresh
       setProfile({ ...profile, profile_photo_url: publicUrl })
+
+      // Refresh the page to show the new photo (after a short delay for the toast)
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (error) {
-      console.error("Error:", error)
-      alert("Error processing image. Please try again.")
+      console.error("[Homeowner Photo] Unexpected error:", error)
+
+      if (error instanceof Error) {
+        const errorMessage = error.message
+
+        // Parse custom error codes from resizeImage
+        if (errorMessage.includes('IMAGE_LOAD_FAILED')) {
+          toast({
+            title: "Failed to Load Image",
+            description: "The image file could not be loaded. The file may be corrupted or in an unsupported format. Try using a different image file.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('IMAGE_DIMENSIONS_INVALID')) {
+          toast({
+            title: "Invalid Image Dimensions",
+            description: "The image has invalid or zero dimensions. Please choose a different image file.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('IMAGE_TOO_LARGE')) {
+          toast({
+            title: "Image Too Large",
+            description: "The image dimensions exceed 10,000x10,000 pixels. Please resize the image to smaller dimensions (e.g., 2000x2000 or less).",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('IMAGE_CONVERSION_FAILED')) {
+          toast({
+            title: "Image Conversion Failed",
+            description: "Failed to convert your image to WebP format. Try using a different browser (Chrome or Edge recommended) or a different image file.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('IMAGE_PROCESSING_FAILED')) {
+          toast({
+            title: "Image Processing Failed",
+            description: "An error occurred while processing your image. Try using a smaller image file or closing other browser tabs to free up memory.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('canvas')) {
+          toast({
+            title: "Canvas Processing Error",
+            description: "Your browser encountered an error while processing the image. Try using a different browser (Chrome or Edge work best).",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('memory') || errorMessage.includes('quota')) {
+          toast({
+            title: "Memory Error",
+            description: "Your browser ran out of memory while processing the image. Try using a smaller image file or closing other browser tabs.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else {
+          toast({
+            title: "Upload Error",
+            description: `${errorMessage}. If this problem persists, try using a different image file or browser.`,
+            variant: "destructive",
+            duration: 5000,
+          })
+        }
+      } else {
+        toast({
+          title: "Unexpected Error",
+          description: "An unexpected error occurred while uploading your photo. Please try again with a different image file.",
+          variant: "destructive",
+          duration: 5000,
+        })
+      }
     } finally {
       setUploading(false)
+      // Reset the file input so the same file can be selected again
+      const fileInput = document.querySelector<HTMLInputElement>('#photo-upload')
+      if (fileInput) fileInput.value = ''
     }
   }
 
@@ -184,7 +413,14 @@ export function HomeownerProfileForm({ profile: initialProfile, userId }: Homeow
     // Validate professional fields if on_market is true
     if (profile.on_market) {
       if (!profile.title || !profile.skills || profile.skills.length === 0) {
-        setError("Please fill in your job title and skills to appear on the market")
+        const errorMsg = "Please fill in your job title and skills to appear on the market"
+        setError(errorMsg)
+        toast({
+          title: "Validation Error",
+          description: errorMsg,
+          variant: "destructive",
+          duration: 5000,
+        })
         setIsLoading(false)
         return
       }
@@ -216,6 +452,13 @@ export function HomeownerProfileForm({ profile: initialProfile, userId }: Homeow
       if (updateError) throw updateError
 
       setSuccess(true)
+
+      toast({
+        title: "✓ Profile Updated Successfully",
+        description: "Your profile information has been saved.",
+        duration: 3000,
+      })
+
       router.refresh()
 
       // If successfully enabled market mode, show success and redirect
@@ -225,7 +468,14 @@ export function HomeownerProfileForm({ profile: initialProfile, userId }: Homeow
         }, 1500)
       }
     } catch (err: any) {
-      setError(err.message || "Failed to update profile")
+      const errorMsg = err.message || "Failed to update profile"
+      setError(errorMsg)
+      toast({
+        title: "Update Failed",
+        description: errorMsg,
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setIsLoading(false)
     }

@@ -7,16 +7,18 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { Settings, AlertTriangle, CheckCircle, Crown, ArrowRight } from "lucide-react"
+import { Settings, AlertTriangle, CheckCircle, Crown, ArrowRight, Shield } from "lucide-react"
 import { createClient } from "@/lib/client"
 
 interface AdminSettings {
   subscriptions_enabled: boolean
+  signin_required_to_search: boolean
 }
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<AdminSettings>({
     subscriptions_enabled: false,
+    signin_required_to_search: false,
   })
 
   const [loading, setLoading] = useState(true)
@@ -172,6 +174,52 @@ export default function AdminSettingsPage() {
       )}
 
       <div className="grid gap-6">
+
+        {/* Sign-in Required to Search */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Shield className="h-5 w-5" />
+              <span>Search Access Control</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium">Require Sign-In to Search</Label>
+                <p className="text-sm text-muted-foreground">
+                  When enabled, users must sign in before they can use the search functionality on the main page. When disabled, anyone can search without an account.
+                </p>
+              </div>
+              <Switch
+                checked={settings.signin_required_to_search}
+                onCheckedChange={(checked) => handleSettingChange("signin_required_to_search", checked)}
+              />
+            </div>
+
+            {settings.signin_required_to_search ? (
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Shield className="h-4 w-4 text-orange-600" />
+                  <h4 className="text-sm font-medium text-orange-800">Protected Search Mode</h4>
+                </div>
+                <p className="text-sm text-orange-700">
+                  Users must create an account and sign in to use the search feature. This helps build your user database and prevents anonymous browsing.
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <h4 className="text-sm font-medium text-green-800">Open Search Mode</h4>
+                </div>
+                <p className="text-sm text-green-700">
+                  Anyone can search without signing in. This provides better user experience and discovery but doesn't require account creation.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Subscription Model Settings */}
         <Card>

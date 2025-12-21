@@ -213,11 +213,13 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
                       </div>
                     </div>
                   </div>
-                  <Link href="/dashboard/homeowner/profile">
-                    <Button variant="ghost" size="icon" className="ml-2 flex-shrink-0">
-                      <Settings className="h-4 w-4" />
-                    </Button>
-                  </Link>
+                  <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+                    <Link href="/dashboard/homeowner/profile">
+                      <Button variant="ghost" size="icon">
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </CardHeader>
               <div className="px-6 pb-6 space-y-3">
@@ -229,6 +231,12 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
                   <User className="w-4 h-4 mr-2 flex-shrink-0" />
                   <span className="truncate">Member since {new Date().getFullYear()}</span>
                 </div>
+                <Link href="/account/homeowner" className="block">
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Account Settings
+                  </Button>
+                </Link>
               </div>
             </Card>
           </div>
@@ -237,27 +245,34 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
           <div className="lg:col-span-3 space-y-4 md:space-y-8">
         {/* Quick Actions Card */}
         <Card className="p-3 sm:p-4 md:p-6">
-          <h3 className="text-sm sm:text-base md:text-xl font-semibold mb-2 sm:mb-3 md:mb-4">Need help with your project? Post your job (task) with a clear description and budget, or search profiles of local tradespeople.</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 md:gap-4">
+          <h3 className="text-sm sm:text-base md:text-lg font-semibold mb-2 sm:mb-3 md:mb-4">Need help with your project? Post your job (task) with a clear description and budget, or search profiles of local tradespeople.</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-1.5 sm:gap-2 md:gap-3">
             <Button
               onClick={handleFindTradespeople}
-              className="w-full h-auto py-3 sm:py-4 md:h-20 justify-start bg-orange-500 hover:bg-orange-600 text-white text-sm sm:text-base md:text-lg"
+              className="h-auto p-1 sm:p-2 flex-col bg-orange-500 hover:bg-orange-600 text-white"
             >
-              <Search className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 flex-shrink-0" />
-              <div className="text-left">
-                <div className="font-semibold text-sm sm:text-base">Find Tradespeople</div>
-                <div className="text-xs opacity-90 hidden sm:block">Search for contractors nearby</div>
-              </div>
+              <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
+              <span className="font-semibold text-sm sm:text-base leading-tight">Find Trades</span>
+              <span className="text-xs opacity-90 hidden md:block">Search contractors</span>
             </Button>
-            <Link href="/dashboard/homeowner/post-job" className="block">
-              <Button className="w-full h-auto py-3 sm:py-4 md:h-20 justify-start bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base md:text-lg">
-                <Plus className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3 flex-shrink-0" />
-                <div className="text-left">
-                  <div className="font-semibold text-sm sm:text-base">Post a New Job</div>
-                  <div className="text-xs opacity-90 hidden sm:block">Create a job posting</div>
-                </div>
-              </Button>
-            </Link>
+            <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-blue-600 hover:bg-blue-700 text-white">
+              <Link href="/dashboard/homeowner/post-job">
+                <Plus className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
+                <span className="font-semibold text-sm sm:text-base leading-tight">Post Job</span>
+                <span className="text-xs opacity-90 hidden md:block">Create job posting</span>
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              asChild
+              className="h-auto p-1 sm:p-2 flex-col bg-transparent"
+            >
+              <Link href="/dashboard/homeowner/jobs">
+                <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
+                <span className="font-semibold text-sm sm:text-base leading-tight">My Jobs</span>
+                <span className="text-xs sm:text-sm opacity-70">({stats.totalJobs})</span>
+              </Link>
+            </Button>
           </div>
         </Card>
 

@@ -22,21 +22,21 @@ export function AdminHeader({ title, adminUser }: AdminHeaderProps) {
   }
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
-      <div className="flex h-16 items-center justify-between px-6">
+    <header className="hidden lg:block bg-white shadow-sm border-b border-gray-200">
+      <div className="flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center space-x-4">
           <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
         </div>
 
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 md:space-x-4">
           <Link href="/">
             <Button variant="outline" size="sm" className="flex items-center space-x-2 bg-transparent">
               <Home className="h-4 w-4" />
-              <span>Back to Main Site</span>
+              <span className="hidden sm:inline">Back to Main Site</span>
             </Button>
           </Link>
 
-          <div className="flex items-center space-x-2">
+          <div className="hidden md:flex items-center space-x-2">
             <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
               <span className="text-sm font-medium text-blue-600">
                 {(adminUser.full_name || adminUser.email).charAt(0).toUpperCase()}
@@ -46,8 +46,8 @@ export function AdminHeader({ title, adminUser }: AdminHeaderProps) {
           </div>
 
           <Button variant="outline" size="sm" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
+            <LogOut className="h-4 w-4 md:mr-2" />
+            <span className="hidden md:inline">Sign Out</span>
           </Button>
         </div>
       </div>

@@ -763,16 +763,18 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             <Card>
               <CardHeader className="p-3 sm:p-4 relative">
                 {/* Edit Button - Top Right Corner - Hidden on mobile, visible on desktop */}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  asChild
-                  className="hidden lg:block absolute -top-1 right-2 h-8 w-8 p-0 sm:h-9 sm:w-9 bg-white shadow-sm z-20"
-                >
-                  <Link href="/company/profile/edit">
-                    <Edit className="h-4 w-4 sm:h-4 sm:w-4" />
-                  </Link>
-                </Button>
+                <div className="hidden lg:flex absolute -top-1 right-2 gap-1 z-20">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    asChild
+                    className="h-8 w-8 p-0 sm:h-9 sm:w-9 bg-white shadow-sm"
+                  >
+                    <Link href="/company/profile/edit">
+                      <Edit className="h-4 w-4 sm:h-4 sm:w-4" />
+                    </Link>
+                  </Button>
+                </div>
 
                 {/* Mobile Layout: Company name at top, then logo and toggles below */}
                 <div className="lg:hidden">

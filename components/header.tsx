@@ -11,8 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
+import { NotificationBell } from "@/components/notification-bell"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { manualLogout } from "@/hooks/use-auto-logout"
@@ -673,18 +674,22 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                 </div>
               ) : currentUser ? (
                 <div className="flex items-center space-x-2 sm:space-x-4">
-                  {/* Dashboard Button - Text on mobile, Button on desktop */}
+                  {/* Dashboard Button - Home icon on mobile, Button on desktop */}
                   <Link
                     href="/dashboard"
-                    className="text-sm font-semibold text-green-600 hover:text-green-700 sm:hidden"
+                    className="sm:hidden"
                   >
-                    Dashboard
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Home className="h-5 w-5 text-green-600" />
+                    </Button>
                   </Link>
                   <Button asChild size="sm" className="hidden sm:inline-flex bg-green-600 hover:bg-green-700 text-xs">
                     <Link href="/dashboard">Dashboard</Link>
                   </Button>
                   {/* Message Icon */}
                   <MessageIcon user={currentUser} />
+                  {/* Notification Bell */}
+                  <NotificationBell />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
