@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, PoundSterlingIcon } from "lucide-react"
 import dynamic from "next/dynamic"
+import { useLanguageRegion } from "@/contexts/language-region-context"
+import { getDefaultMapCenter } from "@/lib/i18n/language-region"
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
@@ -194,7 +196,7 @@ interface JobMapProps {
 
 export function JobMap({
   jobs,
-  center = [51.5074, -0.1278],
+  center,
   zoom = 6,
   height = "500px",
   showRadius = false,
@@ -208,6 +210,10 @@ export function JobMap({
 }: JobMapProps) {
   const [isClient, setIsClient] = useState(false)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
+
+  // Get language/region context for default map center
+  const { state: languageRegionState } = useLanguageRegion()
+  const defaultCenter = getDefaultMapCenter(languageRegionState.country)
 
   useEffect(() => {
     setIsClient(true)
@@ -240,9 +246,9 @@ export function JobMap({
   }, [])
 
   const validCenter: [number, number] =
-    center && center[0] && center[1] && !isNaN(center[0]) && !isNaN(center[1]) ? center : [51.5074, -0.1278] // London fallback
+    center && center[0] && center[1] && !isNaN(center[0]) && !isNaN(center[1]) ? center : defaultCenter
 
-  console.log("[v0] JobMap using center coordinates:", validCenter)
+  console.log("[v0] JobMap using center coordinates:", validCenter, "for country:", languageRegionState.country)
 
   const jobsWithCoordinates = jobs.filter(
     (job) => job.latitude && job.longitude && !isNaN(job.latitude) && !isNaN(job.longitude),

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LocationInput } from "@/components/location-input"
@@ -88,6 +88,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([])
 
+  // Ref to track if we should skip showing autocomplete (e.g., when query comes from category click)
+  const skipAutocompleteRef = useRef(false)
+
   // Debug: Component mount
   useEffect(() => {
     console.log('[AUTOCOMPLETE] Component mounted, search type:', selectedSearchType)
@@ -152,6 +155,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   // Filter suggestions based on search query
   useEffect(() => {
     console.log('[AUTOCOMPLETE] useEffect running - searchQuery:', searchQuery)
+
+    // Skip autocomplete if flag is set (e.g., query came from category click)
+    if (skipAutocompleteRef.current) {
+      console.log('[AUTOCOMPLETE] Skipping autocomplete - query from external source')
+      skipAutocompleteRef.current = false // Reset the flag
+      setShowSuggestions(false)
+      setFilteredSuggestions([])
+      return
+    }
+
     if (searchQuery.trim().length >= 1) {
       const suggestions = getSuggestions()
       console.log('[AUTOCOMPLETE] Total suggestions available:', suggestions.length)
@@ -172,6 +185,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   // Update search query from external source (e.g., category clicks)
   useEffect(() => {
     if (externalSearchQuery) {
+      // Set flag to skip autocomplete suggestions for this query
+      skipAutocompleteRef.current = true
       setSearchQuery(externalSearchQuery)
       // If user clicked a category but hasn't selected a location, show a helpful message
       if (!selectedLocation) {
@@ -1341,6 +1356,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                       onMouseDown={(e) => {
                         // Prevent blur event on input
                         e.preventDefault()
+                        // Set flag to skip autocomplete when suggestion is selected
+                        skipAutocompleteRef.current = true
                         setSearchQuery(suggestion)
                         setShowSuggestions(false)
                       }}

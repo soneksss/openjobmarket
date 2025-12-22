@@ -4,6 +4,8 @@ import React, { useEffect, useState, useRef, useImperativeHandle, forwardRef } f
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import { useLanguageRegion } from '@/contexts/language-region-context'
+import { getDefaultMapCenter } from '@/lib/i18n/language-region'
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl
@@ -82,14 +84,22 @@ function MapController({
 
 const LocationMapComponent = forwardRef<LocationMapRef, LocationMapProps>(({
   onLocationSelect,
-  initialLat = 51.5074, // Default to London
-  initialLng = -0.1278,
+  initialLat,
+  initialLng,
   zoom = 10,
   height = "100%" // Changed to 100% to fill the container
 }, ref) => {
+  // Get language/region context for default map center
+  const { state: languageRegionState } = useLanguageRegion()
+  const defaultCenter = getDefaultMapCenter(languageRegionState.country)
+
+  // Use provided coords or fallback to region-specific default
+  const finalLat = initialLat ?? defaultCenter[0]
+  const finalLng = initialLng ?? defaultCenter[1]
+
   const [isMounted, setIsMounted] = useState(false)
   const [position, setPosition] = useState<L.LatLng | null>(
-    initialLat && initialLng ? L.latLng(initialLat, initialLng) : null
+    finalLat && finalLng ? L.latLng(finalLat, finalLng) : null
   )
   const mapRef = useRef<LocationMapRef>(null)
 
@@ -110,8 +120,8 @@ const LocationMapComponent = forwardRef<LocationMapRef, LocationMapProps>(({
   return (
     <div style={{ height, width: '100%' }} className="rounded-md overflow-hidden border">
       <MapContainer
-        key={`location-map-${initialLat}-${initialLng}`}
-        center={[initialLat, initialLng]}
+        key={`location-map-${finalLat}-${finalLng}`}
+        center={[finalLat, finalLng]}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
@@ -122,8 +132,8 @@ const LocationMapComponent = forwardRef<LocationMapRef, LocationMapProps>(({
         />
         <LocationMarker
           onLocationSelect={onLocationSelect}
-          initialLat={initialLat}
-          initialLng={initialLng}
+          initialLat={finalLat}
+          initialLng={finalLng}
           position={position}
           setPosition={setPosition}
         />

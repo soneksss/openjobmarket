@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { MapPin, Search, RotateCcw, CheckCircle } from "lucide-react"
 import dynamic from "next/dynamic"
 import { Input } from "@/components/ui/input"
+import { useLanguageRegion } from "@/contexts/language-region-context"
+import { getDefaultMapCenter } from "@/lib/i18n/language-region"
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
@@ -80,8 +82,12 @@ export function MapLocationPicker({
   height = "400px",
   placeholder = "Click on the map to select a location or search for an address",
 }: MapLocationPickerProps) {
+  // Get language/region context for default map center
+  const { state: languageRegionState } = useLanguageRegion()
+  const defaultCenter = getDefaultMapCenter(languageRegionState.country)
+
   const [isClient, setIsClient] = useState(false)
-  const [mapCenter, setMapCenter] = useState<[number, number]>([51.5074, -0.1278])
+  const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter)
   const [mapZoom, setMapZoom] = useState(6)
   const [searchQuery, setSearchQuery] = useState("")
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([])

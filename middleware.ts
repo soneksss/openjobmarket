@@ -7,11 +7,7 @@ export const middleware = authMiddleware
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/messages/:path*",
-    "/applications/:path*",
-    "/profile/:path*",
-    "/company/profile/:path*",
-    "/admin/:path*",
+    // Match all paths except static files and API routes
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)).*)',
   ],
 }

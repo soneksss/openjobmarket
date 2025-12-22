@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
 import { NotificationBell } from "@/components/notification-bell"
 import { useRouter, usePathname } from "next/navigation"
@@ -20,6 +20,9 @@ import { manualLogout } from "@/hooks/use-auto-logout"
 import { useEffect, useState } from "react"
 import { signOut } from "@/lib/actions"
 import { OnboardingFlow } from "./onboarding/OnboardingFlow"
+import { useLanguageRegion } from "@/contexts/language-region-context"
+import { getDisplayText } from "@/lib/i18n/language-region"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface HeaderProps {
   user?: any
@@ -35,6 +38,7 @@ interface HeaderProps {
 export function Header({ user, userType, showAuth = true, onSignOut, profilePhotoUrl, showProfessionalsPageButtons = false, isModal = false, onModalClose }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
+  const { t, locale } = useTranslation()
   const [clientUser, setClientUser] = useState(user)
   const [clientUserType, setClientUserType] = useState(userType)
   const [isLoading, setIsLoading] = useState(false) // Don't show loading by default
@@ -49,6 +53,15 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   const [coursesExpanded, setCoursesExpanded] = useState(false)
   const [usefulInfoExpanded, setUsefulInfoExpanded] = useState(false)
   const [helpExpanded, setHelpExpanded] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+
+  // Language & Region context
+  const { state: languageRegionState, openModal: openLanguageModal } = useLanguageRegion()
+
+  // Prevent hydration mismatch by only showing language text after mount
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   // FAQ data for Help Center
   const faqs = [
@@ -410,18 +423,18 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                 variant="ghost"
                 onClick={() => setShowAboutModal(true)}
               >
-                About
+                {t('header.about')}
               </Button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center space-x-1">
-                    <span>Courses</span>
+                    <span>{t('header.courses')}</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-96 max-h-[600px] overflow-y-auto">
-                  <div className="px-3 py-2 text-sm font-semibold border-b">Training Courses by Trade</div>
+                  <div className="px-3 py-2 text-sm font-semibold border-b">{t('header.trainingCourses')}</div>
 
                   {/* Plumbing Courses */}
                   <div className="px-3 py-2 text-xs font-semibold text-blue-600 mt-2">Plumbing</div>
@@ -575,38 +588,38 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center space-x-1">
-                    <span>Useful info</span>
+                    <span>{t('header.usefulInfo')}</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56">
-                  <div className="px-3 py-2 text-sm font-semibold border-b">Frequently Asked Questions</div>
+                  <div className="px-3 py-2 text-sm font-semibold border-b">{t('header.frequentlyAsked')}</div>
 
                   <DropdownMenuItem onClick={() => setShowUsefulInfoModal('jobseekers')} className="cursor-pointer">
                     <div className="flex flex-col items-start py-1">
-                      <span className="font-medium">For Jobseekers</span>
-                      <span className="text-xs text-muted-foreground">Finding jobs & career tips</span>
+                      <span className="font-medium">{t('header.forJobseekers')}</span>
+                      <span className="text-xs text-muted-foreground">{t('header.findingJobsTips')}</span>
                     </div>
                   </DropdownMenuItem>
 
                   <DropdownMenuItem onClick={() => setShowUsefulInfoModal('employers')} className="cursor-pointer">
                     <div className="flex flex-col items-start py-1">
-                      <span className="font-medium">For Employers</span>
-                      <span className="text-xs text-muted-foreground">Hiring & employment law</span>
+                      <span className="font-medium">{t('header.forEmployers')}</span>
+                      <span className="text-xs text-muted-foreground">{t('header.hiringLaw')}</span>
                     </div>
                   </DropdownMenuItem>
 
                   <DropdownMenuItem onClick={() => setShowUsefulInfoModal('tradespeople')} className="cursor-pointer">
                     <div className="flex flex-col items-start py-1">
-                      <span className="font-medium">For Tradespeople</span>
-                      <span className="text-xs text-muted-foreground">Getting work & qualifications</span>
+                      <span className="font-medium">{t('header.forTradespeople')}</span>
+                      <span className="text-xs text-muted-foreground">{t('header.gettingWork')}</span>
                     </div>
                   </DropdownMenuItem>
 
                   <DropdownMenuItem onClick={() => setShowUsefulInfoModal('homeowners')} className="cursor-pointer">
                     <div className="flex flex-col items-start py-1">
-                      <span className="font-medium">For Homeowners</span>
-                      <span className="text-xs text-muted-foreground">Hiring tradespeople safely</span>
+                      <span className="font-medium">{t('header.forHomeowners')}</span>
+                      <span className="text-xs text-muted-foreground">{t('header.hiringSafely')}</span>
                     </div>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -615,25 +628,25 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center space-x-1">
-                    <span>Help</span>
+                    <span>{t('header.help')}</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56">
-                  <div className="px-3 py-2 text-sm font-semibold border-b">Help & Support</div>
+                  <div className="px-3 py-2 text-sm font-semibold border-b">{t('header.helpSupport')}</div>
 
                   <DropdownMenuItem onClick={() => setShowHelpModal(true)} className="cursor-pointer">
                     <div className="flex flex-col items-start py-1">
-                      <span className="font-medium">Help Center & FAQ</span>
-                      <span className="text-xs text-muted-foreground">Common questions answered</span>
+                      <span className="font-medium">{t('header.helpCenterFAQ')}</span>
+                      <span className="text-xs text-muted-foreground">{t('header.commonQuestions')}</span>
                     </div>
                   </DropdownMenuItem>
 
                   <DropdownMenuItem asChild>
                     <a href="mailto:support@openjobmarket.com" className="cursor-pointer">
                       <div className="flex flex-col items-start py-1">
-                        <span className="font-medium">Contact Support</span>
-                        <span className="text-xs text-muted-foreground">Email our support team</span>
+                        <span className="font-medium">{t('header.contactSupport')}</span>
+                        <span className="text-xs text-muted-foreground">{t('header.emailSupport')}</span>
                       </div>
                     </a>
                   </DropdownMenuItem>
@@ -641,8 +654,8 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                   <DropdownMenuItem asChild>
                     <Link href="/contact" className="cursor-pointer">
                       <div className="flex flex-col items-start py-1">
-                        <span className="font-medium">Report a Bug</span>
-                        <span className="text-xs text-muted-foreground">Help us improve</span>
+                        <span className="font-medium">{t('header.reportBug')}</span>
+                        <span className="text-xs text-muted-foreground">{t('header.helpImprove')}</span>
                       </div>
                     </Link>
                   </DropdownMenuItem>
@@ -654,11 +667,11 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
             {showProfessionalsPageButtons && currentUser && (
               <div className="flex items-center space-x-4">
                 <Button variant="ghost" asChild>
-                  <Link href="/dashboard">Dashboard</Link>
+                  <Link href="/dashboard">{t('header.dashboard')}</Link>
                 </Button>
                 {currentUserType === "company" && (
                   <Button asChild className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">
-                    <Link href="/jobs/new">Post Job</Link>
+                    <Link href="/jobs/new">{t('header.postJob')}</Link>
                   </Button>
                 )}
               </div>
@@ -666,11 +679,27 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
           </div>
 
           {showAuth && (
-            <div className="flex items-center">
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Language & Region Selector */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={openLanguageModal}
+                className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-2 hover:bg-accent"
+                aria-label="Change language and region"
+              >
+                <Globe className="h-4 w-4 text-gray-600" />
+                {isMounted && (
+                  <span className="hidden sm:inline text-xs sm:text-sm text-gray-700">
+                    {getDisplayText(languageRegionState)}
+                  </span>
+                )}
+              </Button>
+
               {isLoading ? (
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
-                  <span className="text-sm text-muted-foreground">Loading...</span>
+                  <span className="text-sm text-muted-foreground">{t('header.loading')}</span>
                 </div>
               ) : currentUser ? (
                 <div className="flex items-center space-x-2 sm:space-x-4">
@@ -684,7 +713,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     </Button>
                   </Link>
                   <Button asChild size="sm" className="hidden sm:inline-flex bg-green-600 hover:bg-green-700 text-xs">
-                    <Link href="/dashboard">Dashboard</Link>
+                    <Link href="/dashboard">{t('header.dashboard')}</Link>
                   </Button>
                   {/* Message Icon */}
                   <MessageIcon user={currentUser} />
@@ -743,102 +772,102 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       {currentUserType === "professional" ? (
                         <>
                           <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
-                            Professional Profile
+                            {t('header.professionalProfile')}
                           </div>
                           <DropdownMenuItem asChild>
                             <Link href="/profile/edit" className="flex items-center">
                               <User className="h-4 w-4 mr-2" />
-                              Edit profile
+                              {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/dashboard/professional" className="flex items-center">
                               <Briefcase className="h-4 w-4 mr-2" />
-                              Dashboard
+                              {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem disabled className="flex items-center text-muted-foreground">
                             <FileText className="h-4 w-4 mr-2" />
-                            Enquiries (Coming soon)
+                            {t('header.enquiriesComingSoon')}
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/dashboard/professional/saved" className="flex items-center">
                               <BookmarkIcon className="h-4 w-4 mr-2" />
-                              Saved jobs
+                              {t('header.savedJobs')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/account/settings" className="flex items-center">
                               <Settings className="h-4 w-4 mr-2" />
-                              Account Settings
+                              {t('header.accountSettings')}
                             </Link>
                           </DropdownMenuItem>
                         </>
                       ) : currentUserType === "company" ? (
                         <>
                           <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
-                            Company Profile
+                            {t('header.companyProfile')}
                           </div>
                           <DropdownMenuItem asChild>
                             <Link href="/company/profile/edit" className="flex items-center">
                               <Building2 className="h-4 w-4 mr-2" />
-                              Edit profile
+                              {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/dashboard/company" className="flex items-center">
                               <Briefcase className="h-4 w-4 mr-2" />
-                              Dashboard
+                              {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/dashboard/company/my-applications" className="flex items-center">
                               <FileText className="h-4 w-4 mr-2" />
-                              My Applications
+                              {t('header.myApplications')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/dashboard/company/subscription" className="flex items-center">
                               <CreditCard className="h-4 w-4 mr-2" />
-                              Subscription Plan
+                              {t('header.subscriptionPlan')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem disabled className="flex items-center text-muted-foreground">
                             <FileText className="h-4 w-4 mr-2" />
-                            Enquiries (Coming soon)
+                            {t('header.enquiriesComingSoon')}
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/dashboard/company/saved" className="flex items-center">
                               <BookmarkIcon className="h-4 w-4 mr-2" />
-                              Saved Jobs
+                              {t('header.savedJobs')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem disabled className="flex items-center text-muted-foreground">
                             <User className="h-4 w-4 mr-2" />
-                            Saved Talents (Coming soon)
+                            {t('header.savedTalents')}
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/account/settings" className="flex items-center">
                               <Settings className="h-4 w-4 mr-2" />
-                              Account Settings
+                              {t('header.accountSettings')}
                             </Link>
                           </DropdownMenuItem>
                         </>
                       ) : (
                         <>
                           <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
-                            User Profile
+                            {t('header.userProfile')}
                           </div>
                           <DropdownMenuItem asChild>
                             <Link href="/profile/edit" className="flex items-center">
                               <User className="h-4 w-4 mr-2" />
-                              Edit profile
+                              {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/dashboard" className="flex items-center">
                               <Briefcase className="h-4 w-4 mr-2" />
-                              Dashboard
+                              {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                         </>
@@ -847,42 +876,42 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       {isAdmin && (
                         <>
                           <div className="px-3 py-2 text-sm font-medium text-purple-600 border-b">
-                            Admin Tools
+                            {t('header.adminTools')}
                           </div>
                           <DropdownMenuItem asChild>
                             <Link href="/admin/dashboard" className="flex items-center text-purple-600 font-medium">
                               <Shield className="h-4 w-4 mr-2" />
-                              Dashboard
+                              {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/admin/analytics" className="flex items-center text-purple-600 font-medium">
                               <BarChart3 className="h-4 w-4 mr-2" />
-                              Analytics
+                              {t('header.analytics')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/admin/settings" className="flex items-center text-purple-600 font-medium">
                               <Settings className="h-4 w-4 mr-2" />
-                              Settings
+                              {t('header.settings')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/admin/users" className="flex items-center text-purple-600 font-medium">
                               <User className="h-4 w-4 mr-2" />
-                              Manage Users
+                              {t('header.manageUsers')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/admin/jobs" className="flex items-center text-purple-600 font-medium">
                               <Briefcase className="h-4 w-4 mr-2" />
-                              Manage Jobs
+                              {t('header.manageJobs')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
                             <Link href="/admin/payments" className="flex items-center text-purple-600 font-medium">
                               <CreditCard className="h-4 w-4 mr-2" />
-                              Payments
+                              {t('header.payments')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
@@ -894,7 +923,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                         className="flex items-center"
                       >
                         <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                        {isRefreshing ? 'Refreshing...' : 'Refresh Profile'}
+                        {isRefreshing ? t('header.refreshing') : t('header.refreshProfile')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onSelect={handleSignOut}
@@ -902,7 +931,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                         className="flex items-center text-red-600 cursor-pointer"
                       >
                         <LogOut className="h-4 w-4 mr-2" />
-                        Sign out
+                        {t('header.signOut')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -915,7 +944,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       size="sm"
                       className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 bg-transparent"
                     >
-                      Sign In
+                      {t('header.signIn')}
                     </Button>
                   </Link>
                   <Link href="/auth/sign-up">
@@ -923,7 +952,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       size="sm"
                       className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
                     >
-                      Sign Up
+                      {t('header.signUp')}
                     </Button>
                   </Link>
                 </div>
@@ -935,7 +964,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
       {/* Onboarding Modal */}
       {showOnboarding && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100000] flex items-center justify-center p-4">
           <div className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto">
             {/* Close button */}
             <button
@@ -1347,7 +1376,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
           <div className="fixed top-0 left-0 h-full w-72 bg-white z-[100011] shadow-2xl md:hidden overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">Menu</h2>
+              <h2 className="text-lg font-semibold">{t('header.menu')}</h2>
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -1367,7 +1396,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                   }}
                   className="w-full text-left font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  About
+                  {t('header.about')}
                 </button>
               </div>
 
@@ -1377,7 +1406,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                   onClick={() => setCoursesExpanded(!coursesExpanded)}
                   className="w-full flex items-center justify-between font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  <span>Courses</span>
+                  <span>{t('header.courses')}</span>
                   <ChevronRight className={`h-4 w-4 transition-transform ${coursesExpanded ? 'rotate-90' : ''}`} />
                 </button>
                 {coursesExpanded && (
@@ -1420,7 +1449,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                   onClick={() => setUsefulInfoExpanded(!usefulInfoExpanded)}
                   className="w-full flex items-center justify-between font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  <span>Useful Info</span>
+                  <span>{t('header.usefulInfo')}</span>
                   <ChevronRight className={`h-4 w-4 transition-transform ${usefulInfoExpanded ? 'rotate-90' : ''}`} />
                 </button>
                 {usefulInfoExpanded && (
@@ -1432,7 +1461,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       }}
                       className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
                     >
-                      For Jobseekers
+                      {t('header.forJobseekers')}
                     </button>
                     <button
                       onClick={() => {
@@ -1441,7 +1470,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       }}
                       className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
                     >
-                      For Employers
+                      {t('header.forEmployers')}
                     </button>
                     <button
                       onClick={() => {
@@ -1450,7 +1479,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       }}
                       className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
                     >
-                      For Tradespeople
+                      {t('header.forTradespeople')}
                     </button>
                     <button
                       onClick={() => {
@@ -1459,7 +1488,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       }}
                       className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
                     >
-                      For Homeowners
+                      {t('header.forHomeowners')}
                     </button>
                   </div>
                 )}
@@ -1471,7 +1500,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                   onClick={() => setHelpExpanded(!helpExpanded)}
                   className="w-full flex items-center justify-between font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  <span>Help</span>
+                  <span>{t('header.help')}</span>
                   <ChevronRight className={`h-4 w-4 transition-transform ${helpExpanded ? 'rotate-90' : ''}`} />
                 </button>
                 {helpExpanded && (
@@ -1483,13 +1512,13 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       }}
                       className="block w-full text-left text-blue-600 hover:text-blue-700 pl-2"
                     >
-                      Help Center & FAQ
+                      {t('header.helpCenterFAQ')}
                     </button>
                     <a href="mailto:support@openjobmarket.com" className="block text-blue-600 hover:text-blue-700 pl-2">
-                      Contact Support
+                      {t('header.contactSupport')}
                     </a>
                     <a href="/contact" className="block text-blue-600 hover:text-blue-700 pl-2">
-                      Report a Bug
+                      {t('header.reportBug')}
                     </a>
                   </div>
                 )}

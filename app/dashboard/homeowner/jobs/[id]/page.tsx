@@ -22,6 +22,7 @@ import {
   Phone,
 } from "lucide-react"
 import { HomeownerJobActions } from "@/components/homeowner-job-actions"
+import { HomeownerJobDetailsContent } from "@/components/homeowner-job-details-content"
 
 interface PageProps {
   params: Promise<{
@@ -75,7 +76,10 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
       work_location,
       job_type,
       homeowner_id,
-      job_photo_url
+      job_photo_url,
+      accepted_contractor_id,
+      completed_at,
+      completion_status
     `)
     .eq("id", id)
     .eq("homeowner_id", profile.id)
@@ -318,177 +322,8 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
           </CardContent>
         </Card>
 
-        {/* Applications Section */}
-        <Card className="mb-6">
-          <CardHeader>
-            <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-              <FileText className="w-5 h-5 mr-2" />
-              Applications ({applications?.length || 0})
-            </h2>
-          </CardHeader>
-          <CardContent>
-            {!applications || applications.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">No applications yet</h3>
-                <p className="text-sm">
-                  When contractors or professionals apply for this job, their applications will appear here.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {applications.map((application: any) => {
-                  // Determine if this is a contractor or professional application
-                  const isContractor = !!application.contractor_profiles
-                  const profile = isContractor
-                    ? application.contractor_profiles
-                    : application.professional_profiles
-
-                  if (!profile) return null
-
-                  const applicantName = isContractor
-                    ? profile.business_name
-                    : `${profile.first_name} ${profile.last_name}`
-
-                  const applicantTitle = isContractor ? profile.trade_specialties?.[0] : profile.title
-
-                  const applicantPhoto = isContractor ? profile.profile_picture : profile.profile_photo_url
-
-                  return (
-                    <div
-                      key={application.id}
-                      className="flex items-start justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
-                    >
-                      <div className="flex items-start space-x-4 flex-1">
-                        <Avatar className="w-12 h-12">
-                          <AvatarImage src={applicantPhoto} alt={applicantName} />
-                          <AvatarFallback>
-                            {applicantName
-                              .split(" ")
-                              .map((n: string) => n[0])
-                              .join("")
-                              .toUpperCase()
-                              .slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h4 className="font-medium">{applicantName}</h4>
-                            <Badge className={getStatusColor(application.status)}>{application.status}</Badge>
-                            {isContractor && <Badge variant="outline">Contractor</Badge>}
-                          </div>
-                          <p className="text-sm text-gray-600 mb-2">{applicantTitle || "Professional"}</p>
-                          <div className="flex items-center space-x-4 text-xs text-gray-500 mb-2 flex-wrap">
-                            <span className="flex items-center">
-                              <MapPin className="h-3 w-3 mr-1" />
-                              {profile.location || "Location not specified"}
-                            </span>
-                            <span className="flex items-center">
-                              <Calendar className="h-3 w-3 mr-1" />
-                              Applied {formatDate(application.applied_at)}
-                            </span>
-                            {isContractor && profile.experience_years && (
-                              <span className="flex items-center">
-                                <Briefcase className="h-3 w-3 mr-1" />
-                                {profile.experience_years} years experience
-                              </span>
-                            )}
-                            {!isContractor && profile.experience_level && (
-                              <span className="flex items-center">
-                                <Briefcase className="h-3 w-3 mr-1" />
-                                {profile.experience_level}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Skills/Specialties */}
-                          {isContractor && profile.trade_specialties && profile.trade_specialties.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {profile.trade_specialties.slice(0, 5).map((specialty: string, idx: number) => (
-                                <Badge key={idx} variant="secondary" className="text-xs">
-                                  {specialty}
-                                </Badge>
-                              ))}
-                              {profile.trade_specialties.length > 5 && (
-                                <span className="text-xs text-gray-500">
-                                  +{profile.trade_specialties.length - 5} more
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          {!isContractor && profile.skills && profile.skills.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {profile.skills.slice(0, 5).map((skill: string, idx: number) => (
-                                <Badge key={idx} variant="secondary" className="text-xs">
-                                  {skill}
-                                </Badge>
-                              ))}
-                              {profile.skills.length > 5 && (
-                                <span className="text-xs text-gray-500">+{profile.skills.length - 5} more</span>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Cover Letter */}
-                          {application.cover_letter && (
-                            <div className="mt-3 p-3 bg-gray-100 rounded-md">
-                              <p className="text-sm font-medium mb-1">Cover Letter:</p>
-                              <p className="text-sm text-gray-700 line-clamp-3">{application.cover_letter}</p>
-                            </div>
-                          )}
-
-                          {/* Bio for contractors */}
-                          {isContractor && profile.bio && (
-                            <div className="mt-2">
-                              <p className="text-sm text-gray-700 line-clamp-2">{profile.bio}</p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex flex-col space-y-2 ml-4">
-                        {isContractor ? (
-                          <Button size="sm" asChild>
-                            <Link href={`/contractors/${profile.id}`}>
-                              <User className="h-4 w-4 mr-1" />
-                              View Profile
-                            </Link>
-                          </Button>
-                        ) : (
-                          <Button size="sm" asChild>
-                            <Link href={`/professionals/${profile.id}`}>
-                              <User className="h-4 w-4 mr-1" />
-                              View Profile
-                            </Link>
-                          </Button>
-                        )}
-
-                        {/* Contact info for contractors */}
-                        {isContractor && profile.email && (
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={`mailto:${profile.email}`}>
-                              <Mail className="h-4 w-4 mr-1" />
-                              Email
-                            </a>
-                          </Button>
-                        )}
-                        {isContractor && profile.phone && (
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={`tel:${profile.phone}`}>
-                              <Phone className="h-4 w-4 mr-1" />
-                              Call
-                            </a>
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Applications Section with Accept/Complete functionality */}
+        <HomeownerJobDetailsContent job={job} applications={applications || []} />
 
         {/* Expiry Warning */}
         {!isActive && (

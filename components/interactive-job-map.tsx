@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { MapPin, Eye, Bookmark, Users, Clock, DollarSign } from "lucide-react"
 import { createClient } from "@/lib/client"
+import { useLanguageRegion } from "@/contexts/language-region-context"
+import { getDefaultMapCenter } from "@/lib/i18n/language-region"
 
 interface Job {
   id: string
@@ -35,10 +37,14 @@ interface JobMapProps {
 }
 
 export function InteractiveJobMap({ className }: JobMapProps) {
+  // Get language/region context for default map center
+  const { state: languageRegionState } = useLanguageRegion()
+  const defaultCenter = getDefaultMapCenter(languageRegionState.country)
+
   const [jobs, setJobs] = useState<Job[]>([])
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [loading, setLoading] = useState(true)
-  const [mapCenter, setMapCenter] = useState({ lat: 51.5074, lng: -0.1278 }) // London default
+  const [mapCenter, setMapCenter] = useState({ lat: defaultCenter[0], lng: defaultCenter[1] })
   const [zoom, setZoom] = useState(10)
 
   const supabase = createClient()

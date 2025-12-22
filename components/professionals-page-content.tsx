@@ -2184,194 +2184,168 @@ export default function ProfessionalsPageContent({
             {/* List Section - Bottom Half */}
             <div className={`bg-white border-t shadow-xl overflow-y-auto transition-all duration-300 ${isListFullScreen ? 'flex-1' : 'flex-1'}`}>
               <div className="p-3">
-                {/* Show detail view if item selected, otherwise show list */}
-                {selectedProfessionalId ? (
-                  <div className="space-y-4">
-                    {/* Back button */}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedProfessionalId(null)}
-                      className="mb-2"
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      Back to List
-                    </Button>
+                <h3 className="font-semibold text-base mb-3">
+                  {isEmployer ? "Professionals" : isShowingCompanies ? "Companies" : isShowingTraders ? "Traders" : "Professionals"}
+                </h3>
 
-                    {/* Show selected job/professional details */}
-                    {data.filter(item => item.id === selectedProfessionalId).map((item: any) => (
-                      <div key={item.id}>
+                <div className="space-y-2">
+                  {data.map((item: any) => {
+                    const isExpanded = selectedProfessionalId === item.id
+
+                    return (
+                      <div
+                        key={item.id}
+                        ref={(el: HTMLDivElement | null) => { professionalCardRefs.current[item.id] = el }}
+                        className={`bg-white rounded-lg shadow-sm border p-3 cursor-pointer transition-all ${
+                          isExpanded ? 'border-blue-500 shadow-md' : 'border-gray-200 hover:border-blue-300'
+                        }`}
+                        onClick={() => {
+                          // Toggle selection/expansion
+                          setSelectedProfessionalId(isExpanded ? null : item.id)
+                          if (isShowingJobs) {
+                            setExpandedJobId(isExpanded ? null : item.id)
+                          }
+                        }}
+                      >
                         {isShowingJobs ? (
-                          <JobCard job={item} isLoggedIn={!!user} isSelected={true} userProfile={userProfile} />
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-sm line-clamp-2">{item.title}</h4>
+                                <p className="text-xs text-gray-600">
+                                  {item.company_profiles?.company_name || `${item.poster_first_name} ${item.poster_last_name}`}
+                                </p>
+
+                                {/* Description - show truncated or full based on expanded state */}
+                                {item.description && (
+                                  <p className={`text-xs text-gray-700 mt-2 ${isExpanded ? '' : 'line-clamp-2'}`}>
+                                    {item.description}
+                                  </p>
+                                )}
+
+                                <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                  <MapPin className="h-3 w-3" />
+                                  <span className="truncate">{item.location}</span>
+                                </div>
+                                {(item.salary_min || item.salary_max || item.budget_min || item.budget_max) && (
+                                  <div className="flex items-center gap-1 text-xs text-green-600 font-medium mt-1">
+                                    <PoundSterling className="h-3 w-3" />
+                                    <span>
+                                      {item.salary_min && item.salary_max
+                                        ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
+                                        : item.salary_min
+                                        ? `From £${item.salary_min.toLocaleString()}`
+                                        : item.salary_max
+                                        ? `Up to £${item.salary_max.toLocaleString()}`
+                                        : item.budget_min && item.budget_max
+                                        ? `£${item.budget_min.toLocaleString()} - £${item.budget_max.toLocaleString()}`
+                                        : item.budget_min
+                                        ? `From £${item.budget_min.toLocaleString()}`
+                                        : item.budget_max
+                                        ? `Up to £${item.budget_max.toLocaleString()}`
+                                        : ''}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* Show "Tap to expand/collapse" hint */}
+                                {item.description && item.description.length > 100 && (
+                                  <p className="text-xs text-blue-500 mt-1">
+                                    {isExpanded ? 'Tap to collapse' : 'Tap to see more'}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
                         ) : (
-                          <div className="space-y-4">
-                            <div className="flex items-start gap-4">
-                              <Avatar className="h-16 w-16">
+                          <div className="space-y-2">
+                            <div className="flex items-start gap-3">
+                              <Avatar className={isExpanded ? "h-16 w-16" : "h-10 w-10"}>
                                 <AvatarImage src={item.profile_photo_url || item.logo_url} />
-                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
+                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold text-xs">
                                   {isEmployer
                                     ? `${item.first_name?.[0] || ''}${item.last_name?.[0] || ''}`
                                     : item.company_name?.[0] || item.title?.[0] || '?'}
                                 </AvatarFallback>
                               </Avatar>
-                              <div className="flex-1">
-                                <h2 className="text-lg font-bold">
+                              <div className="flex-1 min-w-0">
+                                <h4 className={`font-semibold ${isExpanded ? 'text-base' : 'text-sm'}`}>
                                   {isEmployer ? `${item.first_name || ''} ${item.last_name || ''}` : item.company_name || item.title}
-                                </h2>
-                                <p className="text-sm text-gray-600">{item.title || item.industry}</p>
-                                <div className="flex items-center gap-1 text-sm text-gray-500 mt-1">
-                                  <MapPin className="h-4 w-4" />
-                                  <span>{item.location}</span>
+                                </h4>
+                                <p className={`text-xs text-gray-600 ${isExpanded ? '' : 'truncate'}`}>{item.title || item.industry}</p>
+                                <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
+                                  <MapPin className="h-3 w-3" />
+                                  <span className={isExpanded ? '' : 'truncate'}>{item.location}</span>
                                 </div>
                               </div>
                             </div>
 
-                            {item.bio && (
-                              <div>
-                                <h3 className="font-semibold text-sm mb-1">About</h3>
-                                <p className="text-sm text-gray-700">{item.bio}</p>
-                              </div>
-                            )}
+                            {/* Show expanded details */}
+                            {isExpanded && (
+                              <div className="space-y-3 pt-2 border-t border-gray-100">
+                                {item.bio && (
+                                  <div>
+                                    <h5 className="font-semibold text-xs mb-1">About</h5>
+                                    <p className="text-xs text-gray-700">{item.bio}</p>
+                                  </div>
+                                )}
 
-                            {item.skills && item.skills.length > 0 && (
-                              <div>
-                                <h3 className="font-semibold text-sm mb-2">Skills</h3>
-                                <div className="flex flex-wrap gap-2">
-                                  {item.skills.map((skill: string, idx: number) => (
-                                    <Badge key={idx} variant="secondary" className="text-xs">
-                                      {skill}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
+                                {item.skills && item.skills.length > 0 && (
+                                  <div>
+                                    <h5 className="font-semibold text-xs mb-1.5">Skills</h5>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {item.skills.map((skill: string, idx: number) => (
+                                        <Badge key={idx} variant="secondary" className="text-xs">
+                                          {skill}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
 
-                            {(item.salary_min || item.salary_max) && (
-                              <div>
-                                <h3 className="font-semibold text-sm mb-1">Expected Salary</h3>
-                                <p className="text-green-600 font-medium">
-                                  {item.salary_min && item.salary_max
-                                    ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
-                                    : item.salary_min
-                                    ? `From £${item.salary_min.toLocaleString()}`
-                                    : `Up to £${item.salary_max?.toLocaleString()}`}
+                                {(item.salary_min || item.salary_max) && (
+                                  <div>
+                                    <h5 className="font-semibold text-xs mb-1">Expected Salary</h5>
+                                    <p className="text-xs text-green-600 font-medium">
+                                      {item.salary_min && item.salary_max
+                                        ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
+                                        : item.salary_min
+                                        ? `From £${item.salary_min.toLocaleString()}`
+                                        : `Up to £${item.salary_max?.toLocaleString()}`}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {user && (
+                                  <Button
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-xs py-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleSendInquiry(item.id, isEmployer ? `${item.first_name} ${item.last_name}` : item.company_name)
+                                    }}
+                                  >
+                                    <MessageCircle className="h-3 w-3 mr-2" />
+                                    Send Message
+                                  </Button>
+                                )}
+
+                                <p className="text-xs text-blue-500 text-center">
+                                  Tap to collapse
                                 </p>
                               </div>
                             )}
 
-                            {user && (
-                              <Button
-                                className="w-full bg-blue-600 hover:bg-blue-700"
-                                onClick={() => handleSendInquiry(item.id, isEmployer ? `${item.first_name} ${item.last_name}` : item.company_name)}
-                              >
-                                <MessageCircle className="h-4 w-4 mr-2" />
-                                Send Message
-                              </Button>
+                            {!isExpanded && (
+                              <p className="text-xs text-blue-500 text-center">
+                                Tap to see more
+                              </p>
                             )}
                           </div>
                         )}
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <>
-                    <h3 className="font-semibold text-base mb-3">
-                      {isEmployer ? "Professionals" : isShowingCompanies ? "Companies" : isShowingTraders ? "Traders" : "Professionals"}
-                    </h3>
-
-                    <div className="space-y-2">
-                      {data.map((item: any) => (
-                        <div
-                          key={item.id}
-                          ref={(el: HTMLDivElement | null) => { professionalCardRefs.current[item.id] = el }}
-                          className="bg-white rounded-lg shadow-sm border p-3 cursor-pointer transition-all border-gray-200 hover:border-blue-300"
-                          onClick={() => {
-                            setSelectedProfessionalId(item.id)
-                            // Toggle expansion for jobs
-                            if (isShowingJobs) {
-                              setExpandedJobId(expandedJobId === item.id ? null : item.id)
-                            }
-                          }}
-                        >
-                          {isShowingJobs ? (
-                            <div className="space-y-2">
-                              <div className="flex items-start gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-sm line-clamp-2">{item.title}</h4>
-                                  <p className="text-xs text-gray-600">
-                                    {item.company_profiles?.company_name || `${item.poster_first_name} ${item.poster_last_name}`}
-                                  </p>
-
-                                  {/* Description - show truncated or full based on expanded state */}
-                                  {item.description && (
-                                    <p className={`text-xs text-gray-700 mt-2 ${expandedJobId === item.id ? '' : 'line-clamp-2'}`}>
-                                      {item.description}
-                                    </p>
-                                  )}
-
-                                  <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
-                                    <MapPin className="h-3 w-3" />
-                                    <span className="truncate">{item.location}</span>
-                                  </div>
-                                  {(item.salary_min || item.salary_max || item.budget_min || item.budget_max) && (
-                                    <div className="flex items-center gap-1 text-xs text-green-600 font-medium mt-1">
-                                      <PoundSterling className="h-3 w-3" />
-                                      <span>
-                                        {item.salary_min && item.salary_max
-                                          ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
-                                          : item.salary_min
-                                          ? `From £${item.salary_min.toLocaleString()}`
-                                          : item.salary_max
-                                          ? `Up to £${item.salary_max.toLocaleString()}`
-                                          : item.budget_min && item.budget_max
-                                          ? `£${item.budget_min.toLocaleString()} - £${item.budget_max.toLocaleString()}`
-                                          : item.budget_min
-                                          ? `From £${item.budget_min.toLocaleString()}`
-                                          : item.budget_max
-                                          ? `Up to £${item.budget_max.toLocaleString()}`
-                                          : ''}
-                                      </span>
-                                    </div>
-                                  )}
-
-                                  {/* Show "Tap to expand/collapse" hint */}
-                                  {item.description && item.description.length > 100 && (
-                                    <p className="text-xs text-blue-500 mt-1">
-                                      {expandedJobId === item.id ? 'Tap to collapse' : 'Tap to see full description'}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <div className="flex items-start gap-3">
-                                <Avatar className="h-10 w-10">
-                                  <AvatarImage src={item.profile_photo_url || item.logo_url} />
-                                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold text-xs">
-                                    {isEmployer
-                                      ? `${item.first_name?.[0] || ''}${item.last_name?.[0] || ''}`
-                                      : item.company_name?.[0] || item.title?.[0] || '?'}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1 min-w-0">
-                                  <h4 className="font-semibold text-sm">
-                                    {isEmployer ? `${item.first_name || ''} ${item.last_name || ''}` : item.company_name || item.title}
-                                  </h4>
-                                  <p className="text-xs text-gray-600 truncate">{item.title || item.industry}</p>
-                                  <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
-                                    <MapPin className="h-3 w-3" />
-                                    <span className="truncate">{item.location}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                )}
+                    )
+                  })}
+                </div>
               </div>
             </div>
           </div>

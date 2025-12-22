@@ -1,17 +1,110 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { getLocaleFromPathname } from "./i18n/config";
 
 // Force Node.js runtime to avoid Edge Runtime warnings with Supabase
 export const runtime = 'nodejs';
 
+// Locales configuration
+const locales = ['en', 'pt-BR'] as const
+type Locale = typeof locales[number]
+
+// Paths that should not trigger any middleware logic
+const ignoredPaths = [
+  '/api',
+  '/_next',
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/sitemap',
+  '/logo',
+  '/Logo',
+  '/public',
+]
+
+function shouldIgnorePath(pathname: string): boolean {
+  return ignoredPaths.some(path => pathname.startsWith(path))
+}
+
+function detectBrowserLocale(req: NextRequest): Locale {
+  // Check cookie first
+  const cookieLocale = req.cookies.get('NEXT_LOCALE')?.value
+  if (cookieLocale === 'pt-BR' || cookieLocale === 'en') {
+    return cookieLocale
+  }
+
+  // Detect from Accept-Language header
+  const acceptLanguage = req.headers.get('accept-language')
+  if (acceptLanguage) {
+    // Parse Accept-Language header
+    const languages = acceptLanguage.split(',').map(lang => {
+      const [locale, q = 'q=1'] = lang.trim().split(';')
+      const quality = parseFloat(q.replace('q=', ''))
+      return { locale: locale.trim(), quality }
+    })
+
+    // Sort by quality
+    languages.sort((a, b) => b.quality - a.quality)
+
+    // Check if any preferred language is Portuguese (Brazil)
+    for (const { locale } of languages) {
+      const lang = locale.toLowerCase()
+      // Match pt-BR, pt-br, pt_BR, pt, etc.
+      if (lang.startsWith('pt-br') || lang.startsWith('pt_br') || lang === 'pt') {
+        return 'pt-BR'
+      }
+    }
+  }
+
+  // Default to English
+  return 'en'
+}
+
 export async function middleware(req: NextRequest) {
+  const pathname = req.nextUrl.pathname;
+
+  // Skip ignored paths completely
+  if (shouldIgnorePath(pathname)) {
+    return NextResponse.next();
+  }
+
   let res = NextResponse.next({
     request: {
       headers: req.headers,
     },
   });
 
+  // === I18N LOCALE DETECTION ===
+  // Handle locale detection and cookie setting
+  const currentLocale = getLocaleFromPathname(pathname)
+
+  // For root path only, check if we should redirect based on browser language
+  if (pathname === '/') {
+    const preferredLocale = detectBrowserLocale(req)
+
+    // Only redirect if browser prefers pt-BR and we're on English route
+    if (preferredLocale === 'pt-BR') {
+      const url = req.nextUrl.clone()
+      url.pathname = '/br'
+      const response = NextResponse.redirect(url)
+      response.cookies.set('NEXT_LOCALE', 'pt-BR', {
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+        path: '/',
+      })
+      return response
+    }
+  }
+
+  // Set locale cookie based on current path
+  if (currentLocale) {
+    res.cookies.set('NEXT_LOCALE', currentLocale, {
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      path: '/',
+    })
+  }
+
+  // === AUTH PROTECTION ===
   const protectedRoutes = [
     "/dashboard",
     "/messages",
@@ -20,8 +113,6 @@ export async function middleware(req: NextRequest) {
     "/company/profile",
     "/admin"
   ];
-
-  const pathname = req.nextUrl.pathname;
 
   const isProtected = protectedRoutes.some((route) =>
     pathname.startsWith(route)

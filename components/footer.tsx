@@ -5,8 +5,10 @@ import { useEffect, useState } from "react"
 import { createClient } from "@/lib/client"
 import { Menu, X, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useTranslation } from "@/lib/i18n/context"
 
 export function Footer() {
+  const { t } = useTranslation()
   const [user, setUser] = useState<any>(null)
   const [userType, setUserType] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -37,12 +39,6 @@ export function Footer() {
     getUser()
   }, [])
 
-  const legalLinks = [
-    { href: "/terms", label: "Terms & Conditions" },
-    { href: "/privacy", label: "Privacy Policy" },
-    { href: "/cookies", label: "Cookie Policy" },
-  ]
-
   // Determine billing link based on user authentication and type
   const getBillingHref = () => {
     if (!user) {
@@ -58,10 +54,16 @@ export function Footer() {
     return "/billing" // Fallback to public page
   }
 
+  const legalLinks = [
+    { href: "/terms", label: t('header.termsConditions') },
+    { href: "/privacy", label: t('header.privacyPolicy') },
+    { href: "/cookies", label: t('header.cookiePolicy') },
+  ]
+
   const supportLinks = [
-    { href: "/contact", label: "Contact Us" },
-    { href: "/security", label: "Security" },
-    { href: getBillingHref(), label: user ? "Subscription & Billing" : "Billing" },
+    { href: "/contact", label: t('header.contactUs') },
+    { href: "/security", label: t('dashboard.security') },
+    { href: getBillingHref(), label: user ? t('header.subscriptionBilling') : t('dashboard.billing') },
   ]
 
   return (
@@ -81,7 +83,7 @@ export function Footer() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Connecting talent with opportunities across the UK and beyond.
+            {t('header.connectingTalent')}
           </p>
         </div>
 
@@ -90,13 +92,13 @@ export function Footer() {
           <div className="text-center md:text-left">
             <h3 className="font-semibold text-foreground mb-3">Open Job Market</h3>
             <p className="text-sm text-muted-foreground">
-              Connecting talent with opportunities across the UK and beyond.
+              {t('header.connectingTalent')}
             </p>
           </div>
 
           {/* Legal Links */}
           <div className="text-center">
-            <h4 className="font-medium text-foreground mb-3">Legal</h4>
+            <h4 className="font-medium text-foreground mb-3">{t('footer.legal')}</h4>
             <div className="space-y-2">
               {legalLinks.map((link) => (
                 <Link
@@ -112,7 +114,7 @@ export function Footer() {
 
           {/* Support Links */}
           <div className="text-center md:text-right">
-            <h4 className="font-medium text-foreground mb-3">Support</h4>
+            <h4 className="font-medium text-foreground mb-3">{t('footer.help')}</h4>
             <div className="space-y-2">
               {supportLinks.map((link) => (
                 <Link
@@ -162,7 +164,7 @@ export function Footer() {
           <div className="fixed bottom-0 left-0 right-0 bg-white z-50 shadow-2xl md:hidden overflow-y-auto max-h-[70vh] rounded-t-2xl">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">Quick Links</h2>
+              <h2 className="text-lg font-semibold">{t('common.close')}</h2>
               <button
                 onClick={() => setMobileMenuOpen(false)}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -179,7 +181,7 @@ export function Footer() {
                   onClick={() => setLegalExpanded(!legalExpanded)}
                   className="w-full flex items-center justify-between font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  <span>Legal</span>
+                  <span>{t('footer.legal')}</span>
                   <ChevronRight className={`h-4 w-4 transition-transform ${legalExpanded ? 'rotate-90' : ''}`} />
                 </button>
                 {legalExpanded && (
@@ -204,7 +206,7 @@ export function Footer() {
                   onClick={() => setSupportExpanded(!supportExpanded)}
                   className="w-full flex items-center justify-between font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                 >
-                  <span>Support</span>
+                  <span>{t('footer.help')}</span>
                   <ChevronRight className={`h-4 w-4 transition-transform ${supportExpanded ? 'rotate-90' : ''}`} />
                 </button>
                 {supportExpanded && (

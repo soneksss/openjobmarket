@@ -41,6 +41,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import ProfessionalMap from "@/components/professional-map"
 import ContractorMap from "@/components/contractor-map"
 import { Header } from "@/components/header"
+import { useTranslation } from "@/lib/i18n/context"
 
 // Category Carousel Component
 function CategoryCarousel({ onCategoryClick }: { onCategoryClick: (name: string) => void }) {
@@ -228,6 +229,7 @@ export default function ContractorMapView({
 }: ContractorMapViewProps) {
   const router = useRouter()
   const currentSearchParams = useSearchParams()
+  const { t } = useTranslation()
   const [searchTerm, setSearchTerm] = useState(searchParams.search || "")
   const [locationFilter, setLocationFilter] = useState(searchParams.location || "")
   const [selectedLocationCoords, setSelectedLocationCoords] = useState<{ lat: number; lon: number } | null>(
@@ -462,14 +464,14 @@ export default function ContractorMapView({
             {/* Page Header */}
             <div className="text-center mb-3">
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-orange-500 mb-2">
-                Find Tradespeople
+                {t('contractors.title')}
               </h1>
             </div>
 
             {/* Enhanced Search Component */}
             <div className="bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-3 sm:p-4 md:p-6 shadow-xl border border-white/10">
               <h2 className="text-sm sm:text-base md:text-xl font-bold text-white mb-3 sm:mb-4 md:mb-6 text-center">
-                Search tradespeople worldwide with advanced filters
+                {t('contractors.searchDescription')}
               </h2>
 
               {/* Main Search Inputs */}
@@ -478,7 +480,7 @@ export default function ContractorMapView({
                   <Input
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="e.g. Electrician, Plumber, Web Developer, Company name"
+                    placeholder={t('contractors.searchPlaceholder')}
                     className="h-10 md:h-12 text-sm md:text-base px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-orange-500/30 rounded-lg font-medium placeholder:text-gray-500 shadow-md"
                   />
                 </div>
@@ -488,7 +490,7 @@ export default function ContractorMapView({
                       value={locationFilter}
                       onChange={setLocationFilter}
                       onLocationSelect={handleLocationSelect}
-                      placeholder="e.g. London, New York, or Remote"
+                      placeholder={t('contractors.locationPlaceholder')}
                       error=""
                     />
                   </div>
@@ -509,7 +511,7 @@ export default function ContractorMapView({
                   className="w-full h-10 md:h-12 text-sm md:text-base font-bold bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
                 >
                   <Search className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4 md:h-5 md:w-5" />
-                  Search Contractors
+                  {t('contractors.searchButton')}
                 </Button>
               </div>
 
@@ -627,7 +629,7 @@ export default function ContractorMapView({
         <div className="container mx-auto px-1 sm:px-2">
           <div className="text-center mb-2">
             <h2 className="text-lg md:text-xl font-bold">
-              Browse Our Most Popular Categories
+              {t('contractors.browseCategories')}
             </h2>
           </div>
 

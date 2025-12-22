@@ -9,6 +9,8 @@ import { MapPin, MessageCircle } from "lucide-react"
 import dynamic from "next/dynamic"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
+import { useLanguageRegion } from "@/contexts/language-region-context"
+import { getDefaultMapCenter } from "@/lib/i18n/language-region"
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
@@ -181,7 +183,7 @@ interface ProfessionalMapProps {
 
 export function ProfessionalMap({
   professionals,
-  center = { lat: 39.8283, lon: -98.5795 },
+  center,
   zoom = 4,
   height = "500px",
   user,
@@ -194,6 +196,10 @@ export function ProfessionalMap({
   onProfileSelect,
   selectedProfessionalId = null,
 }: ProfessionalMapProps) {
+  // Get language/region context for default map center
+  const { state: languageRegionState } = useLanguageRegion()
+  const defaultCenter = getDefaultMapCenter(languageRegionState.country)
+
   const [isClient, setIsClient] = useState(false)
   const [sendingMessage, setSendingMessage] = useState<string | null>(null)
   const router = useRouter()
@@ -213,8 +219,11 @@ export function ProfessionalMap({
     setIsClient(true)
   }, [])
 
+  // Use provided center or fallback to region-specific default
+  const finalCenter = center || { lat: defaultCenter[0], lon: defaultCenter[1] }
+
   // Convert center object to array for Leaflet
-  const centerArray: [number, number] = [center.lat, center.lon]
+  const centerArray: [number, number] = [finalCenter.lat, finalCenter.lon]
 
   // Filter professionals that have coordinates
   const professionalsWithCoordinates = professionals.filter((prof) => prof.coordinates?.lat && prof.coordinates?.lon)
