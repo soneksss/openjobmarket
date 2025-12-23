@@ -680,21 +680,23 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
           {showAuth && (
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Language & Region Selector */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={openLanguageModal}
-                className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-2 hover:bg-accent"
-                aria-label="Change language and region"
-              >
-                <Globe className="h-4 w-4 text-gray-600" />
-                {isMounted && (
-                  <span className="hidden sm:inline text-xs sm:text-sm text-gray-700">
-                    {getDisplayText(languageRegionState)}
-                  </span>
-                )}
-              </Button>
+              {/* Language & Region Selector - Hidden when user is signed in */}
+              {!currentUser && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={openLanguageModal}
+                  className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-2 hover:bg-accent"
+                  aria-label="Change language and region"
+                >
+                  <Globe className="h-4 w-4 text-gray-600" />
+                  {isMounted && (
+                    <span className="hidden sm:inline text-xs sm:text-sm text-gray-700">
+                      {getDisplayText(languageRegionState)}
+                    </span>
+                  )}
+                </Button>
+              )}
 
               {isLoading ? (
                 <div className="flex items-center space-x-2">

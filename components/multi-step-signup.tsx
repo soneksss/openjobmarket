@@ -166,6 +166,7 @@ export default function MultiStepSignup() {
         is_homeowner: signupData.roles.homeowner,
         is_employer: signupData.roles.employer,
         is_tradespeople: signupData.roles.tradespeople,
+        phone: signupData.phone || null,
         location: signupData.location || null,
         latitude: signupData.latitude,
         longitude: signupData.longitude,
@@ -500,6 +501,7 @@ export default function MultiStepSignup() {
                       onChange={(e) => updateSignupData({ firstName: e.target.value })}
                       placeholder="John"
                       required
+                      className="border-2"
                     />
                   </div>
                   <div>
@@ -510,6 +512,7 @@ export default function MultiStepSignup() {
                       onChange={(e) => updateSignupData({ lastName: e.target.value })}
                       placeholder="Doe"
                       required
+                      className="border-2"
                     />
                   </div>
                 </div>
@@ -522,6 +525,7 @@ export default function MultiStepSignup() {
                     onChange={(e) => updateSignupData({ companyName: e.target.value })}
                     placeholder="ABC Company Ltd"
                     required
+                    className="border-2"
                   />
                 </div>
               )}
@@ -535,6 +539,7 @@ export default function MultiStepSignup() {
                   onChange={(e) => updateSignupData({ email: e.target.value })}
                   placeholder="you@example.com"
                   required
+                  className="border-2"
                 />
               </div>
 
@@ -547,6 +552,7 @@ export default function MultiStepSignup() {
                   onChange={(e) => updateSignupData({ password: e.target.value })}
                   placeholder="Minimum 6 characters"
                   required
+                  className="border-2"
                 />
               </div>
 
@@ -559,6 +565,7 @@ export default function MultiStepSignup() {
                   onChange={(e) => updateSignupData({ confirmPassword: e.target.value })}
                   placeholder="Re-enter password"
                   required
+                  className="border-2"
                 />
               </div>
 
@@ -570,6 +577,7 @@ export default function MultiStepSignup() {
                   value={signupData.phone}
                   onChange={(e) => updateSignupData({ phone: e.target.value })}
                   placeholder="+44 123 456 7890"
+                  className="border-2"
                 />
               </div>
 
@@ -579,9 +587,6 @@ export default function MultiStepSignup() {
                   <div className="space-y-2">
                     <Label>
                       Your Location *
-                      <span className="text-xs text-muted-foreground ml-2">
-                        (Required to be found by employers)
-                      </span>
                     </Label>
                     <MapLocationPicker
                       value={

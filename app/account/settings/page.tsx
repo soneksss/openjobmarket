@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Settings, Bell, User, Lock, CreditCard, ArrowLeft } from "lucide-react"
+import { Settings, Bell, User, Lock, CreditCard, ArrowLeft, Mail } from "lucide-react"
 import NotificationPreferences from "@/components/notification-preferences"
+import EmailPreferences from "@/components/email-preferences"
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
@@ -100,6 +101,15 @@ export default async function AccountSettingsPage() {
         <NotificationPreferences userId={user.id} />
       </div>
 
+      {/* Email Preferences Section */}
+      <div className="mb-8">
+        <div className="flex items-center mb-6">
+          <Mail className="h-6 w-6 mr-3 text-primary" />
+          <h2 className="text-2xl font-bold">Email Preferences</h2>
+        </div>
+        <EmailPreferences userId={user.id} />
+      </div>
+
       {/* Additional Settings */}
       <Card>
         <CardHeader>
@@ -120,16 +130,6 @@ export default async function AccountSettingsPage() {
             <div>
               <h3 className="font-medium">Language & Region</h3>
               <p className="text-sm text-muted-foreground">Set your preferred language and region</p>
-            </div>
-            <Button variant="outline" disabled>
-              Coming Soon
-            </Button>
-          </div>
-
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h3 className="font-medium">Email Preferences</h3>
-              <p className="text-sm text-muted-foreground">Manage your email subscription preferences</p>
             </div>
             <Button variant="outline" disabled>
               Coming Soon

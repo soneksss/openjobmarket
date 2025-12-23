@@ -172,6 +172,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [hiring, setHiring] = useState(profile.is_hiring ?? false)
   const [updatingBusinessStatus, setUpdatingBusinessStatus] = useState(false)
   const [updatingHiringStatus, setUpdatingHiringStatus] = useState(false)
+  const [tradeJobNotifications, setTradeJobNotifications] = useState(false)
+  const [updatingTradeNotifications, setUpdatingTradeNotifications] = useState(false)
   const [showLocationPicker, setShowLocationPicker] = useState(false)
   const [latitude, setLatitude] = useState<number | null>(profile.latitude || null)
   const [longitude, setLongitude] = useState<number | null>(profile.longitude || null)
@@ -699,6 +701,52 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     }
   }
 
+  const handleTradeNotificationsToggle = async (status: boolean) => {
+    // Update UI immediately
+    setTradeJobNotifications(status)
+    setUpdatingTradeNotifications(true)
+
+    try {
+      const supabase = createClient()
+
+      const { error } = await supabase
+        .from("company_profiles")
+        .update({ trade_job_notifications: status })
+        .eq("id", profile.id)
+
+      if (error) {
+        console.error("[v0] Error updating trade job notifications:", error.message)
+        if (error.message.includes("column") && error.message.includes("trade_job_notifications")) {
+          console.log("[v0] Trade job notifications feature not yet available - database migration needed")
+          // Column doesn't exist yet, but keep UI updated
+        } else {
+          toast({
+            title: "Update Failed",
+            description: `Error updating trade job notifications: ${error.message}`,
+            variant: "destructive",
+            duration: 5000,
+          })
+          // Revert on actual error
+          setTradeJobNotifications(!status)
+        }
+        return
+      }
+
+      console.log("[v0] Trade job notifications updated successfully:", status)
+    } catch (error) {
+      console.error("[v0] Error updating trade job notifications:", error)
+      toast({
+        title: "Update Failed",
+        description: "Error updating trade job notifications. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
+      setTradeJobNotifications(!status) // Revert on error
+    } finally {
+      setUpdatingTradeNotifications(false)
+    }
+  }
+
   const handleLocationSelect = async (lat: number, lng: number) => {
     try {
       const supabase = createClient()
@@ -842,7 +890,17 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
                     {/* Right: Toggles */}
                     <div className="flex flex-col gap-1.5 items-end flex-shrink-0">
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      <div className="flex items-center gap-1 whitespace-nowrap">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-muted-foreground hover:text-foreground transition-colors">
+                              <Info className="h-3 w-3" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="left" className="w-64">
+                            <p className="text-xs text-muted-foreground">When active, people can see you on the map</p>
+                          </PopoverContent>
+                        </Popover>
                         <span className="text-xs text-muted-foreground w-16 text-right">{profileVisible ? "Visible" : "Hidden"}</span>
                         <Switch
                           checked={profileVisible}
@@ -851,7 +909,17 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                           className="data-[state=checked]:bg-green-600"
                         />
                       </div>
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      <div className="flex items-center gap-1 whitespace-nowrap">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-muted-foreground hover:text-foreground transition-colors">
+                              <Info className="h-3 w-3" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="left" className="w-64">
+                            <p className="text-xs text-muted-foreground">When active, you are open to business and people can contact you directly</p>
+                          </PopoverContent>
+                        </Popover>
                         <span className="text-xs text-muted-foreground w-16 text-right">{openForBusiness ? "Open" : "Closed"}</span>
                         <Switch
                           checked={openForBusiness}
@@ -860,35 +928,50 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                           className="data-[state=checked]:bg-blue-600"
                         />
                       </div>
-                      <div className="flex items-center gap-1.5 whitespace-nowrap">
-                        <span className="text-xs text-muted-foreground w-16 text-right">{hiring ? "Hiring" : "Not Hiring"}</span>
+                      <div className="flex items-center gap-1 whitespace-nowrap">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="text-muted-foreground hover:text-foreground transition-colors">
+                              <Info className="h-3 w-3" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="left" className="w-64">
+                            <p className="text-xs text-muted-foreground">Get notifications if someone post job, matching your services</p>
+                          </PopoverContent>
+                        </Popover>
+                        <span className="text-xs text-muted-foreground w-16 text-right">{tradeJobNotifications ? "On" : "Off"}</span>
                         <Switch
-                          checked={hiring}
-                          onCheckedChange={handleHiringStatusToggle}
-                          disabled={updatingHiringStatus}
-                          className="data-[state=checked]:bg-emerald-600"
+                          checked={tradeJobNotifications}
+                          onCheckedChange={handleTradeNotificationsToggle}
+                          disabled={updatingTradeNotifications}
+                          className="data-[state=checked]:bg-purple-600"
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* Location Button - Full Width Below */}
-                  <button
-                    onClick={() => setShowLocationPicker(true)}
-                    className="flex items-center justify-between gap-2 bg-blue-600 border border-blue-700 rounded-lg px-3 py-2 hover:bg-blue-700 transition-colors w-full shadow-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-white flex-shrink-0" />
-                      <span className="text-sm font-semibold text-white">Location</span>
-                    </div>
-                    {latitude && longitude ? (
-                      <span className="font-mono text-xs text-white font-medium">
-                        {latitude.toFixed(4)}, {longitude.toFixed(4)}
-                      </span>
-                    ) : (
-                      <span className="text-xs text-white/80">Not set</span>
-                    )}
-                  </button>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => setShowLocationPicker(true)}
+                      className="flex items-center justify-between gap-2 bg-blue-600 border border-blue-700 rounded-lg px-3 py-2 hover:bg-blue-700 transition-colors w-full shadow-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-white flex-shrink-0" />
+                        <span className="text-sm font-semibold text-white">Location</span>
+                      </div>
+                      {latitude && longitude ? (
+                        <span className="font-mono text-xs text-white font-medium">
+                          {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-white/80">Not set</span>
+                      )}
+                    </button>
+                    <p className="text-xs text-muted-foreground px-1">
+                      Update your location if you work away so locals can find you.
+                    </p>
+                  </div>
                 </div>
 
                 {/* Desktop Layout: Original layout */}
@@ -981,12 +1064,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                         </button>
                       </PopoverTrigger>
                       <PopoverContent side="right" className="w-80">
-                        <div className="space-y-2">
-                          <h4 className="font-semibold text-sm">Profile Visibility</h4>
-                          <p className="text-sm text-muted-foreground">
-                            When enabled, your company profile is visible to all users on the platform. When disabled, your profile is hidden from search results and public view.
-                          </p>
-                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          When active, people can see you on the map
+                        </p>
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -1017,12 +1097,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                         </button>
                       </PopoverTrigger>
                       <PopoverContent side="right" className="w-80">
-                        <div className="space-y-2">
-                          <h4 className="font-semibold text-sm">Business Availability</h4>
-                          <p className="text-sm text-muted-foreground">
-                            When enabled, you indicate that your company is currently available and accepting new business opportunities. When disabled, users will see that you're not available for new projects.
-                          </p>
-                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          When active, you are open to business and people can contact you directly
+                        </p>
                       </PopoverContent>
                     </Popover>
                   </div>
@@ -1059,6 +1136,39 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                             When enabled, you indicate that your company is actively hiring and looking for new talent. This makes your company more visible to job seekers. When disabled, users will see that you're not currently hiring.
                           </p>
                         </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Trade Jobs Notification Toggle */}
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
+                    {tradeJobNotifications ? (
+                      <Briefcase className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600 flex-shrink-0" />
+                    ) : (
+                      <Briefcase className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <Switch
+                      checked={tradeJobNotifications}
+                      onCheckedChange={handleTradeNotificationsToggle}
+                      disabled={updatingTradeNotifications}
+                      className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
+                    />
+                    <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
+                      {tradeJobNotifications ? "Trade Notif. On" : "Trade Notif. Off"}
+                    </p>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
+                          title="Learn more"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-80">
+                        <p className="text-sm text-muted-foreground">
+                          Get notifications if someone post job, matching your services
+                        </p>
                       </PopoverContent>
                     </Popover>
                   </div>

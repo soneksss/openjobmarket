@@ -12,9 +12,11 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Loader2, X } from "lucide-react"
+import { useTranslation } from "@/lib/i18n/context"
 
 export default function LoginForm() {
   console.log('[LOGIN-FORM] Component is rendering')
+  const { t } = useTranslation()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [staySignedIn, setStaySignedIn] = useState(false)
@@ -69,7 +71,7 @@ export default function LoginForm() {
 
       // Validate inputs before sending
       if (!email || !password) {
-        throw new Error('Please enter both email and password')
+        throw new Error(t('auth.errorMissingBoth'))
       }
 
       // Store the stay signed in preference
@@ -132,14 +134,21 @@ export default function LoginForm() {
             } else {
               // Ban is still active
               await supabase.auth.signOut()
-              setError(`Your account has been banned. Reason: ${userData.ban_reason || 'No reason provided'}. Ban expires: ${banExpiry.toLocaleDateString()}`)
+              setError(
+                t('auth.errorBannedTemporary')
+                  .replace('{reason}', userData.ban_reason || 'No reason provided')
+                  .replace('{date}', banExpiry.toLocaleDateString())
+              )
               setIsLoading(false)
               return
             }
           } else {
             // Permanent ban
             await supabase.auth.signOut()
-            setError(`Your account has been permanently banned. Reason: ${userData.ban_reason || 'No reason provided'}. Please contact support if you believe this is an error.`)
+            setError(
+              t('auth.errorBannedPermanent')
+                .replace('{reason}', userData.ban_reason || 'No reason provided')
+            )
             setIsLoading(false)
             return
           }
@@ -203,18 +212,16 @@ export default function LoginForm() {
       console.error('[LOGIN] Error stack:', error instanceof Error ? error.stack : 'N/A')
 
       // Provide user-friendly error messages
-      let errorMessage = "An error occurred"
+      let errorMessage = error instanceof Error ? error.message : String(error)
       if (error instanceof Error) {
         if (error.message.includes("Invalid login credentials")) {
-          errorMessage = "Invalid email or password. Please check your credentials and try again."
+          errorMessage = t('auth.errorInvalidCredentials')
         } else if (error.message.includes("Email not confirmed")) {
-          errorMessage = "Please confirm your email address before signing in. Check your inbox for the confirmation link."
+          errorMessage = t('auth.errorEmailNotConfirmed')
         } else if (error.message.includes("User not found")) {
-          errorMessage = "No account found with this email. Please sign up first."
+          errorMessage = t('auth.errorUserNotFound')
         } else if (error.message.includes("missing email")) {
-          errorMessage = "Please enter your email address."
-        } else {
-          errorMessage = error.message
+          errorMessage = t('auth.errorMissingEmail')
         }
       }
 
@@ -236,13 +243,13 @@ export default function LoginForm() {
       >
         <Link href="/">
           <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t('common.close')}</span>
         </Link>
       </Button>
 
       <CardHeader className="text-center pt-6">
-        <CardTitle className="text-2xl">Welcome Back</CardTitle>
-        <CardDescription>Sign in to your Open Job Market account</CardDescription>
+        <CardTitle className="text-2xl">{t('auth.welcomeBack')}</CardTitle>
+        <CardDescription>{t('auth.signInDescription')}</CardDescription>
       </CardHeader>
       <CardContent>
         <form
@@ -254,11 +261,11 @@ export default function LoginForm() {
         >
           <div className="flex flex-col gap-6">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('common.email')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="m@example.com"
+                placeholder={t('auth.emailPlaceholder')}
                 required
                 value={email}
                 onChange={(e) => {
@@ -268,7 +275,7 @@ export default function LoginForm() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{t('common.password')}</Label>
               <Input
                 id="password"
                 type="password"
@@ -293,8 +300,8 @@ export default function LoginForm() {
                 htmlFor="stay-signed-in"
                 className="text-sm font-normal cursor-pointer flex items-center gap-1"
               >
-                Keep me signed in for 30 days
-                <span className="text-xs text-muted-foreground">(recommended)</span>
+                {t('auth.staySignedIn')}
+                <span className="text-xs text-muted-foreground">{t('auth.recommended')}</span>
               </Label>
             </div>
 
@@ -311,21 +318,21 @@ export default function LoginForm() {
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Signing in...
+                  {t('auth.signingIn')}
                 </>
               ) : (
-                "Sign In"
+                t('auth.signIn')
               )}
             </Button>
           </div>
           <div className="mt-4 text-center text-sm space-y-2">
             <Link href="/auth/forgot-password" className="text-primary hover:underline block">
-              Forgot your password?
+              {t('auth.forgotPassword')}
             </Link>
             <div>
-              Don&apos;t have an account?{" "}
+              {t('auth.dontHaveAccount')}{" "}
               <Link href="/auth/sign-up" className="underline underline-offset-4">
-                Sign up
+                {t('auth.signUp')}
               </Link>
             </div>
           </div>
