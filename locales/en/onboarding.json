@@ -1,0 +1,25 @@
+{
+  "actions": {
+    "provider": {
+      "title": "Put Me on the Market",
+      "subtitle": "I'm looking for work or want to offer my services"
+    },
+    "hiring": {
+      "title": "Post Jobs",
+      "subtitle": "I want to hire people or find professionals"
+    }
+  },
+  "buttons": {
+    "getStarted": "Get Started",
+    "continue": "Continue",
+    "skip": "Skip",
+    "finish": "Finish",
+    "cancel": "Cancel"
+  },
+  "steps": {
+    "welcome": "Welcome",
+    "profile": "Profile",
+    "preferences": "Preferences",
+    "complete": "Complete"
+  }
+}

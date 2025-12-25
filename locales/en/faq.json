@@ -1,0 +1,106 @@
+{
+  "categories": {
+    "gettingStarted": {
+      "title": "Getting Started",
+      "questions": [
+        {
+          "q": "How do I create an account?",
+          "a": "Click 'Sign Up' in the header, choose whether you're a job seeker or employer, and fill in your details. You'll receive a verification email to activate your account."
+        },
+        {
+          "q": "Is Open Job Market free to use?",
+          "a": "Yes! Searching for jobs and browsing talent is completely free. Employers can post jobs and message candidates with our subscription plans."
+        },
+        {
+          "q": "Can I use the platform anonymously?",
+          "a": "Absolutely! You can browse jobs and search for opportunities without revealing your identity. Your current employer won't know you're looking."
+        }
+      ]
+    },
+    "forJobSeekers": {
+      "title": "For Job Seekers",
+      "questions": [
+        {
+          "q": "How do I search for jobs?",
+          "a": "Use the search bar on the homepage to enter your desired job title, skill, or trade. Click one of the four search buttons (Vacancies, Jobs/Tasks, Tradespeople, Talent) to see results on an interactive map."
+        },
+        {
+          "q": "How do employers find me?",
+          "a": "Complete your profile with your skills, experience, and location. Enable 'Let employers find me' in your profile settings so recruiters can contact you directly."
+        },
+        {
+          "q": "Can I apply to jobs without a full profile?",
+          "a": "Yes, but a complete profile significantly increases your chances. Employers prefer candidates with detailed information, photos, and CVs."
+        }
+      ]
+    },
+    "forEmployers": {
+      "title": "For Employers",
+      "questions": [
+        {
+          "q": "How do I post a job?",
+          "a": "After signing up as a company, go to your dashboard and click 'Post Job'. Fill in the job details, location, salary, and requirements, then publish."
+        },
+        {
+          "q": "How do I find candidates?",
+          "a": "Use the talent search feature to filter candidates by location, skills, experience, and availability. You can message them directly through the platform."
+        },
+        {
+          "q": "What subscription plans are available?",
+          "a": "We offer Basic, Professional, and Enterprise plans with varying features like job posts, candidate searches, and priority support. Visit your dashboard to view pricing."
+        }
+      ]
+    },
+    "forTradespeople": {
+      "title": "For Tradespeople & Homeowners",
+      "questions": [
+        {
+          "q": "How do tradespeople get hired?",
+          "a": "Create a profile showcasing your trade, services, certifications, and past work. Homeowners and businesses can find you through search or you can apply to posted jobs."
+        },
+        {
+          "q": "How do homeowners hire tradespeople?",
+          "a": "Post a job describing your project, or search for tradespeople in your area. Review profiles, check ratings, compare quotes, and hire directly."
+        },
+        {
+          "q": "Are tradespeople verified?",
+          "a": "Tradespeople can upload certifications, insurance documents, and professional registrations. Always check profiles for verified credentials before hiring."
+        }
+      ]
+    },
+    "accountPrivacy": {
+      "title": "Account & Privacy",
+      "questions": [
+        {
+          "q": "How do I delete my account?",
+          "a": "Go to Account Settings > Privacy > Delete Account. Note that this action is permanent and cannot be undone."
+        },
+        {
+          "q": "How is my data protected?",
+          "a": "We use industry-standard encryption and security measures. Your personal data is never sold to third parties. Read our Privacy Policy for full details."
+        },
+        {
+          "q": "Can I hide my profile from specific companies?",
+          "a": "Yes! In your privacy settings, you can block specific companies from viewing your profile or contacting you."
+        }
+      ]
+    },
+    "paymentsBilling": {
+      "title": "Payments & Billing",
+      "questions": [
+        {
+          "q": "What payment methods do you accept?",
+          "a": "We accept all major credit cards (Visa, Mastercard, Amex), debit cards, and PayPal through our secure payment processor Stripe."
+        },
+        {
+          "q": "Can I cancel my subscription anytime?",
+          "a": "Yes, you can cancel anytime from your subscription settings. You'll retain access until the end of your billing period."
+        },
+        {
+          "q": "Do you offer refunds?",
+          "a": "We offer a 14-day money-back guarantee for new subscriptions. Contact support if you're not satisfied with our service."
+        }
+      ]
+    }
+  }
+}

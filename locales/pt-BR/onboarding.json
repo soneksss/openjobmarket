@@ -1,0 +1,25 @@
+{
+  "actions": {
+    "provider": {
+      "title": "Me Coloque no Mercado",
+      "subtitle": "Estou procurando trabalho ou quero oferecer meus serviços"
+    },
+    "hiring": {
+      "title": "Publicar Vagas",
+      "subtitle": "Quero contratar pessoas ou encontrar profissionais"
+    }
+  },
+  "buttons": {
+    "getStarted": "Começar",
+    "continue": "Continuar",
+    "skip": "Pular",
+    "finish": "Concluir",
+    "cancel": "Cancelar"
+  },
+  "steps": {
+    "welcome": "Bem-vindo",
+    "profile": "Perfil",
+    "preferences": "Preferências",
+    "complete": "Completo"
+  }
+}

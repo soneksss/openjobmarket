@@ -1,0 +1,106 @@
+{
+  "categories": {
+    "gettingStarted": {
+      "title": "Primeiros Passos",
+      "questions": [
+        {
+          "q": "Como criar uma conta?",
+          "a": "Clique em 'Cadastrar-se' no cabeçalho, escolha se você é um candidato ou empregador, e preencha seus dados. Você receberá um e-mail de verificação para ativar sua conta."
+        },
+        {
+          "q": "O Open Job Market é gratuito?",
+          "a": "Sim! Procurar empregos e navegar pelos talentos é completamente gratuito. Empregadores podem publicar vagas e enviar mensagens aos candidatos com nossos planos de assinatura."
+        },
+        {
+          "q": "Posso usar a plataforma anonimamente?",
+          "a": "Absolutamente! Você pode navegar por empregos e procurar oportunidades sem revelar sua identidade. Seu empregador atual nunca saberá que você está procurando."
+        }
+      ]
+    },
+    "forJobSeekers": {
+      "title": "Para Candidatos",
+      "questions": [
+        {
+          "q": "Como procurar empregos?",
+          "a": "Use a barra de pesquisa na página inicial para inserir o cargo, habilidade ou profissão desejada. Clique em um dos quatro botões de pesquisa (Vagas, Trabalhos/Tarefas, Profissionais, Talentos) para ver os resultados em um mapa interativo."
+        },
+        {
+          "q": "Como os empregadores me encontram?",
+          "a": "Complete seu perfil com suas habilidades, experiência e localização. Ative 'Deixar empregadores me encontrarem' nas configurações do perfil para que recrutadores possam entrar em contato diretamente."
+        },
+        {
+          "q": "Posso me candidatar a vagas sem um perfil completo?",
+          "a": "Sim, mas um perfil completo aumenta significativamente suas chances. Empregadores preferem candidatos com informações detalhadas, fotos e currículos."
+        }
+      ]
+    },
+    "forEmployers": {
+      "title": "Para Empregadores",
+      "questions": [
+        {
+          "q": "Como publicar uma vaga?",
+          "a": "Após se cadastrar como empresa, vá ao seu painel e clique em 'Publicar Vaga'. Preencha os detalhes da vaga, localização, salário e requisitos, depois publique."
+        },
+        {
+          "q": "Como encontrar candidatos?",
+          "a": "Use o recurso de busca de talentos para filtrar candidatos por localização, habilidades, experiência e disponibilidade. Você pode enviar mensagens diretamente através da plataforma."
+        },
+        {
+          "q": "Quais planos de assinatura estão disponíveis?",
+          "a": "Oferecemos planos Básico, Profissional e Enterprise com recursos variados como publicações de vagas, buscas de candidatos e suporte prioritário. Visite seu painel para ver os preços."
+        }
+      ]
+    },
+    "forTradespeople": {
+      "title": "Para Profissionais e Proprietários",
+      "questions": [
+        {
+          "q": "Como profissionais são contratados?",
+          "a": "Crie um perfil mostrando sua profissão, serviços, certificações e trabalhos anteriores. Proprietários e empresas podem encontrá-lo através da busca ou você pode se candidatar a vagas publicadas."
+        },
+        {
+          "q": "Como proprietários contratam profissionais?",
+          "a": "Publique um trabalho descrevendo seu projeto, ou procure por profissionais na sua área. Revise perfis, verifique avaliações, compare orçamentos e contrate diretamente."
+        },
+        {
+          "q": "Os profissionais são verificados?",
+          "a": "Profissionais podem enviar certificações, documentos de seguro e registros profissionais. Sempre verifique os perfis para credenciais verificadas antes de contratar."
+        }
+      ]
+    },
+    "accountPrivacy": {
+      "title": "Conta e Privacidade",
+      "questions": [
+        {
+          "q": "Como excluir minha conta?",
+          "a": "Vá em Configurações da Conta > Privacidade > Excluir Conta. Note que esta ação é permanente e não pode ser desfeita."
+        },
+        {
+          "q": "Como meus dados são protegidos?",
+          "a": "Usamos criptografia e medidas de segurança padrão da indústria. Seus dados pessoais nunca são vendidos a terceiros. Leia nossa Política de Privacidade para detalhes completos."
+        },
+        {
+          "q": "Posso ocultar meu perfil de empresas específicas?",
+          "a": "Sim! Nas suas configurações de privacidade, você pode bloquear empresas específicas de visualizar seu perfil ou entrar em contato com você."
+        }
+      ]
+    },
+    "paymentsBilling": {
+      "title": "Pagamentos e Cobrança",
+      "questions": [
+        {
+          "q": "Quais métodos de pagamento vocês aceitam?",
+          "a": "Aceitamos todos os principais cartões de crédito (Visa, Mastercard, Amex), cartões de débito e PayPal através do nosso processador de pagamentos seguro Stripe."
+        },
+        {
+          "q": "Posso cancelar minha assinatura a qualquer momento?",
+          "a": "Sim, você pode cancelar a qualquer momento nas configurações de assinatura. Você manterá o acesso até o final do período de cobrança."
+        },
+        {
+          "q": "Vocês oferecem reembolsos?",
+          "a": "Oferecemos garantia de devolução do dinheiro de 14 dias para novas assinaturas. Entre em contato com o suporte se não estiver satisfeito com nosso serviço."
+        }
+      ]
+    }
+  }
+}
