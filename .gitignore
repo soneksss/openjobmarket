@@ -27,3 +27,10 @@ yarn-error.log*
 next-env.d.ts
 
 .claude/settings.local.json
+# Windows reserved device names
+nul
+NUL
+Null
+**/nul
+**/NUL
+**/Null
