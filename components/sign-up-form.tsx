@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useState } from "react"
 import { Loader2, X, User, Users, Wrench, Home } from "lucide-react"
 
@@ -26,6 +26,7 @@ export default function SignUpForm({ initialUserType, error }: SignUpFormProps) 
   const [formError, setFormError] = useState<string | null>(error || null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -101,7 +102,10 @@ export default function SignUpForm({ initialUserType, error }: SignUpFormProps) 
           } else {
             // User exists but profile is incomplete - allow to continue onboarding
             console.log("User exists but profile incomplete, redirecting to onboarding...")
-            router.push("/onboarding")
+            // Preserve locale when redirecting
+            const isOnBrRoute = pathname?.startsWith('/br')
+            const onboardingUrl = isOnBrRoute ? '/br/onboarding' : '/onboarding'
+            router.push(onboardingUrl)
             return
           }
         }
@@ -110,7 +114,10 @@ export default function SignUpForm({ initialUserType, error }: SignUpFormProps) 
       }
 
       // New user registration successful
-      router.push("/auth/sign-up-success")
+      // Preserve locale when redirecting
+      const isOnBrRoute = pathname?.startsWith('/br')
+      const successUrl = isOnBrRoute ? '/br/auth/sign-up-success' : '/auth/sign-up-success'
+      router.push(successUrl)
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "An error occurred")
     } finally {

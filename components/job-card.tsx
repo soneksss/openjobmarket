@@ -11,7 +11,7 @@ import { MapPin, Building, Clock, Users, Briefcase, Heart, ExternalLink, Chevron
 import Link from "next/link"
 import Image from "next/image"
 import JobApplicationForm from "@/components/job-application-form"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 
 interface Job {
@@ -71,11 +71,17 @@ interface JobCardProps {
 
 const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isSelected = false, onSelect, onApply, userProfile }, ref) => {
   const router = useRouter()
+  const pathname = usePathname()
   const [isExpanded, setIsExpanded] = useState(false)
   const [showSignUpDialog, setShowSignUpDialog] = useState(false)
   const [showApplicationModal, setShowApplicationModal] = useState(false)
   const [hasApplied, setHasApplied] = useState(false)
   const [showFullscreenImage, setShowFullscreenImage] = useState(false)
+
+  // Locale-aware auth URLs
+  const isOnBrRoute = pathname?.startsWith('/br')
+  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+  const loginUrl = isOnBrRoute ? '/br/auth/login' : '/auth/login'
 
   // Auto-expand when selected from map pin click or card click
   // Auto-collapse when deselected (another job is selected)
@@ -486,13 +492,13 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">
             <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-              <Link href="/auth/sign-up">
+              <Link href={signUpUrl}>
                 Create Account
               </Link>
             </Button>
             <div className="text-center text-sm text-gray-600">
               Already have an account?{" "}
-              <Link href="/auth/login" className="text-blue-600 hover:text-blue-800 font-medium">
+              <Link href={loginUrl} className="text-blue-600 hover:text-blue-800 font-medium">
                 Log in
               </Link>
             </div>

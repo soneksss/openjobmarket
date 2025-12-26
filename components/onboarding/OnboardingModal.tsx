@@ -3,25 +3,27 @@
 import { useState } from "react"
 import { OnboardingFlow } from "./OnboardingFlow"
 import { X, MapPin, Briefcase } from "lucide-react"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface OnboardingModalProps {
   action: "provider" | "hiring"
 }
 
 export function OnboardingModal({ action }: OnboardingModalProps) {
+  const { t } = useTranslation()
   const [isOpen, setIsOpen] = useState(false)
 
   const buttonConfig = {
     provider: {
       icon: MapPin,
-      title: "Put Me on the Market",
-      subtitle: "I'm looking for work or want to offer my services",
+      title: t('onboarding.putMeOnMarket'),
+      subtitle: t('onboarding.lookingForWork'),
       gradient: "from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700"
     },
     hiring: {
       icon: Briefcase,
-      title: "Post Jobs",
-      subtitle: "I want to hire people or find professionals",
+      title: t('onboarding.postJobs'),
+      subtitle: t('onboarding.wantToHire'),
       gradient: "from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700"
     }
   }

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Loader2, X } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/context"
@@ -23,6 +23,11 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
+
+  // Locale-aware sign-up URL
+  const isOnBrRoute = pathname?.startsWith('/br')
+  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
 
   console.log('[LOGIN-FORM] State:', { email, password, isLoading, hasError: !!error })
 
@@ -331,7 +336,7 @@ export default function LoginForm() {
             </Link>
             <div>
               {t('auth.dontHaveAccount')}{" "}
-              <Link href="/auth/sign-up" className="underline underline-offset-4">
+              <Link href={signUpUrl} className="underline underline-offset-4">
                 {t('auth.signUp')}
               </Link>
             </div>

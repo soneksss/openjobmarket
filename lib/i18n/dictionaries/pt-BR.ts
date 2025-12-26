@@ -68,6 +68,17 @@ export const ptBR: Dictionary = {
     privacy: 'Política de Privacidade',
     terms: 'Termos de Serviço',
   },
+  guestBanner: {
+    browsing: 'Navegando como convidado.',
+    signUpFree: 'Cadastre-se grátis',
+    toSendMessages: 'para enviar mensagens e usar filtros.',
+  },
+  onboarding: {
+    putMeOnMarket: 'Me Coloque no Mercado',
+    lookingForWork: 'Estou procurando trabalho ou quero oferecer meus serviços',
+    postJobs: 'Publicar Vagas',
+    wantToHire: 'Quero contratar pessoas ou encontrar profissionais',
+  },
   hero: {
     title: 'Encontre o Emprego dos Seus Sonhos',
     subtitle: 'O primeiro marketplace de empregos baseado em mapas do mundo, conectando talentos com oportunidades em todo o globo',
@@ -466,5 +477,224 @@ export const ptBR: Dictionary = {
     getStartedAsTradesperson: 'Começar como Profissional',
     findLocalHelp: 'Encontrar Ajuda Local',
     clickToLearnMore: 'Clique para saber mais →',
+    // Job Categories - Most Popular
+    plumber: 'Encanador',
+    gasEngineer: 'Técnico de Gás',
+    electrician: 'Eletricista',
+    plasterer: 'Gesseiro',
+    careWorker: 'Cuidador',
+    manWithVan: 'Fretista',
+    programmer: 'Programador',
+    delivery: 'Entregador',
+    roofer: 'Telhadista',
+    builder: 'Pedreiro',
+    cleaner: 'Faxineiro',
+    bathrooms: 'Banheiros',
+    windowsDoors: 'Janelas/Portas',
+    driveways: 'Calçadas',
+    labour: 'Trabalhador',
+    nurse: 'Enfermeiro',
+    driver: 'Motorista',
+    warehouse: 'Armazém',
+    gardener: 'Jardineiro',
+    administrator: 'Administrador',
+    tiler: 'Ladrilheiro',
+    // Other Trades
+    carpenter: 'Carpinteiro',
+    painter: 'Pintor',
+    handyman: 'Faz-tudo',
+    locksmith: 'Chaveiro',
+    heating: 'Aquecimento',
+    fencing: 'Cercas',
+    treeSurgeon: 'Arborista',
+    mechanic: 'Mecânico',
+    flooring: 'Pisos',
+    kitchenFitter: 'Montador de Cozinha',
+    hvac: 'Climatização',
+    glazier: 'Vidraceiro',
+    decorator: 'Decorador',
+    bricklayer: 'Pedreiro',
+    scaffolder: 'Andaimeiro',
+    welder: 'Soldador',
+    // Tech & IT
+    softwareEngineer: 'Engenheiro de Software',
+    webDesigner: 'Web Designer',
+    designer: 'Designer',
+    aiSpecialist: 'Especialista em IA',
+    itSupport: 'Suporte de TI',
+    dataAnalyst: 'Analista de Dados',
+    cybersecurity: 'Segurança Cibernética',
+    devOps: 'DevOps',
+    // Healthcare
+    doctor: 'Médico',
+    pharmacist: 'Farmacêutico',
+    dentist: 'Dentista',
+    // Professional Services
+    accountant: 'Contador',
+    marketing: 'Marketing',
+    sales: 'Vendas',
+    hrManager: 'Gerente de RH',
+    lawyer: 'Advogado',
+    teacher: 'Professor',
+    recruiter: 'Recrutador',
+    consultant: 'Consultor',
+    architect: 'Arquiteto',
+    // Other Services
+    chef: 'Chef',
+    security: 'Segurança',
+    photographer: 'Fotógrafo',
+    barber: 'Barbeiro',
+    personalTrainer: 'Personal Trainer',
+    eventPlanner: 'Organizador de Eventos',
+  },
+
+  // Main Search Card
+  mainSearch: {
+    // Title
+    title: 'Pesquisar e Comparar',
+
+    // Search Type Buttons
+    vacancies: 'Vagas',
+    tradeJobs: 'Trabalhos',
+    tradespeople: 'Profissionais',
+    talents: 'Talentos',
+
+    // Actions
+    search: 'Buscar',
+    searching: 'Buscando...',
+    clearFilters: 'Limpar Filtros',
+    toggleFilters: 'Alternar filtros',
+
+    // Placeholders
+    searchPlaceholder: 'ex: Engenheiro, Marketing, Encanador',
+    locationPlaceholder: 'ex: São Paulo, Rio de Janeiro',
+    skillsPlaceholder: 'ex: React, Python, Gestão de Projetos',
+
+    // Tooltips
+    pickLocationOnMap: 'Escolher localização no mapa',
+
+    // Filter Section Titles
+    filtersJobVacancies: ' - Vagas de Emprego',
+    filtersTradeJobs: ' - Trabalhos',
+    filtersTradespeople: ' - Profissionais',
+    filtersTalents: ' - Talentos',
+
+    // Validation Messages
+    enterSearchTerm: 'Por favor, insira um termo de busca ou selecione pelo menos um filtro',
+    selectLocation: 'Por favor, selecione uma localização',
+    selectValidLocation: 'Por favor, selecione uma localização válida da lista',
+    searchFailed: 'Busca falhou. Por favor, tente novamente.',
+
+    // Filter Labels
+    jobType: 'Tipo de Trabalho',
+    experienceLevel: 'Nível de Experiência',
+    workLocation: 'Local de Trabalho',
+    salaryRange: 'Faixa Salarial',
+    requiredSkills: 'Habilidades Requeridas',
+    distance: 'Distância',
+    industry: 'Indústria',
+    urgency: 'Urgência',
+    budgetRange: 'Faixa de Orçamento',
+    employmentStatus: 'Status de Emprego',
+    tradeCategory: 'Categoria Profissional',
+
+    // Job Type Options
+    allTypes: 'Todos os Tipos',
+    fullTime: 'Tempo integral',
+    partTime: 'Meio período',
+    contract: 'Contrato',
+    temporary: 'Temporário',
+    oneOffJob: 'Trabalho único',
+    ongoingWork: 'Trabalho contínuo',
+    emergency: 'Emergência',
+
+    // Experience Level Options
+    allLevels: 'Todos os Níveis',
+    entryLevel: 'Nível Iniciante',
+    midLevel: 'Nível Intermediário',
+    seniorLevel: 'Nível Sênior',
+    leadPrincipal: 'Líder/Principal',
+    entryLevel02: 'Nível Iniciante (0-2 anos)',
+    midLevel35: 'Nível Intermediário (3-5 anos)',
+    senior610: 'Sênior (6-10 anos)',
+    expert10Plus: 'Expert (10+ anos)',
+
+    // Work Location Options
+    allLocations: 'Todas as Localizações',
+    remote: 'Remoto',
+    onsite: 'Presencial',
+    remoteAnyLocation: 'Remoto (qualquer localização)',
+
+    // Salary Range Options
+    anySalary: 'Qualquer Salário',
+    under30k: 'Abaixo de £30mil',
+    salary30to50k: '£30mil - £50mil',
+    salary50to75k: '£50mil - £75mil',
+    salary75to100k: '£75mil - £100mil',
+    salary100kPlus: '£100mil+',
+
+    // Distance Options
+    within5Miles: 'Até 5 milhas',
+    within10Miles: 'Até 10 milhas',
+    within25Miles: 'Até 25 milhas',
+    within50Miles: 'Até 50 milhas',
+    within100Miles: 'Até 100 milhas',
+
+    // Industry / Trade Category Options
+    allIndustries: 'Todas as Indústrias',
+    allTrades: 'Todos os Profissionais',
+    construction: 'Construção',
+    plumbing: 'Encanamento',
+    electrical: 'Elétrica',
+    carpentry: 'Carpintaria',
+    paintingDecorating: 'Pintura e Decoração',
+    roofing: 'Telhados',
+    landscaping: 'Paisagismo',
+
+    // Urgency Options
+    anyTime: 'Qualquer Momento',
+    urgentASAP: 'Urgente (O mais rápido possível)',
+    withinWeek: 'Dentro de uma Semana',
+    withinMonth: 'Dentro de um Mês',
+    flexible: 'Flexível',
+
+    // Budget Range Options
+    anyBudget: 'Qualquer Orçamento',
+    under500: 'Abaixo de £500',
+    budget500to1k: '£500 - £1mil',
+    budget1kto5k: '£1mil - £5mil',
+    budget5kto10k: '£5mil - £10mil',
+    budget10kPlus: '£10mil+',
+
+    // Employment Status Options
+    anyStatus: 'Qualquer Status',
+    lookingForWork: 'Procurando Trabalho',
+    openToOpportunities: 'Aberto a Oportunidades',
+    selfEmployed: 'Autônomo',
+
+    // Checkbox Filters
+    noExperienceTraining: 'Sem experiência necessária (Treinamento fornecido)',
+    noExperienceRequired: 'Sem experiência necessária',
+    drivingLicenseRequired: 'Carteira de motorista necessária',
+    ownTransportRequired: 'Transporte próprio necessário',
+    service247: 'Serviço 24/7',
+    hasCVUploaded: 'Tem currículo enviado',
+    hasDrivingLicense: 'Tem carteira de motorista',
+    hasOwnTransport: 'Tem transporte próprio',
+    willingToRelocate: 'Disposto a se mudar',
+
+    // Map Picker Dialog
+    mapPickerTitle: 'Escolher Localização no Mapa',
+    mapPickerDescription: 'Clique em qualquer lugar do mapa para selecionar sua localização de busca',
+    searchRadius: 'Raio de Busca:',
+    mile: 'milha',
+    miles: 'milhas',
+    clickToConfirm: 'Clique em "Usar Esta Localização" para confirmar sua seleção',
+    clickMapToSelect: 'Clique em qualquer lugar do mapa para selecionar uma localização',
+    useThisLocation: 'Usar Esta Localização',
+
+    // Result Limit Warning
+    moreThan100Results: 'Mais de 100 resultados encontrados.',
+    showing100Results: 'Mostrando os primeiros 100 resultados. Por favor, reduza o raio de busca ou use filtros para restringir sua busca para resultados mais específicos.',
   },
 }

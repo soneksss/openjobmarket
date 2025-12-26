@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -36,6 +36,12 @@ interface SignupData {
 
 export default function MultiStepSignup() {
   const router = useRouter()
+  const pathname = usePathname()
+
+  // Locale-aware onboarding URL
+  const isOnBrRoute = pathname?.startsWith('/br')
+  const onboardingUrl = isOnBrRoute ? '/br/onboarding' : '/onboarding'
+
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -200,7 +206,8 @@ export default function MultiStepSignup() {
       }
 
       // Redirect to onboarding to complete profile
-      router.push("/onboarding")
+      // Preserve locale when redirecting
+      router.push(onboardingUrl)
     } catch (err: any) {
       console.error("Signup error:", err)
       setError(err.message || "An error occurred during signup")

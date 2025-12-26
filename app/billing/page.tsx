@@ -6,9 +6,16 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CreditCard, Building2, ArrowLeft, AlertCircle } from "lucide-react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 
 export default function BillingPage() {
+  const pathname = usePathname()
+
+  // Locale-aware sign-up URL
+  const isOnBrRoute = pathname?.startsWith('/br')
+  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+
   const [subscriptionsEnabled, setSubscriptionsEnabled] = useState(true)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
@@ -146,7 +153,7 @@ export default function BillingPage() {
                     asChild={subscriptionsEnabled}
                   >
                     {subscriptionsEnabled ? (
-                      <Link href="/auth/sign-up">Start Premium Trial</Link>
+                      <Link href={signUpUrl}>Start Premium Trial</Link>
                     ) : (
                       <span>Currently Unavailable</span>
                     )}

@@ -1,11 +1,13 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Settings, Bell, User, Lock, CreditCard, ArrowLeft, Mail } from "lucide-react"
+import { Settings, Bell, User, Lock, CreditCard, ArrowLeft, Mail, Eye } from "lucide-react"
 import NotificationPreferences from "@/components/notification-preferences"
 import EmailPreferences from "@/components/email-preferences"
+import ProfileVisibilitySettings from "@/components/profile-visibility-settings"
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
+import { getSignUpUrl } from "@/lib/auth-redirect"
 
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
@@ -108,6 +110,15 @@ export default async function AccountSettingsPage() {
           <h2 className="text-2xl font-bold">Email Preferences</h2>
         </div>
         <EmailPreferences userId={user.id} />
+      </div>
+
+      {/* Profile Visibility Settings Section */}
+      <div className="mb-8">
+        <div className="flex items-center mb-6">
+          <Eye className="h-6 w-6 mr-3 text-primary" />
+          <h2 className="text-2xl font-bold">Profile Visibility</h2>
+        </div>
+        <ProfileVisibilitySettings userId={user.id} />
       </div>
 
       {/* Additional Settings */}

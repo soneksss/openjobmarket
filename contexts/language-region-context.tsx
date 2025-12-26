@@ -47,20 +47,56 @@ export function LanguageRegionProvider({
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [showBrowserSuggestion, setShowBrowserSuggestion] = useState(false)
 
-  // Initialize from localStorage and check for browser language suggestion
+  // Initialize from cookie (priority) or localStorage, and check for browser language suggestion
   useEffect(() => {
-    const stored = getLanguageRegionFromStorage()
-    if (stored) {
-      setState(stored)
-    } else if (isFirstVisit()) {
-      // First visit - check browser language
-      const browserLang = detectBrowserLanguage()
-      if (browserLang === 'pt-BR' && state.language === 'en') {
-        // Show suggestion for pt-BR users
-        setShowBrowserSuggestion(true)
+    // First, check if NEXT_LOCALE cookie is set (from /br route via middleware)
+    const cookies = document.cookie.split(';')
+    const nextLocaleCookie = cookies.find(c => c.trim().startsWith('NEXT_LOCALE='))
+    const nextLocale = nextLocaleCookie?.split('=')[1]?.trim()
+
+    if (nextLocale === 'pt-BR') {
+      // Auto-set language and region from /br route
+      const newState: LanguageRegionState = { language: 'pt-BR', country: 'BR' }
+      setState(newState)
+      // Save to storage so it persists
+      saveLanguageRegionToStorage(newState)
+      // Update i18n locale
+      setLocale('pt-BR')
+    } else {
+      // Fall back to localStorage
+      const stored = getLanguageRegionFromStorage()
+      if (stored) {
+        setState(stored)
+      } else if (isFirstVisit()) {
+        // First visit - check browser language
+        const browserLang = detectBrowserLanguage()
+        if (browserLang === 'pt-BR' && state.language === 'en') {
+          // Show suggestion for pt-BR users
+          setShowBrowserSuggestion(true)
+        }
       }
     }
-  }, [])
+  }, [setLocale])
+
+  // Sync with pathname changes (e.g., when navigating from / to /br or vice versa)
+  useEffect(() => {
+    const cookies = document.cookie.split(';')
+    const nextLocaleCookie = cookies.find(c => c.trim().startsWith('NEXT_LOCALE='))
+    const nextLocale = nextLocaleCookie?.split('=')[1]?.trim()
+
+    // Determine expected state based on pathname
+    const isOnBrRoute = pathname?.startsWith('/br')
+    const expectedLanguage: Language = isOnBrRoute ? 'pt-BR' : (nextLocale === 'pt-BR' ? 'pt-BR' : 'en')
+    const expectedCountry: Country = isOnBrRoute ? 'BR' : 'GLOBAL'
+
+    // Update if state doesn't match expectations
+    if (state.language !== expectedLanguage || state.country !== expectedCountry) {
+      const newState: LanguageRegionState = { language: expectedLanguage, country: expectedCountry }
+      setState(newState)
+      saveLanguageRegionToStorage(newState)
+      setLocale(expectedLanguage)
+    }
+  }, [pathname, state.language, state.country, setLocale])
 
   const updateLanguageRegion = useCallback((language: Language, country: Country) => {
     const newState = { language, country }
@@ -74,6 +110,9 @@ export function LanguageRegionProvider({
 
     // Set cookie for server-side access
     document.cookie = `${LANGUAGE_REGION_COOKIE}=${createLanguageRegionCookie(newState)}; path=/; max-age=31536000; SameSite=Lax`
+
+    // Set user preference cookie to prevent auto-redirect from overriding manual choice
+    document.cookie = `USER_LOCALE_PREFERENCE=${language}; path=/; max-age=31536000; SameSite=Lax`
 
     // Update i18n locale for translations
     const i18nLocale: Locale = language === 'pt-BR' ? 'pt-BR' : 'en'

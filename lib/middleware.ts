@@ -75,18 +75,23 @@ export async function middleware(req: NextRequest) {
     },
   });
 
-  // === I18N LOCALE DETECTION ===
-  // Handle locale detection and cookie setting
+  // === I18N LOCALE DETECTION & AUTO-REDIRECT ===
+  // Handle locale detection, auto-redirect for Brazilian users, and cookie setting
   const currentLocale = getLocaleFromPathname(pathname)
+  const isOnBrRoute = pathname.startsWith('/br')
 
-  // For root path only, check if we should redirect based on browser language
-  if (pathname === '/') {
+  // Check for manual user preference (set when user explicitly chooses language)
+  const userPreference = req.cookies.get('USER_LOCALE_PREFERENCE')?.value
+
+  // Auto-redirect Brazilian users to /br (if no manual preference set)
+  if (!isOnBrRoute && !userPreference) {
     const preferredLocale = detectBrowserLocale(req)
 
-    // Only redirect if browser prefers pt-BR and we're on English route
+    // Redirect to /br + current path if browser prefers Portuguese
     if (preferredLocale === 'pt-BR') {
       const url = req.nextUrl.clone()
-      url.pathname = '/br'
+      // Preserve the current path by adding /br prefix
+      url.pathname = `/br${pathname}`
       const response = NextResponse.redirect(url)
       response.cookies.set('NEXT_LOCALE', 'pt-BR', {
         maxAge: 60 * 60 * 24 * 365, // 1 year
@@ -96,12 +101,29 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // Track manual language selection: if user visits root (/) when they were previously on /br,
+  // or explicitly navigates to a non-/br path, set preference to English
+  if (!isOnBrRoute && pathname === '/' && req.cookies.get('NEXT_LOCALE')?.value === 'pt-BR') {
+    res.cookies.set('USER_LOCALE_PREFERENCE', 'en', {
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      path: '/',
+    })
+  }
+
   // Set locale cookie based on current path
   if (currentLocale) {
     res.cookies.set('NEXT_LOCALE', currentLocale, {
       maxAge: 60 * 60 * 24 * 365, // 1 year
       path: '/',
     })
+
+    // Update user preference when on /br (they chose Portuguese)
+    if (isOnBrRoute && currentLocale === 'pt-BR') {
+      res.cookies.set('USER_LOCALE_PREFERENCE', 'pt-BR', {
+        maxAge: 60 * 60 * 24 * 365, // 1 year
+        path: '/',
+      })
+    }
   }
 
   // === AUTH PROTECTION ===
@@ -159,11 +181,13 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/messages/:path*",
-    "/applications/:path*",
-    "/profile/:path*",
-    "/company/profile/:path*",
-    "/admin/:path*",
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+     * - api routes (handled separately)
+     */
+    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
   ],
 };

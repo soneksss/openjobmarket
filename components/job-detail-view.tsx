@@ -21,7 +21,7 @@ import {
   Star,
 } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import JobApplicationForm from "./job-application-form"
 
@@ -116,7 +116,13 @@ export default function JobDetailView({
   companyReviews
 }: JobDetailViewProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
+
+  // Locale-aware sign-up URL
+  const isOnBrRoute = pathname?.startsWith('/br')
+  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+
   const [loading, setLoading] = useState(false)
   const [coverLetter, setCoverLetter] = useState("")
   const [isInquiryDialogOpen, setIsInquiryDialogOpen] = useState(false)
@@ -539,7 +545,7 @@ export default function JobDetailView({
                   )}
                   {!user && (
                     <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                      <Link href="/auth/sign-up">Sign Up to Apply</Link>
+                      <Link href={signUpUrl}>Sign Up to Apply</Link>
                     </Button>
                   )}
                 </div>
@@ -694,7 +700,7 @@ export default function JobDetailView({
                     Sign up to apply for this position and manage your privacy settings.
                   </p>
                   <Button asChild className="bg-blue-600 hover:bg-blue-700 px-8 py-3">
-                    <Link href="/auth/sign-up">Sign Up to Apply</Link>
+                    <Link href={signUpUrl}>Sign Up to Apply</Link>
                   </Button>
                 </CardContent>
               </Card>

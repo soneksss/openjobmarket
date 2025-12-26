@@ -44,7 +44,7 @@ import {
   AlertCircle
 } from "lucide-react"
 import Link from "next/link"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import JobMap from "@/components/job-map"
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"
 import { createClient } from "@/lib/client"
@@ -115,7 +115,13 @@ interface JobMapViewProps {
 
 export default function JobMapView({ jobs, user, searchParams, center, categoriesSection, basePath = '/jobs', warningMessage }: JobMapViewProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const urlSearchParams = useSearchParams()
+
+  // Locale-aware auth URLs
+  const isOnBrRoute = pathname?.startsWith('/br')
+  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+  const loginUrl = isOnBrRoute ? '/br/auth/login' : '/auth/login'
 
   // Check if this is saved jobs view
   const isSavedJobsView = searchParams.saved === 'true'
@@ -1249,7 +1255,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                 asChild
                 className="px-6 md:px-8 py-3 md:py-4 text-base md:text-lg font-semibold bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                <Link href="/auth/sign-up">Start Your Success Story</Link>
+                <Link href={signUpUrl}>Start Your Success Story</Link>
               </Button>
             ) : (
               <Button
@@ -2305,13 +2311,13 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
           </DialogHeader>
           <div className="flex flex-col gap-4 py-4">
             <Button asChild className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-              <Link href="/auth/sign-up">
+              <Link href={signUpUrl}>
                 Create Account
               </Link>
             </Button>
             <div className="text-center text-sm text-gray-600">
               Already have an account?{" "}
-              <Link href="/auth/login" className="text-blue-600 hover:text-blue-800 font-medium">
+              <Link href={loginUrl} className="text-blue-600 hover:text-blue-800 font-medium">
                 Log in
               </Link>
             </div>

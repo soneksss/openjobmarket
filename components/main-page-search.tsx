@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LocationInput } from "@/components/location-input"
 import { Search, Users, Hammer, Map, X, Target, MapPin, SlidersHorizontal } from "lucide-react"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ProfessionalMap } from "@/components/professional-map"
 import ProfessionalsPageContent from "@/components/professionals-page-content"
 import {
@@ -24,6 +24,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/client"
+import { useTranslation } from "@/lib/i18n/context"
+
+const RESULT_LIMIT = 100
 
 interface MainPageSearchProps {
   onSearchStateChange?: (hasResults: boolean) => void
@@ -31,8 +34,10 @@ interface MainPageSearchProps {
 }
 
 export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: MainPageSearchProps = {}) {
+  const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
+  const pathname = usePathname()
   const supabase = createClient()
   const [searchQuery, setSearchQuery] = useState("")
   const [location, setLocation] = useState("")
@@ -403,18 +408,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       (selectedSearchType === "talents" && hasTalentFilters)
 
     if (!searchQuery.trim() && !canSkipSearchQuery) {
-      return "Please enter a search term or select at least one filter"
+      return t('mainSearch.enterSearchTerm')
     }
 
     // Allow empty location if work location is "Remote"
     const canSkipLocation = workLocation === "remote"
 
     if (!location.trim() && !canSkipLocation) {
-      return "Please select a location"
+      return t('mainSearch.selectLocation')
     }
     if (!selectedLocation && !canSkipLocation) {
-      setLocationError("Please select a valid location from the list")
-      return "Please select a valid location from the list"
+      setLocationError(t('mainSearch.selectValidLocation'))
+      return t('mainSearch.selectValidLocation')
     }
     return null
   }
@@ -431,8 +436,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       } else if (signinRequired && !user) {
         console.log('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
         // Redirect to sign-up page to encourage new user registration
+        // Preserve locale when redirecting
         const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
-        router.push(`/auth/sign-up?redirect=${returnUrl}`)
+        const isOnBrRoute = pathname?.startsWith('/br')
+        const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+        router.push(`${signUpUrl}?redirect=${returnUrl}`)
         return
       }
     } catch (err) {
@@ -453,7 +461,6 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     // Always show modal for all users (registered and unregistered)
     try {
       let results: any[] = []
-      const RESULT_LIMIT = 100
 
       // Get radius value in miles
       const radiusMiles = parseInt(distance) || 10
@@ -1003,7 +1010,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     } catch (error) {
       console.error("[MAIN-PAGE-SEARCH] Search error:", error)
       // Ensure loading state is reset even on error
-      alert("Search failed. Please try again.")
+      alert(t('mainSearch.searchFailed'))
     } finally {
       setIsSearching(false)
       console.log(`[MAIN-PAGE-SEARCH] Search completed, isSearching set to false`)
@@ -1276,7 +1283,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     <div className="w-full relative z-[100]">
       <div className="max-w-2xl mx-auto bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-2 sm:p-3 md:p-4 shadow-xl border border-white/10">
         <h2 className="text-xs sm:text-sm md:text-base font-bold text-white mb-2 sm:mb-2.5 md:mb-3 text-center">
-          Search and Compare
+          {t('mainSearch.title')}
         </h2>
 
         {/* Selectable Search Type Buttons */}
@@ -1289,7 +1296,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
             }`}
           >
-            Vacancies
+            {t('mainSearch.vacancies')}
           </button>
           <button
             onClick={() => setSelectedSearchType("jobs_tasks")}
@@ -1299,7 +1306,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
             }`}
           >
-            Trade Jobs
+            {t('mainSearch.tradeJobs')}
           </button>
           <button
             onClick={() => setSelectedSearchType("traders")}
@@ -1309,7 +1316,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
             }`}
           >
-            Tradespeople
+            {t('mainSearch.tradespeople')}
           </button>
           <button
             onClick={() => setSelectedSearchType("talents")}
@@ -1319,7 +1326,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
             }`}
           >
-            Talents
+            {t('mainSearch.talents')}
           </button>
         </div>
 
@@ -1342,7 +1349,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                     setShowSuggestions(false)
                   }, 200)
                 }}
-                placeholder="e.g. Engineer, Marketing, Plumber"
+                placeholder={t('mainSearch.searchPlaceholder')}
                 className="h-full text-xs md:text-sm px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md w-full"
               />
 
@@ -1376,7 +1383,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 value={location}
                 onChange={setLocation}
                 onLocationSelect={handleLocationSelect}
-                placeholder="e.g. London, New York"
+                placeholder={t('mainSearch.locationPlaceholder')}
                 error={locationError}
               />
             </div>
@@ -1385,7 +1392,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             <Button
               onClick={handleMapPickerClick}
               className="h-8 sm:h-9 md:h-10 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
-              title="Pick location on map"
+              title={t('mainSearch.pickLocationOnMap')}
               type="button"
             >
               <Map className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
@@ -1403,7 +1410,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               }`}
             >
               <Search className="h-4 w-4 mr-1.5" />
-              {isSearching ? "Searching..." : "Search"}
+              {isSearching ? t('mainSearch.searching') : t('mainSearch.search')}
             </Button>
 
             {/* Filter button - desktop only */}
@@ -1415,7 +1422,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
                 "bg-emerald-600 hover:bg-emerald-700"
               } ${showFilters ? "ring-2 ring-white/50" : ""}`}
-              title="Toggle filters"
+              title={t('mainSearch.toggleFilters')}
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -1434,7 +1441,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               }`}
             >
               <Search className="h-4 w-4 mr-1.5" />
-              {isSearching ? "Searching..." : "Search"}
+              {isSearching ? t('mainSearch.searching') : t('mainSearch.search')}
             </Button>
 
             {/* Filter button - mobile */}
@@ -1446,7 +1453,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
                 "bg-emerald-600 hover:bg-emerald-700"
               } ${showFilters ? "ring-2 ring-white/50" : ""}`}
-              title="Toggle filters"
+              title={t('mainSearch.toggleFilters')}
             >
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
@@ -1457,84 +1464,84 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             <div className="mt-3 p-3 sm:p-4 bg-white/5 backdrop-blur-sm rounded-lg border border-white/10">
               <h3 className="text-xs sm:text-sm font-bold text-white mb-3 flex items-center gap-2">
                 <SlidersHorizontal className="h-4 w-4" />
-                Filters
-                {selectedSearchType === "vacancies" && " - Job Vacancies"}
-                {selectedSearchType === "jobs_tasks" && " - Trade Jobs"}
-                {selectedSearchType === "traders" && " - Tradespeople"}
-                {selectedSearchType === "talents" && " - Talents"}
+                {t('common.filters')}
+                {selectedSearchType === "vacancies" && t('mainSearch.filtersJobVacancies')}
+                {selectedSearchType === "jobs_tasks" && t('mainSearch.filtersTradeJobs')}
+                {selectedSearchType === "traders" && t('mainSearch.filtersTradespeople')}
+                {selectedSearchType === "talents" && t('mainSearch.filtersTalents')}
               </h3>
 
               {/* Vacancies Filters */}
               {selectedSearchType === "vacancies" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Job Type</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.jobType')}</label>
                     <Select value={jobType} onValueChange={setJobType}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="full-time">Full-time</SelectItem>
-                        <SelectItem value="part-time">Part-time</SelectItem>
-                        <SelectItem value="contract">Contract</SelectItem>
-                        <SelectItem value="temporary">Temporary</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.allTypes')}</SelectItem>
+                        <SelectItem value="full-time">{t('mainSearch.fullTime')}</SelectItem>
+                        <SelectItem value="part-time">{t('mainSearch.partTime')}</SelectItem>
+                        <SelectItem value="contract">{t('mainSearch.contract')}</SelectItem>
+                        <SelectItem value="temporary">{t('mainSearch.temporary')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Experience Level</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.experienceLevel')}</label>
                     <Select value={experienceLevel} onValueChange={setExperienceLevel}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Levels</SelectItem>
-                        <SelectItem value="entry">Entry Level</SelectItem>
-                        <SelectItem value="mid">Mid Level</SelectItem>
-                        <SelectItem value="senior">Senior Level</SelectItem>
-                        <SelectItem value="lead">Lead/Principal</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.allLevels')}</SelectItem>
+                        <SelectItem value="entry">{t('mainSearch.entryLevel')}</SelectItem>
+                        <SelectItem value="mid">{t('mainSearch.midLevel')}</SelectItem>
+                        <SelectItem value="senior">{t('mainSearch.seniorLevel')}</SelectItem>
+                        <SelectItem value="lead">{t('mainSearch.leadPrincipal')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Work Location</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.workLocation')}</label>
                     <Select value={workLocation} onValueChange={setWorkLocation}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Locations</SelectItem>
-                        <SelectItem value="remote">Remote</SelectItem>
-                        <SelectItem value="onsite">On-site</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.allLocations')}</SelectItem>
+                        <SelectItem value="remote">{t('mainSearch.remote')}</SelectItem>
+                        <SelectItem value="onsite">{t('mainSearch.onsite')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Salary Range</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.salaryRange')}</label>
                     <Select value={salaryRange} onValueChange={setSalaryRange}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any Salary</SelectItem>
-                        <SelectItem value="0-30k">Under £30k</SelectItem>
-                        <SelectItem value="30-50k">£30k - £50k</SelectItem>
-                        <SelectItem value="50-75k">£50k - £75k</SelectItem>
-                        <SelectItem value="75-100k">£75k - £100k</SelectItem>
-                        <SelectItem value="100k+">£100k+</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.anySalary')}</SelectItem>
+                        <SelectItem value="0-30k">{t('mainSearch.under30k')}</SelectItem>
+                        <SelectItem value="30-50k">{t('mainSearch.salary30to50k')}</SelectItem>
+                        <SelectItem value="50-75k">{t('mainSearch.salary50to75k')}</SelectItem>
+                        <SelectItem value="75-100k">{t('mainSearch.salary75to100k')}</SelectItem>
+                        <SelectItem value="100k+">{t('mainSearch.salary100kPlus')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {/* Skills Input */}
                   <div className="sm:col-span-2">
-                    <label className="text-xs text-white/70 mb-1.5 block">Required Skills</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.requiredSkills')}</label>
                     <Input
-                      placeholder="e.g. React, Python, Project Management"
+                      placeholder={t('mainSearch.skillsPlaceholder')}
                       className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white placeholder:text-white/40"
                     />
                   </div>
@@ -1548,7 +1555,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={noExperienceRequired}
                         onChange={(e) => setNoExperienceRequired(e.target.checked)}
                       />
-                      <span>No experience required (Training provided)</span>
+                      <span>{t('mainSearch.noExperienceTraining')}</span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
                       <input
@@ -1557,7 +1564,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={drivingLicenseRequired}
                         onChange={(e) => setDrivingLicenseRequired(e.target.checked)}
                       />
-                      <span>Driving license required</span>
+                      <span>{t('mainSearch.drivingLicenseRequired')}</span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
                       <input
@@ -1566,7 +1573,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={ownTransportRequired}
                         onChange={(e) => setOwnTransportRequired(e.target.checked)}
                       />
-                      <span>Own transport required</span>
+                      <span>{t('mainSearch.ownTransportRequired')}</span>
                     </label>
                   </div>
                 </div>
@@ -1576,68 +1583,68 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               {selectedSearchType === "jobs_tasks" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Industry</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.industry')}</label>
                     <Select value={tradeCategory} onValueChange={setTradeCategory}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Industries</SelectItem>
-                        <SelectItem value="construction">Construction</SelectItem>
-                        <SelectItem value="plumbing">Plumbing</SelectItem>
-                        <SelectItem value="electrical">Electrical</SelectItem>
-                        <SelectItem value="carpentry">Carpentry</SelectItem>
-                        <SelectItem value="painting">Painting & Decorating</SelectItem>
-                        <SelectItem value="roofing">Roofing</SelectItem>
-                        <SelectItem value="landscaping">Landscaping</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.allIndustries')}</SelectItem>
+                        <SelectItem value="construction">{t('mainSearch.construction')}</SelectItem>
+                        <SelectItem value="plumbing">{t('mainSearch.plumbing')}</SelectItem>
+                        <SelectItem value="electrical">{t('mainSearch.electrical')}</SelectItem>
+                        <SelectItem value="carpentry">{t('mainSearch.carpentry')}</SelectItem>
+                        <SelectItem value="painting">{t('mainSearch.paintingDecorating')}</SelectItem>
+                        <SelectItem value="roofing">{t('mainSearch.roofing')}</SelectItem>
+                        <SelectItem value="landscaping">{t('mainSearch.landscaping')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Urgency</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.urgency')}</label>
                     <Select value={urgency} onValueChange={setUrgency}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any Time</SelectItem>
-                        <SelectItem value="urgent">Urgent (ASAP)</SelectItem>
-                        <SelectItem value="week">Within a Week</SelectItem>
-                        <SelectItem value="month">Within a Month</SelectItem>
-                        <SelectItem value="flexible">Flexible</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.anyTime')}</SelectItem>
+                        <SelectItem value="urgent">{t('mainSearch.urgentASAP')}</SelectItem>
+                        <SelectItem value="week">{t('mainSearch.withinWeek')}</SelectItem>
+                        <SelectItem value="month">{t('mainSearch.withinMonth')}</SelectItem>
+                        <SelectItem value="flexible">{t('mainSearch.flexible')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Budget Range</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.budgetRange')}</label>
                     <Select value={budgetRange} onValueChange={setBudgetRange}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any Budget</SelectItem>
-                        <SelectItem value="0-500">Under £500</SelectItem>
-                        <SelectItem value="500-1k">£500 - £1k</SelectItem>
-                        <SelectItem value="1k-5k">£1k - £5k</SelectItem>
-                        <SelectItem value="5k-10k">£5k - £10k</SelectItem>
-                        <SelectItem value="10k+">£10k+</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.anyBudget')}</SelectItem>
+                        <SelectItem value="0-500">{t('mainSearch.under500')}</SelectItem>
+                        <SelectItem value="500-1k">{t('mainSearch.budget500to1k')}</SelectItem>
+                        <SelectItem value="1k-5k">{t('mainSearch.budget1kto5k')}</SelectItem>
+                        <SelectItem value="5k-10k">{t('mainSearch.budget5kto10k')}</SelectItem>
+                        <SelectItem value="10k+">{t('mainSearch.budget10kPlus')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Job Type</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.jobType')}</label>
                     <Select value={tradeJobType} onValueChange={setTradeJobType}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="one-off">One-off Job</SelectItem>
-                        <SelectItem value="ongoing">Ongoing Work</SelectItem>
-                        <SelectItem value="emergency">Emergency</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.allTypes')}</SelectItem>
+                        <SelectItem value="one-off">{t('mainSearch.oneOffJob')}</SelectItem>
+                        <SelectItem value="ongoing">{t('mainSearch.ongoingWork')}</SelectItem>
+                        <SelectItem value="emergency">{t('mainSearch.emergency')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1651,7 +1658,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={noExperienceRequired}
                         onChange={(e) => setNoExperienceRequired(e.target.checked)}
                       />
-                      <span>No experience required</span>
+                      <span>{t('mainSearch.noExperienceRequired')}</span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
                       <input
@@ -1660,7 +1667,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={drivingLicenseRequired}
                         onChange={(e) => setDrivingLicenseRequired(e.target.checked)}
                       />
-                      <span>Driving license required</span>
+                      <span>{t('mainSearch.drivingLicenseRequired')}</span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
                       <input
@@ -1669,7 +1676,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={ownTransportRequired}
                         onChange={(e) => setOwnTransportRequired(e.target.checked)}
                       />
-                      <span>Own transport required</span>
+                      <span>{t('mainSearch.ownTransportRequired')}</span>
                     </label>
                   </div>
                 </div>
@@ -1679,68 +1686,68 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               {selectedSearchType === "traders" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Distance</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.distance')}</label>
                     <Select value={distance} onValueChange={setDistance}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="5">Within 5 miles</SelectItem>
-                        <SelectItem value="10">Within 10 miles</SelectItem>
-                        <SelectItem value="25">Within 25 miles</SelectItem>
-                        <SelectItem value="50">Within 50 miles</SelectItem>
-                        <SelectItem value="100">Within 100 miles</SelectItem>
+                        <SelectItem value="5">{t('mainSearch.within5Miles')}</SelectItem>
+                        <SelectItem value="10">{t('mainSearch.within10Miles')}</SelectItem>
+                        <SelectItem value="25">{t('mainSearch.within25Miles')}</SelectItem>
+                        <SelectItem value="50">{t('mainSearch.within50Miles')}</SelectItem>
+                        <SelectItem value="100">{t('mainSearch.within100Miles')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Urgency</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.urgency')}</label>
                     <Select value={urgency} onValueChange={setUrgency}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any Time</SelectItem>
-                        <SelectItem value="urgent">Urgent (ASAP)</SelectItem>
-                        <SelectItem value="week">Within a Week</SelectItem>
-                        <SelectItem value="month">Within a Month</SelectItem>
-                        <SelectItem value="flexible">Flexible</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.anyTime')}</SelectItem>
+                        <SelectItem value="urgent">{t('mainSearch.urgentASAP')}</SelectItem>
+                        <SelectItem value="week">{t('mainSearch.withinWeek')}</SelectItem>
+                        <SelectItem value="month">{t('mainSearch.withinMonth')}</SelectItem>
+                        <SelectItem value="flexible">{t('mainSearch.flexible')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Job Type</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.jobType')}</label>
                     <Select value={tradeJobType} onValueChange={setTradeJobType}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="one-off">One-off Job</SelectItem>
-                        <SelectItem value="ongoing">Ongoing Work</SelectItem>
-                        <SelectItem value="emergency">Emergency</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.allTypes')}</SelectItem>
+                        <SelectItem value="one-off">{t('mainSearch.oneOffJob')}</SelectItem>
+                        <SelectItem value="ongoing">{t('mainSearch.ongoingWork')}</SelectItem>
+                        <SelectItem value="emergency">{t('mainSearch.emergency')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   {/* Trade Category Input */}
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Trade Category</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.tradeCategory')}</label>
                     <Select value={tradeCategory} onValueChange={setTradeCategory}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Trades</SelectItem>
-                        <SelectItem value="construction">Construction</SelectItem>
-                        <SelectItem value="plumbing">Plumbing</SelectItem>
-                        <SelectItem value="electrical">Electrical</SelectItem>
-                        <SelectItem value="carpentry">Carpentry</SelectItem>
-                        <SelectItem value="painting">Painting & Decorating</SelectItem>
-                        <SelectItem value="roofing">Roofing</SelectItem>
-                        <SelectItem value="landscaping">Landscaping</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.allTrades')}</SelectItem>
+                        <SelectItem value="construction">{t('mainSearch.construction')}</SelectItem>
+                        <SelectItem value="plumbing">{t('mainSearch.plumbing')}</SelectItem>
+                        <SelectItem value="electrical">{t('mainSearch.electrical')}</SelectItem>
+                        <SelectItem value="carpentry">{t('mainSearch.carpentry')}</SelectItem>
+                        <SelectItem value="painting">{t('mainSearch.paintingDecorating')}</SelectItem>
+                        <SelectItem value="roofing">{t('mainSearch.roofing')}</SelectItem>
+                        <SelectItem value="landscaping">{t('mainSearch.landscaping')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1754,7 +1761,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={availableForBusiness}
                         onChange={(e) => setAvailableForBusiness(e.target.checked)}
                       />
-                      <span>24/7 Service</span>
+                      <span>{t('mainSearch.service247')}</span>
                     </label>
                   </div>
                 </div>
@@ -1764,49 +1771,49 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               {selectedSearchType === "talents" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Experience Level</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.experienceLevel')}</label>
                     <Select value={experienceLevel} onValueChange={setExperienceLevel}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Levels</SelectItem>
-                        <SelectItem value="entry">Entry Level (0-2 yrs)</SelectItem>
-                        <SelectItem value="mid">Mid Level (3-5 yrs)</SelectItem>
-                        <SelectItem value="senior">Senior (6-10 yrs)</SelectItem>
-                        <SelectItem value="expert">Expert (10+ yrs)</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.allLevels')}</SelectItem>
+                        <SelectItem value="entry">{t('mainSearch.entryLevel02')}</SelectItem>
+                        <SelectItem value="mid">{t('mainSearch.midLevel35')}</SelectItem>
+                        <SelectItem value="senior">{t('mainSearch.senior610')}</SelectItem>
+                        <SelectItem value="expert">{t('mainSearch.expert10Plus')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Employment Status</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.employmentStatus')}</label>
                     <Select value={employmentStatus} onValueChange={setEmploymentStatus}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">Any Status</SelectItem>
-                        <SelectItem value="unemployed">Looking for Work</SelectItem>
-                        <SelectItem value="employed">Open to Opportunities</SelectItem>
-                        <SelectItem value="self-employed">Self-employed</SelectItem>
+                        <SelectItem value="all">{t('mainSearch.anyStatus')}</SelectItem>
+                        <SelectItem value="unemployed">{t('mainSearch.lookingForWork')}</SelectItem>
+                        <SelectItem value="employed">{t('mainSearch.openToOpportunities')}</SelectItem>
+                        <SelectItem value="self-employed">{t('mainSearch.selfEmployed')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">Distance</label>
+                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.distance')}</label>
                     <Select value={distance} onValueChange={setDistance}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="5">Within 5 miles</SelectItem>
-                        <SelectItem value="10">Within 10 miles</SelectItem>
-                        <SelectItem value="25">Within 25 miles</SelectItem>
-                        <SelectItem value="50">Within 50 miles</SelectItem>
-                        <SelectItem value="100">Within 100 miles</SelectItem>
-                        <SelectItem value="remote">Remote (any location)</SelectItem>
+                        <SelectItem value="5">{t('mainSearch.within5Miles')}</SelectItem>
+                        <SelectItem value="10">{t('mainSearch.within10Miles')}</SelectItem>
+                        <SelectItem value="25">{t('mainSearch.within25Miles')}</SelectItem>
+                        <SelectItem value="50">{t('mainSearch.within50Miles')}</SelectItem>
+                        <SelectItem value="100">{t('mainSearch.within100Miles')}</SelectItem>
+                        <SelectItem value="remote">{t('mainSearch.remoteAnyLocation')}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1820,7 +1827,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={hasCVUploaded}
                         onChange={(e) => setHasCVUploaded(e.target.checked)}
                       />
-                      <span>Has CV uploaded</span>
+                      <span>{t('mainSearch.hasCVUploaded')}</span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
                       <input
@@ -1829,7 +1836,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={hasDrivingLicense}
                         onChange={(e) => setHasDrivingLicense(e.target.checked)}
                       />
-                      <span>Has driving license</span>
+                      <span>{t('mainSearch.hasDrivingLicense')}</span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
                       <input
@@ -1838,7 +1845,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={hasOwnTransport}
                         onChange={(e) => setHasOwnTransport(e.target.checked)}
                       />
-                      <span>Has own transport</span>
+                      <span>{t('mainSearch.hasOwnTransport')}</span>
                     </label>
                     <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
                       <input
@@ -1847,7 +1854,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         checked={willingToRelocate}
                         onChange={(e) => setWillingToRelocate(e.target.checked)}
                       />
-                      <span>Willing to relocate</span>
+                      <span>{t('mainSearch.willingToRelocate')}</span>
                     </label>
                   </div>
                 </div>
@@ -1880,7 +1887,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                   variant="outline"
                   className="flex-1 h-8 text-xs bg-white/5 border-white/20 text-white hover:bg-white/10"
                 >
-                  Clear Filters
+                  {t('mainSearch.clearFilters')}
                 </Button>
               </div>
             </div>
@@ -1894,9 +1901,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           }}>
             <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[95vh] overflow-y-auto p-3 sm:p-6" showCloseButton={false}>
             <DialogHeader>
-              <DialogTitle className="text-base sm:text-lg">Pick Location on Map</DialogTitle>
+              <DialogTitle className="text-base sm:text-lg">{t('mainSearch.mapPickerTitle')}</DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
-                Click anywhere on the map to select your search location
+                {t('mainSearch.mapPickerDescription')}
               </DialogDescription>
             </DialogHeader>
 
@@ -1904,7 +1911,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg">
               <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                 <Target className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 flex-shrink-0" />
-                <label className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap">Search Radius:</label>
+                <label className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap">{t('mainSearch.searchRadius')}</label>
                 <Select value={mapPickerRadius} onValueChange={setMapPickerRadius}>
                   <SelectTrigger className="w-28 sm:w-32 h-8 sm:h-9 text-xs sm:text-sm font-medium border-gray-300 bg-white">
                     <SelectValue />
@@ -1912,7 +1919,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                   <SelectContent className="max-h-[300px]">
                     {[1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map((miles) => (
                       <SelectItem key={miles} value={miles.toString()}>
-                        {miles} mile{miles !== 1 ? 's' : ''}
+                        {miles} {miles !== 1 ? t('mainSearch.miles') : t('mainSearch.mile')}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1946,18 +1953,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left mb-2 sm:mb-0 sm:flex-1">
                 {mapPickerLocation ? (
                   <span className="font-medium text-gray-900">
-                    Click "Use This Location" to confirm your selection
+                    {t('mainSearch.clickToConfirm')}
                   </span>
                 ) : (
                   <span>
-                    Click anywhere on the map to select a location
+                    {t('mainSearch.clickMapToSelect')}
                   </span>
                 )}
               </div>
 
               <div className="flex gap-2 justify-center sm:justify-end">
                 <Button onClick={cancelMapPicker} variant="outline" size="sm" className="flex-1 sm:flex-none">
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
                 <Button
                   onClick={confirmMapPickerLocation}
@@ -1965,7 +1972,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                   size="sm"
                   className="bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none"
                 >
-                  Use This Location
+                  {t('mainSearch.useThisLocation')}
                 </Button>
               </div>
             </DialogFooter>
@@ -1981,8 +1988,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           {resultLimitReached && (
             <div className="bg-orange-50 border-b border-orange-200 px-4 py-3 text-center">
               <p className="text-sm text-orange-800">
-                <span className="font-semibold">More than 100 results found.</span> Showing first 100 results.
-                Please reduce the search radius or use filters to narrow your search for more specific results.
+                <span className="font-semibold">{t('mainSearch.moreThan100Results')}</span> {t('mainSearch.showing100Results')}
               </p>
             </div>
           )}

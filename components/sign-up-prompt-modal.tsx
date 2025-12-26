@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { UserPlus, MessageCircle, Filter, LayoutDashboard } from "lucide-react"
 
 interface SignUpPromptModalProps {
@@ -28,6 +28,7 @@ export function SignUpPromptModal({
   description,
 }: SignUpPromptModalProps) {
   const router = useRouter()
+  const pathname = usePathname()
 
   const actionConfig = {
     message: {
@@ -52,12 +53,18 @@ export function SignUpPromptModal({
 
   const handleSignUp = () => {
     onClose()
-    router.push("/auth/sign-up")
+    // Preserve locale when redirecting
+    const isOnBrRoute = pathname?.startsWith('/br')
+    const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+    router.push(signUpUrl)
   }
 
   const handleLogin = () => {
     onClose()
-    router.push("/auth/login")
+    // Preserve locale when redirecting
+    const isOnBrRoute = pathname?.startsWith('/br')
+    const loginUrl = isOnBrRoute ? '/br/auth/login' : '/auth/login'
+    router.push(loginUrl)
   }
 
   return (

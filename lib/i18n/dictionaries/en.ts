@@ -66,6 +66,17 @@ export const en = {
     privacy: 'Privacy Policy',
     terms: 'Terms of Service',
   },
+  guestBanner: {
+    browsing: 'Browsing as a guest.',
+    signUpFree: 'Sign up free',
+    toSendMessages: 'to send messages and use filters.',
+  },
+  onboarding: {
+    putMeOnMarket: 'Put Me on the Market',
+    lookingForWork: "I'm looking for work or want to offer my services",
+    postJobs: 'Post Jobs',
+    wantToHire: 'I want to hire people or find professionals',
+  },
   hero: {
     title: 'Find Your Dream Job',
     subtitle: 'The world\'s first map-based job marketplace connecting talent with opportunity across the globe',
@@ -464,6 +475,225 @@ export const en = {
     getStartedAsTradesperson: 'Get Started as Tradesperson',
     findLocalHelp: 'Find Local Help',
     clickToLearnMore: 'Click to learn more →',
+    // Job Categories - Most Popular
+    plumber: 'Plumber',
+    gasEngineer: 'Gas Engineer',
+    electrician: 'Electrician',
+    plasterer: 'Plasterer',
+    careWorker: 'Care Worker',
+    manWithVan: 'Man With a Van',
+    programmer: 'Programmer',
+    delivery: 'Delivery',
+    roofer: 'Roofer',
+    builder: 'Builder',
+    cleaner: 'Cleaner',
+    bathrooms: 'Bathrooms',
+    windowsDoors: 'Windows/Doors',
+    driveways: 'Driveways',
+    labour: 'Labour',
+    nurse: 'Nurse',
+    driver: 'Driver',
+    warehouse: 'Warehouse',
+    gardener: 'Gardener',
+    administrator: 'Administrator',
+    tiler: 'Tiler',
+    // Other Trades
+    carpenter: 'Carpenter',
+    painter: 'Painter',
+    handyman: 'Handyman',
+    locksmith: 'Locksmith',
+    heating: 'Heating',
+    fencing: 'Fencing',
+    treeSurgeon: 'Tree Surgeon',
+    mechanic: 'Mechanic',
+    flooring: 'Flooring',
+    kitchenFitter: 'Kitchen Fitter',
+    hvac: 'HVAC',
+    glazier: 'Glazier',
+    decorator: 'Decorator',
+    bricklayer: 'Bricklayer',
+    scaffolder: 'Scaffolder',
+    welder: 'Welder',
+    // Tech & IT
+    softwareEngineer: 'Software Engineer',
+    webDesigner: 'Web Designer',
+    designer: 'Designer',
+    aiSpecialist: 'AI Specialist',
+    itSupport: 'IT Support',
+    dataAnalyst: 'Data Analyst',
+    cybersecurity: 'Cybersecurity',
+    devOps: 'DevOps',
+    // Healthcare
+    doctor: 'Doctor',
+    pharmacist: 'Pharmacist',
+    dentist: 'Dentist',
+    // Professional Services
+    accountant: 'Accountant',
+    marketing: 'Marketing',
+    sales: 'Sales',
+    hrManager: 'HR Manager',
+    lawyer: 'Lawyer',
+    teacher: 'Teacher',
+    recruiter: 'Recruiter',
+    consultant: 'Consultant',
+    architect: 'Architect',
+    // Other Services
+    chef: 'Chef',
+    security: 'Security',
+    photographer: 'Photographer',
+    barber: 'Barber',
+    personalTrainer: 'Personal Trainer',
+    eventPlanner: 'Event Planner',
+  },
+
+  // Main Search Card
+  mainSearch: {
+    // Title
+    title: 'Search and Compare',
+
+    // Search Type Buttons
+    vacancies: 'Vacancies',
+    tradeJobs: 'Trade Jobs',
+    tradespeople: 'Tradespeople',
+    talents: 'Talents',
+
+    // Actions
+    search: 'Search',
+    searching: 'Searching...',
+    clearFilters: 'Clear Filters',
+    toggleFilters: 'Toggle filters',
+
+    // Placeholders
+    searchPlaceholder: 'e.g. Engineer, Marketing, Plumber',
+    locationPlaceholder: 'e.g. London, New York',
+    skillsPlaceholder: 'e.g. React, Python, Project Management',
+
+    // Tooltips
+    pickLocationOnMap: 'Pick location on map',
+
+    // Filter Section Titles
+    filtersJobVacancies: ' - Job Vacancies',
+    filtersTradeJobs: ' - Trade Jobs',
+    filtersTradespeople: ' - Tradespeople',
+    filtersTalents: ' - Talents',
+
+    // Validation Messages
+    enterSearchTerm: 'Please enter a search term or select at least one filter',
+    selectLocation: 'Please select a location',
+    selectValidLocation: 'Please select a valid location from the list',
+    searchFailed: 'Search failed. Please try again.',
+
+    // Filter Labels
+    jobType: 'Job Type',
+    experienceLevel: 'Experience Level',
+    workLocation: 'Work Location',
+    salaryRange: 'Salary Range',
+    requiredSkills: 'Required Skills',
+    distance: 'Distance',
+    industry: 'Industry',
+    urgency: 'Urgency',
+    budgetRange: 'Budget Range',
+    employmentStatus: 'Employment Status',
+    tradeCategory: 'Trade Category',
+
+    // Job Type Options
+    allTypes: 'All Types',
+    fullTime: 'Full-time',
+    partTime: 'Part-time',
+    contract: 'Contract',
+    temporary: 'Temporary',
+    oneOffJob: 'One-off Job',
+    ongoingWork: 'Ongoing Work',
+    emergency: 'Emergency',
+
+    // Experience Level Options
+    allLevels: 'All Levels',
+    entryLevel: 'Entry Level',
+    midLevel: 'Mid Level',
+    seniorLevel: 'Senior Level',
+    leadPrincipal: 'Lead/Principal',
+    entryLevel02: 'Entry Level (0-2 yrs)',
+    midLevel35: 'Mid Level (3-5 yrs)',
+    senior610: 'Senior (6-10 yrs)',
+    expert10Plus: 'Expert (10+ yrs)',
+
+    // Work Location Options
+    allLocations: 'All Locations',
+    remote: 'Remote',
+    onsite: 'On-site',
+    remoteAnyLocation: 'Remote (any location)',
+
+    // Salary Range Options
+    anySalary: 'Any Salary',
+    under30k: 'Under £30k',
+    salary30to50k: '£30k - £50k',
+    salary50to75k: '£50k - £75k',
+    salary75to100k: '£75k - £100k',
+    salary100kPlus: '£100k+',
+
+    // Distance Options
+    within5Miles: 'Within 5 miles',
+    within10Miles: 'Within 10 miles',
+    within25Miles: 'Within 25 miles',
+    within50Miles: 'Within 50 miles',
+    within100Miles: 'Within 100 miles',
+
+    // Industry / Trade Category Options
+    allIndustries: 'All Industries',
+    allTrades: 'All Trades',
+    construction: 'Construction',
+    plumbing: 'Plumbing',
+    electrical: 'Electrical',
+    carpentry: 'Carpentry',
+    paintingDecorating: 'Painting & Decorating',
+    roofing: 'Roofing',
+    landscaping: 'Landscaping',
+
+    // Urgency Options
+    anyTime: 'Any Time',
+    urgentASAP: 'Urgent (ASAP)',
+    withinWeek: 'Within a Week',
+    withinMonth: 'Within a Month',
+    flexible: 'Flexible',
+
+    // Budget Range Options
+    anyBudget: 'Any Budget',
+    under500: 'Under £500',
+    budget500to1k: '£500 - £1k',
+    budget1kto5k: '£1k - £5k',
+    budget5kto10k: '£5k - £10k',
+    budget10kPlus: '£10k+',
+
+    // Employment Status Options
+    anyStatus: 'Any Status',
+    lookingForWork: 'Looking for Work',
+    openToOpportunities: 'Open to Opportunities',
+    selfEmployed: 'Self-employed',
+
+    // Checkbox Filters
+    noExperienceTraining: 'No experience required (Training provided)',
+    noExperienceRequired: 'No experience required',
+    drivingLicenseRequired: 'Driving license required',
+    ownTransportRequired: 'Own transport required',
+    service247: '24/7 Service',
+    hasCVUploaded: 'Has CV uploaded',
+    hasDrivingLicense: 'Has driving license',
+    hasOwnTransport: 'Has own transport',
+    willingToRelocate: 'Willing to relocate',
+
+    // Map Picker Dialog
+    mapPickerTitle: 'Pick Location on Map',
+    mapPickerDescription: 'Click anywhere on the map to select your search location',
+    searchRadius: 'Search Radius:',
+    mile: 'mile',
+    miles: 'miles',
+    clickToConfirm: 'Click "Use This Location" to confirm your selection',
+    clickMapToSelect: 'Click anywhere on the map to select a location',
+    useThisLocation: 'Use This Location',
+
+    // Result Limit Warning
+    moreThan100Results: 'More than 100 results found.',
+    showing100Results: 'Showing first 100 results. Please reduce the search radius or use filters to narrow your search for more specific results.',
   },
 }
 

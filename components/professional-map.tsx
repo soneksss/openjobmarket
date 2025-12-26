@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { MapPin, MessageCircle } from "lucide-react"
 import dynamic from "next/dynamic"
 import { createClient } from "@/lib/client"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useLanguageRegion } from "@/contexts/language-region-context"
 import { getDefaultMapCenter } from "@/lib/i18n/language-region"
 
@@ -203,6 +203,7 @@ export function ProfessionalMap({
   const [isClient, setIsClient] = useState(false)
   const [sendingMessage, setSendingMessage] = useState<string | null>(null)
   const router = useRouter()
+  const pathname = usePathname()
   const supabase = createClient()
 
   const handleSendInquiry = (id: string, name: string) => {
@@ -210,7 +211,10 @@ export function ProfessionalMap({
       onSendInquiry(id, name)
     } else {
       // Fallback: Redirect to sign-up page if no handler provided
-      router.push("/auth/sign-up")
+      // Preserve locale when redirecting
+      const isOnBrRoute = pathname?.startsWith('/br')
+      const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+      router.push(signUpUrl)
       console.log(`[v0] Redirecting to sign-up for contact with ${name} (ID: ${id})`)
     }
   }

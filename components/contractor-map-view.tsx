@@ -1054,7 +1054,7 @@ export default function ContractorMapView({
                       value={locationFilter}
                       onChange={setLocationFilter}
                       onLocationSelect={handleLocationSelect}
-                      placeholder="e.g. London, New York"
+                      placeholder={t('contractors.locationPlaceholder')}
                       error=""
                       className="h-10 md:h-12 text-sm md:text-base"
                     />

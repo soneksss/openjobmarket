@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { X } from "lucide-react"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface GuestBannerProps {
   onSignUp?: () => void
@@ -10,7 +11,9 @@ interface GuestBannerProps {
 }
 
 export function GuestBanner({ onSignUp, hideOnSearch = false }: GuestBannerProps) {
+  const { t } = useTranslation()
   const router = useRouter()
+  const pathname = usePathname()
   const [isDismissed, setIsDismissed] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
 
@@ -36,27 +39,30 @@ export function GuestBanner({ onSignUp, hideOnSearch = false }: GuestBannerProps
     if (onSignUp) {
       onSignUp()
     } else {
-      router.push("/auth/sign-up")
+      // Preserve locale when redirecting to sign-up
+      const isOnBrRoute = pathname?.startsWith('/br')
+      const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+      router.push(signUpUrl)
     }
   }
 
   return (
     <div className="bg-blue-600 text-white py-2 px-4 text-center text-sm relative">
-      <span className="font-medium">Browsing as a guest.</span>
+      <span className="font-medium">{t('guestBanner.browsing')}</span>
       {" "}
       <button
         onClick={handleSignUp}
         className="underline hover:text-blue-100 font-semibold"
       >
-        Sign up free
+        {t('guestBanner.signUpFree')}
       </button>
-      {" "}to send messages and use filters.
+      {" "}{t('guestBanner.toSendMessages')}
 
       {/* Close button */}
       <button
         onClick={() => setIsDismissed(true)}
         className="absolute right-3 top-1/2 -translate-y-1/2 hover:bg-white/20 rounded p-1 transition-colors"
-        aria-label="Close banner"
+        aria-label={t('common.close')}
       >
         <X className="h-4 w-4" />
       </button>

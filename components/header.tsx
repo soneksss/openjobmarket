@@ -58,6 +58,11 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   // Language & Region context
   const { state: languageRegionState, openModal: openLanguageModal } = useLanguageRegion()
 
+  // Locale-aware auth URLs
+  const isOnBrRoute = pathname?.startsWith('/br')
+  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+  const loginUrl = isOnBrRoute ? '/br/auth/login' : '/auth/login'
+
   // Prevent hydration mismatch by only showing language text after mount
   useEffect(() => {
     setIsMounted(true)
@@ -940,7 +945,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                 </div>
               ) : (
                 <div className="flex items-center space-x-1 sm:space-x-2">
-                  <Link href="/auth/login">
+                  <Link href={loginUrl}>
                     <Button
                       variant="outline"
                       size="sm"
@@ -949,7 +954,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       {t('header.signIn')}
                     </Button>
                   </Link>
-                  <Link href="/auth/sign-up">
+                  <Link href={signUpUrl}>
                     <Button
                       size="sm"
                       className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"

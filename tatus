@@ -1,0 +1,43 @@
+* [33m87e8dda[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m chore: update gitignore for Windows compatibility
+* [33ma8c4249[m Brazil integration
+* [33mab125cd[m Ignore Windows reserved filenames
+* [33m67b5416[m Email preferences feature
+* [33m865e384[m update languagep
+* [33md3970e8[m update sign up
+* [33m8f1c307[m Initial commit
+* [33mbf43fe1[m fixed more than 10 bugs
+* [33m2a4bd42[m Update About page UI
+* [33m6807ae1[m Initial commit
+* [33m1a826d0[m Downgrade to React 18 for react-leaflet
+* [33mfbfe596[m new layout
+* [33m84a01c0[m improved the layout
+* [33m9c7a0f0[m improved the layout
+* [33maa0a228[m Remove invalid Windows file 'nul'
+* [33m2ad5321[m fix mobile friendly
+* [33m2639637[m Add beautiful marketing-oriented About Us page with our story and mission
+* [33m54d88e2[m Add comprehensive SEO strategy with 100+ target keywords, metadata helpers, and structured data
+* [33m995c610[m Fix sitemap XML error by removing query-parameter-based location pages
+* [33mb69197f[m sitemaps and robot
+* [33mad1ef14[m Enhance robots.txt with comprehensive rules for crawlers and better organization
+* [33m99b2061[m Enhance dynamic sitemap with all main pages and remove incorrect sitemaps.xml
+* [33m4f47e45[m Add comprehensive sitemap.xml with all main pages
+* [33mfce82b1[m Fix middleware to use createServerClient instead of non-existent createMiddlewareClient
+* [33mee78880[m Fix middleware import - resolve 500 Internal Server Error
+* [33m3d5be64[m new features
+* [33mb896bd2[m Fix duplicate dynamic export declarations in dashboard pages
+* [33m70f7ccf[m Restore working professional-map.tsx component
+* [33m8651acd[m Restore working job-map.tsx component
+* [33m3899f1d[m Fix dynamic export placement for Vercel deployment - Move 'export const dynamic' to correct position (after imports) - Ensures Next.js recognizes dynamic rendering configuration - Fixes 'Dynamic server usage' errors on Vercel
+* [33m01fe589[m Cleanup and organize project files
+* [33m24794f7[m Remove old migration SQL files
+* [33m8e5fe69[m Fix API route with nodejs runtime and enhanced error logging
+* [33mf3b9e53[m Fix Resend initialization to use runtime pattern for Vercel
+* [33m4af0683[m Update Resend to use non-null assertion for env variable
+* [33m6795785[m Fix TypeScript implicit any in languages map functions
+* [33m2ff61ec[m Fix LocationData type error for Vercel deployment
+* [33m5e01a67[m Fix TypeScript null assignment error for Vercel deployment
+* [33mcce8549[m Fix TS and ESLint for Vercel deploy
+* [33m932a21e[m Fix ESLint config
+* [33m9d6acd9[m Fix react-leaflet version for React 18
+* [33mf7a5f08[m Downgrade to React 18
+* [33mae9254d[m Initial commit
