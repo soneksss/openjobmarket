@@ -27,7 +27,9 @@ export default function LoginForm() {
 
   // Locale-aware sign-up URL
   const isOnBrRoute = pathname?.startsWith('/br')
-  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+  const signUpUrl = isOnBrRoute
+    ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : '/auth/sign-up'
 
   console.log('[LOGIN-FORM] State:', { email, password, isLoading, hasError: !!error })
 
@@ -238,6 +240,11 @@ export default function LoginForm() {
     }
   }
 
+  // Helper to create locale-aware paths
+  const getLocalePath = (path: string) => {
+    return isOnBrRoute ? `/br${path}` : path
+  }
+
   return (
     <Card className="w-full max-w-md relative">
       <Button
@@ -246,7 +253,7 @@ export default function LoginForm() {
         asChild
         className="absolute top-2 right-2 h-8 w-8 p-0 hover:bg-muted z-10 rounded-full"
       >
-        <Link href="/">
+        <Link href={getLocalePath("/")}>
           <X className="h-4 w-4" />
           <span className="sr-only">{t('common.close')}</span>
         </Link>

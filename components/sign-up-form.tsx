@@ -104,7 +104,9 @@ export default function SignUpForm({ initialUserType, error }: SignUpFormProps) 
             console.log("User exists but profile incomplete, redirecting to onboarding...")
             // Preserve locale when redirecting
             const isOnBrRoute = pathname?.startsWith('/br')
-            const onboardingUrl = isOnBrRoute ? '/br/onboarding' : '/onboarding'
+            const onboardingUrl = isOnBrRoute
+              ? '/onboarding?locale=pt-BR&returnUrl=/br'
+              : '/onboarding'
             router.push(onboardingUrl)
             return
           }
@@ -116,7 +118,9 @@ export default function SignUpForm({ initialUserType, error }: SignUpFormProps) 
       // New user registration successful
       // Preserve locale when redirecting
       const isOnBrRoute = pathname?.startsWith('/br')
-      const successUrl = isOnBrRoute ? '/br/auth/sign-up-success' : '/auth/sign-up-success'
+      const successUrl = isOnBrRoute
+        ? '/auth/sign-up-success?locale=pt-BR&returnUrl=/br'
+        : '/auth/sign-up-success'
       router.push(successUrl)
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "An error occurred")

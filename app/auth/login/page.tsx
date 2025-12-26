@@ -16,6 +16,8 @@ export default async function LoginPage() {
     redirect("/dashboard")
   }
 
+  // Note: Locale is now handled by middleware via query parameter
+
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 overflow-hidden">
       {/* Background Pattern */}

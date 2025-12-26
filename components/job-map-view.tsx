@@ -120,8 +120,12 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
   // Locale-aware auth URLs
   const isOnBrRoute = pathname?.startsWith('/br')
-  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
-  const loginUrl = isOnBrRoute ? '/br/auth/login' : '/auth/login'
+  const signUpUrl = isOnBrRoute
+    ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : '/auth/sign-up'
+  const loginUrl = isOnBrRoute
+    ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : '/auth/login'
 
   // Check if this is saved jobs view
   const isSavedJobsView = searchParams.saved === 'true'

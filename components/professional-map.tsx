@@ -213,7 +213,9 @@ export function ProfessionalMap({
       // Fallback: Redirect to sign-up page if no handler provided
       // Preserve locale when redirecting
       const isOnBrRoute = pathname?.startsWith('/br')
-      const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+      const signUpUrl = isOnBrRoute
+        ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+        : '/auth/sign-up'
       router.push(signUpUrl)
       console.log(`[v0] Redirecting to sign-up for contact with ${name} (ID: ${id})`)
     }

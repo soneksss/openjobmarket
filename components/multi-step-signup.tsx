@@ -40,7 +40,14 @@ export default function MultiStepSignup() {
 
   // Locale-aware onboarding URL
   const isOnBrRoute = pathname?.startsWith('/br')
-  const onboardingUrl = isOnBrRoute ? '/br/onboarding' : '/onboarding'
+  const onboardingUrl = isOnBrRoute
+    ? '/onboarding?locale=pt-BR&returnUrl=/br'
+    : '/onboarding'
+
+  // Helper to create locale-aware paths
+  const getLocalePath = (path: string) => {
+    return isOnBrRoute ? `/br${path}` : path
+  }
 
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
@@ -664,7 +671,7 @@ export default function MultiStepSignup() {
 
         <div className="mt-6 text-center text-sm">
           <span className="text-muted-foreground">Already have an account? </span>
-          <Link href="/auth/login" className="text-blue-600 hover:underline font-medium">
+          <Link href={isOnBrRoute ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}` : '/auth/login'} className="text-blue-600 hover:underline font-medium">
             Sign in
           </Link>
         </div>

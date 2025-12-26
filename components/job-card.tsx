@@ -80,8 +80,12 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
 
   // Locale-aware auth URLs
   const isOnBrRoute = pathname?.startsWith('/br')
-  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
-  const loginUrl = isOnBrRoute ? '/br/auth/login' : '/auth/login'
+  const signUpUrl = isOnBrRoute
+    ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : '/auth/sign-up'
+  const loginUrl = isOnBrRoute
+    ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : '/auth/login'
 
   // Auto-expand when selected from map pin click or card click
   // Auto-collapse when deselected (another job is selected)

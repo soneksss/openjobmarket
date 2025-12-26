@@ -60,8 +60,17 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
   // Locale-aware auth URLs
   const isOnBrRoute = pathname?.startsWith('/br')
-  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
-  const loginUrl = isOnBrRoute ? '/br/auth/login' : '/auth/login'
+  const signUpUrl = isOnBrRoute
+    ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : '/auth/sign-up'
+  const loginUrl = isOnBrRoute
+    ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : '/auth/login'
+
+  // Helper to create locale-aware paths
+  const getLocalePath = (path: string) => {
+    return isOnBrRoute ? `/br${path}` : path
+  }
 
   // Prevent hydration mismatch by only showing language text after mount
   useEffect(() => {
@@ -380,10 +389,10 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                 const hasUser = user || clientUser
 
                 // Always redirect to homepage (unified search page) for all users
-                let targetUrl = "/"
+                let targetUrl = getLocalePath("/")
 
                 // Don't redirect if already on the target page
-                if (pathname === targetUrl) {
+                if (pathname === targetUrl || (targetUrl === "/" && pathname === "/")) {
                   console.log('[HEADER] Already on target page:', targetUrl)
                   return
                 }
@@ -657,7 +666,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                   </DropdownMenuItem>
 
                   <DropdownMenuItem asChild>
-                    <Link href="/contact" className="cursor-pointer">
+                    <Link href={getLocalePath("/contact")} className="cursor-pointer">
                       <div className="flex flex-col items-start py-1">
                         <span className="font-medium">{t('header.reportBug')}</span>
                         <span className="text-xs text-muted-foreground">{t('header.helpImprove')}</span>
@@ -672,11 +681,11 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
             {showProfessionalsPageButtons && currentUser && (
               <div className="flex items-center space-x-4">
                 <Button variant="ghost" asChild>
-                  <Link href="/dashboard">{t('header.dashboard')}</Link>
+                  <Link href={getLocalePath("/dashboard")}>{t('header.dashboard')}</Link>
                 </Button>
                 {currentUserType === "company" && (
                   <Button asChild className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">
-                    <Link href="/jobs/new">{t('header.postJob')}</Link>
+                    <Link href={getLocalePath("/jobs/new")}>{t('header.postJob')}</Link>
                   </Button>
                 )}
               </div>
@@ -712,7 +721,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                 <div className="flex items-center space-x-2 sm:space-x-4">
                   {/* Dashboard Button - Home icon on mobile, Button on desktop */}
                   <Link
-                    href="/dashboard"
+                    href={getLocalePath("/dashboard")}
                     className="sm:hidden"
                   >
                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -720,7 +729,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     </Button>
                   </Link>
                   <Button asChild size="sm" className="hidden sm:inline-flex bg-green-600 hover:bg-green-700 text-xs">
-                    <Link href="/dashboard">{t('header.dashboard')}</Link>
+                    <Link href={getLocalePath("/dashboard")}>{t('header.dashboard')}</Link>
                   </Button>
                   {/* Message Icon */}
                   <MessageIcon user={currentUser} />
@@ -782,13 +791,13 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             {t('header.professionalProfile')}
                           </div>
                           <DropdownMenuItem asChild>
-                            <Link href="/profile/edit" className="flex items-center">
+                            <Link href={getLocalePath("/profile/edit")} className="flex items-center">
                               <User className="h-4 w-4 mr-2" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/dashboard/professional" className="flex items-center">
+                            <Link href={getLocalePath("/dashboard/professional")} className="flex items-center">
                               <Briefcase className="h-4 w-4 mr-2" />
                               {t('header.dashboard')}
                             </Link>
@@ -798,13 +807,13 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             {t('header.enquiriesComingSoon')}
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/dashboard/professional/saved" className="flex items-center">
+                            <Link href={getLocalePath("/dashboard/professional/saved")} className="flex items-center">
                               <BookmarkIcon className="h-4 w-4 mr-2" />
                               {t('header.savedJobs')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/account/settings" className="flex items-center">
+                            <Link href={getLocalePath("/account/settings")} className="flex items-center">
                               <Settings className="h-4 w-4 mr-2" />
                               {t('header.accountSettings')}
                             </Link>
@@ -816,25 +825,25 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             {t('header.companyProfile')}
                           </div>
                           <DropdownMenuItem asChild>
-                            <Link href="/company/profile/edit" className="flex items-center">
+                            <Link href={getLocalePath("/company/profile/edit")} className="flex items-center">
                               <Building2 className="h-4 w-4 mr-2" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/dashboard/company" className="flex items-center">
+                            <Link href={getLocalePath("/dashboard/company")} className="flex items-center">
                               <Briefcase className="h-4 w-4 mr-2" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/dashboard/company/my-applications" className="flex items-center">
+                            <Link href={getLocalePath("/dashboard/company/my-applications")} className="flex items-center">
                               <FileText className="h-4 w-4 mr-2" />
                               {t('header.myApplications')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/dashboard/company/subscription" className="flex items-center">
+                            <Link href={getLocalePath("/dashboard/company/subscription")} className="flex items-center">
                               <CreditCard className="h-4 w-4 mr-2" />
                               {t('header.subscriptionPlan')}
                             </Link>
@@ -844,7 +853,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             {t('header.enquiriesComingSoon')}
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/dashboard/company/saved" className="flex items-center">
+                            <Link href={getLocalePath("/dashboard/company/saved")} className="flex items-center">
                               <BookmarkIcon className="h-4 w-4 mr-2" />
                               {t('header.savedJobs')}
                             </Link>
@@ -854,7 +863,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             {t('header.savedTalents')}
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/account/settings" className="flex items-center">
+                            <Link href={getLocalePath("/account/settings")} className="flex items-center">
                               <Settings className="h-4 w-4 mr-2" />
                               {t('header.accountSettings')}
                             </Link>
@@ -866,13 +875,13 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             {t('header.userProfile')}
                           </div>
                           <DropdownMenuItem asChild>
-                            <Link href="/profile/edit" className="flex items-center">
+                            <Link href={getLocalePath("/profile/edit")} className="flex items-center">
                               <User className="h-4 w-4 mr-2" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/dashboard" className="flex items-center">
+                            <Link href={getLocalePath("/dashboard")} className="flex items-center">
                               <Briefcase className="h-4 w-4 mr-2" />
                               {t('header.dashboard')}
                             </Link>
@@ -886,37 +895,37 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             {t('header.adminTools')}
                           </div>
                           <DropdownMenuItem asChild>
-                            <Link href="/admin/dashboard" className="flex items-center text-purple-600 font-medium">
+                            <Link href={getLocalePath("/admin/dashboard")} className="flex items-center text-purple-600 font-medium">
                               <Shield className="h-4 w-4 mr-2" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/admin/analytics" className="flex items-center text-purple-600 font-medium">
+                            <Link href={getLocalePath("/admin/analytics")} className="flex items-center text-purple-600 font-medium">
                               <BarChart3 className="h-4 w-4 mr-2" />
                               {t('header.analytics')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/admin/settings" className="flex items-center text-purple-600 font-medium">
+                            <Link href={getLocalePath("/admin/settings")} className="flex items-center text-purple-600 font-medium">
                               <Settings className="h-4 w-4 mr-2" />
                               {t('header.settings')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/admin/users" className="flex items-center text-purple-600 font-medium">
+                            <Link href={getLocalePath("/admin/users")} className="flex items-center text-purple-600 font-medium">
                               <User className="h-4 w-4 mr-2" />
                               {t('header.manageUsers')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/admin/jobs" className="flex items-center text-purple-600 font-medium">
+                            <Link href={getLocalePath("/admin/jobs")} className="flex items-center text-purple-600 font-medium">
                               <Briefcase className="h-4 w-4 mr-2" />
                               {t('header.manageJobs')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild>
-                            <Link href="/admin/payments" className="flex items-center text-purple-600 font-medium">
+                            <Link href={getLocalePath("/admin/payments")} className="flex items-center text-purple-600 font-medium">
                               <CreditCard className="h-4 w-4 mr-2" />
                               {t('header.payments')}
                             </Link>
@@ -1524,9 +1533,9 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     <a href="mailto:support@openjobmarket.com" className="block text-blue-600 hover:text-blue-700 pl-2">
                       {t('header.contactSupport')}
                     </a>
-                    <a href="/contact" className="block text-blue-600 hover:text-blue-700 pl-2">
+                    <Link href={getLocalePath("/contact")} className="block text-blue-600 hover:text-blue-700 pl-2">
                       {t('header.reportBug')}
-                    </a>
+                    </Link>
                   </div>
                 )}
               </div>

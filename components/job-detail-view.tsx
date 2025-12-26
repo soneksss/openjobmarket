@@ -121,7 +121,9 @@ export default function JobDetailView({
 
   // Locale-aware sign-up URL
   const isOnBrRoute = pathname?.startsWith('/br')
-  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+  const signUpUrl = isOnBrRoute
+    ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : '/auth/sign-up'
 
   const [loading, setLoading] = useState(false)
   const [coverLetter, setCoverLetter] = useState("")

@@ -119,8 +119,10 @@ export function MapLocationPicker({
     }
     setIsSearching(true)
     try {
+      // Prioritize BR for Brazilian users, include all countries for GLOBAL
+      const countryCodes = languageRegionState.country === 'BR' ? 'br,pt,us' : 'gb,us,de,fr,br'
       const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=gb,us,de,fr&addressdetails=1`
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=${countryCodes}&addressdetails=1`
       )
       if (!res.ok) throw new Error("Failed to fetch location suggestions")
       const data: LocationSuggestion[] = await res.json()
@@ -178,7 +180,7 @@ export function MapLocationPicker({
 
   const resetLocation = () => {
     onChange(null)
-    setMapCenter([51.5074, -0.1278])
+    setMapCenter(defaultCenter) // Use locale-aware default instead of hardcoded London
     setMapZoom(6)
     setSearchQuery("")
     setSuggestions([])

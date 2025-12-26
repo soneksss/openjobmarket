@@ -55,7 +55,9 @@ export function SignUpPromptModal({
     onClose()
     // Preserve locale when redirecting
     const isOnBrRoute = pathname?.startsWith('/br')
-    const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+    const signUpUrl = isOnBrRoute
+      ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+      : '/auth/sign-up'
     router.push(signUpUrl)
   }
 
@@ -63,7 +65,9 @@ export function SignUpPromptModal({
     onClose()
     // Preserve locale when redirecting
     const isOnBrRoute = pathname?.startsWith('/br')
-    const loginUrl = isOnBrRoute ? '/br/auth/login' : '/auth/login'
+    const loginUrl = isOnBrRoute
+      ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+      : '/auth/login'
     router.push(loginUrl)
   }
 

@@ -439,8 +439,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Preserve locale when redirecting
         const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
         const isOnBrRoute = pathname?.startsWith('/br')
-        const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
-        router.push(`${signUpUrl}?redirect=${returnUrl}`)
+        const signUpUrl = isOnBrRoute
+          ? `/auth/sign-up?locale=pt-BR&redirect=${returnUrl}`
+          : `/auth/sign-up?redirect=${returnUrl}`
+        router.push(signUpUrl)
         return
       }
     } catch (err) {

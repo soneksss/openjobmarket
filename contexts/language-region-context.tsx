@@ -84,10 +84,11 @@ export function LanguageRegionProvider({
     const nextLocaleCookie = cookies.find(c => c.trim().startsWith('NEXT_LOCALE='))
     const nextLocale = nextLocaleCookie?.split('=')[1]?.trim()
 
-    // Determine expected state based on pathname
+    // Determine expected state based on pathname and locale cookie
     const isOnBrRoute = pathname?.startsWith('/br')
     const expectedLanguage: Language = isOnBrRoute ? 'pt-BR' : (nextLocale === 'pt-BR' ? 'pt-BR' : 'en')
-    const expectedCountry: Country = isOnBrRoute ? 'BR' : 'GLOBAL'
+    // If language is pt-BR (either from route or cookie), country should be BR
+    const expectedCountry: Country = (isOnBrRoute || nextLocale === 'pt-BR') ? 'BR' : 'GLOBAL'
 
     // Update if state doesn't match expectations
     if (state.language !== expectedLanguage || state.country !== expectedCountry) {

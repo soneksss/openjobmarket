@@ -14,7 +14,9 @@ export default function BillingPage() {
 
   // Locale-aware sign-up URL
   const isOnBrRoute = pathname?.startsWith('/br')
-  const signUpUrl = isOnBrRoute ? '/br/auth/sign-up' : '/auth/sign-up'
+  const signUpUrl = isOnBrRoute
+    ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : '/auth/sign-up'
 
   const [subscriptionsEnabled, setSubscriptionsEnabled] = useState(true)
   const [loading, setLoading] = useState(true)

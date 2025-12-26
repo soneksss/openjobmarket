@@ -80,11 +80,25 @@ export async function middleware(req: NextRequest) {
   const currentLocale = getLocaleFromPathname(pathname)
   const isOnBrRoute = pathname.startsWith('/br')
 
+  // Check for locale query parameter (e.g., /auth/sign-up?locale=pt-BR)
+  const localeParam = req.nextUrl.searchParams.get('locale')
+  if (localeParam === 'pt-BR') {
+    // Set cookie when locale parameter is present
+    res.cookies.set('NEXT_LOCALE', 'pt-BR', {
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      path: '/',
+    })
+    res.cookies.set('USER_LOCALE_PREFERENCE', 'pt-BR', {
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+      path: '/',
+    })
+  }
+
   // Check for manual user preference (set when user explicitly chooses language)
   const userPreference = req.cookies.get('USER_LOCALE_PREFERENCE')?.value
 
   // Auto-redirect Brazilian users to /br (if no manual preference set)
-  if (!isOnBrRoute && !userPreference) {
+  if (!isOnBrRoute && !userPreference && !localeParam) {
     const preferredLocale = detectBrowserLocale(req)
 
     // Redirect to /br + current path if browser prefers Portuguese
@@ -110,8 +124,8 @@ export async function middleware(req: NextRequest) {
     })
   }
 
-  // Set locale cookie based on current path
-  if (currentLocale) {
+  // Set locale cookie based on current path (only if not already set by query parameter)
+  if (currentLocale && !localeParam) {
     res.cookies.set('NEXT_LOCALE', currentLocale, {
       maxAge: 60 * 60 * 24 * 365, // 1 year
       path: '/',
