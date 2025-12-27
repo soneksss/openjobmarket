@@ -24,8 +24,20 @@ export function LayoutContent({
   const pathname = usePathname()
   const isAdminRoute = pathname?.startsWith("/admin")
 
-  // Detect locale from pathname
-  const locale: Locale = getLocaleFromPathname(pathname || '/')
+  // Detect locale from cookie (priority) or pathname
+  const getInitialLocale = (): Locale => {
+    if (typeof document !== 'undefined') {
+      const cookies = document.cookie.split(';')
+      const nextLocaleCookie = cookies.find(c => c.trim().startsWith('NEXT_LOCALE='))
+      const nextLocale = nextLocaleCookie?.split('=')[1]?.trim()
+      if (nextLocale === 'pt-BR' || nextLocale === 'en') {
+        return nextLocale as Locale
+      }
+    }
+    return getLocaleFromPathname(pathname || '/')
+  }
+
+  const locale: Locale = getInitialLocale()
 
   // Get initial language/region state from cookie (client-side)
   const getInitialLanguageRegionState = () => {
