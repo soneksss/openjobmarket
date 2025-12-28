@@ -119,12 +119,12 @@ export function AnalyticsKPICards() {
         {Array.from({ length: 8 }).map((_, i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
-              <div className="h-4 w-4 bg-gray-200 rounded animate-pulse" />
+              <div className="h-4 w-24 bg-zinc-700 rounded animate-pulse" />
+              <div className="h-4 w-4 bg-zinc-700 rounded animate-pulse" />
             </CardHeader>
             <CardContent>
-              <div className="h-8 w-16 bg-gray-200 rounded animate-pulse mb-1" />
-              <div className="h-3 w-32 bg-gray-200 rounded animate-pulse" />
+              <div className="h-8 w-16 bg-zinc-700 rounded animate-pulse mb-1" />
+              <div className="h-3 w-32 bg-zinc-700 rounded animate-pulse" />
             </CardContent>
           </Card>
         ))}
@@ -140,7 +140,7 @@ export function AnalyticsKPICards() {
           <div className="text-center text-red-600">
             <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
             <p className="font-medium">Failed to load analytics data</p>
-            <p className="text-sm text-gray-600 mt-1">{error}</p>
+            <p className="text-sm text-zinc-400 mt-1">{error}</p>
           </div>
         </CardContent>
       </Card>
@@ -244,7 +244,7 @@ export function AnalyticsKPICards() {
               <span className={
                 card.changeType === "positive" ? "text-green-600" :
                 card.changeType === "negative" ? "text-red-600" :
-                "text-gray-500"
+                "text-zinc-500"
               }>
                 {card.change}
               </span>
@@ -311,19 +311,19 @@ export function UserRegistrationChart() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle>User Registrations Over Time</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] bg-gray-100 rounded animate-pulse" />
+          <div className="h-[300px] bg-zinc-800 rounded animate-pulse" />
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card>
+    <Card className="bg-zinc-900 border-zinc-800">
       <CardHeader>
         <CardTitle>User Registrations Over Time</CardTitle>
       </CardHeader>
@@ -384,19 +384,19 @@ export function JobPostingChart() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle>Job Postings Over Time</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] bg-gray-100 rounded animate-pulse" />
+          <div className="h-[300px] bg-zinc-800 rounded animate-pulse" />
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card>
+    <Card className="bg-zinc-900 border-zinc-800">
       <CardHeader>
         <CardTitle>Job Postings Over Time</CardTitle>
       </CardHeader>
@@ -461,19 +461,19 @@ export function JobsByCategoryChart() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle>Companies by Industry</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] bg-gray-100 rounded animate-pulse" />
+          <div className="h-[300px] bg-zinc-800 rounded animate-pulse" />
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card>
+    <Card className="bg-zinc-900 border-zinc-800">
       <CardHeader>
         <CardTitle>Companies by Industry</CardTitle>
       </CardHeader>
@@ -531,19 +531,19 @@ export function UserTypesChart() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle>User Distribution</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] bg-gray-100 rounded animate-pulse" />
+          <div className="h-[300px] bg-zinc-800 rounded animate-pulse" />
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card>
+    <Card className="bg-zinc-900 border-zinc-800">
       <CardHeader>
         <CardTitle>User Distribution</CardTitle>
       </CardHeader>
@@ -625,14 +625,14 @@ export function TopEmployersTable() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle>Most Active Employers</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
+              <div key={i} className="h-16 bg-zinc-800 rounded animate-pulse" />
             ))}
           </div>
         </CardContent>
@@ -641,14 +641,14 @@ export function TopEmployersTable() {
   }
 
   return (
-    <Card>
+    <Card className="bg-zinc-900 border-zinc-800">
       <CardHeader>
         <CardTitle>Most Active Employers</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {data.map((employer, index) => (
-            <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+            <div key={index} className="flex items-center justify-between p-4 border border-zinc-800 rounded-lg">
               <div>
                 <div className="font-medium">{employer.name}</div>
                 <div className="text-sm text-muted-foreground">{employer.jobCount} jobs posted</div>
@@ -709,14 +709,14 @@ export function TopSkillsTable() {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle>Most Popular Skills</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
+              <div key={i} className="h-16 bg-zinc-800 rounded animate-pulse" />
             ))}
           </div>
         </CardContent>
@@ -725,16 +725,16 @@ export function TopSkillsTable() {
   }
 
   return (
-    <Card>
+    <Card className="bg-zinc-900 border-zinc-800">
       <CardHeader>
         <CardTitle>Most Popular Skills</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           {data.map((item, index) => (
-            <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+            <div key={index} className="flex items-center justify-between p-4 border border-zinc-800 rounded-lg">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
+                <div className="w-8 h-8 bg-blue-900/50 rounded-full flex items-center justify-center text-sm font-medium text-blue-400">
                   {index + 1}
                 </div>
                 <div className="font-medium">{item.skill}</div>
@@ -779,14 +779,14 @@ export function SystemLogsTable({ adminRole }: { adminRole: string }) {
 
   if (loading) {
     return (
-      <Card>
+      <Card className="bg-zinc-900 border-zinc-800">
         <CardHeader>
           <CardTitle>Recent System Activity</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-16 bg-gray-100 rounded animate-pulse" />
+              <div key={i} className="h-16 bg-zinc-800 rounded animate-pulse" />
             ))}
           </div>
         </CardContent>
@@ -799,7 +799,7 @@ export function SystemLogsTable({ adminRole }: { adminRole: string }) {
       case "login":
         return <UserCheck className="h-4 w-4 text-green-600" />
       case "logout":
-        return <Activity className="h-4 w-4 text-gray-600" />
+        return <Activity className="h-4 w-4 text-zinc-400" />
       case "error":
         return <AlertTriangle className="h-4 w-4 text-red-600" />
       default:
@@ -825,7 +825,7 @@ export function SystemLogsTable({ adminRole }: { adminRole: string }) {
   }
 
   return (
-    <Card>
+    <Card className="bg-zinc-900 border-zinc-800">
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Recent System Activity</CardTitle>
         <Button variant="outline" size="sm">
@@ -839,7 +839,7 @@ export function SystemLogsTable({ adminRole }: { adminRole: string }) {
             <div className="text-center py-8 text-muted-foreground">No recent system activity found</div>
           ) : (
             data.map((log, index) => (
-              <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+              <div key={index} className="flex items-center justify-between p-4 border border-zinc-800 rounded-lg">
                 <div className="flex items-center space-x-3">
                   {getActionIcon(log.action)}
                   <div>
@@ -857,6 +857,226 @@ export function SystemLogsTable({ adminRole }: { adminRole: string }) {
             ))
           )}
         </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// Country flag emojis mapping
+const COUNTRY_FLAGS: { [key: string]: string } = {
+  BR: "🇧🇷",
+  GB: "🇬🇧",
+  PT: "🇵🇹",
+  US: "🇺🇸",
+  CA: "🇨🇦",
+  AU: "🇦🇺",
+  NZ: "🇳🇿",
+  IE: "🇮🇪",
+  ES: "🇪🇸",
+  FR: "🇫🇷",
+  DE: "🇩🇪",
+  IT: "🇮🇹",
+  NL: "🇳🇱",
+  BE: "🇧🇪",
+  CH: "🇨🇭",
+  AT: "🇦🇹",
+  SE: "🇸🇪",
+  NO: "🇳🇴",
+  DK: "🇩🇰",
+  FI: "🇫🇮",
+  PL: "🇵🇱",
+  CZ: "🇨🇿",
+  HU: "🇭🇺",
+  RO: "🇷🇴",
+  BG: "🇧🇬",
+  GR: "🇬🇷",
+  TR: "🇹🇷",
+  RU: "🇷🇺",
+  UA: "🇺🇦",
+  IN: "🇮🇳",
+  CN: "🇨🇳",
+  JP: "🇯🇵",
+  KR: "🇰🇷",
+  SG: "🇸🇬",
+  MY: "🇲🇾",
+  TH: "🇹🇭",
+  PH: "🇵🇭",
+  ID: "🇮🇩",
+  VN: "🇻🇳",
+  ZA: "🇿🇦",
+  EG: "🇪🇬",
+  NG: "🇳🇬",
+  KE: "🇰🇪",
+  MX: "🇲🇽",
+  AR: "🇦🇷",
+  CL: "🇨🇱",
+  CO: "🇨🇴",
+  PE: "🇵🇪",
+  VE: "🇻🇪",
+  IL: "🇮🇱",
+  AE: "🇦🇪",
+  SA: "🇸🇦",
+}
+
+export function UsersByRegionTable() {
+  const [data, setData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchUsersByRegion() {
+      try {
+        console.log("[ANALYTICS-REGION] Fetching users by region...")
+        setLoading(true)
+
+        const response = await fetch("/api/admin/analytics/users-by-region")
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        const apiData = await response.json()
+        console.log("[ANALYTICS-REGION] API response received:", apiData)
+
+        setData(apiData)
+        setError(null)
+      } catch (err) {
+        console.error("[ANALYTICS-REGION] API fetch failed:", err)
+        setError(err instanceof Error ? err.message : "Unknown error")
+        setData({
+          byCountry: [],
+          clusters: [],
+          totalWithLocation: 0,
+          totalWithoutLocation: 0,
+          summary: { uniqueCountries: 0, topCountry: "None", topCountryCount: 0 }
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsersByRegion()
+  }, [])
+
+  if (loading) {
+    return (
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardHeader>
+          <CardTitle>Users by Region</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-16 bg-zinc-800 rounded animate-pulse" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardHeader>
+          <CardTitle>Users by Region</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="p-4 bg-red-50 border border-red-200 rounded text-red-700">
+            <p className="font-medium">Error loading regional data</p>
+            <p className="text-sm">{error}</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const { byCountry, totalWithLocation, totalWithoutLocation, summary } = data
+
+  return (
+    <Card className="bg-zinc-900 border-zinc-800">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Users by Region</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Distribution of registered users across {summary.uniqueCountries} countries
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold">{totalWithLocation.toLocaleString()}</div>
+            <div className="text-xs text-muted-foreground">users with location</div>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {totalWithoutLocation > 0 && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm">
+            <p>
+              ⚠️ <strong>{totalWithoutLocation}</strong> users have no location data yet.
+              They will be included once location is added.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {byCountry.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No user location data available yet
+            </div>
+          ) : (
+            byCountry.map((country: any, index: number) => {
+              const flag = COUNTRY_FLAGS[country.country_code] || "🌍"
+              const percentage = ((country.count / totalWithLocation) * 100).toFixed(1)
+
+              return (
+                <div key={country.country_code} className="flex items-center justify-between p-4 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-colors">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-blue-900/50 rounded-full flex items-center justify-center text-sm font-medium text-blue-400">
+                      {index + 1}
+                    </div>
+                    <div className="text-2xl">{flag}</div>
+                    <div>
+                      <div className="font-medium">{country.country_name}</div>
+                      <div className="text-sm text-muted-foreground">{country.country_code}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="text-right">
+                      <div className="font-bold text-lg">{country.count.toLocaleString()}</div>
+                      <div className="text-xs text-muted-foreground">{percentage}%</div>
+                    </div>
+                    <div className="w-24 bg-zinc-700 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {byCountry.length > 0 && (
+          <div className="mt-6 pt-4 border-t">
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-2xl font-bold text-blue-600">{summary.uniqueCountries}</div>
+                <div className="text-xs text-muted-foreground">Countries</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600">{summary.topCountry}</div>
+                <div className="text-xs text-muted-foreground">Top Country</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-purple-600">{summary.topCountryCount}</div>
+                <div className="text-xs text-muted-foreground">Users in Top Country</div>
+              </div>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
