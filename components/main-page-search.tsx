@@ -103,6 +103,64 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
   // Get suggestions - unified list for all search types
   const getSuggestions = (): string[] => {
+    const { locale } = useTranslation()
+    const isPtBR = locale === 'pt-BR'
+
+    if (isPtBR) {
+      return [
+        // Empregos Profissionais & Escritório
+        "Engenheiro de Software", "Desenvolvedor Web", "Desenvolvedor Frontend", "Desenvolvedor Backend", "Desenvolvedor Full Stack",
+        "Desenvolvedor Mobile", "Engenheiro DevOps", "Cientista de Dados", "Engenheiro de Machine Learning",
+        "Gerente de Projetos", "Gerente de Produto", "Scrum Master", "Analista de Negócios", "Product Owner",
+        "Gerente de Marketing", "Profissional de Marketing Digital", "Especialista em SEO", "Criador de Conteúdo", "Gerente de Redes Sociais",
+        "Designer UX/UI", "Designer Gráfico", "Designer de Produto", "Web Designer",
+        "Representante de Vendas", "Gerente de Vendas", "Gerente de Contas", "Customer Success",
+        "Contador", "Analista Financeiro", "Gerente Financeiro",
+        "Gerente de RH", "Especialista em RH", "Recrutador",
+        "Analista de Dados", "Quality Assurance", "Engenheiro de Testes",
+        "Engenheiro de Redes", "Administrador de Redes", "Administrador de Banco de Dados", "Suporte de TI", "Analista de Segurança",
+        "Consultor Jurídico", "Oficial de Compliance", "Gerente de Riscos",
+        "Gerente de Operações", "Gerente de Cadeia de Suprimentos", "Gerente de Armazém", "Coordenador de Logística",
+        "Atendimento ao Cliente", "Assistente Administrativo", "Engenheiro de Suporte",
+        "Redator de Conteúdo", "Copywriter", "Redator Técnico", "Editor de Vídeo", "Fotógrafo",
+        "Professor", "Enfermeiro", "Farmacêutico", "Fisioterapeuta",
+
+        // Ofícios & Construção
+        "Encanador", "Encanamento", "Encanador de Emergência", "Engenheiro de Gás", "Engenheiro de Aquecimento", "Instalador de Caldeiras",
+        "Eletricista", "Trabalho Elétrico", "Refiação", "Atualização de Quadro de Distribuição",
+        "Carpinteiro", "Carpintaria", "Instalador de Cozinhas", "Marceneiro",
+        "Construtor", "Gerente de Construção", "Construtor Geral", "Gerente de Obra",
+        "Pedreiro", "Alvenaria", "Trabalhador de Fundações",
+        "Gesseiro", "Gesso", "Especialista em Reboco",
+        "Pintor", "Pintor & Decorador", "Pintura & Decoração", "Decorador",
+        "Telhador", "Telhado", "Reparo de Telhado", "Calhas",
+        "Azulejista", "Azulejamento", "Instalador de Banheiros", "Instalação de Banheiros",
+        "Especialista em Pisos", "Pisos", "Instalador de Carpetes",
+        "Instalador de Janelas", "Instalação de Janelas", "Instalação de Portas", "Vidraceiro",
+        "Instalador de Cozinhas", "Instalação de Cozinhas",
+        "Paisagista", "Jardineiro", "Paisagismo de Jardim", "Cirurgião de Árvores", "Cirurgia de Árvores",
+        "Pavimentação", "Empreiteiro de Pavimentação", "Deck",
+        "Cercas", "Empreiteiro de Cercas",
+        "Faz-Tudo", "Manutenção Geral",
+        "Chaveiro", "Especialista em Segurança",
+        "Instalador de CCTV", "Instalação de CCTV", "Engenheiro de Alarmes", "Sistema de Alarme",
+        "Especialista em Drenagem", "Trabalho de Drenagem", "Dreno Entupido",
+        "Impermeabilização", "Isolamento contra Umidade",
+        "Andaimeiro", "Andaimes",
+        "Arquiteto", "Agrimensor", "Designer de Interiores", "Engenheiro Estrutural",
+        "Engenheiro Civil", "Engenheiro Mecânico", "Engenheiro Elétrico",
+        "Oficial de Saúde e Segurança",
+        "Instalador de Painéis Solares", "Painéis Solares", "Energia Renovável", "Ar Condicionado",
+        "Conservatório", "Conversão de Sótão", "Construção de Extensão", "Conversão de Garagem",
+
+        // Outros Ofícios & Serviços
+        "Mecânico", "Eletricista Automotivo", "Técnico de Veículos",
+        "Operador de Armazém", "Motorista", "Motorista de Entrega", "Motorista de Caminhão",
+        "Faxineiro", "Serviços de Limpeza", "Limpeza Profunda",
+        "Controle de Pragas", "Exterminador"
+      ]
+    }
+
     return [
       // Professional & Office Jobs
       "Software Engineer", "Web Developer", "Frontend Developer", "Backend Developer", "Full Stack Developer",

@@ -33,6 +33,17 @@ interface SignupData {
   location: string
   latitude: number | null
   longitude: number | null
+  // Step 5: Detailed Profile Fields
+  // Professional/Jobseeker fields
+  title: string
+  bio: string
+  experienceLevel: "entry" | "mid" | "senior" | "lead" | "executive"
+  skills: string[]
+  hourlyRate: string
+  // Company fields
+  industry: string
+  companyBio: string
+  services: string[]
 }
 
 export default function MultiStepSignup() {
@@ -73,6 +84,15 @@ export default function MultiStepSignup() {
     location: "",
     latitude: null,
     longitude: null,
+    // Step 5 fields
+    title: "",
+    bio: "",
+    experienceLevel: "mid",
+    skills: [],
+    hourlyRate: "",
+    industry: "",
+    companyBio: "",
+    services: [],
   })
 
   const updateSignupData = (updates: Partial<SignupData>) => {
@@ -128,10 +148,25 @@ export default function MultiStepSignup() {
   }
 
   const handleSignup = async () => {
-    if (!validateStep3()) return
+    // Validate Step 5 data
+    setError(null)
+
+    if (signupData.accountType === "individual" && !signupData.title) {
+      setError("Professional title is required")
+      return
+    }
+
+    if (signupData.accountType === "company" && !signupData.industry) {
+      setError("Industry is required")
+      return
+    }
+
+    if (signupData.accountType === "company" && (!signupData.latitude || !signupData.longitude)) {
+      setError("Company location is required")
+      return
+    }
 
     setIsLoading(true)
-    setError(null)
 
     try {
       const supabase = createClient()
@@ -139,16 +174,14 @@ export default function MultiStepSignup() {
       // Determine user_type based on account type and roles
       let userType: string
       if (signupData.accountType === "individual") {
-        // For individuals, check which role they selected
         if (signupData.roles.jobseeker) {
           userType = "professional"
         } else if (signupData.roles.homeowner) {
           userType = "homeowner"
         } else {
-          userType = "professional" // Default fallback
+          userType = "professional"
         }
       } else {
-        // For companies, always set as "company"
         userType = "company"
       }
 
@@ -160,7 +193,7 @@ export default function MultiStepSignup() {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             account_type: signupData.accountType,
-            user_type: userType, // Add user_type to metadata
+            user_type: userType,
             first_name: signupData.firstName,
             last_name: signupData.lastName,
             company_name: signupData.companyName,
@@ -171,11 +204,11 @@ export default function MultiStepSignup() {
       if (signUpError) throw signUpError
       if (!authData.user) throw new Error("Failed to create user")
 
-      // Upsert user record with roles and location (insert if not exists, update if exists)
+      // Create user record
       const { error: userError } = await supabase.from("users").upsert({
         id: authData.user.id,
         email: signupData.email,
-        user_type: userType, // Use the same userType as metadata
+        user_type: userType,
         account_type: signupData.accountType,
         is_jobseeker: signupData.roles.jobseeker,
         is_homeowner: signupData.roles.homeowner,
@@ -186,37 +219,59 @@ export default function MultiStepSignup() {
         latitude: signupData.latitude,
         longitude: signupData.longitude,
       }, {
-        onConflict: 'id'  // Use id as the conflict resolution key
+        onConflict: 'id'
       })
 
-      if (userError) {
-        console.error("Error creating/updating user record:", userError)
+      if (userError) throw userError
 
-        // If user record creation/update fails, try to update the auth metadata at least
-        // so onboarding can work with metadata
-        if (authData.user) {
-          try {
-            await supabase.auth.updateUser({
-              data: {
-                user_type: userType,
-                account_type: signupData.accountType
-              }
-            })
-            console.log("Updated auth metadata as fallback")
-          } catch (metadataError) {
-            console.error("Failed to update metadata:", metadataError)
-          }
-        }
+      // Create profile based on user type
+      if (userType === "professional") {
+        const { error: profileError } = await supabase.from("professional_profiles").insert({
+          user_id: authData.user.id,
+          first_name: signupData.firstName,
+          last_name: signupData.lastName,
+          title: signupData.title,
+          bio: signupData.bio || null,
+          experience_level: signupData.experienceLevel,
+          skills: signupData.skills.length > 0 ? signupData.skills : null,
+          hourly_rate: signupData.hourlyRate ? parseFloat(signupData.hourlyRate) : null,
+          location: signupData.location || null,
+          latitude: signupData.latitude,
+          longitude: signupData.longitude,
+        })
 
-        // Show warning to user but allow them to continue to onboarding
-        console.warn("User created in auth but database record may be incomplete. User can complete setup in onboarding.")
-      } else {
-        console.log("User record created/updated successfully with location data")
+        if (profileError) throw profileError
+      } else if (userType === "company") {
+        const { error: profileError } = await supabase.from("company_profiles").insert({
+          user_id: authData.user.id,
+          company_name: signupData.companyName,
+          industry: signupData.industry,
+          bio: signupData.companyBio || null,
+          services: signupData.services.length > 0 ? signupData.services : null,
+          location: signupData.location,
+          latitude: signupData.latitude,
+          longitude: signupData.longitude,
+        })
+
+        if (profileError) throw profileError
+      } else if (userType === "homeowner") {
+        const { error: profileError } = await supabase.from("homeowner_profiles").insert({
+          user_id: authData.user.id,
+          first_name: signupData.firstName,
+          last_name: signupData.lastName,
+        })
+
+        if (profileError) throw profileError
       }
 
-      // Redirect to onboarding to complete profile
-      // Preserve locale when redirecting
-      router.push(onboardingUrl)
+      // Redirect directly to dashboard (locale-aware)
+      const dashboardUrl = userType === "professional"
+        ? getLocalePath("/dashboard/professional")
+        : userType === "company"
+        ? getLocalePath("/dashboard/company")
+        : getLocalePath("/dashboard/homeowner")
+
+      router.push(dashboardUrl)
     } catch (err: any) {
       console.error("Signup error:", err)
       setError(err.message || "An error occurred during signup")
@@ -257,7 +312,7 @@ export default function MultiStepSignup() {
       <CardHeader>
         <CardTitle className="text-2xl">{t('signup.title')}</CardTitle>
         <CardDescription>
-          {t('signup.step')} {currentStep === 1 ? "1" : currentStep === 4 ? "3" : "2"} {t('signup.of')} 3
+          {t('signup.step')} {currentStep === 1 ? "1" : currentStep === 2 || currentStep === 3 ? "2" : currentStep === 4 ? "3" : "4"} {t('signup.of')} 4
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -650,6 +705,240 @@ export default function MultiStepSignup() {
                   </div>
                 ) : null}
               </div>
+            </div>
+
+            <div className="flex justify-between pt-4">
+              <Button variant="outline" onClick={prevStep} disabled={isLoading}>
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                {t('common.back')}
+              </Button>
+              <Button onClick={nextStep} disabled={isLoading} className="min-w-32">
+                {t('common.continue')}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 5: Detailed Profile Information */}
+        {currentStep === 5 && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">{t('signup.profileDetails')}</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {signupData.accountType === "individual"
+                  ? t('signup.completeYourProfile')
+                  : t('signup.tellUsAboutCompany')}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {signupData.accountType === "individual" ? (
+                <>
+                  {/* Professional Title */}
+                  <div>
+                    <Label htmlFor="title">{t('signup.professionalTitle')} <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="title"
+                      value={signupData.title}
+                      onChange={(e) => updateSignupData({ title: e.target.value })}
+                      placeholder={t('signup.titlePlaceholder')}
+                      required
+                      className="border-2"
+                    />
+                  </div>
+
+                  {/* Bio */}
+                  <div>
+                    <Label htmlFor="bio">{t('signup.bio')}</Label>
+                    <textarea
+                      id="bio"
+                      value={signupData.bio}
+                      onChange={(e) => updateSignupData({ bio: e.target.value })}
+                      placeholder={t('signup.bioPlaceholder')}
+                      className="w-full min-h-[100px] px-3 py-2 border-2 rounded-md"
+                    />
+                  </div>
+
+                  {/* Experience Level */}
+                  <div>
+                    <Label htmlFor="experienceLevel">{t('signup.experienceLevel')}</Label>
+                    <select
+                      id="experienceLevel"
+                      value={signupData.experienceLevel}
+                      onChange={(e) => updateSignupData({ experienceLevel: e.target.value as any })}
+                      className="w-full px-3 py-2 border-2 rounded-md"
+                    >
+                      <option value="entry">{t('signup.entry')}</option>
+                      <option value="mid">{t('signup.mid')}</option>
+                      <option value="senior">{t('signup.senior')}</option>
+                      <option value="lead">{t('signup.lead')}</option>
+                      <option value="executive">{t('signup.executive')}</option>
+                    </select>
+                  </div>
+
+                  {/* Skills */}
+                  <div>
+                    <Label htmlFor="skillInput">{t('signup.skills')}</Label>
+                    <div className="flex gap-2 mb-2">
+                      <Input
+                        id="skillInput"
+                        placeholder={t('signup.skillsPlaceholder')}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            const input = e.currentTarget
+                            const skill = input.value.trim()
+                            if (skill && !signupData.skills.includes(skill)) {
+                              updateSignupData({ skills: [...signupData.skills, skill] })
+                              input.value = ''
+                            }
+                          }
+                        }}
+                        className="border-2"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {signupData.skills.map((skill, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                        >
+                          {skill}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateSignupData({
+                                skills: signupData.skills.filter((_, i) => i !== index)
+                              })
+                            }}
+                            className="hover:bg-blue-200 rounded-full"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Hourly Rate (Optional) */}
+                  <div>
+                    <Label htmlFor="hourlyRate">{t('signup.hourlyRate')}</Label>
+                    <Input
+                      id="hourlyRate"
+                      type="number"
+                      value={signupData.hourlyRate}
+                      onChange={(e) => updateSignupData({ hourlyRate: e.target.value })}
+                      placeholder={t('signup.hourlyRatePlaceholder')}
+                      className="border-2"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Industry */}
+                  <div>
+                    <Label htmlFor="industry">{t('signup.industry')} <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="industry"
+                      value={signupData.industry}
+                      onChange={(e) => updateSignupData({ industry: e.target.value })}
+                      placeholder={t('signup.industryPlaceholder')}
+                      required
+                      className="border-2"
+                    />
+                  </div>
+
+                  {/* Company Bio */}
+                  <div>
+                    <Label htmlFor="companyBio">{t('signup.companyBio')}</Label>
+                    <textarea
+                      id="companyBio"
+                      value={signupData.companyBio}
+                      onChange={(e) => updateSignupData({ companyBio: e.target.value })}
+                      placeholder={t('signup.companyBioPlaceholder')}
+                      className="w-full min-h-[100px] px-3 py-2 border-2 rounded-md"
+                    />
+                  </div>
+
+                  {/* Services */}
+                  <div>
+                    <Label htmlFor="serviceInput">{t('signup.services')}</Label>
+                    <div className="flex gap-2 mb-2">
+                      <Input
+                        id="serviceInput"
+                        placeholder={t('signup.servicesPlaceholder')}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            const input = e.currentTarget
+                            const service = input.value.trim()
+                            if (service && !signupData.services.includes(service)) {
+                              updateSignupData({ services: [...signupData.services, service] })
+                              input.value = ''
+                            }
+                          }
+                        }}
+                        className="border-2"
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {signupData.services.map((service, index) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                        >
+                          {service}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateSignupData({
+                                services: signupData.services.filter((_, i) => i !== index)
+                              })
+                            }}
+                            className="hover:bg-blue-200 rounded-full"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Company Location on Map */}
+                  <div>
+                    <Label>{t('signup.companyLocation')} <span className="text-red-500">*</span></Label>
+                    <MapLocationPicker
+                      value={
+                        signupData.latitude && signupData.longitude
+                          ? {
+                              latitude: signupData.latitude,
+                              longitude: signupData.longitude,
+                              address: signupData.location
+                            }
+                          : null
+                      }
+                      onChange={(location) => {
+                        if (location) {
+                          updateSignupData({
+                            latitude: location.latitude,
+                            longitude: location.longitude,
+                            location: location.address
+                          })
+                        } else {
+                          updateSignupData({
+                            latitude: null,
+                            longitude: null,
+                            location: ""
+                          })
+                        }
+                      }}
+                      height="350px"
+                      placeholder={t('signup.selectCompanyLocation')}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex justify-between pt-4">

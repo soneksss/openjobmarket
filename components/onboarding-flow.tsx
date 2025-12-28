@@ -19,6 +19,7 @@ import { CountrySelector } from "@/components/ui/country-selector"
 import { LocationPicker } from "@/components/ui/location-picker"
 import { HomeownerOnboardingForm } from "@/components/homeowner-onboarding-form"
 import LanguageSelector from "@/components/language-selector"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface OnboardingFlowProps {
   user: {
@@ -37,6 +38,7 @@ export default function OnboardingFlow({
 }: OnboardingFlowProps) {
   const router = useRouter()
   const supabase = createClient()
+  const { t } = useTranslation()
 
   // Get user type from sign-up metadata, convert "employer" to "company"
   const initialUserType = user.user_metadata?.user_type === "employer" ? "company" : user.user_metadata?.user_type
@@ -63,6 +65,31 @@ export default function OnboardingFlow({
 
     checkForReset()
   }, [initialUserType, step, user.user_metadata])
+
+  // Prevent browser back navigation during profile setup (step 2)
+  useEffect(() => {
+    if (step === 2) {
+      // Push a dummy state to prevent back navigation
+      window.history.pushState(null, '', window.location.href)
+
+      const handlePopState = (e: PopStateEvent) => {
+        // Push state again to keep user on the page
+        window.history.pushState(null, '', window.location.href)
+
+        // Optionally show a warning
+        if (window.confirm(t('onboardingFlow.leaveWarning') || 'Are you sure you want to leave? Your progress will be lost and you will need to start over.')) {
+          // If they really want to leave, clear metadata and redirect
+          router.push('/')
+        }
+      }
+
+      window.addEventListener('popstate', handlePopState)
+
+      return () => {
+        window.removeEventListener('popstate', handlePopState)
+      }
+    }
+  }, [step, router, t])
 
   // Handle user type selection for existing users without metadata
   const handleUserTypeSelection = async (selectedType: "professional" | "company" | "homeowner") => {
@@ -240,12 +267,140 @@ export default function OnboardingFlow({
   const [showSkillSuggestions, setShowSkillSuggestions] = useState(false)
   const [filteredSkillSuggestions, setFilteredSkillSuggestions] = useState<string[]>([])
 
-  // Define skill categories based on profession
+  // Get job titles based on locale
+  const getJobTitles = () => {
+    const isPtBR = locale === 'pt-BR'
+
+    if (isPtBR) {
+      return [
+        // Tech & IT
+        "Engenheiro de Software", "Engenheiro de Software Sênior", "Desenvolvedor Full Stack",
+        "Desenvolvedor Frontend", "Desenvolvedor Backend", "Desenvolvedor Mobile",
+        "Engenheiro DevOps", "Cientista de Dados", "Analista de Dados",
+        "Administrador de Banco de Dados", "Administrador de Sistemas", "Engenheiro de Redes",
+        "Especialista em Cibersegurança", "Especialista em Suporte de TI", "Engenheiro de QA",
+        // Design & Creative
+        "Designer UX", "Designer UI", "Designer Gráfico", "Web Designer", "Designer de Produto",
+        "Diretor de Arte", "Animador", "Editor de Vídeo", "Fotógrafo", "Ilustrador",
+        // Business & Management
+        "Gerente de Produto", "Gerente de Projetos", "Analista de Negócios", "Consultor de Gestão",
+        "Gerente de Operações", "Gerente Geral", "CEO", "COO", "Gerente de Desenvolvimento de Negócios",
+        // Sales & Marketing
+        "Gerente de Marketing", "Especialista em Marketing Digital", "Gerente de Mídias Sociais",
+        "Redator de Conteúdo", "Copywriter", "Especialista em SEO", "Gerente de Vendas",
+        "Representante de Vendas", "Gerente de Contas", "Gerente de Marca",
+        // Finance & Accounting
+        "Contador", "Analista Financeiro", "Consultor Financeiro", "Consultor Fiscal",
+        "Auditor", "Escriturário Contábil", "Especialista em Folha de Pagamento",
+        // Human Resources
+        "Gerente de RH", "Especialista em RH", "Recrutador", "Especialista em Aquisição de Talentos",
+        // Healthcare
+        "Enfermeiro", "Enfermeiro Registrado", "Enfermeiro Prático", "Médico", "Clínico Geral",
+        "Cirurgião", "Dentista", "Farmacêutico", "Fisioterapeuta", "Terapeuta Ocupacional",
+        "Paramédico", "Cuidador", "Auxiliar de Saúde", "Enfermeiro de Saúde Mental",
+        // Education
+        "Professor", "Professor de Ensino Fundamental", "Professor de Ensino Médio",
+        "Auxiliar de Ensino", "Tutor", "Professor Universitário", "Professor de Educação Especial",
+        // Trades & Construction
+        "Eletricista", "Encanador", "Carpinteiro", "Construtor", "Construtor Geral",
+        "Pedreiro", "Rebocador", "Pintor e Decorador", "Telhador", "Engenheiro de Gás",
+        "Engenheiro de Aquecimento", "Técnico de HVAC", "Soldador", "Montador de Andaimes",
+        "Trabalhador de Terraplenagem", "Gerente de Construção", "Gerente de Obra",
+        "Agrimensor de Quantidades", "Engenheiro Civil", "Engenheiro Estrutural",
+        // Automotive
+        "Mecânico", "Mecânico Automotivo", "Mecânico de Motores", "Técnico Automotivo", "Engenheiro Automotivo",
+        // Hospitality & Catering
+        "Chef", "Sous Chef", "Cozinheiro", "Bartender", "Garçom", "Garçonete",
+        "Gerente de Restaurante", "Gerente de Hotel", "Governanta",
+        // Retail & Customer Service
+        "Gerente de Varejo", "Assistente de Loja", "Assistente de Vendas", "Caixa",
+        "Representante de Atendimento ao Cliente", "Agente de Call Center",
+        // Logistics & Transport
+        "Motorista", "Motorista de Entrega", "Motorista de Caminhão", "Operador de Armazém",
+        "Operador de Empilhadeira", "Coordenador de Logística", "Gerente de Cadeia de Suprimentos",
+        // Legal
+        "Advogado", "Paralegal", "Secretária Jurídica",
+        // Administrative
+        "Assistente Administrativo", "Gerente de Escritório", "Assistente Pessoal",
+        "Secretária", "Recepcionista",
+        // Other Services
+        "Faxineiro", "Segurança", "Jardineiro", "Paisagista", "Cabeleireiro", "Barbeiro", "Esteticista",
+      ]
+    }
+
+    return [
+      // Tech & IT
+      "Software Engineer", "Senior Software Engineer", "Full Stack Developer",
+      "Frontend Developer", "Backend Developer", "Mobile Developer",
+      "DevOps Engineer", "Data Scientist", "Data Analyst",
+      "Database Administrator", "Systems Administrator", "Network Engineer",
+      "Cybersecurity Specialist", "IT Support Specialist", "QA Engineer", "Cloud Architect",
+      // Design & Creative
+      "UX Designer", "UI Designer", "Graphic Designer", "Web Designer", "Product Designer",
+      "Art Director", "Animator", "Video Editor", "Photographer", "Illustrator",
+      // Business & Management
+      "Product Manager", "Project Manager", "Business Analyst", "Management Consultant",
+      "Operations Manager", "General Manager", "CEO", "COO", "Business Development Manager",
+      // Sales & Marketing
+      "Marketing Manager", "Digital Marketing Specialist", "Social Media Manager",
+      "Content Writer", "Copywriter", "SEO Specialist", "Sales Manager",
+      "Sales Representative", "Account Manager", "Brand Manager",
+      // Finance & Accounting
+      "Accountant", "Financial Analyst", "Financial Advisor", "Tax Advisor",
+      "Auditor", "Bookkeeper", "Payroll Specialist",
+      // Human Resources
+      "HR Manager", "HR Specialist", "Recruiter", "Talent Acquisition Specialist",
+      "Training and Development Manager",
+      // Healthcare
+      "Nurse", "Registered Nurse", "Nurse Practitioner", "Doctor", "General Practitioner",
+      "Surgeon", "Dentist", "Pharmacist", "Physiotherapist", "Occupational Therapist",
+      "Paramedic", "Care Worker", "Carer", "Support Worker", "Healthcare Assistant",
+      "Mental Health Nurse",
+      // Education
+      "Teacher", "Primary School Teacher", "Secondary School Teacher",
+      "Teaching Assistant", "Tutor", "Lecturer", "Professor", "Special Education Teacher",
+      // Trades & Construction
+      "Electrician", "Plumber", "Carpenter", "Builder", "General Builder",
+      "Bricklayer", "Plasterer", "Painter and Decorator", "Roofer", "Gas Engineer",
+      "Heating Engineer", "HVAC Technician", "Welder", "Scaffolder", "Groundworker",
+      "Construction Manager", "Site Manager", "Quantity Surveyor", "Civil Engineer", "Structural Engineer",
+      // Automotive
+      "Mechanic", "Auto Mechanic", "Motor Mechanic", "Vehicle Technician", "Automotive Engineer",
+      // Hospitality & Catering
+      "Chef", "Sous Chef", "Cook", "Bartender", "Waiter", "Waitress",
+      "Restaurant Manager", "Hotel Manager", "Housekeeper",
+      // Retail & Customer Service
+      "Retail Manager", "Shop Assistant", "Sales Assistant", "Cashier",
+      "Customer Service Representative", "Call Centre Agent",
+      // Logistics & Transport
+      "Driver", "Delivery Driver", "HGV Driver", "Warehouse Operative",
+      "Forklift Operator", "Logistics Coordinator", "Supply Chain Manager",
+      // Legal
+      "Solicitor", "Lawyer", "Paralegal", "Legal Secretary",
+      // Administrative
+      "Administrative Assistant", "Office Manager", "Personal Assistant", "Secretary", "Receptionist",
+      // Other Services
+      "Cleaner", "Security Guard", "Gardener", "Landscaper", "Hairdresser", "Barber", "Beautician",
+    ]
+  }
+
+  // Define skill categories based on profession (locale-aware)
   const getRelevantSkills = (title: string): string[] => {
     const titleLower = title.toLowerCase()
+    const isPtBR = locale === 'pt-BR'
 
     // Trade-specific skills
-    const tradeSkills = [
+    const tradeSkills = isPtBR ? [
+      // Electrical
+      "Trabalho Elétrico", "Instalação Elétrica", "Teste Elétrico", "Normas de Instalação Elétrica",
+      // Plumbing/Gas
+      "Encanamento", "Instalação de Gás", "Instalador de Gás Certificado", "Sistemas de Aquecimento", "Instalação de Caldeira",
+      // Construction
+      "Carpintaria", "Marcenaria", "Alvenaria", "Reboco", "Revestimento", "Pintura e Decoração",
+      "Telhado", "Azulejista", "Terraplenagem", "Andaime", "Soldagem",
+      // Certifications
+      "Certificação CREA", "Primeiros Socorros", "Saúde e Segurança", "NR-10", "NR-35", "Operação de Empilhadeira",
+    ] : [
       // Electrical
       "Electrical Work", "Electrical Installation", "Electrical Testing", "18th Edition Wiring Regulations",
       // Plumbing/Gas
@@ -257,74 +412,106 @@ export default function OnboardingFlow({
       "CSCS Card", "First Aid at Work", "Health and Safety", "SMSTS", "SSSTS", "Forklift Operation", "IPAF",
     ]
 
-    const programmingSkills = [
+    const programmingSkills = isPtBR ? [
+      "JavaScript", "TypeScript", "Python", "Java", "C++", "C#", "PHP", "Ruby", "Go", "Swift", "Kotlin", "Rust",
+      "HTML", "CSS", "React", "Angular", "Vue.js", "Next.js", "Node.js", "Express.js", "Django", "Flask",
+      "SQL", "MySQL", "PostgreSQL", "MongoDB", "Redis", "AWS", "Azure", "Google Cloud", "Docker", "Kubernetes",
+      "Desenvolvimento Web", "Desenvolvimento Mobile", "Desenvolvimento Full Stack", "Backend", "Frontend",
+    ] : [
       "JavaScript", "TypeScript", "Python", "Java", "C++", "C#", "PHP", "Ruby", "Go", "Swift", "Kotlin", "Rust",
       "HTML", "CSS", "React", "Angular", "Vue.js", "Next.js", "Node.js", "Express.js", "Django", "Flask",
       "SQL", "MySQL", "PostgreSQL", "MongoDB", "Redis", "AWS", "Azure", "Google Cloud", "Docker", "Kubernetes",
     ]
 
-    const designSkills = [
+    const designSkills = isPtBR ? [
+      "Photoshop", "Illustrator", "InDesign", "Figma", "Sketch", "Adobe XD", "After Effects", "Premiere Pro", "Canva",
+      "AutoCAD", "SolidWorks", "Revit", "SketchUp", "Modelagem 3D", "Design Gráfico", "UX Design", "UI Design",
+    ] : [
       "Photoshop", "Illustrator", "InDesign", "Figma", "Sketch", "Adobe XD", "After Effects", "Premiere Pro", "Canva",
       "AutoCAD", "SolidWorks", "Revit", "SketchUp", "3D Modeling",
     ]
 
-    const businessSkills = [
+    const businessSkills = isPtBR ? [
+      "Microsoft Office", "Excel", "PowerPoint", "Word", "Google Workspace", "Análise de Dados", "Entrada de Dados",
+      "Contabilidade", "QuickBooks", "Sage", "Xero",
+      "Gerenciamento de Projetos", "Agile", "Scrum", "Jira", "Trello", "Asana",
+      "Marketing Digital", "SEO", "Marketing de Mídias Sociais", "Marketing de Conteúdo", "Email Marketing",
+    ] : [
       "Microsoft Office", "Excel", "PowerPoint", "Word", "Google Workspace", "Data Analysis", "Data Entry",
       "Bookkeeping", "QuickBooks", "Sage", "Xero",
       "Project Management", "Agile", "Scrum", "Jira", "Trello", "Asana",
       "Digital Marketing", "SEO", "Social Media Marketing", "Content Marketing", "Email Marketing",
     ]
 
-    const healthcareSkills = [
+    const healthcareSkills = isPtBR ? [
+      "Cuidado ao Paciente", "Primeiros Socorros", "RCP", "Administração de Medicamentos", "Planejamento de Cuidados",
+      "Movimentação e Manuseio", "Proteção", "Cuidados com Demência", "Apoio à Saúde Mental", "Habilidades Clínicas",
+    ] : [
       "Patient Care", "First Aid", "CPR", "Medication Administration", "Care Planning",
       "Moving and Handling", "Safeguarding", "Dementia Care", "Mental Health Support", "Clinical Skills",
     ]
 
-    const automotiveSkills = [
+    const automotiveSkills = isPtBR ? [
+      "Reparação Automotiva", "Diagnóstico de Motor", "Teste Veicular", "Manutenção Veicular", "Elétrica Automotiva", "Funilaria", "Pintura Automotiva",
+    ] : [
       "Car Repair", "Engine Diagnostics", "MOT Testing", "Vehicle Maintenance", "Auto Electrical", "Bodywork", "Spray Painting",
     ]
 
-    const softSkills = [
+    const softSkills = isPtBR ? [
+      "Liderança", "Comunicação", "Trabalho em Equipe", "Resolução de Problemas", "Pensamento Crítico",
+      "Gestão de Tempo", "Adaptabilidade", "Atendimento ao Cliente", "Atenção aos Detalhes", "Organização",
+    ] : [
       "Leadership", "Communication", "Teamwork", "Problem Solving", "Critical Thinking",
       "Time Management", "Adaptability", "Customer Service", "Attention to Detail", "Organization",
     ]
 
-    // Check if it's a trade profession
-    if (titleLower.includes("electr") || titleLower.includes("plumb") || titleLower.includes("carpenter") ||
-        titleLower.includes("builder") || titleLower.includes("roofer") || titleLower.includes("plaster") ||
-        titleLower.includes("painter") || titleLower.includes("decorator") || titleLower.includes("brick") ||
-        titleLower.includes("gas") || titleLower.includes("heating") || titleLower.includes("hvac") ||
-        titleLower.includes("welder") || titleLower.includes("scaffold")) {
+    // Check if it's a trade profession (English and Portuguese keywords)
+    if (titleLower.includes("electr") || titleLower.includes("elétr") || titleLower.includes("plumb") ||
+        titleLower.includes("encan") || titleLower.includes("carpenter") || titleLower.includes("carpint") ||
+        titleLower.includes("builder") || titleLower.includes("construt") || titleLower.includes("roofer") ||
+        titleLower.includes("telha") || titleLower.includes("plaster") || titleLower.includes("reboc") ||
+        titleLower.includes("painter") || titleLower.includes("pint") || titleLower.includes("decorator") ||
+        titleLower.includes("brick") || titleLower.includes("alven") || titleLower.includes("gas") ||
+        titleLower.includes("gás") || titleLower.includes("heating") || titleLower.includes("aquec") ||
+        titleLower.includes("hvac") || titleLower.includes("welder") || titleLower.includes("solda") ||
+        titleLower.includes("scaffold") || titleLower.includes("andaim")) {
       return [...tradeSkills, ...softSkills]
     }
 
-    // Check if it's tech/programming
-    if (titleLower.includes("develop") || titleLower.includes("engineer") || titleLower.includes("program") ||
-        titleLower.includes("software") || titleLower.includes("full stack") || titleLower.includes("frontend") ||
-        titleLower.includes("backend") || titleLower.includes("devops")) {
+    // Check if it's tech/programming (English and Portuguese keywords)
+    if (titleLower.includes("develop") || titleLower.includes("desenvolv") || titleLower.includes("engineer") ||
+        titleLower.includes("engenh") || titleLower.includes("program") || titleLower.includes("software") ||
+        titleLower.includes("full stack") || titleLower.includes("frontend") || titleLower.includes("backend") ||
+        titleLower.includes("devops")) {
       return [...programmingSkills, ...softSkills]
     }
 
-    // Check if it's design
+    // Check if it's design (English and Portuguese keywords)
     if (titleLower.includes("design") || titleLower.includes("ux") || titleLower.includes("ui") ||
-        titleLower.includes("graphic") || titleLower.includes("creative")) {
+        titleLower.includes("graphic") || titleLower.includes("gráf") || titleLower.includes("creative") ||
+        titleLower.includes("criativ")) {
       return [...designSkills, ...softSkills]
     }
 
-    // Check if it's healthcare
-    if (titleLower.includes("nurse") || titleLower.includes("care") || titleLower.includes("health") ||
-        titleLower.includes("medical") || titleLower.includes("doctor")) {
+    // Check if it's healthcare (English and Portuguese keywords)
+    if (titleLower.includes("nurse") || titleLower.includes("enferm") || titleLower.includes("care") ||
+        titleLower.includes("cuidado") || titleLower.includes("health") || titleLower.includes("saúde") ||
+        titleLower.includes("medical") || titleLower.includes("médic") || titleLower.includes("doctor") ||
+        titleLower.includes("doutor")) {
       return [...healthcareSkills, ...softSkills]
     }
 
-    // Check if it's automotive
-    if (titleLower.includes("mechanic") || titleLower.includes("automotive") || titleLower.includes("mot")) {
+    // Check if it's automotive (English and Portuguese keywords)
+    if (titleLower.includes("mechanic") || titleLower.includes("mecân") || titleLower.includes("automotive") ||
+        titleLower.includes("automotiv") || titleLower.includes("mot")) {
       return [...automotiveSkills, ...softSkills]
     }
 
-    // Check if it's business/office
-    if (titleLower.includes("manager") || titleLower.includes("admin") || titleLower.includes("analyst") ||
-        titleLower.includes("marketing") || titleLower.includes("sales") || titleLower.includes("accountant")) {
+    // Check if it's business/office (English and Portuguese keywords)
+    if (titleLower.includes("manager") || titleLower.includes("gerente") || titleLower.includes("gestor") ||
+        titleLower.includes("admin") || titleLower.includes("analyst") || titleLower.includes("analista") ||
+        titleLower.includes("marketing") || titleLower.includes("sales") || titleLower.includes("venda") ||
+        titleLower.includes("accountant") || titleLower.includes("contador")) {
       return [...businessSkills, ...softSkills]
     }
 
@@ -367,11 +554,21 @@ export default function OnboardingFlow({
     }))
   }
 
-  // Get relevant service suggestions based on company industry
+  // Get relevant service suggestions based on company industry (locale-aware)
   const getRelevantServices = (industry: string): string[] => {
     const industryLower = industry.toLowerCase()
+    const isPtBR = locale === 'pt-BR'
 
-    const constructionServices = [
+    const constructionServices = isPtBR ? [
+      "Construção Geral", "Construção Nova", "Reformas", "Ampliações",
+      "Instalação Elétrica", "Reparos Elétricos", "Refiação", "Elétrica de Emergência",
+      "Instalação Hidráulica", "Reparos Hidráulicos", "Instalação de Caldeira", "Aquecimento Central",
+      "Instalação de Banheiro", "Instalação de Cozinha", "Carpintaria", "Marcenaria Personalizada",
+      "Pintura Interna", "Pintura Externa", "Decoração", "Papel de Parede",
+      "Reparos de Telhado", "Instalação de Telhado Novo", "Manutenção de Telhado", "Calhas",
+      "Reboco", "Revestimento", "Drywall", "Trabalho de Teto",
+      "Azulejista", "Instalação de Piso", "Alvenaria", "Terraplenagem",
+    ] : [
       "General Construction", "New Build Construction", "Renovations", "Extensions",
       "Electrical Installation", "Electrical Repairs", "Rewiring", "Emergency Electrical",
       "Plumbing Installation", "Plumbing Repairs", "Boiler Installation", "Central Heating",
@@ -382,7 +579,13 @@ export default function OnboardingFlow({
       "Tiling", "Flooring Installation", "Bricklaying", "Groundwork",
     ]
 
-    const techServices = [
+    const techServices = isPtBR ? [
+      "Desenvolvimento Web", "Desenvolvimento de Aplicativos Mobile", "Desenvolvimento de Software",
+      "Suporte de TI", "Configuração de Rede", "Migração para Nuvem", "Cibersegurança",
+      "Gerenciamento de Banco de Dados", "Integração de Sistemas", "Desenvolvimento de API",
+      "Design UI/UX", "Design de Website", "Desenvolvimento de E-commerce",
+      "Serviços de SEO", "Marketing Digital", "Gerenciamento de Mídias Sociais",
+    ] : [
       "Web Development", "Mobile App Development", "Software Development",
       "IT Support", "Network Setup", "Cloud Migration", "Cybersecurity",
       "Database Management", "System Integration", "API Development",
@@ -390,7 +593,13 @@ export default function OnboardingFlow({
       "SEO Services", "Digital Marketing", "Social Media Management",
     ]
 
-    const healthcareServices = [
+    const healthcareServices = isPtBR ? [
+      "Consulta Geral", "Avaliação de Saúde", "Planos de Tratamento",
+      "Atendimento Domiciliar", "Cuidado Pessoal", "Cuidados de Enfermagem", "Gerenciamento de Medicamentos",
+      "Fisioterapia", "Reabilitação Física", "Tratamento de Dor",
+      "Aconselhamento de Saúde Mental", "Sessões de Terapia", "Programas de Bem-Estar",
+      "Check-up Odontológico", "Limpeza Dental", "Tratamento Dental",
+    ] : [
       "General Consultation", "Health Assessment", "Treatment Plans",
       "Home Care", "Personal Care", "Nursing Care", "Medication Management",
       "Physiotherapy", "Physical Rehabilitation", "Pain Management",
@@ -398,7 +607,13 @@ export default function OnboardingFlow({
       "Dental Checkup", "Dental Cleaning", "Dental Treatment",
     ]
 
-    const businessServices = [
+    const businessServices = isPtBR ? [
+      "Consultoria Empresarial", "Desenvolvimento de Estratégia", "Pesquisa de Mercado",
+      "Serviços Contábeis", "Escrituração Contábil", "Preparação de Impostos", "Serviços de Folha de Pagamento",
+      "Consultoria Jurídica", "Revisão de Contratos", "Representação Legal",
+      "Estratégia de Marketing", "Desenvolvimento de Marca", "Criação de Conteúdo",
+      "Consultoria de RH", "Serviços de Recrutamento", "Programas de Treinamento",
+    ] : [
       "Business Consulting", "Strategy Development", "Market Research",
       "Accounting Services", "Bookkeeping", "Tax Preparation", "Payroll Services",
       "Legal Advice", "Contract Review", "Legal Representation",
@@ -406,60 +621,83 @@ export default function OnboardingFlow({
       "HR Consulting", "Recruitment Services", "Training Programs",
     ]
 
-    const cleaningServices = [
+    const cleaningServices = isPtBR ? [
+      "Limpeza Residencial", "Limpeza Profunda", "Limpeza Regular",
+      "Limpeza de Escritório", "Limpeza Comercial", "Limpeza Fim de Locação",
+      "Limpeza de Carpete", "Limpeza de Janelas", "Lavagem de Pressão",
+    ] : [
       "House Cleaning", "Deep Cleaning", "Regular Cleaning",
       "Office Cleaning", "Commercial Cleaning", "End of Tenancy Cleaning",
       "Carpet Cleaning", "Window Cleaning", "Pressure Washing",
     ]
 
-    const gardeningServices = [
+    const gardeningServices = isPtBR ? [
+      "Manutenção de Jardim", "Corte de Grama", "Poda de Cerca Viva",
+      "Design de Jardim", "Paisagismo", "Instalação de Pátio",
+      "Cirurgia de Árvore", "Remoção de Tocos", "Instalação de Cerca",
+    ] : [
       "Garden Maintenance", "Lawn Mowing", "Hedge Trimming",
       "Garden Design", "Landscaping", "Patio Installation",
       "Tree Surgery", "Stump Removal", "Fence Installation",
     ]
 
-    const automotiveServices = [
+    const automotiveServices = isPtBR ? [
+      "Manutenção de Carro", "Inspeção Veicular", "Reparos de Veículos",
+      "Diagnóstico de Motor", "Reparos de Freio", "Instalação de Pneus",
+      "Elétrica Automotiva", "Reparos de Funilaria", "Pintura Automotiva",
+    ] : [
       "Car Servicing", "MOT Testing", "Vehicle Repairs",
       "Engine Diagnostics", "Brake Repairs", "Tyre Fitting",
       "Auto Electrical", "Bodywork Repairs", "Spray Painting",
     ]
 
-    // Match industry to relevant services
-    if (industryLower.includes("construction") || industryLower.includes("building") ||
-        industryLower.includes("electrical") || industryLower.includes("plumbing") ||
-        industryLower.includes("carpentry") || industryLower.includes("painting") ||
-        industryLower.includes("roofing") || industryLower.includes("hvac")) {
+    // Match industry to relevant services (English and Portuguese keywords)
+    if (industryLower.includes("construction") || industryLower.includes("construção") ||
+        industryLower.includes("building") || industryLower.includes("edif") ||
+        industryLower.includes("electrical") || industryLower.includes("elétr") ||
+        industryLower.includes("plumbing") || industryLower.includes("hidrául") ||
+        industryLower.includes("carpentry") || industryLower.includes("carpint") ||
+        industryLower.includes("painting") || industryLower.includes("pint") ||
+        industryLower.includes("roofing") || industryLower.includes("telha") ||
+        industryLower.includes("hvac")) {
       return constructionServices
     }
 
-    if (industryLower.includes("technology") || industryLower.includes("software") ||
-        industryLower.includes("it ") || industryLower.includes("web") ||
-        industryLower.includes("digital")) {
+    if (industryLower.includes("technology") || industryLower.includes("tecnologia") ||
+        industryLower.includes("software") || industryLower.includes("it ") ||
+        industryLower.includes("web") || industryLower.includes("digital")) {
       return techServices
     }
 
-    if (industryLower.includes("health") || industryLower.includes("medical") ||
-        industryLower.includes("care") || industryLower.includes("dental") ||
-        industryLower.includes("nursing")) {
+    if (industryLower.includes("health") || industryLower.includes("saúde") ||
+        industryLower.includes("medical") || industryLower.includes("médic") ||
+        industryLower.includes("care") || industryLower.includes("cuidado") ||
+        industryLower.includes("dental") || industryLower.includes("nursing") ||
+        industryLower.includes("enferm")) {
       return healthcareServices
     }
 
-    if (industryLower.includes("business") || industryLower.includes("consulting") ||
-        industryLower.includes("accounting") || industryLower.includes("legal") ||
-        industryLower.includes("marketing") || industryLower.includes("hr")) {
+    if (industryLower.includes("business") || industryLower.includes("negócio") ||
+        industryLower.includes("consulting") || industryLower.includes("consultoria") ||
+        industryLower.includes("accounting") || industryLower.includes("contabil") ||
+        industryLower.includes("legal") || industryLower.includes("jurídic") ||
+        industryLower.includes("marketing") || industryLower.includes("hr") ||
+        industryLower.includes("rh")) {
       return businessServices
     }
 
-    if (industryLower.includes("cleaning")) {
+    if (industryLower.includes("cleaning") || industryLower.includes("limpeza")) {
       return cleaningServices
     }
 
-    if (industryLower.includes("garden") || industryLower.includes("landscaping")) {
+    if (industryLower.includes("garden") || industryLower.includes("jardim") ||
+        industryLower.includes("landscaping") || industryLower.includes("paisag")) {
       return gardeningServices
     }
 
-    if (industryLower.includes("automotive") || industryLower.includes("vehicle") ||
-        industryLower.includes("mechanic")) {
+    if (industryLower.includes("automotive") || industryLower.includes("automotiv") ||
+        industryLower.includes("vehicle") || industryLower.includes("veículo") ||
+        industryLower.includes("mechanic") || industryLower.includes("mecân")) {
       return automotiveServices
     }
 
@@ -1150,16 +1388,16 @@ export default function OnboardingFlow({
             <Briefcase className="h-8 w-8 text-primary-foreground" />
           </div>
         </div>
-        <h1 className="text-3xl font-bold mb-2">Welcome to Open Job Market</h1>
-        <p className="text-muted-foreground">Let's set up your profile to get started</p>
+        <h1 className="text-3xl font-bold mb-2">{t('auth.welcome')} Open Job Market</h1>
+        <p className="text-muted-foreground">{t('onboardingFlow.tellUsAboutYou')}</p>
       </div>
 
       {/* Step 1: Choose user type */}
       {step === 1 && (
         <Card>
           <CardHeader>
-            <CardTitle>What brings you to Open Job Market?</CardTitle>
-            <CardDescription>Choose the option that best describes you</CardDescription>
+            <CardTitle>{t('onboardingFlow.whatAreYou')}</CardTitle>
+            <CardDescription>{t('onboardingFlow.chooseUserType')}</CardDescription>
           </CardHeader>
           <CardContent>
             <RadioGroup
@@ -1175,9 +1413,9 @@ export default function OnboardingFlow({
                 >
                   <Briefcase className="h-8 w-8" />
                   <div>
-                    <div className="font-semibold">I'm looking for work</div>
+                    <div className="font-semibold">{t('onboardingFlow.professionalTitle')}</div>
                     <div className="text-sm text-muted-foreground">
-                      Create a professional profile and find your next opportunity
+                      {t('onboardingFlow.professionalDesc')}
                     </div>
                   </div>
                 </Label>
@@ -1190,9 +1428,9 @@ export default function OnboardingFlow({
                 >
                   <Building className="h-8 w-8" />
                   <div>
-                    <div className="font-semibold">I'm hiring talent</div>
+                    <div className="font-semibold">{t('onboardingFlow.companyTitle')}</div>
                     <div className="text-sm text-muted-foreground">
-                      Post jobs and find the perfect candidates for your team
+                      {t('onboardingFlow.companyDesc')}
                     </div>
                   </div>
                 </Label>
@@ -1205,9 +1443,9 @@ export default function OnboardingFlow({
                 >
                   <Home className="h-8 w-8" />
                   <div>
-                    <div className="font-semibold">I need home services</div>
+                    <div className="font-semibold">{t('onboardingFlow.homeownerTitle')}</div>
                     <div className="text-sm text-muted-foreground">
-                      Post jobs and find contractors for home projects
+                      {t('onboardingFlow.homeownerDesc')}
                     </div>
                   </div>
                 </Label>
@@ -1215,7 +1453,7 @@ export default function OnboardingFlow({
             </RadioGroup>
             <div className="flex justify-end mt-6">
               <Button onClick={() => userType && handleUserTypeSelection(userType)} disabled={!userType}>
-                Continue
+                {t('onboardingFlow.continue')}
               </Button>
             </div>
           </CardContent>
@@ -1226,8 +1464,8 @@ export default function OnboardingFlow({
       {step === 2 && userType === "professional" && (
         <Card>
           <CardHeader>
-            <CardTitle>Create Your Professional Profile</CardTitle>
-            <CardDescription>Tell us about yourself and your career goals</CardDescription>
+            <CardTitle>{t('onboardingFlow.professionalProfile')}</CardTitle>
+            <CardDescription>{t('onboardingFlow.professionalProfileDesc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Error message display */}
@@ -1244,7 +1482,7 @@ export default function OnboardingFlow({
                       onClick={() => setError(null)}
                       className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
                     >
-                      Dismiss
+                      {t('onboardingFlow.dismiss')}
                     </button>
                   </div>
                 </div>
@@ -1255,7 +1493,7 @@ export default function OnboardingFlow({
             {dataPreFilled && (professionalData.firstName || professionalData.lastName || professionalData.latitude) && (
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                 <p className="text-sm text-blue-800">
-                  <strong>✓ Good news!</strong> We've pre-filled some fields with information from your signup. You can update them if needed.
+                  <strong>✓ {t('onboardingFlow.goodNews')}</strong> {t('onboardingFlow.preFilledInfo')}
                 </p>
               </div>
             )}
@@ -1271,26 +1509,26 @@ export default function OnboardingFlow({
               <div className="flex-1">
                 <Label htmlFor="hidePersonalName" className="text-base font-semibold cursor-pointer text-gray-900 flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-green-600" />
-                  Anonymous Jobseeker
+                  {t('onboardingFlow.anonymousJobseeker')}
                 </Label>
                 <p className="text-sm text-gray-700 mt-1">
-                  Your real Name and Surname will be hidden. Only your skills matter. Employers will see your nickname instead.
+                  {t('onboardingFlow.anonymousJobseekerDesc')}
                 </p>
                 {professionalData.hidePersonalName && (
                   <div className="mt-3 p-3 bg-white border border-green-300 rounded-md">
                     <Label htmlFor="nickname" className="text-sm font-semibold text-gray-900">
-                      Nickname (Required) *
+                      {t('onboardingFlow.nickname')} *
                     </Label>
                     <Input
                       id="nickname"
                       value={professionalData.nickname}
                       onChange={(e) => setProfessionalData((prev) => ({ ...prev, nickname: e.target.value }))}
-                      placeholder="e.g., TechGuru, CodeWizard, DevExpert"
+                      placeholder={t('onboardingFlow.nicknamePlaceholder')}
                       className="mt-2 border-2"
                       required={professionalData.hidePersonalName}
                     />
                     <p className="text-xs text-gray-600 mt-1">
-                      This nickname will be shown to employers instead of your real name. You can change this setting later in your profile.
+                      {t('onboardingFlow.nicknameDesc')}
                     </p>
                   </div>
                 )}
@@ -1300,7 +1538,7 @@ export default function OnboardingFlow({
             <div className="p-4 border rounded-lg shadow-sm bg-white space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="firstName" className="font-semibold">First Name *</Label>
+                  <Label htmlFor="firstName" className="font-semibold">{t('onboardingFlow.firstName')} *</Label>
                   <Input
                     id="firstName"
                     value={professionalData.firstName}
@@ -1310,7 +1548,7 @@ export default function OnboardingFlow({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName" className="font-semibold">Last Name *</Label>
+                  <Label htmlFor="lastName" className="font-semibold">{t('onboardingFlow.lastName')} *</Label>
                   <Input
                     id="lastName"
                     value={professionalData.lastName}
@@ -1323,199 +1561,27 @@ export default function OnboardingFlow({
             </div>
 
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label htmlFor="title" className="font-semibold">Professional Title</Label>
+              <Label htmlFor="title" className="font-semibold">{t('onboardingFlow.title')}</Label>
               <Input
                 id="title"
-                placeholder="e.g. Senior Software Engineer"
+                placeholder={t('onboardingFlow.titlePlaceholder')}
                 value={professionalData.title}
                 onChange={(e) => setProfessionalData((prev) => ({ ...prev, title: e.target.value }))}
                 list="job-titles-list"
                 className="border-2"
               />
               <datalist id="job-titles-list">
-                {/* Tech & IT */}
-                <option value="Software Engineer" />
-                <option value="Senior Software Engineer" />
-                <option value="Full Stack Developer" />
-                <option value="Frontend Developer" />
-                <option value="Backend Developer" />
-                <option value="Mobile Developer" />
-                <option value="DevOps Engineer" />
-                <option value="Data Scientist" />
-                <option value="Data Analyst" />
-                <option value="Database Administrator" />
-                <option value="Systems Administrator" />
-                <option value="Network Engineer" />
-                <option value="Cybersecurity Specialist" />
-                <option value="IT Support Specialist" />
-                <option value="QA Engineer" />
-                <option value="Cloud Architect" />
-
-                {/* Design & Creative */}
-                <option value="UX Designer" />
-                <option value="UI Designer" />
-                <option value="Graphic Designer" />
-                <option value="Web Designer" />
-                <option value="Product Designer" />
-                <option value="Art Director" />
-                <option value="Animator" />
-                <option value="Video Editor" />
-                <option value="Photographer" />
-                <option value="Illustrator" />
-
-                {/* Business & Management */}
-                <option value="Product Manager" />
-                <option value="Project Manager" />
-                <option value="Business Analyst" />
-                <option value="Management Consultant" />
-                <option value="Operations Manager" />
-                <option value="General Manager" />
-                <option value="CEO" />
-                <option value="COO" />
-                <option value="Business Development Manager" />
-
-                {/* Sales & Marketing */}
-                <option value="Marketing Manager" />
-                <option value="Digital Marketing Specialist" />
-                <option value="Social Media Manager" />
-                <option value="Content Writer" />
-                <option value="Copywriter" />
-                <option value="SEO Specialist" />
-                <option value="Sales Manager" />
-                <option value="Sales Representative" />
-                <option value="Account Manager" />
-                <option value="Brand Manager" />
-
-                {/* Finance & Accounting */}
-                <option value="Accountant" />
-                <option value="Financial Analyst" />
-                <option value="Financial Advisor" />
-                <option value="Tax Advisor" />
-                <option value="Auditor" />
-                <option value="Bookkeeper" />
-                <option value="Payroll Specialist" />
-
-                {/* Human Resources */}
-                <option value="HR Manager" />
-                <option value="HR Specialist" />
-                <option value="Recruiter" />
-                <option value="Talent Acquisition Specialist" />
-                <option value="Training and Development Manager" />
-
-                {/* Healthcare */}
-                <option value="Nurse" />
-                <option value="Registered Nurse" />
-                <option value="Nurse Practitioner" />
-                <option value="Doctor" />
-                <option value="General Practitioner" />
-                <option value="Surgeon" />
-                <option value="Dentist" />
-                <option value="Pharmacist" />
-                <option value="Physiotherapist" />
-                <option value="Occupational Therapist" />
-                <option value="Paramedic" />
-                <option value="Care Worker" />
-                <option value="Carer" />
-                <option value="Support Worker" />
-                <option value="Healthcare Assistant" />
-                <option value="Mental Health Nurse" />
-
-                {/* Education */}
-                <option value="Teacher" />
-                <option value="Primary School Teacher" />
-                <option value="Secondary School Teacher" />
-                <option value="Teaching Assistant" />
-                <option value="Tutor" />
-                <option value="Lecturer" />
-                <option value="Professor" />
-                <option value="Special Education Teacher" />
-
-                {/* Trades & Construction */}
-                <option value="Electrician" />
-                <option value="Plumber" />
-                <option value="Carpenter" />
-                <option value="Builder" />
-                <option value="General Builder" />
-                <option value="Bricklayer" />
-                <option value="Plasterer" />
-                <option value="Painter and Decorator" />
-                <option value="Roofer" />
-                <option value="Gas Engineer" />
-                <option value="Heating Engineer" />
-                <option value="HVAC Technician" />
-                <option value="Welder" />
-                <option value="Scaffolder" />
-                <option value="Groundworker" />
-                <option value="Construction Manager" />
-                <option value="Site Manager" />
-                <option value="Quantity Surveyor" />
-                <option value="Civil Engineer" />
-                <option value="Structural Engineer" />
-
-                {/* Automotive */}
-                <option value="Mechanic" />
-                <option value="Auto Mechanic" />
-                <option value="Motor Mechanic" />
-                <option value="Vehicle Technician" />
-                <option value="Automotive Engineer" />
-
-                {/* Hospitality & Catering */}
-                <option value="Chef" />
-                <option value="Sous Chef" />
-                <option value="Cook" />
-                <option value="Bartender" />
-                <option value="Waiter" />
-                <option value="Waitress" />
-                <option value="Restaurant Manager" />
-                <option value="Hotel Manager" />
-                <option value="Housekeeper" />
-
-                {/* Retail & Customer Service */}
-                <option value="Retail Manager" />
-                <option value="Shop Assistant" />
-                <option value="Sales Assistant" />
-                <option value="Cashier" />
-                <option value="Customer Service Representative" />
-                <option value="Call Centre Agent" />
-
-                {/* Logistics & Transport */}
-                <option value="Driver" />
-                <option value="Delivery Driver" />
-                <option value="HGV Driver" />
-                <option value="Warehouse Operative" />
-                <option value="Forklift Operator" />
-                <option value="Logistics Coordinator" />
-                <option value="Supply Chain Manager" />
-
-                {/* Legal */}
-                <option value="Solicitor" />
-                <option value="Lawyer" />
-                <option value="Paralegal" />
-                <option value="Legal Secretary" />
-
-                {/* Administrative */}
-                <option value="Administrative Assistant" />
-                <option value="Office Manager" />
-                <option value="Personal Assistant" />
-                <option value="Secretary" />
-                <option value="Receptionist" />
-
-                {/* Other Services */}
-                <option value="Cleaner" />
-                <option value="Security Guard" />
-                <option value="Gardener" />
-                <option value="Landscaper" />
-                <option value="Hairdresser" />
-                <option value="Barber" />
-                <option value="Beautician" />
+                {getJobTitles().map((title) => (
+                  <option key={title} value={title} />
+                ))}
               </datalist>
             </div>
 
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label htmlFor="bio" className="font-semibold">Bio</Label>
+              <Label htmlFor="bio" className="font-semibold">{t('onboardingFlow.bio')}</Label>
               <Textarea
                 id="bio"
-                placeholder="Tell us about your experience and what you're looking for..."
+                placeholder={t('onboardingFlow.bioPlaceholder')}
                 value={professionalData.bio}
                 onChange={(e) => setProfessionalData((prev) => ({ ...prev, bio: e.target.value }))}
                 rows={4}
@@ -1524,14 +1590,14 @@ export default function OnboardingFlow({
             </div>
 
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label className="font-semibold">Your Location *</Label>
+              <Label className="font-semibold">{t('onboardingFlow.location')} *</Label>
               <p className="text-sm text-muted-foreground">
-                Select your location on the map. This helps employers find you. You can add your full address later in your CV.
+                {t('onboardingFlow.locationDesc')}
               </p>
               {professionalData.latitude && professionalData.longitude && (
                 <div className="bg-green-50 border border-green-200 rounded-md p-2 mt-2">
                   <p className="text-xs text-green-800">
-                    ✓ Location selected
+                    ✓ {t('onboardingFlow.locationSelected')}
                   </p>
                 </div>
               )}
@@ -1544,7 +1610,7 @@ export default function OnboardingFlow({
             </div>
 
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label className="font-semibold">Experience Level</Label>
+              <Label className="font-semibold">{t('onboardingFlow.experienceLevel')}</Label>
               <RadioGroup
                 value={professionalData.experienceLevel}
                 onValueChange={(value) =>
@@ -1556,11 +1622,11 @@ export default function OnboardingFlow({
                 className="flex flex-wrap gap-4"
               >
                 {[
-                  { value: "entry", label: "Entry Level" },
-                  { value: "mid", label: "Mid Level" },
-                  { value: "senior", label: "Senior" },
-                  { value: "lead", label: "Lead" },
-                  { value: "executive", label: "Executive" },
+                  { value: "entry", label: t('onboardingFlow.entry') },
+                  { value: "mid", label: t('onboardingFlow.mid') },
+                  { value: "senior", label: t('onboardingFlow.senior') },
+                  { value: "lead", label: t('onboardingFlow.lead') },
+                  { value: "executive", label: t('onboardingFlow.executive') },
                 ].map((level) => (
                   <div key={level.value} className="flex items-center space-x-2 p-2 rounded border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
                     <RadioGroupItem value={level.value} id={level.value} className="border-2" />
@@ -1571,11 +1637,11 @@ export default function OnboardingFlow({
             </div>
 
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label className="font-semibold">Skills</Label>
+              <Label className="font-semibold">{t('onboardingFlow.skills')}</Label>
               <div className="flex gap-2 relative">
                 <div className="flex-1 relative">
                   <Input
-                    placeholder="Add a skill (e.g., Plumbing, Electrical Installation)"
+                    placeholder={t('onboardingFlow.skillsPlaceholder')}
                     value={newSkill}
                     onChange={(e) => setNewSkill(e.target.value)}
                     onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
@@ -1622,7 +1688,7 @@ export default function OnboardingFlow({
 
             {/* Languages */}
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label className="font-semibold">Languages</Label>
+              <Label className="font-semibold">{t('onboardingFlow.languages')}</Label>
               <LanguageSelector
                 selectedLanguages={professionalData.languages}
                 onChange={(languages) => setProfessionalData((prev) => ({ ...prev, languages }))}
@@ -1631,11 +1697,11 @@ export default function OnboardingFlow({
 
             {/* Website URL */}
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label htmlFor="websiteUrl" className="font-semibold">Personal Website (Optional)</Label>
+              <Label htmlFor="websiteUrl" className="font-semibold">{t('onboardingFlow.websiteUrl')}</Label>
               <Input
                 id="websiteUrl"
                 type="url"
-                placeholder="https://yourwebsite.com"
+                placeholder={t('onboardingFlow.websiteUrlPlaceholder')}
                 value={professionalData.websiteUrl}
                 onChange={(e) => setProfessionalData((prev) => ({ ...prev, websiteUrl: e.target.value }))}
                 onBlur={(e) => {
@@ -1647,34 +1713,34 @@ export default function OnboardingFlow({
                 className="border-2"
               />
               <p className="text-xs text-muted-foreground">
-                Your personal website or online portfolio
+                {t('onboardingFlow.websiteUrlDesc')}
               </p>
             </div>
 
             {/* Employment Status */}
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label htmlFor="employmentStatus" className="font-semibold">Employment Status (Optional)</Label>
+              <Label htmlFor="employmentStatus" className="font-semibold">{t('onboardingFlow.employmentStatus')}</Label>
               <Select
                 value={professionalData.employmentStatus ?? undefined}
                 onValueChange={(value) => setProfessionalData((prev) => ({ ...prev, employmentStatus: value || null }))}
               >
                 <SelectTrigger className="border-2">
-                  <SelectValue placeholder="Select employment status (optional)" />
+                  <SelectValue placeholder={t('onboardingFlow.employmentStatusPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="employed">Employed</SelectItem>
-                  <SelectItem value="unemployed">Unemployed</SelectItem>
-                  <SelectItem value="self_employed">Self-Employed</SelectItem>
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="freelancer">Freelancer</SelectItem>
-                  <SelectItem value="contractor">Contractor</SelectItem>
+                  <SelectItem value="employed">{t('onboardingFlow.employed')}</SelectItem>
+                  <SelectItem value="unemployed">{t('onboardingFlow.unemployed')}</SelectItem>
+                  <SelectItem value="self_employed">{t('onboardingFlow.selfEmployed')}</SelectItem>
+                  <SelectItem value="student">{t('onboardingFlow.student')}</SelectItem>
+                  <SelectItem value="freelancer">{t('onboardingFlow.freelancer')}</SelectItem>
+                  <SelectItem value="contractor">{t('onboardingFlow.contractor')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             {/* Availability */}
             <div className="space-y-3 p-4 border rounded-lg shadow-sm bg-white">
-              <Label className="font-semibold">Availability</Label>
+              <Label className="font-semibold">{t('onboardingFlow.availability')}</Label>
               <RadioGroup
                 value={professionalData.availability}
                 onValueChange={(value) =>
@@ -1686,10 +1752,10 @@ export default function OnboardingFlow({
                 className="flex flex-col gap-2"
               >
                 {[
-                  { value: "available_now", label: "Available now" },
-                  { value: "available_week", label: "Available within a week" },
-                  { value: "available_month", label: "Available within a month" },
-                  { value: "not_specified", label: "Not specified" },
+                  { value: "available_now", label: t('onboardingFlow.availableNow') },
+                  { value: "available_week", label: t('onboardingFlow.availableWeek') },
+                  { value: "available_month", label: t('onboardingFlow.availableMonth') },
+                  { value: "not_specified", label: t('onboardingFlow.notSpecified') },
                 ].map((option) => (
                   <div key={option.value} className="flex items-center space-x-3 p-3 rounded border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
                     <RadioGroupItem value={option.value} id={`avail-${option.value}`} className="border-2 w-5 h-5" />
@@ -1701,7 +1767,7 @@ export default function OnboardingFlow({
 
             {/* Additional Information Checkboxes */}
             <div className="space-y-3 p-4 border rounded-lg shadow-sm bg-white">
-              <Label className="font-semibold">Additional Information</Label>
+              <Label className="font-semibold">{t('onboardingFlow.additionalInfo')}</Label>
               <div className="space-y-2">
                 <div className="flex items-center space-x-3 p-3 rounded border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
                   <input
@@ -1714,7 +1780,7 @@ export default function OnboardingFlow({
                     className="h-5 w-5 rounded border-2 border-gray-300"
                   />
                   <Label htmlFor="readyToRelocate" className="font-medium cursor-pointer flex-1">
-                    Ready to relocate
+                    {t('onboardingFlow.readyToRelocate')}
                   </Label>
                 </div>
                 <div className="flex items-center space-x-3 p-3 rounded border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
@@ -1728,7 +1794,7 @@ export default function OnboardingFlow({
                     className="h-5 w-5 rounded border-2 border-gray-300"
                   />
                   <Label htmlFor="hasDrivingLicence" className="font-medium cursor-pointer flex-1">
-                    Have valid driving licence
+                    {t('onboardingFlow.hasDrivingLicence')}
                   </Label>
                 </div>
                 <div className="flex items-center space-x-3 p-3 rounded border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors">
@@ -1742,18 +1808,18 @@ export default function OnboardingFlow({
                     className="h-5 w-5 rounded border-2 border-gray-300"
                   />
                   <Label htmlFor="hasOwnTransport" className="font-medium cursor-pointer flex-1">
-                    Have own transport
+                    {t('onboardingFlow.hasOwnTransport')}
                   </Label>
                 </div>
               </div>
             </div>
 
             <div className="space-y-4 p-4 border rounded-lg shadow-sm bg-white">
-              <Label className="font-semibold">Salary Range (£)</Label>
+              <Label className="font-semibold">{t('onboardingFlow.salaryRange')}</Label>
 
               {/* Frequency selector first */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Select Frequency</Label>
+                <Label className="text-sm font-medium">{t('onboardingFlow.selectFrequency')}</Label>
                 <Select
                   value={professionalData.salaryFrequency}
                   onValueChange={(value) => {
@@ -1770,9 +1836,9 @@ export default function OnboardingFlow({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="per year">Per Year</SelectItem>
-                    <SelectItem value="per day">Per Day</SelectItem>
-                    <SelectItem value="per hour">Per Hour</SelectItem>
+                    <SelectItem value="per year">{t('onboardingFlow.perYear')}</SelectItem>
+                    <SelectItem value="per day">{t('onboardingFlow.perDay')}</SelectItem>
+                    <SelectItem value="per hour">{t('onboardingFlow.perHour')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1882,10 +1948,10 @@ export default function OnboardingFlow({
 
               {/* Manual input option */}
               <div className="pt-4 border-t">
-                <Label className="text-sm font-medium mb-3 block">Or enter manually:</Label>
+                <Label className="text-sm font-medium mb-3 block">{t('onboardingFlow.orEnterManually')}</Label>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="salaryMinManual" className="text-xs text-muted-foreground">Minimum</Label>
+                    <Label htmlFor="salaryMinManual" className="text-xs text-muted-foreground">{t('onboardingFlow.minimum')}</Label>
                     <Input
                       id="salaryMinManual"
                       type="number"
@@ -1900,7 +1966,7 @@ export default function OnboardingFlow({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="salaryMaxManual" className="text-xs text-muted-foreground">Maximum</Label>
+                    <Label htmlFor="salaryMaxManual" className="text-xs text-muted-foreground">{t('onboardingFlow.maximum')}</Label>
                     <Input
                       id="salaryMaxManual"
                       type="number"
@@ -1919,11 +1985,11 @@ export default function OnboardingFlow({
             </div>
 
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label htmlFor="portfolioUrl" className="font-semibold">Portfolio URL (Optional)</Label>
+              <Label htmlFor="portfolioUrl" className="font-semibold">{t('onboardingFlow.portfolioUrl')}</Label>
               <Input
                 id="portfolioUrl"
                 type="url"
-                placeholder="https://portfolio.com/yourname"
+                placeholder={t('onboardingFlow.portfolioUrlPlaceholder')}
                 value={professionalData.portfolioUrl}
                 onChange={(e) => setProfessionalData((prev) => ({ ...prev, portfolioUrl: e.target.value }))}
                 onBlur={(e) => {
@@ -1936,15 +2002,12 @@ export default function OnboardingFlow({
               />
             </div>
 
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(1)}>
-                Back
-              </Button>
+            <div className="flex justify-end">
               <Button
                 onClick={handleSubmit}
                 disabled={loading || !professionalData.firstName || !professionalData.lastName}
               >
-                {loading ? "Creating Profile..." : "Complete Setup"}
+                {loading ? t('onboardingFlow.creatingProfile') : t('onboardingFlow.completeSetup')}
               </Button>
             </div>
           </CardContent>
@@ -1955,7 +2018,7 @@ export default function OnboardingFlow({
       {step === 2 && userType === "company" && (
         <Card>
           <CardHeader>
-            <CardTitle>Create Your Company Profile</CardTitle>
+            <CardTitle>{t('onboardingFlow.companyProfile')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
             {/* Error message display */}
@@ -1972,7 +2035,7 @@ export default function OnboardingFlow({
                       onClick={() => setError(null)}
                       className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
                     >
-                      Dismiss
+                      {t('onboardingFlow.dismiss')}
                     </button>
                   </div>
                 </div>
@@ -1983,7 +2046,7 @@ export default function OnboardingFlow({
             {dataPreFilled && (companyData.companyName || companyData.latitude) && (
               <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
                 <p className="text-sm text-blue-800">
-                  <strong>✓ Good news!</strong> We've pre-filled some fields with information from your signup. You can update them if needed.
+                  <strong>✓ {t('onboardingFlow.goodNews')}</strong> {t('onboardingFlow.preFilledInfo')}
                 </p>
               </div>
             )}
@@ -1992,7 +2055,7 @@ export default function OnboardingFlow({
             <div className="space-y-6 pb-6 border-b">
               <div className="space-y-2">
                 <Label htmlFor="companyName" className="text-base font-semibold">
-                  Company Name <span className="text-red-500">*</span>
+                  {t('onboardingFlow.companyName')} <span className="text-red-500">*</span>
                 </Label>
                 <Input
                   id="companyName"
@@ -2006,15 +2069,15 @@ export default function OnboardingFlow({
               {/* Map Location Picker - Required */}
               <div className="space-y-2">
                 <Label className="text-base font-semibold">
-                  Pin Your Location on Map <span className="text-red-500">*</span>
+                  {t('onboardingFlow.pinLocation')} <span className="text-red-500">*</span>
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Select your location on the map. This will be used for searches and to display your city/region.
+                  {t('onboardingFlow.pinLocationDesc')}
                 </p>
                 {companyData.latitude && companyData.longitude ? (
                   <div className="bg-green-50 border border-green-200 rounded-md p-3">
                     <p className="text-sm text-green-800">
-                      <strong>✓ Location pinned on map</strong>
+                      <strong>✓ {t('onboardingFlow.locationPinned')}</strong>
                       {companyLocationData?.city && companyLocationData?.country && (
                         <span className="block mt-1 text-xs">
                           📍 {companyLocationData.city}, {companyLocationData.country}
@@ -2025,7 +2088,7 @@ export default function OnboardingFlow({
                 ) : (
                   <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
                     <p className="text-sm text-yellow-800">
-                      <strong>⚠ Please pin your location on the map</strong>
+                      <strong>⚠ {t('onboardingFlow.pleasePin')}</strong>
                     </p>
                   </div>
                 )}
@@ -2040,10 +2103,10 @@ export default function OnboardingFlow({
 
             {/* Industry - Required */}
             <div className="space-y-2 pb-6 border-b">
-              <Label htmlFor="industry" className="text-base font-semibold">Industry <span className="text-red-500">*</span></Label>
+              <Label htmlFor="industry" className="text-base font-semibold">{t('onboardingFlow.industry')} <span className="text-red-500">*</span></Label>
               <Input
                 id="industry"
-                placeholder="e.g. Technology, Healthcare, Construction"
+                placeholder={t('onboardingFlow.industryPlaceholder')}
                 value={companyData.industry}
                 onChange={(e) => setCompanyData((prev) => ({ ...prev, industry: e.target.value }))}
                 list="industry-list"
@@ -2143,13 +2206,13 @@ export default function OnboardingFlow({
 
             {/* Optional Section */}
             <div className="space-y-6 pt-4">
-              <h3 className="text-base font-semibold text-muted-foreground">Optional Information</h3>
+              <h3 className="text-base font-semibold text-muted-foreground">{t('onboardingFlow.optionalInformation')}</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="description">Company Description (Optional)</Label>
+                <Label htmlFor="description">{t('onboardingFlow.companyDescription')}</Label>
                 <Textarea
                   id="description"
-                  placeholder="Tell us about your company, mission, and culture..."
+                  placeholder={t('onboardingFlow.companyDescriptionPlaceholder')}
                   value={companyData.description}
                   onChange={(e) => setCompanyData((prev) => ({ ...prev, description: e.target.value }))}
                   rows={4}
@@ -2157,39 +2220,39 @@ export default function OnboardingFlow({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="registrationNumber">Company Registration Number (Optional)</Label>
+                <Label htmlFor="registrationNumber">{t('onboardingFlow.registrationNumber')}</Label>
                 <Input
                   id="registrationNumber"
-                  placeholder="e.g. 12345678"
+                  placeholder={t('onboardingFlow.registrationNumberPlaceholder')}
                   value={companyData.registrationNumber}
                   onChange={(e) => setCompanyData((prev) => ({ ...prev, registrationNumber: e.target.value }))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Your company registration number (if applicable)
+                  {t('onboardingFlow.registrationNumberDesc')}
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="phoneNumber">Phone Number (Optional)</Label>
+                <Label htmlFor="phoneNumber">{t('onboardingFlow.phoneNumber')}</Label>
                 <Input
                   id="phoneNumber"
                   type="tel"
-                  placeholder="e.g. +44 20 1234 5678"
+                  placeholder={t('onboardingFlow.phoneNumberPlaceholder')}
                   value={companyData.phoneNumber}
                   onChange={(e) => setCompanyData((prev) => ({ ...prev, phoneNumber: e.target.value }))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Contact number for customers to reach you
+                  {t('onboardingFlow.phoneNumberDesc')}
                 </p>
               </div>
 
               {/* Services */}
               <div className="space-y-2">
-                <Label>Services Offered (Optional)</Label>
+                <Label>{t('onboardingFlow.servicesOffered')}</Label>
                 <div className="flex gap-2 relative">
                   <div className="flex-1 relative">
                     <Input
-                      placeholder="Add a service (e.g., Electrical installation, Plumbing)"
+                      placeholder={t('onboardingFlow.servicesPlaceholder')}
                       value={newService}
                       onChange={(e) => setNewService(e.target.value)}
                       onKeyPress={(e) => {
@@ -2254,34 +2317,34 @@ export default function OnboardingFlow({
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  List the services your company provides (helps customers find you)
+                  {t('onboardingFlow.servicesDesc')}
                 </p>
               </div>
 
               {/* Spoken Languages */}
               <div className="space-y-2">
-                <Label>Spoken Languages (Optional)</Label>
+                <Label>{t('onboardingFlow.spokenLanguages')}</Label>
                 <LanguageSelector
                   selectedLanguages={companyData.spokenLanguages}
                   onChange={(languages) => setCompanyData((prev) => ({ ...prev, spokenLanguages: languages }))}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Languages your team can provide services in
+                  {t('onboardingFlow.spokenLanguagesDesc')}
                 </p>
               </div>
 
               {/* Price List */}
               <div className="space-y-2">
-                <Label htmlFor="priceList">Price List (Optional)</Label>
+                <Label htmlFor="priceList">{t('onboardingFlow.priceList')}</Label>
                 <Textarea
                   id="priceList"
-                  placeholder="Example:&#10;Standard Electrical Installation: £50-150&#10;Emergency Call-out: £80-200&#10;Kitchen Rewire: £500-1000"
+                  placeholder={t('onboardingFlow.priceListPlaceholder')}
                   value={companyData.priceList}
                   onChange={(e) => setCompanyData((prev) => ({ ...prev, priceList: e.target.value }))}
                   rows={6}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Add common service prices to help customers understand costs. Customers are more likely to contact companies with clear pricing.
+                  {t('onboardingFlow.priceListDesc')}
                 </p>
               </div>
 
@@ -2295,30 +2358,30 @@ export default function OnboardingFlow({
                   className="h-4 w-4 rounded border-gray-300"
                 />
                 <Label htmlFor="service24_7" className="text-sm font-normal cursor-pointer">
-                  Available 24/7 for emergency services
+                  {t('onboardingFlow.available247')}
                 </Label>
               </div>
             </div>
 
             {/* Optional UK Address Fields */}
             <div className="space-y-4 border-t pt-6">
-              <Label className="text-base font-semibold text-muted-foreground">Company Address (Optional)</Label>
+              <Label className="text-base font-semibold text-muted-foreground">{t('onboardingFlow.companyAddress')}</Label>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="addressLine1">Address Line 1</Label>
+                  <Label htmlFor="addressLine1">{t('onboardingFlow.addressLine1')}</Label>
                   <Input
                     id="addressLine1"
-                    placeholder="Building number and street"
+                    placeholder={t('onboardingFlow.addressLine1Placeholder')}
                     value={companyData.addressLine1 || ""}
                     onChange={(e) => setCompanyData((prev) => ({ ...prev, addressLine1: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="addressLine2">Address Line 2</Label>
+                  <Label htmlFor="addressLine2">{t('onboardingFlow.addressLine2')}</Label>
                   <Input
                     id="addressLine2"
-                    placeholder="Apartment, suite, etc."
+                    placeholder={t('onboardingFlow.addressLine2Placeholder')}
                     value={companyData.addressLine2 || ""}
                     onChange={(e) => setCompanyData((prev) => ({ ...prev, addressLine2: e.target.value }))}
                   />
@@ -2327,19 +2390,19 @@ export default function OnboardingFlow({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="city">Town/City</Label>
+                  <Label htmlFor="city">{t('onboardingFlow.city')}</Label>
                   <Input
                     id="city"
-                    placeholder="e.g. London"
+                    placeholder={t('onboardingFlow.cityPlaceholder')}
                     value={companyData.city || ""}
                     onChange={(e) => setCompanyData((prev) => ({ ...prev, city: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="county">County</Label>
+                  <Label htmlFor="county">{t('onboardingFlow.county')}</Label>
                   <Input
                     id="county"
-                    placeholder="e.g. Greater London"
+                    placeholder={t('onboardingFlow.countyPlaceholder')}
                     value={companyData.county || ""}
                     onChange={(e) => setCompanyData((prev) => ({ ...prev, county: e.target.value }))}
                   />
@@ -2348,19 +2411,19 @@ export default function OnboardingFlow({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="postcode">Postcode</Label>
+                  <Label htmlFor="postcode">{t('onboardingFlow.postcode')}</Label>
                   <Input
                     id="postcode"
-                    placeholder="e.g. SW1A 1AA"
+                    placeholder={t('onboardingFlow.postcodePlaceholder')}
                     value={companyData.postcode || ""}
                     onChange={(e) => setCompanyData((prev) => ({ ...prev, postcode: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="country">Country</Label>
+                  <Label htmlFor="country">{t('onboardingFlow.country')}</Label>
                   <Input
                     id="country"
-                    placeholder="e.g. United Kingdom"
+                    placeholder={t('onboardingFlow.countryPlaceholder')}
                     value={companyData.country || ""}
                     onChange={(e) => setCompanyData((prev) => ({ ...prev, country: e.target.value }))}
                   />
@@ -2369,11 +2432,11 @@ export default function OnboardingFlow({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="websiteUrl">Website URL (Optional)</Label>
+              <Label htmlFor="websiteUrl">{t('onboardingFlow.websiteUrl')}</Label>
               <Input
                 id="websiteUrl"
                 type="url"
-                placeholder="https://yourcompany.com"
+                placeholder={t('onboardingFlow.companyWebsitePlaceholder')}
                 value={companyData.websiteUrl}
                 onChange={(e) => setCompanyData((prev) => ({ ...prev, websiteUrl: e.target.value }))}
                 onBlur={(e) => {
@@ -2385,15 +2448,12 @@ export default function OnboardingFlow({
               />
             </div>
 
-            <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep(1)}>
-                Back
-              </Button>
+            <div className="flex justify-end">
               <Button
                 onClick={handleSubmit}
                 disabled={loading || !companyData.companyName || !companyData.industry || (!companyData.latitude || !companyData.longitude)}
               >
-                {loading ? "Creating Profile..." : "Complete Setup"}
+                {loading ? t('onboardingFlow.creatingProfile') : t('onboardingFlow.completeSetup')}
               </Button>
             </div>
           </CardContent>
@@ -2404,8 +2464,8 @@ export default function OnboardingFlow({
       {step === 2 && userType === "homeowner" && (
         <Card>
           <CardHeader>
-            <CardTitle>Create Your Homeowner Profile</CardTitle>
-            <CardDescription>Set up your profile to start posting jobs and finding contractors</CardDescription>
+            <CardTitle>{t('onboardingFlow.homeownerProfile')}</CardTitle>
+            <CardDescription>{t('onboardingFlow.homeownerProfileDesc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <HomeownerOnboardingForm userId={user.id} />

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import MapLocationPicker from "./map-location-picker"
 import { X, ArrowLeft, ArrowRight, Eye, Briefcase, Hammer } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { useTranslation } from "@/lib/i18n/context"
 
 type Props = {
   companyProfile: any
@@ -32,137 +33,257 @@ type JobFormData = {
   locationCoords: { lat: number; lon: number } | null
 }
 
-const ACTIVE_DURATION_OPTIONS = [
-  { value: "3_days", label: "3 days" },
-  { value: "7_days", label: "7 days" },
-  { value: "2_weeks", label: "2 weeks" },
-  { value: "3_weeks", label: "3 weeks" },
-  { value: "4_weeks", label: "4 weeks" },
+const getActiveDurationOptions = (isPtBR: boolean) => [
+  { value: "3_days", label: isPtBR ? "3 dias" : "3 days" },
+  { value: "7_days", label: isPtBR ? "7 dias" : "7 days" },
+  { value: "2_weeks", label: isPtBR ? "2 semanas" : "2 weeks" },
+  { value: "3_weeks", label: isPtBR ? "3 semanas" : "3 weeks" },
+  { value: "4_weeks", label: isPtBR ? "4 semanas" : "4 weeks" },
 ]
 
-const PAY_FREQUENCY_OPTIONS = [
-  { value: "per_hour", label: "per hour" },
-  { value: "per_day", label: "per day" },
-  { value: "per_week", label: "per week" },
-  { value: "per_month", label: "per month" },
-  { value: "per_year", label: "per year" },
-  { value: "per_job", label: "per job" },
+const getPayFrequencyOptions = (isPtBR: boolean) => [
+  { value: "per_hour", label: isPtBR ? "por hora" : "per hour" },
+  { value: "per_day", label: isPtBR ? "por dia" : "per day" },
+  { value: "per_week", label: isPtBR ? "por semana" : "per week" },
+  { value: "per_month", label: isPtBR ? "por mês" : "per month" },
+  { value: "per_year", label: isPtBR ? "por ano" : "per year" },
+  { value: "per_job", label: isPtBR ? "por trabalho" : "per job" },
 ]
 
 // Comprehensive list of professions based on popular categories
-const COMMON_PROFESSIONS = [
-  // Tech & IT
-  "Developer",
-  "Software Engineer",
-  "Web Designer",
-  "Designer",
-  "AI Specialist",
-  "IT Support",
-  "Data Analyst",
-  "Cybersecurity",
-  "Cybersecurity Specialist",
-  "DevOps",
-  "DevOps Engineer",
-  // Healthcare
-  "Nurse",
-  "Carer",
-  "Doctor",
-  "Pharmacist",
-  "Dentist",
-  // Professional Services
-  "Administrator",
-  "Accountant",
-  "Marketing",
-  "Marketing Manager",
-  "Sales",
-  "Sales Representative",
-  "HR Manager",
-  "Lawyer",
-  "Teacher",
-  "Recruiter",
-  "Consultant",
-  "Architect",
-  "Project Manager",
-  "Customer Service",
-  // Other Services
-  "Chef",
-  "Driver",
-  "Warehouse",
-  "Warehouse Operative",
-  "Security",
-  "Security Guard",
-  "Photographer",
-  "Barber",
-  "Personal Trainer",
-  "Event Planner",
-]
+const getCommonProfessions = (isPtBR: boolean) => {
+  if (isPtBR) {
+    return [
+      // Tech & TI
+      "Desenvolvedor",
+      "Engenheiro de Software",
+      "Web Designer",
+      "Designer",
+      "Especialista em IA",
+      "Suporte de TI",
+      "Analista de Dados",
+      "Cibersegurança",
+      "Especialista em Cibersegurança",
+      "DevOps",
+      "Engenheiro DevOps",
+      // Saúde
+      "Enfermeiro",
+      "Cuidador",
+      "Médico",
+      "Farmacêutico",
+      "Dentista",
+      // Serviços Profissionais
+      "Administrador",
+      "Contador",
+      "Marketing",
+      "Gerente de Marketing",
+      "Vendas",
+      "Representante de Vendas",
+      "Gerente de RH",
+      "Advogado",
+      "Professor",
+      "Recrutador",
+      "Consultor",
+      "Arquiteto",
+      "Gerente de Projetos",
+      "Atendimento ao Cliente",
+      // Outros Serviços
+      "Chef",
+      "Motorista",
+      "Armazém",
+      "Operador de Armazém",
+      "Segurança",
+      "Guarda de Segurança",
+      "Fotógrafo",
+      "Barbeiro",
+      "Personal Trainer",
+      "Planejador de Eventos",
+    ]
+  }
+
+  return [
+    // Tech & IT
+    "Developer",
+    "Software Engineer",
+    "Web Designer",
+    "Designer",
+    "AI Specialist",
+    "IT Support",
+    "Data Analyst",
+    "Cybersecurity",
+    "Cybersecurity Specialist",
+    "DevOps",
+    "DevOps Engineer",
+    // Healthcare
+    "Nurse",
+    "Carer",
+    "Doctor",
+    "Pharmacist",
+    "Dentist",
+    // Professional Services
+    "Administrator",
+    "Accountant",
+    "Marketing",
+    "Marketing Manager",
+    "Sales",
+    "Sales Representative",
+    "HR Manager",
+    "Lawyer",
+    "Teacher",
+    "Recruiter",
+    "Consultant",
+    "Architect",
+    "Project Manager",
+    "Customer Service",
+    // Other Services
+    "Chef",
+    "Driver",
+    "Warehouse",
+    "Warehouse Operative",
+    "Security",
+    "Security Guard",
+    "Photographer",
+    "Barber",
+    "Personal Trainer",
+    "Event Planner",
+  ]
+}
 
 // Comprehensive list of trades based on popular categories
-const COMMON_TRADES = [
-  // Trades
-  "Plumber",
-  "Electrician",
-  "Builder",
-  "Carpenter",
-  "Painter",
-  "Painter & Decorator",
-  "Roofer",
-  "Gardener",
-  "Cleaner",
-  "Handyman",
-  "General Handyman",
-  "Locksmith",
-  "Bathrooms",
-  "Bathroom Fitter",
-  "Tiler",
-  "Heating",
-  "Heating Engineer",
-  "Gas Boiler",
-  "Gas Engineer",
-  "Plasterer",
-  "Driveways",
-  "Driveway Specialist",
-  "Fencing",
-  "Tree Surgeon",
-  "Windows/Doors",
-  "Window Fitter",
-  "Door Fitter",
-  "Mechanic",
-  "Flooring",
-  "Flooring Specialist",
-  "Kitchen Fitter",
-  "HVAC",
-  "HVAC Engineer",
-  "Glazier",
-  "Decorator",
-  "Bricklayer",
-  "Scaffolder",
-  "Welder",
-]
+const getCommonTrades = (isPtBR: boolean) => {
+  if (isPtBR) {
+    return [
+      // Ofícios
+      "Encanador",
+      "Eletricista",
+      "Construtor",
+      "Carpinteiro",
+      "Pintor",
+      "Pintor & Decorador",
+      "Telhador",
+      "Jardineiro",
+      "Faxineiro",
+      "Faz-Tudo",
+      "Faz-Tudo Geral",
+      "Chaveiro",
+      "Banheiros",
+      "Instalador de Banheiros",
+      "Azulejista",
+      "Aquecimento",
+      "Engenheiro de Aquecimento",
+      "Caldeira a Gás",
+      "Engenheiro de Gás",
+      "Gesseiro",
+      "Calçadas",
+      "Especialista em Calçadas",
+      "Cercas",
+      "Cirurgião de Árvores",
+      "Janelas/Portas",
+      "Instalador de Janelas",
+      "Instalador de Portas",
+      "Mecânico",
+      "Pisos",
+      "Especialista em Pisos",
+      "Instalador de Cozinhas",
+      "HVAC",
+      "Engenheiro HVAC",
+      "Vidraceiro",
+      "Decorador",
+      "Pedreiro",
+      "Andaimeiro",
+      "Soldador",
+    ]
+  }
+
+  return [
+    // Trades
+    "Plumber",
+    "Electrician",
+    "Builder",
+    "Carpenter",
+    "Painter",
+    "Painter & Decorator",
+    "Roofer",
+    "Gardener",
+    "Cleaner",
+    "Handyman",
+    "General Handyman",
+    "Locksmith",
+    "Bathrooms",
+    "Bathroom Fitter",
+    "Tiler",
+    "Heating",
+    "Heating Engineer",
+    "Gas Boiler",
+    "Gas Engineer",
+    "Plasterer",
+    "Driveways",
+    "Driveway Specialist",
+    "Fencing",
+    "Tree Surgeon",
+    "Windows/Doors",
+    "Window Fitter",
+    "Door Fitter",
+    "Mechanic",
+    "Flooring",
+    "Flooring Specialist",
+    "Kitchen Fitter",
+    "HVAC",
+    "HVAC Engineer",
+    "Glazier",
+    "Decorator",
+    "Bricklayer",
+    "Scaffolder",
+    "Welder",
+  ]
+}
 
 // Common languages for trade jobs
-const COMMON_LANGUAGES = [
-  "English",
-  "Spanish",
-  "Mandarin",
-  "French",
-  "German",
-  "Italian",
-  "Portuguese",
-  "Russian",
-  "Arabic",
-  "Polish",
-  "Turkish",
-  "Urdu",
-  "Bengali",
-  "Punjabi",
-  "Romanian",
-]
+const getCommonLanguages = (isPtBR: boolean) => {
+  if (isPtBR) {
+    return [
+      "Inglês",
+      "Espanhol",
+      "Mandarim",
+      "Francês",
+      "Alemão",
+      "Italiano",
+      "Português",
+      "Russo",
+      "Árabe",
+      "Polonês",
+      "Turco",
+      "Urdu",
+      "Bengali",
+      "Punjabi",
+      "Romeno",
+    ]
+  }
+
+  return [
+    "English",
+    "Spanish",
+    "Mandarin",
+    "French",
+    "German",
+    "Italian",
+    "Portuguese",
+    "Russian",
+    "Arabic",
+    "Polish",
+    "Turkish",
+    "Urdu",
+    "Bengali",
+    "Punjabi",
+    "Romanian",
+  ]
+}
 
 export default function JobWizardModal({ companyProfile, userType }: Props) {
   const supabase = createClient()
   const router = useRouter()
   const { toast } = useToast()
+  const { locale } = useTranslation()
 
   const [open, setOpen] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
@@ -643,7 +764,7 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
             <h3 className="text-lg font-semibold">How long do you want your {formData.postingType === "employee" ? "vacancy" : "job/task"} to be active?</h3>
             <p className="text-sm text-gray-600">Select the duration based on your subscription plan</p>
             <div className="space-y-3">
-              {ACTIVE_DURATION_OPTIONS.map((option) => (
+              {getActiveDurationOptions(locale === 'pt-BR').map((option) => (
                 <label
                   key={option.value}
                   className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-blue-300 shadow-sm hover:shadow-md ${
@@ -675,7 +796,8 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
         )
 
       case 3:
-        const professionsList = formData.postingType === "tradespeople" ? COMMON_TRADES : COMMON_PROFESSIONS
+        const isPtBR = locale === 'pt-BR'
+        const professionsList = formData.postingType === "tradespeople" ? getCommonTrades(isPtBR) : getCommonProfessions(isPtBR)
 
         // Handle profession input change with autocomplete
         const handleProfessionChange = (value: string) => {
@@ -803,7 +925,7 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
                     onChange={(e) => setFormData((prev) => ({ ...prev, payFrequency: e.target.value }))}
                     className="w-full border rounded-lg p-3 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    {PAY_FREQUENCY_OPTIONS
+                    {getPayFrequencyOptions(isPtBR)
                       .filter((option) => {
                         // For tradespeople/tasks, only show per_job, per_hour, per_day
                         if (formData.postingType === "tradespeople") {
@@ -927,7 +1049,7 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {COMMON_LANGUAGES.map((lang) => (
+                  {getCommonLanguages(isPtBR).map((lang) => (
                     <button
                       key={lang}
                       type="button"
