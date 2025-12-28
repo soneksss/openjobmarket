@@ -19,6 +19,7 @@ export const ptBR: Dictionary = {
     close: 'Fechar',
     back: 'Voltar',
     next: 'Próximo',
+    continue: 'Continuar',
     previous: 'Anterior',
     submit: 'Enviar',
     required: 'Obrigatório',

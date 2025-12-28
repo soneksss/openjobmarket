@@ -17,6 +17,7 @@ export const en = {
     close: 'Close',
     back: 'Back',
     next: 'Next',
+    continue: 'Continue',
     previous: 'Previous',
     submit: 'Submit',
     required: 'Required',

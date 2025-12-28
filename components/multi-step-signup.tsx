@@ -294,12 +294,20 @@ export default function MultiStepSignup() {
       } else {
         setError(t('signup.selectAtLeastOneRole'))
       }
+    } else if (currentStep === 4) {
+      // Validate Step 4 before proceeding to Step 5
+      if (validateStep3()) {
+        setCurrentStep(5) // Detailed profile information
+      }
     }
   }
 
   const prevStep = () => {
     setError(null)
-    if (currentStep === 4) {
+    if (currentStep === 5) {
+      // Go back to profile setup
+      setCurrentStep(4)
+    } else if (currentStep === 4) {
       // Go back to appropriate role selection
       setCurrentStep(signupData.accountType === "individual" ? 2 : 3)
     } else if (currentStep === 2 || currentStep === 3) {
