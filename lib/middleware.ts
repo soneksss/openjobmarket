@@ -82,7 +82,9 @@ export async function middleware(req: NextRequest) {
 
   // Check for locale query parameter (e.g., /auth/sign-up?locale=pt-BR)
   const localeParam = req.nextUrl.searchParams.get('locale')
+  console.log('[MIDDLEWARE] Pathname:', pathname, 'localeParam:', localeParam, 'currentLocale:', currentLocale)
   if (localeParam === 'pt-BR') {
+    console.log('[MIDDLEWARE] Setting NEXT_LOCALE cookie to pt-BR due to query parameter')
     // Set cookie when locale parameter is present
     res.cookies.set('NEXT_LOCALE', 'pt-BR', {
       maxAge: 60 * 60 * 24 * 365, // 1 year
@@ -126,18 +128,36 @@ export async function middleware(req: NextRequest) {
 
   // Set locale cookie based on current path (only if not already set by query parameter)
   if (currentLocale && !localeParam) {
-    res.cookies.set('NEXT_LOCALE', currentLocale, {
-      maxAge: 60 * 60 * 24 * 365, // 1 year
-      path: '/',
-    })
+    // Don't overwrite existing pt-BR cookie with en when navigating to non-/br paths
+    const existingLocaleCookie = req.cookies.get('NEXT_LOCALE')?.value
 
-    // Update user preference when on /br (they chose Portuguese)
-    if (isOnBrRoute && currentLocale === 'pt-BR') {
-      res.cookies.set('USER_LOCALE_PREFERENCE', 'pt-BR', {
+    // Only update cookie if:
+    // 1. We're on /br route (always set to pt-BR), OR
+    // 2. There's no existing cookie, OR
+    // 3. We're explicitly on a non-BR route AND user was on English site
+    const shouldUpdateCookie = isOnBrRoute ||
+                                !existingLocaleCookie ||
+                                (currentLocale === 'en' && userPreference === 'en')
+
+    if (shouldUpdateCookie) {
+      console.log('[MIDDLEWARE] Setting NEXT_LOCALE cookie to', currentLocale, 'based on pathname (existing:', existingLocaleCookie, ')')
+      res.cookies.set('NEXT_LOCALE', currentLocale, {
         maxAge: 60 * 60 * 24 * 365, // 1 year
         path: '/',
       })
+
+      // Update user preference when on /br (they chose Portuguese)
+      if (isOnBrRoute && currentLocale === 'pt-BR') {
+        res.cookies.set('USER_LOCALE_PREFERENCE', 'pt-BR', {
+          maxAge: 60 * 60 * 24 * 365, // 1 year
+          path: '/',
+        })
+      }
+    } else {
+      console.log('[MIDDLEWARE] Preserving existing locale cookie:', existingLocaleCookie, '(not overwriting with', currentLocale, ')')
     }
+  } else if (localeParam) {
+    console.log('[MIDDLEWARE] Skipping pathname-based cookie because localeParam exists:', localeParam)
   }
 
   // === AUTH PROTECTION ===

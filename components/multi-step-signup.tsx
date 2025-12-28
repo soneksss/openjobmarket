@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { User, Building2, Briefcase, Home, Wrench, Users, ArrowRight, ArrowLeft, Loader2, Check } from "lucide-react"
 import Link from "next/link"
 import { MapLocationPicker } from "@/components/map-location-picker"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface SignupData {
   accountType: "individual" | "company" | null
@@ -37,9 +38,10 @@ interface SignupData {
 export default function MultiStepSignup() {
   const router = useRouter()
   const pathname = usePathname()
+  const { t, locale } = useTranslation()
 
   // Locale-aware onboarding URL
-  const isOnBrRoute = pathname?.startsWith('/br')
+  const isOnBrRoute = locale === 'pt-BR'
   const onboardingUrl = isOnBrRoute
     ? '/onboarding?locale=pt-BR&returnUrl=/br'
     : '/onboarding'
@@ -95,30 +97,30 @@ export default function MultiStepSignup() {
 
   const validateStep3 = () => {
     if (!signupData.email || !signupData.password || !signupData.confirmPassword) {
-      setError("Please fill in all required fields")
+      setError(t('signup.fillAllFields'))
       return false
     }
     if (signupData.password !== signupData.confirmPassword) {
-      setError("Passwords do not match")
+      setError(t('signup.passwordsDoNotMatch'))
       return false
     }
     if (signupData.password.length < 6) {
-      setError("Password must be at least 6 characters")
+      setError(t('signup.passwordTooShort'))
       return false
     }
     if (signupData.accountType === "individual" && (!signupData.firstName || !signupData.lastName)) {
-      setError("Please enter your full name")
+      setError(t('signup.enterFullName'))
       return false
     }
     if (signupData.accountType === "company" && !signupData.companyName) {
-      setError("Please enter your company name")
+      setError(t('signup.enterCompanyName'))
       return false
     }
 
     // Location is required for Jobseekers and Tradespeople
     const requiresLocation = signupData.roles.jobseeker || signupData.roles.tradespeople
     if (requiresLocation && (!signupData.latitude || !signupData.longitude)) {
-      setError("Please select your location on the map. This is required for jobseekers and tradespeople to be found by employers.")
+      setError(t('signup.selectLocationRequired'))
       return false
     }
 
@@ -235,7 +237,7 @@ export default function MultiStepSignup() {
       if (canProceedFromStep2()) {
         setCurrentStep(4) // Profile setup
       } else {
-        setError("Please select at least one role")
+        setError(t('signup.selectAtLeastOneRole'))
       }
     }
   }
@@ -253,9 +255,9 @@ export default function MultiStepSignup() {
   return (
     <Card className="w-full max-w-2xl">
       <CardHeader>
-        <CardTitle className="text-2xl">Create Your Account</CardTitle>
+        <CardTitle className="text-2xl">{t('signup.title')}</CardTitle>
         <CardDescription>
-          Step {currentStep === 1 ? "1" : currentStep === 4 ? "3" : "2"} of 3
+          {t('signup.step')} {currentStep === 1 ? "1" : currentStep === 4 ? "3" : "2"} {t('signup.of')} 3
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -269,9 +271,9 @@ export default function MultiStepSignup() {
         {currentStep === 1 && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold mb-2">Who are you signing up as?</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('signup.whoAreYou')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Choose the account type that best describes you
+                {t('signup.chooseAccountType')}
               </p>
             </div>
 
@@ -285,14 +287,14 @@ export default function MultiStepSignup() {
                 }`}
               >
                 <User className="h-12 w-12 mb-3 text-blue-600" />
-                <h4 className="font-semibold text-lg mb-2">Individual (Private Person)</h4>
+                <h4 className="font-semibold text-lg mb-2">{t('signup.individual')}</h4>
                 <p className="text-sm text-muted-foreground">
-                  For job seekers and homeowners looking for services
+                  {t('signup.individualDesc')}
                 </p>
                 {signupData.accountType === "individual" && (
                   <div className="mt-3 flex items-center text-blue-600 text-sm font-medium">
                     <Check className="h-4 w-4 mr-1" />
-                    Selected
+                    {t('signup.selected')}
                   </div>
                 )}
               </button>
@@ -306,14 +308,14 @@ export default function MultiStepSignup() {
                 }`}
               >
                 <Building2 className="h-12 w-12 mb-3 text-orange-600" />
-                <h4 className="font-semibold text-lg mb-2">Business / Company</h4>
+                <h4 className="font-semibold text-lg mb-2">{t('signup.company')}</h4>
                 <p className="text-sm text-muted-foreground">
-                  For employers and trade/service companies
+                  {t('signup.companyDesc')}
                 </p>
                 {signupData.accountType === "company" && (
                   <div className="mt-3 flex items-center text-orange-600 text-sm font-medium">
                     <Check className="h-4 w-4 mr-1" />
-                    Selected
+                    {t('signup.selected')}
                   </div>
                 )}
               </button>
@@ -325,7 +327,7 @@ export default function MultiStepSignup() {
                 disabled={!canProceedFromStep1}
                 className="min-w-32"
               >
-                Next
+                {t('common.next')}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -336,9 +338,9 @@ export default function MultiStepSignup() {
         {currentStep === 2 && signupData.accountType === "individual" && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold mb-2">What would you like to do on Open Job Market?</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('signup.whatToDo')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                You can select one or both options below
+                {t('signup.selectOneOrBoth')}
               </p>
             </div>
 
@@ -360,10 +362,10 @@ export default function MultiStepSignup() {
                   <div className="flex-1">
                     <div className="flex items-center mb-2">
                       <Briefcase className="h-5 w-5 mr-2 text-blue-600" />
-                      <h4 className="font-semibold">Jobseeker</h4>
+                      <h4 className="font-semibold">{t('signup.jobseeker')}</h4>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Search for jobs or let employers find you
+                      {t('signup.jobseekerDesc')}
                     </p>
                   </div>
                 </div>
@@ -386,10 +388,10 @@ export default function MultiStepSignup() {
                   <div className="flex-1">
                     <div className="flex items-center mb-2">
                       <Home className="h-5 w-5 mr-2 text-green-600" />
-                      <h4 className="font-semibold">Homeowner</h4>
+                      <h4 className="font-semibold">{t('signup.homeowner')}</h4>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Post tasks or find tradespeople for your project
+                      {t('signup.homeownerDesc')}
                     </p>
                   </div>
                 </div>
@@ -399,14 +401,14 @@ export default function MultiStepSignup() {
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={prevStep}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
+                {t('common.back')}
               </Button>
               <Button
                 onClick={nextStep}
                 disabled={!canProceedFromStep2()}
                 className="min-w-32"
               >
-                Next
+                {t('common.next')}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -417,9 +419,9 @@ export default function MultiStepSignup() {
         {currentStep === 3 && signupData.accountType === "company" && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold mb-2">What best describes your company?</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('signup.whatDescribesCompany')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Select one or both options
+                {t('signup.selectOptions')}
               </p>
             </div>
 
@@ -441,10 +443,10 @@ export default function MultiStepSignup() {
                   <div className="flex-1">
                     <div className="flex items-center mb-2">
                       <Users className="h-5 w-5 mr-2 text-purple-600" />
-                      <h4 className="font-semibold">Employer</h4>
+                      <h4 className="font-semibold">{t('signup.employer')}</h4>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Post vacancies or search for talent
+                      {t('signup.employerDesc')}
                     </p>
                   </div>
                 </div>
@@ -467,10 +469,10 @@ export default function MultiStepSignup() {
                   <div className="flex-1">
                     <div className="flex items-center mb-2">
                       <Wrench className="h-5 w-5 mr-2 text-orange-600" />
-                      <h4 className="font-semibold">Trades / Service Company</h4>
+                      <h4 className="font-semibold">{t('signup.tradespeople')}</h4>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      Offer trade services or find skilled workers
+                      {t('signup.tradespeopleDesc')}
                     </p>
                   </div>
                 </div>
@@ -480,14 +482,14 @@ export default function MultiStepSignup() {
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={prevStep}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
+                {t('common.back')}
               </Button>
               <Button
                 onClick={nextStep}
                 disabled={!canProceedFromStep2()}
                 className="min-w-32"
               >
-                Next
+                {t('common.next')}
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
@@ -498,9 +500,9 @@ export default function MultiStepSignup() {
         {currentStep === 4 && (
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold mb-2">Profile Setup</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('signup.profileSetup')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Complete your profile information
+                {t('signup.completeProfile')}
               </p>
             </div>
 
@@ -508,23 +510,23 @@ export default function MultiStepSignup() {
               {signupData.accountType === "individual" ? (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="firstName">First Name *</Label>
+                    <Label htmlFor="firstName">{t('signup.firstNameLabel')}</Label>
                     <Input
                       id="firstName"
                       value={signupData.firstName}
                       onChange={(e) => updateSignupData({ firstName: e.target.value })}
-                      placeholder="John"
+                      placeholder={t('signup.firstNamePlaceholder')}
                       required
                       className="border-2"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Label htmlFor="lastName">{t('signup.lastNameLabel')}</Label>
                     <Input
                       id="lastName"
                       value={signupData.lastName}
                       onChange={(e) => updateSignupData({ lastName: e.target.value })}
-                      placeholder="Doe"
+                      placeholder={t('signup.lastNamePlaceholder')}
                       required
                       className="border-2"
                     />
@@ -532,12 +534,12 @@ export default function MultiStepSignup() {
                 </div>
               ) : (
                 <div>
-                  <Label htmlFor="companyName">Company Name *</Label>
+                  <Label htmlFor="companyName">{t('signup.companyNameLabel')}</Label>
                   <Input
                     id="companyName"
                     value={signupData.companyName}
                     onChange={(e) => updateSignupData({ companyName: e.target.value })}
-                    placeholder="ABC Company Ltd"
+                    placeholder={t('signup.companyNamePlaceholder')}
                     required
                     className="border-2"
                   />
@@ -545,52 +547,52 @@ export default function MultiStepSignup() {
               )}
 
               <div>
-                <Label htmlFor="email">Email *</Label>
+                <Label htmlFor="email">{t('signup.emailLabel')}</Label>
                 <Input
                   id="email"
                   type="email"
                   value={signupData.email}
                   onChange={(e) => updateSignupData({ email: e.target.value })}
-                  placeholder="you@example.com"
+                  placeholder={t('signup.emailPlaceholderProfile')}
                   required
                   className="border-2"
                 />
               </div>
 
               <div>
-                <Label htmlFor="password">Password *</Label>
+                <Label htmlFor="password">{t('signup.passwordLabel')}</Label>
                 <Input
                   id="password"
                   type="password"
                   value={signupData.password}
                   onChange={(e) => updateSignupData({ password: e.target.value })}
-                  placeholder="Minimum 6 characters"
+                  placeholder={t('signup.passwordPlaceholder')}
                   required
                   className="border-2"
                 />
               </div>
 
               <div>
-                <Label htmlFor="confirmPassword">Confirm Password *</Label>
+                <Label htmlFor="confirmPassword">{t('signup.confirmPasswordLabel')}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
                   value={signupData.confirmPassword}
                   onChange={(e) => updateSignupData({ confirmPassword: e.target.value })}
-                  placeholder="Re-enter password"
+                  placeholder={t('signup.confirmPasswordPlaceholder')}
                   required
                   className="border-2"
                 />
               </div>
 
               <div>
-                <Label htmlFor="phone">Phone (Optional)</Label>
+                <Label htmlFor="phone">{t('signup.phoneLabel')}</Label>
                 <Input
                   id="phone"
                   type="tel"
                   value={signupData.phone}
                   onChange={(e) => updateSignupData({ phone: e.target.value })}
-                  placeholder="+44 123 456 7890"
+                  placeholder={t('signup.phonePlaceholder')}
                   className="border-2"
                 />
               </div>
@@ -600,7 +602,7 @@ export default function MultiStepSignup() {
                 {(signupData.roles.jobseeker || signupData.roles.tradespeople) ? (
                   <div className="space-y-2">
                     <Label>
-                      Your Location *
+                      {t('signup.yourLocation')}
                     </Label>
                     <MapLocationPicker
                       value={
@@ -628,22 +630,22 @@ export default function MultiStepSignup() {
                         }
                       }}
                       height="350px"
-                      placeholder="Click on the map to select your location or search for your address"
+                      placeholder={t('signup.mapPlaceholder')}
                     />
                   </div>
                 ) : (signupData.roles.homeowner || signupData.roles.employer) ? (
                   <div className="space-y-2">
                     <Label>
-                      Location (Optional)
+                      {t('signup.locationOptional')}
                       <span className="text-xs text-muted-foreground ml-2">
-                        (You can set job location when posting jobs)
+                        {t('signup.locationHint')}
                       </span>
                     </Label>
                     <Input
                       id="location"
                       value={signupData.location}
                       onChange={(e) => updateSignupData({ location: e.target.value })}
-                      placeholder="London, UK (Optional)"
+                      placeholder={t('signup.locationPlaceholderOptional')}
                     />
                   </div>
                 ) : null}
@@ -653,16 +655,16 @@ export default function MultiStepSignup() {
             <div className="flex justify-between pt-4">
               <Button variant="outline" onClick={prevStep} disabled={isLoading}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
-                Back
+                {t('common.back')}
               </Button>
               <Button onClick={handleSignup} disabled={isLoading} className="min-w-32">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating Account...
+                    {t('signup.creatingAccount')}
                   </>
                 ) : (
-                  "Create Account"
+                  t('signup.createAccountButton')
                 )}
               </Button>
             </div>
@@ -670,9 +672,9 @@ export default function MultiStepSignup() {
         )}
 
         <div className="mt-6 text-center text-sm">
-          <span className="text-muted-foreground">Already have an account? </span>
+          <span className="text-muted-foreground">{t('auth.alreadyHaveAccount')} </span>
           <Link href={isOnBrRoute ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}` : '/auth/login'} className="text-blue-600 hover:underline font-medium">
-            Sign in
+            {t('nav.signIn')}
           </Link>
         </div>
       </CardContent>

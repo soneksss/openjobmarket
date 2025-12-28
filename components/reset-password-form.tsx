@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Lock, X, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 
 interface ResetPasswordFormProps {
@@ -24,6 +24,15 @@ export default function ResetPasswordForm({ accessToken, refreshToken }: ResetPa
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
+
+  // Detect if user is on BR route
+  const isOnBrRoute = pathname?.startsWith('/br')
+
+  // Helper to create locale-aware paths
+  const getLocalePath = (path: string) => {
+    return isOnBrRoute ? `/br${path}` : path
+  }
 
   const validatePassword = (password: string): string | null => {
     if (password.length < 8) {
@@ -87,7 +96,10 @@ export default function ResetPasswordForm({ accessToken, refreshToken }: ResetPa
       await supabase.auth.signOut()
 
       // Redirect to sign-in with success message
-      router.push("/auth/login?message=password-reset-success")
+      const loginUrl = isOnBrRoute
+        ? `/auth/login?locale=pt-BR&returnUrl=/br&message=password-reset-success`
+        : '/auth/login?message=password-reset-success'
+      router.push(loginUrl)
     } catch (error: unknown) {
       console.log("[v0] Reset password error:", error)
       if (error instanceof Error) {
@@ -112,7 +124,7 @@ export default function ResetPasswordForm({ accessToken, refreshToken }: ResetPa
         asChild
         className="absolute top-2 right-2 h-8 w-8 p-0 hover:bg-muted z-10 rounded-full"
       >
-        <Link href="/">
+        <Link href={getLocalePath("/")}>
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </Link>

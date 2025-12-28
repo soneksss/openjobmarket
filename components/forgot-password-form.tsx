@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Mail, X, ArrowLeft } from "lucide-react"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { forgotPassword } from "@/lib/actions"
 
 function SubmitButton() {
@@ -28,6 +29,15 @@ function SubmitButton() {
 
 export default function ForgotPasswordForm() {
   const [state, formAction] = useActionState(forgotPassword, null)
+  const pathname = usePathname()
+
+  // Detect if user is on BR route
+  const isOnBrRoute = pathname?.startsWith('/br')
+
+  // Helper to create locale-aware paths
+  const getLocalePath = (path: string) => {
+    return isOnBrRoute ? `/br${path}` : path
+  }
 
   return (
     <Card className="w-full max-w-md relative">
@@ -37,7 +47,7 @@ export default function ForgotPasswordForm() {
         asChild
         className="absolute top-2 right-2 h-8 w-8 p-0 hover:bg-muted z-10 rounded-full"
       >
-        <Link href="/">
+        <Link href={getLocalePath("/")}>
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </Link>
@@ -76,7 +86,13 @@ export default function ForgotPasswordForm() {
           <SubmitButton />
 
           <div className="text-center">
-            <Link href="/auth/login" className="inline-flex items-center text-sm text-primary hover:underline">
+            <Link
+              href={isOnBrRoute
+                ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+                : '/auth/login'
+              }
+              className="inline-flex items-center text-sm text-primary hover:underline"
+            >
               <ArrowLeft className="mr-1 h-4 w-4" />
               Back to Sign In
             </Link>

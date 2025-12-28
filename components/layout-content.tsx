@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Toaster } from "@/components/toaster"
@@ -16,36 +16,56 @@ export function LayoutContent({
   children,
   user,
   userType,
+  serverLocale,
 }: {
   children: React.ReactNode
   user: any
   userType: string | null
+  serverLocale?: Locale
 }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const isAdminRoute = pathname?.startsWith("/admin")
 
-  // Detect locale from cookie (priority) or pathname
-  const getInitialLocale = (): Locale => {
-    if (typeof document !== 'undefined') {
-      const cookies = document.cookie.split(';')
-      const nextLocaleCookie = cookies.find(c => c.trim().startsWith('NEXT_LOCALE='))
-      const nextLocale = nextLocaleCookie?.split('=')[1]?.trim()
-      if (nextLocale === 'pt-BR' || nextLocale === 'en') {
-        return nextLocale as Locale
-      }
-    }
-    return getLocaleFromPathname(pathname || '/')
-  }
+  // Check query parameter first (highest priority), then server locale, then pathname
+  const localeParam = searchParams?.get('locale')
+  const locale: Locale = (localeParam === 'pt-BR' || localeParam === 'en')
+    ? localeParam as Locale
+    : (serverLocale || getLocaleFromPathname(pathname || '/'))
 
-  const locale: Locale = getInitialLocale()
+  console.log('[LAYOUT-CONTENT] Locale resolution:', {
+    localeParam,
+    serverLocale,
+    finalLocale: locale,
+    pathname
+  })
 
-  // Get initial language/region state from cookie (client-side)
+  // Get initial language/region state from query param, server locale, or cookie (client-side)
   const getInitialLanguageRegionState = () => {
+    // Check query parameter first (highest priority)
+    if (localeParam === 'pt-BR') {
+      return { language: 'pt-BR' as const, country: 'BR' as const }
+    }
+
+    // Use server-provided locale second
+    if (serverLocale === 'pt-BR') {
+      return { language: 'pt-BR' as const, country: 'BR' as const }
+    }
+
     if (typeof document === 'undefined') return DEFAULT_STATE
 
     const cookies = document.cookie.split(';')
-    const languageRegionCookie = cookies.find(c => c.trim().startsWith(`${LANGUAGE_REGION_COOKIE}=`))
 
+    // Check NEXT_LOCALE cookie (set by middleware)
+    const nextLocaleCookie = cookies.find(c => c.trim().startsWith('NEXT_LOCALE='))
+    const nextLocale = nextLocaleCookie?.split('=')[1]?.trim()
+
+    if (nextLocale === 'pt-BR') {
+      return { language: 'pt-BR' as const, country: 'BR' as const }
+    }
+
+    // Fall back to LANGUAGE_REGION_COOKIE
+    const languageRegionCookie = cookies.find(c => c.trim().startsWith(`${LANGUAGE_REGION_COOKIE}=`))
     if (languageRegionCookie) {
       const value = languageRegionCookie.split('=')[1]
       return parseLanguageRegionCookie(value)

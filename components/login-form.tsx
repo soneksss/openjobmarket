@@ -164,7 +164,10 @@ export default function LoginForm() {
         if (!userData?.user_type) {
           // User exists but no profile type set - redirect to onboarding
           addLog('[LOGIN] No user type, redirecting to onboarding')
-          router.push("/onboarding")
+          const onboardingUrl = isOnBrRoute
+            ? '/onboarding?locale=pt-BR&returnUrl=/br'
+            : '/onboarding'
+          router.push(onboardingUrl)
           return
         }
 
@@ -185,7 +188,10 @@ export default function LoginForm() {
             router.push("/dashboard/professional")
           } else {
             addLog('[LOGIN] Redirecting to onboarding (incomplete)')
-            router.push("/onboarding")
+            const onboardingUrl = isOnBrRoute
+              ? '/onboarding?locale=pt-BR&returnUrl=/br'
+              : '/onboarding'
+            router.push(onboardingUrl)
           }
         } else if (userData.user_type === "company" || userData.user_type === "employer") {
           const { data: companyProfile } = await supabase
@@ -201,14 +207,20 @@ export default function LoginForm() {
             router.push("/dashboard/company")
           } else {
             addLog('[LOGIN] Redirecting to onboarding (incomplete)')
-            router.push("/onboarding")
+            const onboardingUrl = isOnBrRoute
+              ? '/onboarding?locale=pt-BR&returnUrl=/br'
+              : '/onboarding'
+            router.push(onboardingUrl)
           }
         } else if (userData.user_type === "admin") {
           addLog('[LOGIN] Redirecting to admin dashboard')
           router.push("/admin")
         } else {
           addLog('[LOGIN] Unknown user type, redirecting to onboarding')
-          router.push("/onboarding")
+          const onboardingUrl = isOnBrRoute
+            ? '/onboarding?locale=pt-BR&returnUrl=/br'
+            : '/onboarding'
+          router.push(onboardingUrl)
         }
       }
     } catch (error: unknown) {

@@ -47,6 +47,15 @@ export function LanguageRegionProvider({
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [showBrowserSuggestion, setShowBrowserSuggestion] = useState(false)
 
+  // Apply initial state to I18n context on mount
+  useEffect(() => {
+    // Ensure I18n context is synced with initial state
+    if (initialState.language !== DEFAULT_STATE.language) {
+      setLocale(initialState.language)
+      saveLanguageRegionToStorage(initialState)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Initialize from cookie (priority) or localStorage, and check for browser language suggestion
   useEffect(() => {
     // First, check if NEXT_LOCALE cookie is set (from /br route via middleware)
@@ -55,23 +64,23 @@ export function LanguageRegionProvider({
     const nextLocale = nextLocaleCookie?.split('=')[1]?.trim()
 
     if (nextLocale === 'pt-BR') {
-      // Auto-set language and region from /br route
-      const newState: LanguageRegionState = { language: 'pt-BR', country: 'BR' }
-      setState(newState)
-      // Save to storage so it persists
-      saveLanguageRegionToStorage(newState)
-      // Update i18n locale
-      setLocale('pt-BR')
+      // Only update if state isn't already pt-BR (avoid unnecessary updates)
+      if (state.language !== 'pt-BR' || state.country !== 'BR') {
+        const newState: LanguageRegionState = { language: 'pt-BR', country: 'BR' }
+        setState(newState)
+        saveLanguageRegionToStorage(newState)
+        setLocale('pt-BR')
+      }
     } else {
       // Fall back to localStorage
       const stored = getLanguageRegionFromStorage()
-      if (stored) {
+      if (stored && (stored.language !== state.language || stored.country !== state.country)) {
         setState(stored)
-      } else if (isFirstVisit()) {
+        setLocale(stored.language)
+      } else if (isFirstVisit() && state.language === 'en') {
         // First visit - check browser language
         const browserLang = detectBrowserLanguage()
-        if (browserLang === 'pt-BR' && state.language === 'en') {
-          // Show suggestion for pt-BR users
+        if (browserLang === 'pt-BR') {
           setShowBrowserSuggestion(true)
         }
       }
