@@ -17,6 +17,21 @@ export default async function ProfileEditPage() {
   // Get user data from users table
   const { data: userData } = await supabase.from("users").select("*").eq("id", user.id).single()
 
+  // Redirect homeowners to their specific profile page
+  if (userData?.user_type === "homeowner") {
+    redirect("/dashboard/homeowner/profile")
+  }
+
+  // Redirect contractors to their specific profile page
+  if (userData?.user_type === "contractor") {
+    redirect("/contractor/profile/edit")
+  }
+
+  // Redirect companies to their specific profile page
+  if (userData?.user_type === "company") {
+    redirect("/company/profile/edit")
+  }
+
   // Get professional profile if user is a professional
   let professionalProfile = null
   if (userData?.user_type === "professional") {

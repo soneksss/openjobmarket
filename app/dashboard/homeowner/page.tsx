@@ -37,7 +37,7 @@ export default async function HomeownerDashboardPage() {
     redirect("/onboarding")
   }
 
-  console.log("[HOMEOWNER] Homeowner profile found:", profile.first_name)
+  console.log("[HOMEOWNER] Homeowner profile found:", profile.first_name, profile.last_name, "Profile ID:", profile.id, "User ID:", user.id)
 
   // Check if profile is complete and valid
   const isProfileComplete = profile.first_name && profile.last_name && profile.location

@@ -982,16 +982,16 @@ export function UsersByRegionTable() {
           <CardTitle>Users by Region</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="p-4 bg-red-50 border border-red-200 rounded text-red-700">
-            <p className="font-medium">Error loading regional data</p>
-            <p className="text-sm">{error}</p>
+          <div className="p-4 bg-red-900/20 border border-red-700 rounded">
+            <p className="font-medium text-red-400">Error loading regional data</p>
+            <p className="text-sm text-red-300">{error}</p>
           </div>
         </CardContent>
       </Card>
     )
   }
 
-  const { byCountry, totalWithLocation, totalWithoutLocation, summary } = data
+  const { byCountry, totalWithLocation, totalWithoutLocation, summary, message } = data
 
   return (
     <Card className="bg-zinc-900 border-zinc-800">
@@ -1010,9 +1010,19 @@ export function UsersByRegionTable() {
         </div>
       </CardHeader>
       <CardContent>
+        {message && (
+          <div className="mb-4 p-4 bg-blue-900/20 border border-blue-700 rounded">
+            <p className="text-blue-400 font-medium mb-2">📋 Setup Required</p>
+            <p className="text-sm text-blue-300">{message}</p>
+            <p className="text-xs text-blue-400 mt-2">
+              After running the migration, use <code className="bg-zinc-800 px-1 rounded">scripts/populate-user-countries.sql</code> to populate country data.
+            </p>
+          </div>
+        )}
+
         {totalWithoutLocation > 0 && (
-          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded text-sm">
-            <p>
+          <div className="mb-4 p-3 bg-amber-900/20 border border-amber-700 rounded text-sm">
+            <p className="text-amber-300">
               ⚠️ <strong>{totalWithoutLocation}</strong> users have no location data yet.
               They will be included once location is added.
             </p>
@@ -1021,8 +1031,8 @@ export function UsersByRegionTable() {
 
         <div className="space-y-3">
           {byCountry.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No user location data available yet
+            <div className="text-center py-8 text-zinc-500">
+              {message ? "Run the migration to enable regional analytics" : "No user location data available yet"}
             </div>
           ) : (
             byCountry.map((country: any, index: number) => {

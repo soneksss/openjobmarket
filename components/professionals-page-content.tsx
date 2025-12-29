@@ -2317,16 +2317,26 @@ export default function ProfessionalsPageContent({
                                 )}
 
                                 {user && (
-                                  <Button
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-xs py-2"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleSendInquiry(item.id, isEmployer ? `${item.first_name} ${item.last_name}` : item.company_name)
-                                    }}
-                                  >
-                                    <MessageCircle className="h-3 w-3 mr-2" />
-                                    Send Message
-                                  </Button>
+                                  <>
+                                    <Button
+                                      className="w-full bg-blue-600 hover:bg-blue-700 text-xs py-2"
+                                      disabled={userType !== "company" && userType !== "contractor"}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (userType === "company" || userType === "contractor") {
+                                          handleSendInquiry(item.id, isEmployer ? `${item.first_name} ${item.last_name}` : item.company_name)
+                                        }
+                                      }}
+                                    >
+                                      <MessageCircle className="h-3 w-3 mr-2" />
+                                      Send Message
+                                    </Button>
+                                    {userType !== "company" && userType !== "contractor" && (
+                                      <p className="text-xs text-muted-foreground text-center mt-1">
+                                        Only employers and tradespeople can contact professionals
+                                      </p>
+                                    )}
+                                  </>
                                 )}
 
                                 <p className="text-xs text-blue-500 text-center">

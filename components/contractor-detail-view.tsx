@@ -20,6 +20,8 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
 import MessageModal from "./message-modal"
 import UserReviewsDisplay from "./user-reviews-display"
+import { RatingDisplay } from "./rating-display"
+import { ReviewsList } from "./reviews-list"
 
 interface ContractorProfile {
   id: string
@@ -32,6 +34,8 @@ interface ContractorProfile {
   phone?: string
   website?: string
   profile_photo_url?: string
+  average_rating?: number
+  reviews_count?: number
   created_at: string
   updated_at: string
 }
@@ -46,13 +50,15 @@ interface ContractorDetailViewProps {
   user: User | null
   userType: string | null
   allowMessaging?: boolean
+  isModal?: boolean
 }
 
 export default function ContractorDetailView({
   contractor,
   user,
   userType,
-  allowMessaging = true
+  allowMessaging = true,
+  isModal = false
 }: ContractorDetailViewProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -97,10 +103,12 @@ export default function ContractorDetailView({
   }
 
   const handleBack = () => {
-    if (returnPath) {
-      router.push(returnPath)
-    } else {
+    // Check if there's browser history to go back to
+    if (window.history.length > 1) {
       router.back()
+    } else {
+      // No history, redirect to search page as fallback
+      router.push('/search')
     }
   }
 
@@ -112,16 +120,18 @@ export default function ContractorDetailView({
     .substring(0, 2)
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className={isModal ? "px-4 py-8 max-w-6xl" : "container mx-auto px-4 py-8 max-w-6xl"}>
       {/* Back Button */}
-      <Button
-        variant="ghost"
-        onClick={handleBack}
-        className="mb-6 hover:bg-gray-100"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back
-      </Button>
+      {!isModal && (
+        <Button
+          variant="ghost"
+          onClick={handleBack}
+          className="mb-6 hover:bg-gray-100"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Profile Info */}
@@ -150,6 +160,13 @@ export default function ContractorDetailView({
                           <span>{contractor.location}</span>
                         </div>
                       )}
+                      <div className="mt-2">
+                        <RatingDisplay
+                          rating={contractor.average_rating || 0}
+                          reviewsCount={contractor.reviews_count || 0}
+                          size="md"
+                        />
+                      </div>
                     </div>
                     {!isOwnProfile && user && allowMessaging && (
                       <Button onClick={handleContact}>
@@ -217,7 +234,13 @@ export default function ContractorDetailView({
 
         {/* Right Column - Reviews */}
         <div className="lg:col-span-1">
-          <UserReviewsDisplay userId={contractor.user_id} />
+          <ReviewsList
+            userId={contractor.user_id}
+            userType="contractor"
+            title="Reviews"
+            limit={5}
+            showViewAll={true}
+          />
         </div>
       </div>
 

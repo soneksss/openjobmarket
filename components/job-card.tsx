@@ -13,6 +13,7 @@ import Image from "next/image"
 import JobApplicationForm from "@/components/job-application-form"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
+import ProfileModal from "@/components/profile-modal"
 
 interface Job {
   id: string
@@ -45,6 +46,8 @@ interface Job {
     first_name: string
     last_name: string
     profile_photo_url?: string
+    average_rating?: number
+    reviews_count?: number
   } | null
   poster_type?: 'company' | 'individual'
   poster_first_name?: string
@@ -77,6 +80,11 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
   const [showApplicationModal, setShowApplicationModal] = useState(false)
   const [hasApplied, setHasApplied] = useState(false)
   const [showFullscreenImage, setShowFullscreenImage] = useState(false)
+  const [isSaved, setIsSaved] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [showProfileModal, setShowProfileModal] = useState(false)
+  const [selectedProfileType, setSelectedProfileType] = useState<"professional" | "company" | "contractor" | "homeowner" | null>(null)
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
 
   // Locale-aware auth URLs
   const isOnBrRoute = pathname?.startsWith('/br')
@@ -145,9 +153,11 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
   const companyName = job.company_profiles?.company_name
   const logoUrl = job.poster_logo_url || job.company_profiles?.logo_url
 
-  // Get company profile URL
-  const companyProfileUrl = job.company_profiles?.id
+  // Get profile URL (company or homeowner)
+  const profileUrl = job.company_profiles?.id
     ? `/companies/${job.company_profiles.id}`
+    : job.homeowner_profiles?.id
+    ? `/homeowners/${job.homeowner_profiles.id}`
     : null
 
   // Use short_description if available, otherwise use description
@@ -197,12 +207,102 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
     checkApplication()
   }, [userProfile, job.id])
 
+  // Check if job is already saved
+  useEffect(() => {
+    const checkSaved = async () => {
+      if (!userProfile) return
+
+      const supabase = createClient()
+      const { data } = await supabase
+        .from("saved_jobs")
+        .select("id")
+        .eq("job_id", job.id)
+        .eq("professional_id", userProfile.id)
+        .maybeSingle()
+
+      setIsSaved(!!data)
+    }
+
+    checkSaved()
+  }, [userProfile, job.id])
+
   const handleApplyClick = () => {
-    if (!isLoggedIn || !userProfile) {
+    if (!isLoggedIn) {
       setShowSignUpDialog(true)
+    } else if (!userProfile) {
+      // If logged in but no profile loaded, redirect to job detail page where profile will be fetched
+      router.push(`/jobs/${job.id}`)
     } else if (!hasApplied) {
       // Open application modal directly
       setShowApplicationModal(true)
+    }
+  }
+
+  const handleSaveClick = async () => {
+    if (!isLoggedIn) {
+      setShowSignUpDialog(true)
+      return
+    }
+
+    if (!userProfile) {
+      // Redirect to login if no profile (shouldn't happen if isLoggedIn is true)
+      setShowSignUpDialog(true)
+      return
+    }
+
+    setIsSaving(true)
+    const supabase = createClient()
+
+    try {
+      if (isSaved) {
+        // Unsave the job
+        const { error } = await supabase
+          .from("saved_jobs")
+          .delete()
+          .eq("job_id", job.id)
+          .eq("professional_id", userProfile.id)
+
+        if (error) {
+          console.error("[JOB-CARD] Error unsaving job:", error)
+          alert("Failed to unsave job. Please try again.")
+        } else {
+          setIsSaved(false)
+        }
+      } else {
+        // Save the job
+        const { error } = await supabase
+          .from("saved_jobs")
+          .insert({
+            job_id: job.id,
+            professional_id: userProfile.id
+          })
+
+        if (error) {
+          console.error("[JOB-CARD] Error saving job:", error)
+          alert("Failed to save job. Please try again.")
+        } else {
+          setIsSaved(true)
+        }
+      }
+    } catch (error) {
+      console.error("[JOB-CARD] Error in save/unsave operation:", error)
+      alert("An error occurred. Please try again.")
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleProfileClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+
+    if (job.company_profiles?.id) {
+      setSelectedProfileType("company")
+      setSelectedProfileId(job.company_profiles.id)
+      setShowProfileModal(true)
+    } else if (job.homeowner_profiles?.id) {
+      setSelectedProfileType("homeowner")
+      setSelectedProfileId(job.homeowner_profiles.id)
+      setShowProfileModal(true)
     }
   }
 
@@ -230,11 +330,10 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                 <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
                   {(logoUrl || posterName) && (
                     <>
-                      {companyProfileUrl ? (
-                        <Link
-                          href={companyProfileUrl}
-                          className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 min-w-0"
-                          onClick={(e) => e.stopPropagation()}
+                      {(job.company_profiles?.id || job.homeowner_profiles?.id) ? (
+                        <div
+                          className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 min-w-0 cursor-pointer"
+                          onClick={handleProfileClick}
                         >
                           {logoUrl ? (
                             <div className="h-11 w-11 flex-shrink-0 relative rounded-full overflow-hidden border border-gray-300 bg-gray-100">
@@ -265,7 +364,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                               </div>
                             )}
                           </div>
-                        </Link>
+                        </div>
                       ) : (
                         <>
                           {logoUrl ? (
@@ -312,11 +411,10 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               {/* Company Name with Stars - Show in collapsed view */}
               {!isExpanded && companyName && (
                 <div className="mb-2">
-                  {companyProfileUrl ? (
-                    <Link
-                      href={companyProfileUrl}
-                      className="inline-flex items-start gap-2 hover:opacity-80 transition-opacity"
-                      onClick={(e) => e.stopPropagation()}
+                  {(job.company_profiles?.id || job.homeowner_profiles?.id) ? (
+                    <div
+                      className="inline-flex items-start gap-2 hover:opacity-80 transition-opacity cursor-pointer"
+                      onClick={handleProfileClick}
                     >
                       <span className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">{companyName}</span>
                       {(job.average_rating !== undefined && job.total_reviews !== undefined) && (
@@ -329,7 +427,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                           />
                         </div>
                       )}
-                    </Link>
+                    </div>
                   ) : (
                     <div className="flex items-start gap-2">
                       <span className="text-sm font-medium text-gray-700">{companyName}</span>
@@ -434,16 +532,18 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                     <Button
                       variant="outline"
                       size="sm"
-                      className="border-gray-300 hover:bg-gray-50 px-2 py-1 h-auto text-xs sm:text-sm"
-                      disabled={!isLoggedIn}
+                      className={`border-gray-300 hover:bg-gray-50 px-2 py-1 h-auto text-xs sm:text-sm ${
+                        isSaved ? "bg-red-50 border-red-300 text-red-700 hover:bg-red-100" : ""
+                      }`}
+                      disabled={isSaving}
                       onClick={(e) => {
                         e.stopPropagation()
-                        !isLoggedIn && setShowSignUpDialog(true)
+                        handleSaveClick()
                       }}
                     >
-                      <Heart className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                      <span className="hidden sm:inline">Save</span>
-                      <span className="sm:hidden">Save</span>
+                      <Heart className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 ${isSaved ? "fill-current" : ""}`} />
+                      <span className="hidden sm:inline">{isSaving ? "..." : isSaved ? "Saved" : "Save"}</span>
+                      <span className="sm:hidden">{isSaving ? "..." : isSaved ? "Saved" : "Save"}</span>
                     </Button>
 
                     <Button
@@ -564,6 +664,16 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Profile Modal */}
+      {showProfileModal && selectedProfileType && selectedProfileId && (
+        <ProfileModal
+          isOpen={showProfileModal}
+          onClose={() => setShowProfileModal(false)}
+          profileType={selectedProfileType}
+          profileId={selectedProfileId}
+        />
       )}
     </>
   )

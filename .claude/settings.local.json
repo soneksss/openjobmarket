@@ -49,7 +49,8 @@
       "Bash(cmd //c \"ren lib\\structured-data.ts structured-data.tsx\")",
       "Bash(timeout 60 npm run build:*)",
       "Bash(del appprofessionalspage.tsx)",
-      "Bash(del:*)"
+      "Bash(del:*)",
+      "Bash(echo.)"
     ],
     "deny": [],
     "ask": []

@@ -93,8 +93,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/reviews
- * Submit a new review
- * Body: { revieweeId, rating, reviewText?, conversationId? }
+ * Submit a new review (Job-based system)
+ * Body: { jobId, reviewedUserId, reviewedUserType, reviewerType, rating, comment }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -111,20 +111,28 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { revieweeId, rating, reviewText, conversationId } = body
+    const { jobId, reviewedUserId, reviewedUserType, reviewerType, rating, comment } = body
 
     // Validate input
-    if (!revieweeId) {
-      return NextResponse.json({ error: "revieweeId is required" }, { status: 400 })
+    if (!jobId) {
+      return NextResponse.json({ error: "jobId is required" }, { status: 400 })
     }
 
-    if (user.id === revieweeId) {
+    if (!reviewedUserId) {
+      return NextResponse.json({ error: "reviewedUserId is required" }, { status: 400 })
+    }
+
+    if (!reviewedUserType || !reviewerType) {
+      return NextResponse.json({ error: "User types are required" }, { status: 400 })
+    }
+
+    if (user.id === reviewedUserId) {
       return NextResponse.json({ error: "You cannot review yourself" }, { status: 400 })
     }
 
     // Validate review content
-    const sanitizedText = reviewText ? sanitizeReviewText(reviewText) : null
-    const validation = validateReview(rating, sanitizedText || "")
+    const sanitizedComment = comment ? sanitizeReviewText(comment) : ""
+    const validation = validateReview(rating, sanitizedComment)
 
     if (!validation.isValid) {
       return NextResponse.json(
@@ -136,60 +144,56 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if interaction is verified
-    const { data: canReview, error: checkError } = await supabase.rpc("can_user_review", {
+    // Check if review is allowed using the new RPC function
+    const { data: eligibility, error: checkError } = await supabase.rpc("is_review_allowed", {
+      p_job_id: jobId,
       p_reviewer_id: user.id,
-      p_reviewee_id: revieweeId,
+      p_reviewed_id: reviewedUserId,
     })
 
     if (checkError) {
       console.error("[API] Error checking review eligibility:", checkError)
-      return NextResponse.json({ error: "Failed to verify interaction" }, { status: 500 })
+      return NextResponse.json({ error: "Failed to verify review eligibility" }, { status: 500 })
     }
 
-    if (!canReview) {
+    // The RPC returns a table with allowed and reason columns
+    const eligibilityResult = eligibility?.[0]
+
+    if (!eligibilityResult?.allowed) {
       return NextResponse.json(
         {
-          error: "You can only review users you've had verified interactions with",
+          error: eligibilityResult?.reason || "You are not allowed to review this user for this job",
         },
         { status: 403 }
       )
     }
 
-    // Check if user has already reviewed this person for this interaction
-    const { data: existingReview, error: existingError } = await supabase
-      .from("reviews")
-      .select("id")
-      .eq("reviewer_id", user.id)
-      .eq("reviewee_id", revieweeId)
-      .eq("conversation_id", conversationId || null)
-      .single()
-
-    if (existingReview) {
-      return NextResponse.json(
-        {
-          error: "You have already reviewed this user for this interaction",
-        },
-        { status: 409 }
-      )
-    }
-
-    // Insert the review
+    // Insert the review with new schema
     const { data: newReview, error: insertError } = await supabase
       .from("reviews")
       .insert({
+        job_id: jobId,
         reviewer_id: user.id,
-        reviewee_id: revieweeId,
+        reviewed_id: reviewedUserId,
+        reviewer_type: reviewerType,
+        reviewed_type: reviewedUserType,
         rating,
-        review_text: sanitizedText,
-        interaction_verified: true,
-        conversation_id: conversationId || null,
+        comment: sanitizedComment,
       })
       .select()
       .single()
 
     if (insertError) {
       console.error("[API] Error inserting review:", insertError)
+
+      // Check for duplicate review constraint
+      if (insertError.code === '23505') {
+        return NextResponse.json(
+          { error: "You have already reviewed this user for this job" },
+          { status: 409 }
+        )
+      }
+
       return NextResponse.json({ error: "Failed to submit review" }, { status: 500 })
     }
 

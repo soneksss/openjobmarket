@@ -31,6 +31,8 @@ import { createClient } from "@/lib/client"
 import MessageModal from "./message-modal"
 import { usePremiumStatus } from "@/hooks/use-premium-status"
 import UserReviewsDisplay from "./user-reviews-display"
+import { RatingDisplay } from "./rating-display"
+import { ReviewsList } from "./reviews-list"
 
 interface ProfessionalProfile {
   id: string
@@ -55,6 +57,8 @@ interface ProfessionalProfile {
   is_self_employed: boolean
   profile_photo_url?: string
   cv_url?: string
+  average_rating?: number
+  reviews_count?: number
   created_at: string
 }
 
@@ -67,9 +71,10 @@ interface ProfessionalDetailViewProps {
   professional: ProfessionalProfile
   user: User | null
   userType: "professional" | "company" | null
+  isModal?: boolean
 }
 
-export default function ProfessionalDetailView({ professional, user, userType }: ProfessionalDetailViewProps) {
+export default function ProfessionalDetailView({ professional, user, userType, isModal = false }: ProfessionalDetailViewProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -149,12 +154,10 @@ export default function ProfessionalDetailView({ professional, user, userType }:
       return
     }
 
-    if (!isEmployer) {
-      alert("Only employers can contact professionals")
-      return
+    // Only companies and contractors/traders can contact professionals
+    if (userType === "company" || userType === "contractor") {
+      setShowMessageModal(true)
     }
-
-    setShowMessageModal(true)
   }
 
   const handleEditProfile = () => {
@@ -162,14 +165,12 @@ export default function ProfessionalDetailView({ professional, user, userType }:
   }
 
   const handleBack = () => {
-    // Always use router.back() first - it respects browser history
-    // The fallback path will be used if navigation fails
+    // Check if there's browser history to go back to
     if (window.history.length > 1) {
       router.back()
     } else {
-      // No history - use the tracked return path or default to professionals
-      const fallbackPath = returnPath || '/professionals'
-      router.push(fallbackPath)
+      // No history, redirect to search page as fallback
+      router.push('/search')
     }
   }
 
@@ -177,21 +178,23 @@ export default function ProfessionalDetailView({ professional, user, userType }:
   const salaryDisplay = formatSalary(professional.salary_min, professional.salary_max)
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6">
+    <div className={isModal ? "" : "min-h-screen bg-background"}>
+      <div className={isModal ? "px-4 py-6" : "container mx-auto px-4 py-6"}>
         {/* Header with back button */}
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleBack}
-            className="flex items-center gap-2"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-bold text-foreground">Professional Profile</h1>
-        </div>
+        {!isModal && (
+          <div className="flex items-center gap-4 mb-6">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBack}
+              className="flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <h1 className="text-2xl font-bold text-foreground">Professional Profile</h1>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Profile Card */}
@@ -235,6 +238,13 @@ export default function ProfessionalDetailView({ professional, user, userType }:
                           <Calendar className="h-4 w-4" />
                           Member since {formatDate(professional.created_at)}
                         </div>
+                      </div>
+                      <div className="mt-2">
+                        <RatingDisplay
+                          rating={professional.average_rating || 0}
+                          reviewsCount={professional.reviews_count || 0}
+                          size="md"
+                        />
                       </div>
                     </div>
                   </div>
@@ -320,7 +330,13 @@ export default function ProfessionalDetailView({ professional, user, userType }:
             </Card>
 
             {/* Reviews Section */}
-            <UserReviewsDisplay userId={professional.user_id} showStats={true} />
+            <ReviewsList
+              userId={professional.user_id}
+              userType="professional"
+              title="Reviews"
+              limit={5}
+              showViewAll={true}
+            />
           </div>
 
           {/* Sidebar */}
@@ -332,15 +348,27 @@ export default function ProfessionalDetailView({ professional, user, userType }:
                   <CardTitle className="text-lg">Contact</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {isEmployer ? (
-                    <Button
-                      onClick={handleContact}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
-                      disabled={!professional.available_for_work}
-                    >
-                      <MessageCircle className="h-4 w-4 mr-2" />
-                      Send Inquiry
-                    </Button>
+                  {user ? (
+                    <>
+                      <Button
+                        onClick={handleContact}
+                        className="w-full bg-blue-600 hover:bg-blue-700"
+                        disabled={!professional.available_for_work || (userType !== "company" && userType !== "contractor")}
+                      >
+                        <MessageCircle className="h-4 w-4 mr-2" />
+                        {userType === "company" ? "Send Inquiry" : "Send Message"}
+                      </Button>
+                      {!professional.available_for_work && (
+                        <p className="text-sm text-muted-foreground text-center">
+                          Currently not available for work
+                        </p>
+                      )}
+                      {userType !== "company" && userType !== "contractor" && (
+                        <p className="text-sm text-muted-foreground text-center">
+                          Only employers and tradespeople can contact professionals
+                        </p>
+                      )}
+                    </>
                   ) : (
                     <Button
                       onClick={() => router.push("/auth/login")}
@@ -349,11 +377,6 @@ export default function ProfessionalDetailView({ professional, user, userType }:
                       <MessageCircle className="h-4 w-4 mr-2" />
                       Contact Professional
                     </Button>
-                  )}
-                  {!professional.available_for_work && (
-                    <p className="text-sm text-muted-foreground text-center">
-                      Currently not available for work
-                    </p>
                   )}
                 </CardContent>
               </Card>

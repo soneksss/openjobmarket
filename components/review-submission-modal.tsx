@@ -11,18 +11,24 @@ import { useRouter } from "next/navigation"
 interface ReviewSubmissionModalProps {
   isOpen: boolean
   onClose: () => void
-  revieweeId: string
-  revieweeName: string
-  conversationId?: string
+  jobId: string
+  jobTitle: string
+  reviewedUserId: string
+  reviewedUserName: string
+  reviewedUserType: 'homeowner' | 'company' | 'contractor' | 'professional'
+  reviewerType: 'homeowner' | 'company' | 'contractor' | 'professional'
   onSuccess?: () => void
 }
 
 export default function ReviewSubmissionModal({
   isOpen,
   onClose,
-  revieweeId,
-  revieweeName,
-  conversationId,
+  jobId,
+  jobTitle,
+  reviewedUserId,
+  reviewedUserName,
+  reviewedUserType,
+  reviewerType,
   onSuccess,
 }: ReviewSubmissionModalProps) {
   const router = useRouter()
@@ -49,10 +55,12 @@ export default function ReviewSubmissionModal({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          revieweeId,
+          jobId,
+          reviewedUserId,
+          reviewedUserType,
+          reviewerType,
           rating,
-          reviewText: reviewText.trim() || null,
-          conversationId,
+          comment: reviewText.trim(),
         }),
       })
 
@@ -102,7 +110,7 @@ export default function ReviewSubmissionModal({
         <DialogHeader>
           <DialogTitle>Leave a Review</DialogTitle>
           <DialogDescription>
-            Share your experience working with <strong>{revieweeName}</strong>
+            Share your experience working with <strong>{reviewedUserName}</strong> on job: {jobTitle}
           </DialogDescription>
         </DialogHeader>
 

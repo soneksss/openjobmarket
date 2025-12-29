@@ -101,6 +101,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     console.log('[AUTOCOMPLETE] Component mounted, search type:', selectedSearchType)
   }, [])
 
+  // Debug: Monitor isSearching state changes
+  useEffect(() => {
+    console.log('[MAIN-PAGE-SEARCH] isSearching state changed to:', isSearching)
+  }, [isSearching])
+
   // Get suggestions - unified list for all search types
   const getSuggestions = (): string[] => {
     const { locale } = useTranslation()
@@ -451,6 +456,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   }
 
   const validateSearch = () => {
+    console.log(`[VALIDATE-SEARCH] Starting validation for ${selectedSearchType}`)
+    console.log(`[VALIDATE-SEARCH] searchQuery:`, searchQuery)
+    console.log(`[VALIDATE-SEARCH] location:`, location)
+    console.log(`[VALIDATE-SEARCH] selectedLocation:`, selectedLocation)
+    console.log(`[VALIDATE-SEARCH] workLocation:`, workLocation)
+
     // Allow empty search query if filters are selected OR "No experience required" is checked
     const hasVacancyFilters = jobType !== "all" || experienceLevel !== "all" || workLocation !== "all" ||
                               salaryRange !== "all" || noExperienceRequired || drivingLicenseRequired || ownTransportRequired
@@ -459,38 +470,70 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     const hasTalentFilters = experienceLevel !== "all" || employmentStatus !== "all" || hasCVUploaded ||
                              hasDrivingLicense || hasOwnTransport || willingToRelocate
 
+    console.log(`[VALIDATE-SEARCH] hasTalentFilters:`, hasTalentFilters, {
+      experienceLevel,
+      employmentStatus,
+      hasCVUploaded,
+      hasDrivingLicense,
+      hasOwnTransport,
+      willingToRelocate
+    })
+
     const canSkipSearchQuery =
       (selectedSearchType === "vacancies" && hasVacancyFilters) ||
       (selectedSearchType === "jobs_tasks" && hasTradeJobFilters) ||
       (selectedSearchType === "traders" && hasTraderFilters) ||
       (selectedSearchType === "talents" && hasTalentFilters)
 
+    console.log(`[VALIDATE-SEARCH] canSkipSearchQuery:`, canSkipSearchQuery)
+
     if (!searchQuery.trim() && !canSkipSearchQuery) {
+      console.log(`[VALIDATE-SEARCH] FAILED: No search query and cannot skip`)
       return t('mainSearch.enterSearchTerm')
     }
 
     // Allow empty location if work location is "Remote"
     const canSkipLocation = workLocation === "remote"
+    console.log(`[VALIDATE-SEARCH] canSkipLocation:`, canSkipLocation)
 
     if (!location.trim() && !canSkipLocation) {
+      console.log(`[VALIDATE-SEARCH] FAILED: No location and cannot skip`)
       return t('mainSearch.selectLocation')
     }
     if (!selectedLocation && !canSkipLocation) {
+      console.log(`[VALIDATE-SEARCH] FAILED: No selectedLocation and cannot skip`)
       setLocationError(t('mainSearch.selectValidLocation'))
       return t('mainSearch.selectValidLocation')
     }
+    console.log(`[VALIDATE-SEARCH] PASSED: Validation successful`)
     return null
   }
 
   const handleSearch = async (type: "vacancies" | "jobs_tasks" | "talents" | "traders") => {
     console.log(`[MAIN-PAGE-SEARCH] handleSearch called with type: ${type}`)
 
-    // Check if sign-in is required to search
+    // Check if sign-in is required to search (with timeout to prevent hanging)
     try {
-      const { data: signinRequired, error: signinError } = await supabase.rpc('is_signin_required_to_search')
+      console.log('[MAIN-PAGE-SEARCH] Calling is_signin_required_to_search RPC...')
+
+      // Create a timeout promise that resolves after 3 seconds
+      const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
+        setTimeout(() => {
+          console.warn('[MAIN-PAGE-SEARCH] RPC timeout after 3 seconds')
+          resolve({ data: null, error: new Error('RPC timeout') })
+        }, 3000)
+      })
+
+      // Race between the RPC call and timeout
+      const rpcPromise = supabase.rpc('is_signin_required_to_search')
+      const result = await Promise.race([rpcPromise, timeoutPromise])
+      const { data: signinRequired, error: signinError } = result
+
+      console.log('[MAIN-PAGE-SEARCH] RPC returned. signinRequired:', signinRequired, 'error:', signinError, 'user:', user ? 'logged in' : 'not logged in')
 
       if (signinError) {
         console.error('[MAIN-PAGE-SEARCH] Error checking signin requirement:', signinError)
+        // Continue with search on error (fail open for better UX)
       } else if (signinRequired && !user) {
         console.log('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
         // Redirect to sign-up page to encourage new user registration
@@ -503,12 +546,15 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         router.push(signUpUrl)
         return
       }
+      console.log('[MAIN-PAGE-SEARCH] Sign-in check passed, continuing to validation...')
     } catch (err) {
       console.error('[MAIN-PAGE-SEARCH] Exception checking signin requirement:', err)
       // Continue with search on error (fail open for better UX)
     }
 
+    console.log('[MAIN-PAGE-SEARCH] About to call validateSearch()')
     const error = validateSearch()
+    console.log('[MAIN-PAGE-SEARCH] validateSearch returned:', error)
     if (error) {
       console.log(`[MAIN-PAGE-SEARCH] Validation error: ${error}`)
       return
@@ -715,12 +761,15 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         console.log(`[MAIN-PAGE-SEARCH] Total trader results: ${results.length}`)
       } else if (type === "talents") {
         console.log(`[MAIN-PAGE-SEARCH] Fetching talents/professionals`)
+        console.log(`[MAIN-PAGE-SEARCH] Search query:`, searchQuery, `Location:`, location, `selectedLocation:`, selectedLocation)
         // Fetch all professionals (not just self-employed)
         let query = supabase
           .from("professional_profiles")
           .select("*")
           .eq("profile_visible", true)
           .eq("available_for_work", true)
+
+        console.log(`[MAIN-PAGE-SEARCH] Initial query built for talents`)
 
         if (searchQuery.trim()) {
           query = query.or(`first_name.ilike.%${searchQuery.trim()}%,last_name.ilike.%${searchQuery.trim()}%,title.ilike.%${searchQuery.trim()}%`)
@@ -783,15 +832,35 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           const latDelta = radiusKm / 111.0 // Rough conversion: 1 degree ≈ 111 km
           const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
 
-          // Use .or() with and() format to avoid PostgREST errors with complex joins
-          query = query.or(
-            `and(latitude.gte.${lat - latDelta},latitude.lte.${lat + latDelta},longitude.gte.${lon - lngDelta},longitude.lte.${lon + lngDelta})`
-          )
+          // Use individual filters instead of .or() to avoid query hanging
+          query = query
+            .gte("latitude", lat - latDelta)
+            .lte("latitude", lat + latDelta)
+            .gte("longitude", lon - lngDelta)
+            .lte("longitude", lon + lngDelta)
         }
 
-        const { data, error } = await query.limit(RESULT_LIMIT + 1)
+        console.log(`[MAIN-PAGE-SEARCH] Executing talents query...`)
+
+        // Add timeout to prevent query from hanging indefinitely
+        const queryPromise = query.limit(RESULT_LIMIT + 1)
+        const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
+          setTimeout(() => {
+            console.warn('[MAIN-PAGE-SEARCH] Talents query timeout after 10 seconds')
+            resolve({ data: null, error: new Error('Query timeout') })
+          }, 10000)
+        })
+
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise])
+
+        console.log(`[MAIN-PAGE-SEARCH] Query executed. Error:`, error, `Data count:`, data?.length)
+
+        if (error) {
+          console.error(`[MAIN-PAGE-SEARCH] Error fetching talents:`, error)
+        }
 
         if (!error && data) {
+          console.log(`[MAIN-PAGE-SEARCH] Raw talents data:`, data)
           // Transform data to match ProfessionalMap expected format
           results = data
             .filter(item => item.latitude && item.longitude)
@@ -804,6 +873,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 lon: item.longitude
               }
             }))
+          console.log(`[MAIN-PAGE-SEARCH] Filtered/transformed talents results:`, results.length, `items`)
         }
       } else if (type === "vacancies" || type === "jobs_tasks") {
         console.log(`[MAIN-PAGE-SEARCH] Fetching jobs/vacancies, is_tradespeople_job=${type === "jobs_tasks"}`)
@@ -826,9 +896,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               user_id,
               first_name,
               last_name,
-              profile_photo_url
+              profile_photo_url,
+              average_rating,
+              reviews_count
             )
           `)
+          .eq("status", "open") // Only show open jobs (not accepted, in_progress, completed, or failed)
           .eq("is_active", true)
           .eq("is_tradespeople_job", type === "jobs_tasks") // true for jobs/tasks, false for vacancies
           .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
@@ -1022,6 +1095,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 poster_last_name: homeownerProfile?.last_name || null,
                 poster_nickname: null, // Homeowners don't have nicknames
                 poster_logo_url: homeownerProfile?.profile_photo_url || null,
+                // Add rating information from homeowner profile
+                average_rating: homeownerProfile?.average_rating || 0,
+                total_reviews: homeownerProfile?.reviews_count || 0,
               }
             })
 
@@ -1061,12 +1137,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       }
 
       console.log(`[MAIN-PAGE-SEARCH] Setting results: ${results.length}, center:`, center, `searchType: ${type}`)
+      console.log(`[MAIN-PAGE-SEARCH] Results to display:`, results)
       setMapResults(results)
       setMapCenter(center)
       setSearchType(type)
       setModalSearchType(type)  // Store the type specifically for modal display
+      console.log(`[MAIN-PAGE-SEARCH] About to show modal, showMapModal will be set to true`)
       setShowMapModal(true)
-      console.log(`[MAIN-PAGE-SEARCH] Modal should now be visible`)
+      console.log(`[MAIN-PAGE-SEARCH] setShowMapModal(true) called, modal should now be visible`)
     } catch (error) {
       console.error("[MAIN-PAGE-SEARCH] Search error:", error)
       // Ensure loading state is reset even on error
@@ -1273,9 +1351,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               user_id,
               first_name,
               last_name,
-              profile_photo_url
+              profile_photo_url,
+              average_rating,
+              reviews_count
             )
           `)
+          .eq("status", "open") // Only show open jobs (not accepted, in_progress, completed, or failed)
           .eq("is_active", true)
           .eq("is_tradespeople_job", modalSearchType === "jobs_tasks") // true for jobs/tasks, false for vacancies
           .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
@@ -1320,6 +1401,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 poster_last_name: homeownerProfile?.last_name || null,
                 poster_nickname: null, // Homeowners don't have nicknames
                 poster_logo_url: homeownerProfile?.profile_photo_url || null,
+                // Add rating information from homeowner profile
+                average_rating: homeownerProfile?.average_rating || 0,
+                total_reviews: homeownerProfile?.reviews_count || 0,
               }
             })
 
@@ -1460,7 +1544,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
             {/* Search button - desktop only */}
             <Button
-              onClick={() => handleSearch(selectedSearchType)}
+              onClick={() => {
+                console.log('[SEARCH-BUTTON] Click detected, isSearching:', isSearching, 'selectedSearchType:', selectedSearchType)
+                handleSearch(selectedSearchType)
+              }}
               disabled={isSearching}
               className={`hidden sm:flex h-8 sm:h-9 md:h-10 px-4 sm:px-6 text-xs sm:text-sm font-bold text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 flex-shrink-0 ${
                 selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
@@ -2092,7 +2179,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             isModal={true}
             onSearchUpdate={handleModalSearchUpdate}
             onModalClose={() => {
+              console.log('[MAIN-PAGE-SEARCH] Modal closing, current isSearching:', isSearching)
               setShowMapModal(false)
+              // Ensure isSearching is reset when modal closes
+              setIsSearching(false)
+              console.log('[MAIN-PAGE-SEARCH] Modal closed, isSearching set to false')
               // Dispatch event to show BannerMap again
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new Event('mainPageSearchClose'))

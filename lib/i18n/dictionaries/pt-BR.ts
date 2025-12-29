@@ -50,6 +50,8 @@ export const ptBR: Dictionary = {
     memberSince: 'Membro desde',
     basedOn: 'Com base em',
     outOf: 'de',
+    email: 'E-mail',
+    password: 'Senha',
   },
   nav: {
     home: 'Início',
@@ -131,6 +133,12 @@ export const ptBR: Dictionary = {
     trades: 'Serviços',
     hiring: 'Contratando',
     notHiring: 'Não Contratando',
+    // Job status lifecycle
+    statusOpen: 'Aberto',
+    statusAccepted: 'Aceito',
+    statusInProgress: 'Em Andamento',
+    statusCompleted: 'Concluído',
+    statusFailed: 'Falhou',
   },
   professionals: {
     title: 'Profissionais',

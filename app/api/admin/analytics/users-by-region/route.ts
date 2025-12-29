@@ -66,6 +66,24 @@ export async function GET() {
 
     if (countryError) {
       console.error("[ANALYTICS-REGION-API] Country query error:", countryError)
+
+      // If the column doesn't exist yet (migration not run), return empty data
+      if (countryError.message?.includes("column") || countryError.code === "42703") {
+        console.warn("[ANALYTICS-REGION-API] country_code column doesn't exist yet. Run migration first.")
+        return NextResponse.json({
+          byCountry: [],
+          clusters: [],
+          totalWithLocation: 0,
+          totalWithoutLocation: 0,
+          summary: {
+            uniqueCountries: 0,
+            topCountry: "None",
+            topCountryCount: 0
+          },
+          message: "Migration required: Run supabase/migrations/20251228000001_add_country_to_users.sql"
+        })
+      }
+
       return NextResponse.json(
         { error: "Database error", details: countryError },
         { status: 500 }

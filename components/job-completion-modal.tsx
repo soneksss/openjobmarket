@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -37,6 +37,33 @@ export function JobCompletionModal({
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<boolean>(false)
   const [step, setStep] = useState<'confirm' | 'review'>('confirm')
+  const [reviewerType, setReviewerType] = useState<'homeowner' | 'company' | 'contractor' | 'professional'>('homeowner')
+
+  // Get current user's type when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      getUserType()
+    }
+  }, [isOpen])
+
+  const getUserType = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("user_type")
+          .eq("id", user.id)
+          .single()
+
+        if (userData?.user_type) {
+          setReviewerType(userData.user_type as 'homeowner' | 'company' | 'contractor' | 'professional')
+        }
+      }
+    } catch (error) {
+      console.error("Error getting user type:", error)
+    }
+  }
 
   const handleMarkComplete = async () => {
     setLoading(true)
@@ -49,6 +76,7 @@ export function JobCompletionModal({
         .update({
           completed_at: new Date().toISOString(),
           completion_status: 'completed',
+          status: 'completed', // Update job lifecycle status
         })
         .eq("id", jobId)
 
@@ -74,17 +102,19 @@ export function JobCompletionModal({
     setError(null)
 
     try {
-      // Submit review via API
+      // Submit review via API using new job-based system
       const response = await fetch("/api/reviews", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          revieweeId: contractorProfileId,
+          jobId: jobId,
+          reviewedUserId: contractorId,
+          reviewedUserType: 'contractor', // Contractor is being reviewed
+          reviewerType: reviewerType, // Current user's type (homeowner/company)
           rating,
-          reviewText: reviewText.trim() || null,
-          jobId: jobId, // Optional: track which job this review is for
+          comment: reviewText.trim(),
         }),
       })
 

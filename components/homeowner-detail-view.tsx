@@ -19,6 +19,8 @@ import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
 import MessageModal from "./message-modal"
 import UserReviewsDisplay from "./user-reviews-display"
+import { RatingDisplay } from "./rating-display"
+import { ReviewsList } from "./reviews-list"
 
 interface HomeownerProfile {
   id: string
@@ -29,6 +31,8 @@ interface HomeownerProfile {
   location?: string
   bio?: string
   profile_photo_url?: string
+  average_rating?: number
+  reviews_count?: number
   created_at: string
   updated_at: string
 }
@@ -43,13 +47,15 @@ interface HomeownerDetailViewProps {
   user: User | null
   userType: string | null
   allowMessaging?: boolean
+  isModal?: boolean
 }
 
 export default function HomeownerDetailView({
   homeowner,
   user,
   userType,
-  allowMessaging = true
+  allowMessaging = true,
+  isModal = false
 }: HomeownerDetailViewProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -114,14 +120,19 @@ export default function HomeownerDetailView({
       return
     }
 
-    setShowMessageModal(true)
+    // Only companies and contractors/traders can contact homeowners
+    if (userType === "company" || userType === "contractor") {
+      setShowMessageModal(true)
+    }
   }
 
   const handleBack = () => {
-    if (returnPath) {
-      router.push(returnPath)
-    } else {
+    // Check if there's browser history to go back to
+    if (window.history.length > 1) {
       router.back()
+    } else {
+      // No history, redirect to search page as fallback
+      router.push('/search')
     }
   }
 
@@ -129,16 +140,18 @@ export default function HomeownerDetailView({
   const initials = `${homeowner.first_name.charAt(0)}${homeowner.last_name.charAt(0)}`
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
+    <div className={isModal ? "px-4 py-8 max-w-6xl" : "container mx-auto px-4 py-8 max-w-6xl"}>
       {/* Back Button */}
-      <Button
-        variant="ghost"
-        onClick={handleBack}
-        className="mb-6 hover:bg-gray-100"
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back
-      </Button>
+      {!isModal && (
+        <Button
+          variant="ghost"
+          onClick={handleBack}
+          className="mb-6 hover:bg-gray-100"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Profile Info */}
@@ -161,12 +174,29 @@ export default function HomeownerDetailView({
                           <span>{homeowner.location}</span>
                         </div>
                       )}
+                      <div className="mt-2">
+                        <RatingDisplay
+                          rating={homeowner.average_rating || 0}
+                          reviewsCount={homeowner.reviews_count || 0}
+                          size="md"
+                        />
+                      </div>
                     </div>
                     {!isOwnProfile && user && allowMessaging && (
-                      <Button onClick={handleContact}>
-                        <MessageCircle className="h-4 w-4 mr-2" />
-                        Send Message
-                      </Button>
+                      <div className="space-y-2">
+                        <Button
+                          onClick={handleContact}
+                          disabled={userType !== "company" && userType !== "contractor"}
+                        >
+                          <MessageCircle className="h-4 w-4 mr-2" />
+                          Send Message
+                        </Button>
+                        {userType !== "company" && userType !== "contractor" && (
+                          <p className="text-xs text-muted-foreground text-right">
+                            Only employers and tradespeople can contact homeowners
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -247,7 +277,13 @@ export default function HomeownerDetailView({
 
         {/* Right Column - Reviews */}
         <div className="lg:col-span-1">
-          <UserReviewsDisplay userId={homeowner.user_id} />
+          <ReviewsList
+            userId={homeowner.user_id}
+            userType="homeowner"
+            title="Reviews"
+            limit={5}
+            showViewAll={true}
+          />
         </div>
       </div>
 

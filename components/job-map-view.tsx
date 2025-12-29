@@ -67,12 +67,21 @@ interface Job {
   skills_required: string[]
   applications_count: number
   created_at: string
+  job_photo_url?: string
   company_profiles?: {
+    id: string
     company_name: string
     location: string
     industry: string
     logo_url?: string
     user_id: string
+  }
+  homeowner_profiles?: {
+    id: string
+    user_id: string
+    first_name: string
+    last_name: string
+    profile_photo_url?: string
   }
   company_rating?: {
     average_rating: number
@@ -1735,7 +1744,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                               : "hover:bg-gray-50"
                           }`}
                           onClick={() => {
-                            // Toggle selection when clicking job card
+                            // Toggle selection when clicking job card in desktop modal
                             setSelectedJobId(isSelected ? null : job.id)
                           }}
                         >
@@ -1747,24 +1756,54 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                 job.company_profiles?.company_name ||
                                 "Anonymous"
 
+                              const profileUrl = job.company_profiles?.id
+                                ? `/companies/${job.company_profiles.id}`
+                                : job.homeowner_profiles?.id
+                                ? `/homeowners/${job.homeowner_profiles.id}`
+                                : null
+
                               if (logoUrl) {
                                 return (
-                                  <div className="h-10 w-10 flex-shrink-0 relative rounded-full overflow-hidden bg-gray-100">
-                                    <Image
-                                      src={logoUrl}
-                                      alt={posterName}
-                                      fill
-                                      className="object-cover"
-                                    />
-                                  </div>
+                                  <Link
+                                    href={profileUrl || '#'}
+                                    onClick={(e) => {
+                                      if (!profileUrl) {
+                                        e.preventDefault()
+                                      } else {
+                                        e.stopPropagation()
+                                      }
+                                    }}
+                                    className={profileUrl ? "hover:opacity-80 transition-opacity" : "cursor-default"}
+                                  >
+                                    <div className="h-10 w-10 flex-shrink-0 relative rounded-full overflow-hidden bg-gray-100">
+                                      <Image
+                                        src={logoUrl}
+                                        alt={posterName}
+                                        fill
+                                        className="object-cover"
+                                      />
+                                    </div>
+                                  </Link>
                                 )
                               } else {
                                 return (
-                                  <Avatar className="h-10 w-10 flex-shrink-0">
-                                    <AvatarFallback className="bg-blue-50 text-blue-600 font-semibold text-xs">
-                                      {posterName.substring(0, 2).toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
+                                  <Link
+                                    href={profileUrl || '#'}
+                                    onClick={(e) => {
+                                      if (!profileUrl) {
+                                        e.preventDefault()
+                                      } else {
+                                        e.stopPropagation()
+                                      }
+                                    }}
+                                    className={profileUrl ? "hover:opacity-80 transition-opacity" : "cursor-default"}
+                                  >
+                                    <Avatar className="h-10 w-10 flex-shrink-0">
+                                      <AvatarFallback className="bg-blue-50 text-blue-600 font-semibold text-xs">
+                                        {posterName.substring(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </Link>
                                 )
                               }
                             })()}
@@ -1864,42 +1903,51 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                               </div>
 
                               {/* Action buttons */}
-                              <div className="flex gap-2">
-                                {userType === 'company' ? (
-                                  // For companies: Show Apply and View full details buttons
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      asChild
-                                      className="flex-1 bg-blue-600 hover:bg-blue-700"
-                                    >
-                                      <Link href={`${buildJobUrl(job.id)}#apply`}>
-                                        Apply
-                                      </Link>
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      asChild
-                                      variant="outline"
-                                      className="flex-1"
-                                    >
-                                      <Link href={buildJobUrl(job.id)}>
-                                        View full details
-                                      </Link>
-                                    </Button>
-                                  </>
-                                ) : (
-                                  // For professionals and others: Show single combined button
+                              <div className="space-y-2">
+                                <div className="flex gap-2">
                                   <Button
                                     size="sm"
-                                    asChild
+                                    variant="outline"
                                     className="flex-1"
+                                    disabled={!user}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (!user) setShowSignUpDialog(true)
+                                    }}
                                   >
-                                    <Link href={buildJobUrl(job.id)}>
-                                      View Full Details & Apply
-                                    </Link>
+                                    <Heart className="h-4 w-4 mr-1" />
+                                    Save
                                   </Button>
-                                )}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (!user) {
+                                        setShowSignUpDialog(true)
+                                      } else {
+                                        const recipientId = job.company_profiles?.user_id || job.homeowner_profiles?.user_id
+                                        if (recipientId) {
+                                          router.push(`/messages/new?recipient=${recipientId}&subject=Regarding: ${encodeURIComponent(job.title)}`)
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <MessageCircle className="h-4 w-4 mr-1" />
+                                    Contact
+                                  </Button>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  asChild
+                                  className="w-full bg-blue-600 hover:bg-blue-700"
+                                >
+                                  <Link href={buildJobUrl(job.id)}>
+                                    <Briefcase className="h-4 w-4 mr-2" />
+                                    Apply Now
+                                  </Link>
+                                </Button>
                               </div>
                             </div>
                           )}
@@ -2125,8 +2173,11 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                               : "hover:bg-gray-50 active:bg-gray-100"
                           }`}
                           onClick={() => {
-                            // Toggle selection when clicking job card
+                            // Select job and expand bottom sheet to show details
                             setSelectedJobId(isSelected ? null : job.id)
+                            if (!isSelected && bottomSheetPosition !== 'expanded') {
+                              setBottomSheetPosition('expanded')
+                            }
                           }}
                         >
                           <div className="flex items-center gap-3 mb-2">
@@ -2137,24 +2188,54 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                 job.company_profiles?.company_name ||
                                 "Anonymous"
 
+                              const profileUrl = job.company_profiles?.id
+                                ? `/companies/${job.company_profiles.id}`
+                                : job.homeowner_profiles?.id
+                                ? `/homeowners/${job.homeowner_profiles.id}`
+                                : null
+
                               if (logoUrl) {
                                 return (
-                                  <div className="h-10 w-10 flex-shrink-0 relative rounded-full overflow-hidden bg-gray-100">
-                                    <Image
-                                      src={logoUrl}
-                                      alt={posterName}
-                                      fill
-                                      className="object-cover"
-                                    />
-                                  </div>
+                                  <Link
+                                    href={profileUrl || '#'}
+                                    onClick={(e) => {
+                                      if (!profileUrl) {
+                                        e.preventDefault()
+                                      } else {
+                                        e.stopPropagation()
+                                      }
+                                    }}
+                                    className={profileUrl ? "hover:opacity-80 transition-opacity" : "cursor-default"}
+                                  >
+                                    <div className="h-10 w-10 flex-shrink-0 relative rounded-full overflow-hidden bg-gray-100">
+                                      <Image
+                                        src={logoUrl}
+                                        alt={posterName}
+                                        fill
+                                        className="object-cover"
+                                      />
+                                    </div>
+                                  </Link>
                                 )
                               } else {
                                 return (
-                                  <Avatar className="h-10 w-10 flex-shrink-0">
-                                    <AvatarFallback className="bg-blue-50 text-blue-600 font-semibold text-xs">
-                                      {posterName.substring(0, 2).toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
+                                  <Link
+                                    href={profileUrl || '#'}
+                                    onClick={(e) => {
+                                      if (!profileUrl) {
+                                        e.preventDefault()
+                                      } else {
+                                        e.stopPropagation()
+                                      }
+                                    }}
+                                    className={profileUrl ? "hover:opacity-80 transition-opacity" : "cursor-default"}
+                                  >
+                                    <Avatar className="h-10 w-10 flex-shrink-0">
+                                      <AvatarFallback className="bg-blue-50 text-blue-600 font-semibold text-xs">
+                                        {posterName.substring(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </Link>
                                 )
                               }
                             })()}
@@ -2197,16 +2278,105 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                           {/* Extended details - only show when selected */}
                           {isSelected && (
                             <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+                              {/* Profile Section with Photo and Reviews */}
+                              <div className="flex items-center gap-3 pb-3 border-b border-gray-200">
+                                {(() => {
+                                  const logoUrl = job.poster_logo_url || job.company_profiles?.logo_url
+                                  const posterName =
+                                    (job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
+                                    job.company_profiles?.company_name ||
+                                    "Anonymous"
+
+                                  const profileUrl = job.company_profiles?.id
+                                    ? `/companies/${job.company_profiles.id}`
+                                    : job.homeowner_profiles?.id
+                                    ? `/homeowners/${job.homeowner_profiles.id}`
+                                    : null
+
+                                  return (
+                                    <Link
+                                      href={profileUrl || '#'}
+                                      onClick={(e) => {
+                                        if (!profileUrl) {
+                                          e.preventDefault()
+                                        } else {
+                                          e.stopPropagation()
+                                        }
+                                      }}
+                                      className={`flex items-center gap-3 flex-1 min-w-0 ${profileUrl ? "hover:opacity-80 transition-opacity" : "cursor-default"}`}
+                                    >
+                                      {logoUrl ? (
+                                        <div className="h-12 w-12 flex-shrink-0 relative rounded-full overflow-hidden border-2 border-gray-300 bg-gray-100">
+                                          <Image
+                                            src={logoUrl}
+                                            alt={posterName}
+                                            fill
+                                            className="object-cover"
+                                          />
+                                        </div>
+                                      ) : (
+                                        <Avatar className="h-12 w-12 flex-shrink-0 border-2 border-gray-300">
+                                          <AvatarFallback className="bg-blue-50 text-blue-600 font-semibold">
+                                            {posterName.substring(0, 2).toUpperCase()}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                      )}
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-base font-semibold text-gray-900 truncate">{posterName}</p>
+                                        {job.company_rating && (
+                                          <StarRating
+                                            rating={job.company_rating.average_rating}
+                                            totalReviews={job.company_rating.total_reviews}
+                                            size="sm"
+                                            showCount={true}
+                                          />
+                                        )}
+                                      </div>
+                                    </Link>
+                                  )
+                                })()}
+                              </div>
+
+                              {/* Job Photo */}
+                              {job.job_photo_url && (
+                                <div className="mb-3">
+                                  <img
+                                    src={job.job_photo_url}
+                                    alt={job.title}
+                                    className="w-full max-h-[200px] object-cover rounded-md shadow-sm"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none'
+                                    }}
+                                  />
+                                </div>
+                              )}
+
                               {/* Location/Address */}
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                              <div className="flex items-center gap-2 text-sm text-gray-600">
+                                <MapPin className="h-4 w-4 flex-shrink-0" />
                                 <span className="truncate">{job.full_address || job.location}</span>
+                              </div>
+
+                              {/* Job Type Badges */}
+                              <div className="flex flex-wrap gap-2">
+                                <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                                  <Briefcase className="h-3 w-3 mr-1" />
+                                  {job.job_type}
+                                </Badge>
+                                <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+                                  {job.work_location}
+                                </Badge>
+                                {job.experience_level && (
+                                  <Badge variant="secondary" className="bg-purple-50 text-purple-700">
+                                    {job.experience_level}
+                                  </Badge>
+                                )}
                               </div>
 
                               {/* Job Description */}
                               <div>
                                 <h4 className="font-semibold text-sm text-gray-900 mb-1">Description</h4>
-                                <p className="text-sm text-gray-600 leading-relaxed line-clamp-4">
+                                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
                                   {job.description}
                                 </p>
                               </div>
@@ -2254,42 +2424,51 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                               </div>
 
                               {/* Action buttons */}
-                              <div className="flex gap-2">
-                                {userType === 'company' ? (
-                                  // For companies: Show Apply and View full details buttons
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      asChild
-                                      className="flex-1 bg-blue-600 hover:bg-blue-700"
-                                    >
-                                      <Link href={`${buildJobUrl(job.id)}#apply`}>
-                                        Apply
-                                      </Link>
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      asChild
-                                      variant="outline"
-                                      className="flex-1"
-                                    >
-                                      <Link href={buildJobUrl(job.id)}>
-                                        View full details
-                                      </Link>
-                                    </Button>
-                                  </>
-                                ) : (
-                                  // For professionals and others: Show single combined button
+                              <div className="space-y-2">
+                                <div className="flex gap-2">
                                   <Button
                                     size="sm"
-                                    asChild
+                                    variant="outline"
                                     className="flex-1"
+                                    disabled={!user}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (!user) setShowSignUpDialog(true)
+                                    }}
                                   >
-                                    <Link href={buildJobUrl(job.id)}>
-                                      View Full Details & Apply
-                                    </Link>
+                                    <Heart className="h-4 w-4 mr-1" />
+                                    Save
                                   </Button>
-                                )}
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (!user) {
+                                        setShowSignUpDialog(true)
+                                      } else {
+                                        const recipientId = job.company_profiles?.user_id || job.homeowner_profiles?.user_id
+                                        if (recipientId) {
+                                          router.push(`/messages/new?recipient=${recipientId}&subject=Regarding: ${encodeURIComponent(job.title)}`)
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <MessageCircle className="h-4 w-4 mr-1" />
+                                    Contact
+                                  </Button>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  asChild
+                                  className="w-full bg-blue-600 hover:bg-blue-700"
+                                >
+                                  <Link href={buildJobUrl(job.id)}>
+                                    <Briefcase className="h-4 w-4 mr-2" />
+                                    Apply Now
+                                  </Link>
+                                </Button>
                               </div>
                             </div>
                           )}

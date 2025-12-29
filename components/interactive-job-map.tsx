@@ -64,6 +64,7 @@ export function InteractiveJobMap({ className }: JobMapProps) {
             logo_url
           )
         `)
+        .eq("status", "open") // Only show open jobs (not accepted, in_progress, completed, or failed)
         .eq("is_active", true)
         .not("latitude", "is", null)
         .not("longitude", "is", null)

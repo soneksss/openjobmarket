@@ -53,11 +53,29 @@ export function HomeownerApplicationActions({
         .from("jobs")
         .update({
           accepted_contractor_id: contractorId,
-          completion_status: 'accepted'
+          completion_status: 'accepted',
+          status: 'accepted' // Hide from map when accepted
         })
         .eq("id", jobId)
 
       if (jobError) throw jobError
+
+      // Update this application to accepted
+      const { error: acceptError } = await supabase
+        .from("job_applications")
+        .update({ status: "accepted" })
+        .eq("id", applicationId)
+
+      if (acceptError) throw acceptError
+
+      // Reject all other applications for this job
+      const { error: rejectError } = await supabase
+        .from("job_applications")
+        .update({ status: "rejected" })
+        .eq("job_id", jobId)
+        .neq("id", applicationId)
+
+      if (rejectError) throw rejectError
 
       toast({
         title: "✅ Contractor Accepted",

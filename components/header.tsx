@@ -450,7 +450,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                         <ChevronDown className="hidden sm:block h-3 w-3 sm:h-4 sm:w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 sm:w-64">
+                    <DropdownMenuContent align="end" className="w-56 sm:w-64 z-[100]">
                       {currentUserType === "professional" ? (
                         <>
                           <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
@@ -532,6 +532,42 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             <Link href={getLocalePath("/account/settings")} className="flex items-center">
                               <Settings className="h-4 w-4 mr-2" />
                               {t('header.accountSettings')}
+                            </Link>
+                          </DropdownMenuItem>
+                        </>
+                      ) : currentUserType === "homeowner" ? (
+                        <>
+                          <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
+                            Homeowner Profile
+                          </div>
+                          <DropdownMenuItem asChild>
+                            <Link href={getLocalePath("/dashboard/homeowner/profile")} className="flex items-center">
+                              <User className="h-4 w-4 mr-2" />
+                              {t('header.editProfile')}
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={getLocalePath("/dashboard/homeowner")} className="flex items-center">
+                              <Briefcase className="h-4 w-4 mr-2" />
+                              {t('header.dashboard')}
+                            </Link>
+                          </DropdownMenuItem>
+                        </>
+                      ) : currentUserType === "contractor" ? (
+                        <>
+                          <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
+                            Contractor Profile
+                          </div>
+                          <DropdownMenuItem asChild>
+                            <Link href={getLocalePath("/contractor/profile/edit")} className="flex items-center">
+                              <User className="h-4 w-4 mr-2" />
+                              {t('header.editProfile')}
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={getLocalePath("/dashboard")} className="flex items-center">
+                              <Briefcase className="h-4 w-4 mr-2" />
+                              {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                         </>

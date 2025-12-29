@@ -18,13 +18,18 @@ import {
   Briefcase,
   Star,
   Globe2,
-  DollarSign
+  DollarSign,
+  Sparkles,
+  ExternalLink,
+  Clock
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
 import MessageModal from "./message-modal"
 import UserReviewsDisplay from "./user-reviews-display"
+import { RatingDisplay } from "./rating-display"
+import { ReviewsList } from "./reviews-list"
 
 interface CompanyProfile {
   id: string
@@ -44,6 +49,8 @@ interface CompanyProfile {
   service_24_7?: boolean
   services?: string[]
   price_list?: string
+  average_rating?: number
+  reviews_count?: number
   created_at: string
 }
 
@@ -55,14 +62,17 @@ interface User {
 interface CompanyDetailViewProps {
   company: CompanyProfile
   user: User | null
+  isModal?: boolean
 }
 
-export default function CompanyDetailView({ company, user }: CompanyDetailViewProps) {
+export default function CompanyDetailView({ company, user, isModal = false }: CompanyDetailViewProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [showMessageModal, setShowMessageModal] = useState(false)
   const [sessionValidated, setSessionValidated] = useState(false)
+  const [activeJobs, setActiveJobs] = useState<any[]>([])
+  const [loadingJobs, setLoadingJobs] = useState(true)
 
   const isOwnProfile = user?.id === company.user_id
 
@@ -78,7 +88,35 @@ export default function CompanyDetailView({ company, user }: CompanyDetailViewPr
     if (user && !sessionValidated) {
       validateSession()
     }
+
+    // Fetch active job openings
+    fetchActiveJobs()
   }, [user, sessionValidated])
+
+  const fetchActiveJobs = async () => {
+    setLoadingJobs(true)
+    try {
+      const { data: jobs, error } = await supabase
+        .from("job_status_view")
+        .select("*")
+        .eq("company_id", company.id)
+        .eq("is_active", true)
+        .neq("expiration_status", "expired")
+        .order("created_at", { ascending: false })
+        .limit(5)
+
+      if (error) {
+        console.error("[COMPANY-DETAIL-VIEW] Error fetching jobs:", error)
+      } else {
+        setActiveJobs(jobs || [])
+        console.log("[COMPANY-DETAIL-VIEW] Loaded active jobs:", jobs?.length || 0)
+      }
+    } catch (error) {
+      console.error("[COMPANY-DETAIL-VIEW] Error fetching active jobs:", error)
+    } finally {
+      setLoadingJobs(false)
+    }
+  }
 
   const validateSession = async () => {
     console.log("[COMPANY-DETAIL-VIEW] Validating client session...")
@@ -109,6 +147,16 @@ export default function CompanyDetailView({ company, user }: CompanyDetailViewPr
     setShowMessageModal(true)
   }
 
+  const handleBack = () => {
+    // Check if there's browser history to go back to
+    if (window.history.length > 1) {
+      router.back()
+    } else {
+      // No history, redirect to search page as fallback
+      router.push('/search')
+    }
+  }
+
   const getCompanyInitials = () => {
     return company.company_name
       .split(" ")
@@ -119,22 +167,24 @@ export default function CompanyDetailView({ company, user }: CompanyDetailViewPr
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className={isModal ? "" : "min-h-screen bg-gradient-to-b from-gray-50 to-white"}>
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
+      {!isModal && (
+        <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+          <div className="container mx-auto px-4 py-4">
+            <Button
+              variant="ghost"
+              onClick={handleBack}
+              className="hover:bg-gray-100"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
+      <div className={isModal ? "px-4 py-8 max-w-5xl" : "container mx-auto px-4 py-8 max-w-5xl"}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -173,6 +223,19 @@ export default function CompanyDetailView({ company, user }: CompanyDetailViewPr
                           24/7 Service
                         </Badge>
                       )}
+                      {activeJobs.length > 0 && (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 flex items-center gap-1">
+                          <Sparkles className="h-3 w-3" />
+                          We're Hiring
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="mt-3">
+                      <RatingDisplay
+                        rating={company.average_rating || 0}
+                        reviewsCount={company.reviews_count || 0}
+                        size="md"
+                      />
                     </div>
                   </div>
                 </div>
@@ -253,8 +316,87 @@ export default function CompanyDetailView({ company, user }: CompanyDetailViewPr
               </Card>
             )}
 
+            {/* Active Job Openings */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Briefcase className="h-5 w-5" />
+                  Active Job Openings
+                  {activeJobs.length > 0 && (
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 ml-2">
+                      {activeJobs.length}
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {loadingJobs ? (
+                  <div className="space-y-4">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : activeJobs.length > 0 ? (
+                  <div className="space-y-4">
+                    {activeJobs.map((job) => (
+                      <Link
+                        key={job.id}
+                        href={`/jobs/${job.id}`}
+                        className="block p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all group"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mb-1">
+                              {job.title}
+                            </h3>
+                            <div className="flex flex-wrap gap-3 text-sm text-gray-600">
+                              <div className="flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {job.location}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Posted {new Date(job.created_at).toLocaleDateString('en-GB', {
+                                  day: 'numeric',
+                                  month: 'short',
+                                  year: 'numeric'
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0" />
+                        </div>
+                      </Link>
+                    ))}
+                    {activeJobs.length === 5 && (
+                      <Link
+                        href="/jobs"
+                        className="block text-center text-blue-600 hover:text-blue-700 font-medium py-2"
+                      >
+                        View All Openings →
+                      </Link>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Briefcase className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p>No active job openings at this time</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Reviews Section */}
-            <UserReviewsDisplay userId={company.user_id} />
+            <ReviewsList
+              userId={company.user_id}
+              userType="company"
+              title="Reviews"
+              limit={5}
+              showViewAll={true}
+            />
           </div>
 
           {/* Sidebar */}

@@ -48,6 +48,8 @@ export const en = {
     memberSince: 'Member Since',
     basedOn: 'Based on',
     outOf: 'out of',
+    email: 'Email',
+    password: 'Password',
   },
   nav: {
     home: 'Home',
@@ -129,6 +131,12 @@ export const en = {
     trades: 'Trades',
     hiring: 'Hiring',
     notHiring: 'Not Hiring',
+    // Job status lifecycle
+    statusOpen: 'Open',
+    statusAccepted: 'Accepted',
+    statusInProgress: 'In Progress',
+    statusCompleted: 'Completed',
+    statusFailed: 'Failed',
   },
   professionals: {
     title: 'Professionals',
