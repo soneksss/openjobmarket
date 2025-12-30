@@ -157,6 +157,8 @@ export const en = {
     welcome: 'Welcome',
     welcomeBack: 'Welcome Back',
     signInDescription: 'Sign in to your Open Job Market account',
+    signIn: 'Sign In',
+    signUp: 'Sign Up',
     email: 'Email',
     emailPlaceholder: 'm@example.com',
     password: 'Password',
@@ -261,6 +263,7 @@ export const en = {
     profileHidden: 'Profile Hidden',
     visibleToUsers: 'Visible to users',
     hiddenFromUsers: 'Hidden from users',
+    visibleToEmployers: 'Visible to employers',
     accountSettings: 'Account Settings',
     yourPostedJobs: 'Your Posted Jobs',
     yourRecentPostedJobs: 'Your Recent Posted Jobs',
@@ -273,11 +276,14 @@ export const en = {
     postJob: 'Post Job',
     createJobListing: 'Create job listing',
     createJobPosting: 'Create job posting',
+    manage: 'Manage',
+    backToSearch: 'Back to Search',
+    mainPage: 'Main page',
     findTalent: 'Find Talent',
     findTrades: 'Find Trades',
     searchProfessionals: 'Search professionals',
+    noApplicationsYet: 'No applications yet',
     searchContractors: 'Search contractors',
-    manage: 'Manage',
     viewInsights: 'View insights',
     noJobsYet: 'No jobs yet',
     noJobsPosted: 'No jobs posted yet',
@@ -1145,6 +1151,136 @@ export const en = {
     // Errors
     errorCreatingProfile: 'Error creating profile. Please try again.',
     errorLoadingData: 'Error loading data. Please refresh the page.',
+  },
+  mapLocationPicker: {
+    selectLocationTitle: 'Select your location and click on the map',
+    searchLocationPlaceholder: 'Search for a location',
+    locationSelected: 'Location Selected',
+    resetLocation: 'Reset',
+    gettingAddress: 'Getting address...',
+    loadingMap: 'Loading map...',
+    clickToSelect: 'Click on the map to select a location or search for an address',
+  },
+  security: {
+    // Email Section
+    emailAddress: 'Email Address',
+    yourEmail: 'Your Email',
+    emailChangeMessage: 'This is the email address associated with your account. To change it, please contact support.',
+
+    // Change Password Section
+    changePassword: 'Change Password',
+    currentPassword: 'Current Password',
+    currentPasswordPlaceholder: 'Enter your current password',
+    newPassword: 'New Password',
+    newPasswordPlaceholder: 'Enter your new password (min. 8 characters)',
+    confirmNewPassword: 'Confirm New Password',
+    confirmPasswordPlaceholder: 'Confirm your new password',
+    updatePassword: 'Update Password',
+    updatingPassword: 'Updating Password...',
+
+    // Validation Messages
+    allFieldsRequired: 'All fields are required',
+    passwordMinLength: 'New password must be at least 8 characters long',
+    passwordsNoMatch: 'New password and confirmation do not match',
+    passwordMustDiffer: 'New password must be different from current password',
+    incorrectPassword: 'Current password is incorrect',
+    passwordUpdateSuccess: 'Password updated successfully',
+    unexpectedError: 'An unexpected error occurred',
+
+    // Password Requirements
+    passwordRequirements: 'Password Requirements:',
+    requirementMinLength: 'At least 8 characters long',
+    requirementDifferent: 'Different from your current password',
+    requirementStrong: 'Use a strong, unique password',
+
+    // Danger Zone
+    dangerZone: 'Danger Zone',
+    deleteAccountButton: 'Delete Account',
+    deletionWarning: 'Deleting your account is permanent and cannot be undone. All your data, including profile information, messages, and job postings will be permanently deleted.',
+    warningLabel: 'Warning:',
+  },
+
+  accountDeletion: {
+    // Step 1 - Warning
+    deleteAccount: 'Delete Account',
+    dangerZone: 'Danger Zone',
+    warningTitle: 'Delete Your Account',
+    warningMessage: 'Deleting your account is permanent and cannot be undone. All your data, including profile information, messages, and job postings will be permanently deleted.',
+    continueButton: 'Continue with Deletion',
+    cancelButton: 'Cancel',
+
+    // Step 2 - Reason Selection
+    selectReasonTitle: 'Help Us Improve',
+    selectReasonSubtitle: 'Please tell us why you\'re leaving. Your feedback helps us make the platform better.',
+    selectReasonRequired: 'Please select a reason',
+    reasons: {
+      cant_find_what_looking_for: 'I can\'t find what I\'m looking for',
+      not_enough_users: 'Not enough companies / professionals yet',
+      too_complicated: 'Too complicated to use',
+      poor_ux: 'Poor user experience',
+      trust_safety_concerns: 'Trust or safety concerns',
+      found_alternative: 'Found an alternative platform',
+      temporary_use: 'Temporary use only',
+      technical_issues: 'Technical issues / bugs',
+      privacy_concerns: 'Privacy concerns',
+      other: 'Other',
+    },
+
+    // Step 3 - Retention Suggestions
+    retentionTitle: 'Before You Go...',
+    retentionSuggestions: {
+      cant_find_what_looking_for: 'Many users find what they need after exploring a bit more. New opportunities are added daily. Would you like to give it another try?',
+      not_enough_users: 'We\'re growing fast! New companies and professionals join daily. Staying a bit longer may help you find the right match.',
+      too_complicated: 'We\'re constantly improving usability. Your feedback helps shape the platform. What specific part was difficult?',
+      poor_ux: 'We value your experience. Could you share what wasn\'t working well? We\'re actively improving based on user feedback.',
+      trust_safety_concerns: 'Your safety is our priority. Please report any concerns to our support team - we take immediate action on all reports.',
+      found_alternative: 'We\'d love to know what worked better elsewhere. Your input helps us improve for future users.',
+      temporary_use: 'Thank you for using our platform! You can always return - your feedback is valuable to us.',
+      technical_issues: 'We apologize for technical difficulties. Our team resolves issues quickly. Would you like to report the problem?',
+      privacy_concerns: 'We take privacy seriously. Review our privacy policy or contact us with specific concerns.',
+      other: 'We value your time with us. Is there anything we could have done differently?',
+    },
+    stayButton: 'Keep My Account',
+    proceedButton: 'Continue Deletion',
+
+    // Step 4 - Custom Feedback
+    feedbackTitle: 'Share Your Thoughts',
+    feedbackSubtitle: 'Your detailed feedback helps us improve (optional)',
+    feedbackPlaceholder: 'Tell us more about your experience...',
+    feedbackMaxLength: 'Maximum 500 characters',
+    skipButton: 'Skip',
+    nextButton: 'Next',
+
+    // Step 5 - Security Confirmation
+    confirmTitle: 'Confirm Your Identity',
+    confirmSubtitle: 'For your security, please verify your credentials',
+    emailLabel: 'Email Address',
+    emailPlaceholder: 'Enter your email',
+    passwordLabel: 'Password',
+    passwordPlaceholder: 'Enter your password',
+    confirmCheckbox: 'I understand this action is permanent and cannot be undone',
+    invalidCredentials: 'Invalid email or password',
+    checkboxRequired: 'You must confirm you understand this action is permanent',
+    verifyButton: 'Verify & Continue',
+
+    // Step 6 - Final Confirmation
+    finalTitle: 'Final Confirmation',
+    finalMessage: 'This will permanently delete your account and all associated data. This action cannot be undone.',
+    finalWarning: 'Are you absolutely sure you want to delete your account?',
+    confirmDelete: 'Yes, Delete My Account',
+    goBack: 'No, Go Back',
+
+    // Processing & Success
+    deleting: 'Deleting your account...',
+    deleted: 'Account Deleted',
+    deletedMessage: 'Your account has been permanently deleted. We\'re sorry to see you go.',
+    errorTitle: 'Deletion Failed',
+    errorMessage: 'Failed to delete account. Please try again or contact support.',
+
+    // Navigation
+    backButton: 'Back',
+    step: 'Step',
+    of: 'of',
   },
 }
 

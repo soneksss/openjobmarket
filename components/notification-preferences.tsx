@@ -5,9 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Bell, Mail, Phone, MessageSquare, Briefcase, AlertTriangle, Home, Building2, Wrench, Users } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Bell, Mail, Phone, MessageSquare, Briefcase, AlertTriangle, Home, Building2, Wrench, Users, Globe, Languages } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { toast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import type { Language, Country } from "@/lib/i18n/language-region"
+import { LANGUAGES, COUNTRIES, saveLanguageRegionToStorage } from "@/lib/i18n/language-region"
 
 interface NotificationPreference {
   id: string
@@ -63,11 +67,31 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
   const [userRoles, setUserRoles] = useState<UserRoles | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [language, setLanguage] = useState<Language>('en')
+  const [country, setCountry] = useState<Country>('GLOBAL')
+  const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
     fetchData()
+    loadLanguagePreference()
   }, [userId])
+
+  const loadLanguagePreference = () => {
+    // Load from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('language-region')
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          setLanguage(parsed.language || 'en')
+          setCountry(parsed.country || 'GLOBAL')
+        }
+      } catch (error) {
+        console.error('Failed to load language preference:', error)
+      }
+    }
+  }
 
   const fetchData = async () => {
     try {
@@ -166,6 +190,31 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleLanguageChange = (newLang: Language) => {
+    const newCountry: Country = newLang === 'pt-BR' ? 'BR' : 'GLOBAL'
+
+    setLanguage(newLang)
+    setCountry(newCountry)
+
+    // Save to localStorage
+    saveLanguageRegionToStorage({ language: newLang, country: newCountry })
+
+    // Navigate to the appropriate route
+    const currentPath = window.location.pathname
+    const pathWithoutLocale = currentPath.startsWith('/br/') ? currentPath.slice(3) : currentPath.replace('/br', '')
+    const newPath = newLang === 'pt-BR' ? `/br${pathWithoutLocale}` : pathWithoutLocale || '/'
+
+    toast({
+      title: "Language Updated",
+      description: `Language changed to ${newLang === 'en' ? 'English' : 'Portuguese (Brasil)'}. Refreshing page...`,
+    })
+
+    // Refresh to apply new language
+    setTimeout(() => {
+      window.location.href = newPath
+    }, 500)
   }
 
   if (loading) {
@@ -337,6 +386,56 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
 
   return (
     <div className="space-y-6">
+      {/* Language & Region Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Globe className="h-5 w-5 mr-2" />
+            Language & Region
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Choose your preferred language and region
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="language-select" className="text-sm font-medium">
+                Language
+              </Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Select your preferred language for the interface
+              </p>
+              <Select value={language} onValueChange={(value) => handleLanguageChange(value as Language)}>
+                <SelectTrigger id="language-select" className="w-full">
+                  <SelectValue placeholder="Select language" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="en">
+                    <div className="flex items-center gap-2">
+                      <span>🌐</span>
+                      <span>English - Global</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="pt-BR">
+                    <div className="flex items-center gap-2">
+                      <span>🇧🇷</span>
+                      <span>Português - Brasil</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="rounded-md bg-muted p-3">
+            <p className="text-xs text-muted-foreground">
+              <strong>Note:</strong> Changing your language will reload the page to apply the new settings.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notification Preferences Header */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center">

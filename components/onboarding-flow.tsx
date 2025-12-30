@@ -38,7 +38,7 @@ export default function OnboardingFlow({
 }: OnboardingFlowProps) {
   const router = useRouter()
   const supabase = createClient()
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
 
   // Get user type from sign-up metadata, convert "employer" to "company"
   const initialUserType = user.user_metadata?.user_type === "employer" ? "company" : user.user_metadata?.user_type

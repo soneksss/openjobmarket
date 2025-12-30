@@ -52,10 +52,10 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   // Language & Region context
   const { state: languageRegionState, openModal: openLanguageModal } = useLanguageRegion()
 
-  // Detect if user is on Portuguese version using i18n context (most reliable source of truth)
-  const isOnBrRoute = locale === 'pt-BR'
+  // Detect if user is on Portuguese version using both i18n context and pathname (most reliable)
+  const isOnBrRoute = locale === 'pt-BR' || pathname?.startsWith('/br')
 
-  console.log('[HEADER] Locale detection:', { locale, isOnBrRoute, pathname })
+  console.log('[HEADER] Locale detection:', { locale, isOnBrRoute, pathname, pathnameBrCheck: pathname?.startsWith('/br') })
 
   const signUpUrl = isOnBrRoute
     ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
@@ -309,6 +309,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                 width={100}
                 height={32}
                 className="h-8 w-auto max-h-8 flex-shrink-0"
+                style={{ width: 'auto' }}
                 priority
               />
             </div>
@@ -550,6 +551,22 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                             <Link href={getLocalePath("/dashboard/homeowner")} className="flex items-center">
                               <Briefcase className="h-4 w-4 mr-2" />
                               {t('header.dashboard')}
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled className="flex items-center text-muted-foreground">
+                            <FileText className="h-4 w-4 mr-2" />
+                            {t('header.enquiriesComingSoon')}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={getLocalePath("/dashboard/homeowner/jobs")} className="flex items-center">
+                              <Briefcase className="h-4 w-4 mr-2" />
+                              My Jobs
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={getLocalePath("/account/settings")} className="flex items-center">
+                              <Settings className="h-4 w-4 mr-2" />
+                              {t('header.accountSettings')}
                             </Link>
                           </DropdownMenuItem>
                         </>

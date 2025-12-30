@@ -34,7 +34,7 @@ interface MainPageSearchProps {
 }
 
 export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: MainPageSearchProps = {}) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
   const pathname = usePathname()
@@ -108,7 +108,6 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
   // Get suggestions - unified list for all search types
   const getSuggestions = (): string[] => {
-    const { locale } = useTranslation()
     const isPtBR = locale === 'pt-BR'
 
     if (isPtBR) {
@@ -842,13 +841,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         console.log(`[MAIN-PAGE-SEARCH] Executing talents query...`)
 
+        // Add specific ordering to help with query performance
+        query = query.order('created_at', { ascending: false })
+
         // Add timeout to prevent query from hanging indefinitely
         const queryPromise = query.limit(RESULT_LIMIT + 1)
         const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
           setTimeout(() => {
-            console.warn('[MAIN-PAGE-SEARCH] Talents query timeout after 10 seconds')
+            console.warn('[MAIN-PAGE-SEARCH] Talents query timeout after 15 seconds')
             resolve({ data: null, error: new Error('Query timeout') })
-          }, 10000)
+          }, 15000) // Increased to 15 seconds
         })
 
         const { data, error } = await Promise.race([queryPromise, timeoutPromise])

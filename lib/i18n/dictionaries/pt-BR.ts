@@ -159,6 +159,8 @@ export const ptBR: Dictionary = {
     welcome: 'Bem-vindo',
     welcomeBack: 'Bem-vindo de Volta',
     signInDescription: 'Entre na sua conta do Open Job Market',
+    signIn: 'Entrar',
+    signUp: 'Cadastrar',
     email: 'E-mail',
     emailPlaceholder: 'm@exemplo.com',
     password: 'Senha',
@@ -238,6 +240,31 @@ export const ptBR: Dictionary = {
     mapPlaceholder: 'Clique no mapa para selecionar sua localização ou pesquise seu endereço',
     creatingAccount: 'Criando Conta...',
     createAccountButton: 'Criar Conta',
+    // Profile Details (Step 4)
+    profileDetails: 'Detalhes do Perfil',
+    completeYourProfile: 'Complete seu perfil',
+    professionalTitle: 'Título Profissional',
+    titlePlaceholder: 'ex. Engenheiro de Software Sênior',
+    bio: 'Bio',
+    bioPlaceholder: 'Conte-nos sobre sua experiência e o que você está procurando...',
+    experienceLevel: 'Nível de Experiência',
+    entry: 'Nível Inicial',
+    mid: 'Nível Médio',
+    senior: 'Sênior',
+    lead: 'Líder',
+    executive: 'Executivo',
+    skills: 'Habilidades',
+    skillsPlaceholder: 'Adicione uma habilidade (ex., React, Python, Gestão de Projetos)',
+    salaryRange: 'Faixa Salarial',
+    minimum: 'Mínimo',
+    maximum: 'Máximo',
+    perMonth: 'Por Mês',
+    perYear: 'Por Ano',
+    perHour: 'Por Hora',
+    additionalInfo: 'Informações Adicionais',
+    hasDrivingLicence: 'Possui carteira de motorista válida',
+    hasOwnTransport: 'Possui transporte próprio',
+    readyToRelocate: 'Pronto para relocação',
     // Errors
     fillAllFields: 'Por favor, preencha todos os campos obrigatórios',
     passwordsDoNotMatch: 'As senhas não coincidem',
@@ -280,6 +307,8 @@ export const ptBR: Dictionary = {
     searchProfessionals: 'Buscar profissionais',
     searchContractors: 'Buscar prestadores',
     manage: 'Gerenciar',
+    backToSearch: 'Voltar à Pesquisa',
+    mainPage: 'Página principal',
     viewInsights: 'Ver análises',
     noJobsYet: 'Nenhuma vaga ainda',
     noJobsPosted: 'Nenhuma vaga publicada ainda',
@@ -1147,5 +1176,135 @@ export const ptBR: Dictionary = {
     // Erros
     errorCreatingProfile: 'Erro ao criar perfil. Por favor, tente novamente.',
     errorLoadingData: 'Erro ao carregar dados. Por favor, atualize a página.',
+  },
+  mapLocationPicker: {
+    selectLocationTitle: 'Selecione sua localização e clique no mapa',
+    searchLocationPlaceholder: 'Buscar uma localização',
+    locationSelected: 'Localização Selecionada',
+    resetLocation: 'Resetar',
+    gettingAddress: 'Obtendo endereço...',
+    loadingMap: 'Carregando mapa...',
+    clickToSelect: 'Clique no mapa para selecionar uma localização ou pesquise por um endereço',
+  },
+  security: {
+    // Seção de E-mail
+    emailAddress: 'Endereço de E-mail',
+    yourEmail: 'Seu E-mail',
+    emailChangeMessage: 'Este é o endereço de e-mail associado à sua conta. Para alterá-lo, entre em contato com o suporte.',
+
+    // Seção de Alteração de Senha
+    changePassword: 'Alterar Senha',
+    currentPassword: 'Senha Atual',
+    currentPasswordPlaceholder: 'Digite sua senha atual',
+    newPassword: 'Nova Senha',
+    newPasswordPlaceholder: 'Digite sua nova senha (mín. 8 caracteres)',
+    confirmNewPassword: 'Confirmar Nova Senha',
+    confirmPasswordPlaceholder: 'Confirme sua nova senha',
+    updatePassword: 'Atualizar Senha',
+    updatingPassword: 'Atualizando Senha...',
+
+    // Mensagens de Validação
+    allFieldsRequired: 'Todos os campos são obrigatórios',
+    passwordMinLength: 'A nova senha deve ter pelo menos 8 caracteres',
+    passwordsNoMatch: 'A nova senha e a confirmação não correspondem',
+    passwordMustDiffer: 'A nova senha deve ser diferente da senha atual',
+    incorrectPassword: 'Senha atual incorreta',
+    passwordUpdateSuccess: 'Senha atualizada com sucesso',
+    unexpectedError: 'Ocorreu um erro inesperado',
+
+    // Requisitos de Senha
+    passwordRequirements: 'Requisitos de Senha:',
+    requirementMinLength: 'Pelo menos 8 caracteres',
+    requirementDifferent: 'Diferente da sua senha atual',
+    requirementStrong: 'Use uma senha forte e única',
+
+    // Zona de Perigo
+    dangerZone: 'Zona de Perigo',
+    deleteAccountButton: 'Excluir Conta',
+    deletionWarning: 'Excluir sua conta é permanente e não pode ser desfeito. Todos os seus dados, incluindo informações de perfil, mensagens e anúncios de emprego serão excluídos permanentemente.',
+    warningLabel: 'Aviso:',
+  },
+
+  accountDeletion: {
+    // Passo 1 - Aviso
+    deleteAccount: 'Excluir Conta',
+    dangerZone: 'Zona de Perigo',
+    warningTitle: 'Excluir Sua Conta',
+    warningMessage: 'Excluir sua conta é permanente e não pode ser desfeito. Todos os seus dados, incluindo informações de perfil, mensagens e publicações de trabalho serão permanentemente excluídos.',
+    continueButton: 'Continuar com Exclusão',
+    cancelButton: 'Cancelar',
+
+    // Passo 2 - Seleção de Motivo
+    selectReasonTitle: 'Ajude-nos a Melhorar',
+    selectReasonSubtitle: 'Por favor, conte-nos por que você está saindo. Seu feedback nos ajuda a melhorar a plataforma.',
+    selectReasonRequired: 'Por favor, selecione um motivo',
+    reasons: {
+      cant_find_what_looking_for: 'Não consigo encontrar o que estou procurando',
+      not_enough_users: 'Não há empresas / profissionais suficientes ainda',
+      too_complicated: 'Muito complicado de usar',
+      poor_ux: 'Experiência do usuário ruim',
+      trust_safety_concerns: 'Preocupações com confiança ou segurança',
+      found_alternative: 'Encontrei uma plataforma alternativa',
+      temporary_use: 'Uso temporário apenas',
+      technical_issues: 'Problemas técnicos / bugs',
+      privacy_concerns: 'Preocupações com privacidade',
+      other: 'Outro',
+    },
+
+    // Passo 3 - Sugestões de Retenção
+    retentionTitle: 'Antes de Ir...',
+    retentionSuggestions: {
+      cant_find_what_looking_for: 'Muitos usuários encontram o que precisam depois de explorar um pouco mais. Novas oportunidades são adicionadas diariamente. Gostaria de tentar novamente?',
+      not_enough_users: 'Estamos crescendo rápido! Novas empresas e profissionais se juntam diariamente. Ficar um pouco mais pode ajudá-lo a encontrar a combinação certa.',
+      too_complicated: 'Estamos constantemente melhorando a usabilidade. Seu feedback ajuda a moldar a plataforma. Qual parte específica foi difícil?',
+      poor_ux: 'Valorizamos sua experiência. Poderia compartilhar o que não estava funcionando bem? Estamos melhorando ativamente com base no feedback dos usuários.',
+      trust_safety_concerns: 'Sua segurança é nossa prioridade. Por favor, relate quaisquer preocupações à nossa equipe de suporte - tomamos ação imediata em todos os relatórios.',
+      found_alternative: 'Adoraríamos saber o que funcionou melhor em outro lugar. Sua contribuição nos ajuda a melhorar para futuros usuários.',
+      temporary_use: 'Obrigado por usar nossa plataforma! Você sempre pode retornar - seu feedback é valioso para nós.',
+      technical_issues: 'Pedimos desculpas pelas dificuldades técnicas. Nossa equipe resolve problemas rapidamente. Gostaria de relatar o problema?',
+      privacy_concerns: 'Levamos a privacidade a sério. Revise nossa política de privacidade ou entre em contato conosco com preocupações específicas.',
+      other: 'Valorizamos seu tempo conosco. Há algo que poderíamos ter feito diferente?',
+    },
+    stayButton: 'Manter Minha Conta',
+    proceedButton: 'Continuar Exclusão',
+
+    // Passo 4 - Feedback Personalizado
+    feedbackTitle: 'Compartilhe Seus Pensamentos',
+    feedbackSubtitle: 'Seu feedback detalhado nos ajuda a melhorar (opcional)',
+    feedbackPlaceholder: 'Conte-nos mais sobre sua experiência...',
+    feedbackMaxLength: 'Máximo 500 caracteres',
+    skipButton: 'Pular',
+    nextButton: 'Próximo',
+
+    // Passo 5 - Confirmação de Segurança
+    confirmTitle: 'Confirme Sua Identidade',
+    confirmSubtitle: 'Para sua segurança, por favor verifique suas credenciais',
+    emailLabel: 'Endereço de Email',
+    emailPlaceholder: 'Digite seu email',
+    passwordLabel: 'Senha',
+    passwordPlaceholder: 'Digite sua senha',
+    confirmCheckbox: 'Eu entendo que esta ação é permanente e não pode ser desfeita',
+    invalidCredentials: 'Email ou senha inválidos',
+    checkboxRequired: 'Você deve confirmar que entende que esta ação é permanente',
+    verifyButton: 'Verificar e Continuar',
+
+    // Passo 6 - Confirmação Final
+    finalTitle: 'Confirmação Final',
+    finalMessage: 'Isso excluirá permanentemente sua conta e todos os dados associados. Esta ação não pode ser desfeita.',
+    finalWarning: 'Você tem certeza absoluta de que deseja excluir sua conta?',
+    confirmDelete: 'Sim, Excluir Minha Conta',
+    goBack: 'Não, Voltar',
+
+    // Processamento e Sucesso
+    deleting: 'Excluindo sua conta...',
+    deleted: 'Conta Excluída',
+    deletedMessage: 'Sua conta foi permanentemente excluída. Sentimos muito por vê-lo partir.',
+    errorTitle: 'Falha na Exclusão',
+    errorMessage: 'Falha ao excluir conta. Por favor, tente novamente ou entre em contato com o suporte.',
+
+    // Navegação
+    backButton: 'Voltar',
+    step: 'Passo',
+    of: 'de',
   },
 }

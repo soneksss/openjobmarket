@@ -46,6 +46,8 @@ import { createBrowserClient } from "@supabase/ssr"
 import { CompactStarRating } from "@/components/compact-star-rating"
 import { SignUpPromptModal } from "@/components/sign-up-prompt-modal"
 import { getLanguageFlag } from "@/components/language-selector"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ReviewsList } from "@/components/reviews-list"
 
 interface Professional {
   id: string
@@ -74,6 +76,8 @@ interface Professional {
   employment_status?: string
   actively_looking?: boolean
   nickname?: string
+  average_rating?: number
+  reviews_count?: number
 }
 
 interface Job {
@@ -221,6 +225,14 @@ export default function ProfessionalsPageContent({
     isOpen: false,
     action: "message",
   })
+
+  // Reviews modal state
+  const [reviewsModal, setReviewsModal] = useState<{
+    isOpen: boolean
+    userId: string
+    userType: "professional" | "company" | "contractor" | "homeowner"
+    userName: string
+  } | null>(null)
 
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -1217,15 +1229,31 @@ export default function ProfessionalsPageContent({
                                         {item.nickname || `${item.first_name || 'Professional'} ${item.last_name || 'User'}`}
                                       </p>
 
-                                      {/* Star Rating - Always visible with default 5 stars */}
-                                      <div className="mb-2">
-                                        <CompactStarRating
-                                          rating={item.rating || 5}
-                                          reviewCount={item.reviewCount || 0}
-                                          size="sm"
-                                          showCount={true}
-                                        />
-                                      </div>
+                                      {/* Star Rating - Show for professionals */}
+                                      {'first_name' in item && (
+                                        <div
+                                          className="mb-2 cursor-pointer hover:opacity-70 transition-opacity w-fit"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            if (item.reviews_count && item.reviews_count > 0) {
+                                              setReviewsModal({
+                                                isOpen: true,
+                                                userId: item.id,
+                                                userType: 'professional',
+                                                userName: `${item.first_name} ${item.last_name}`
+                                              })
+                                            }
+                                          }}
+                                          title={item.reviews_count && item.reviews_count > 0 ? "Click to view reviews" : "No reviews yet"}
+                                        >
+                                          <CompactStarRating
+                                            rating={item.average_rating || 0}
+                                            reviewCount={item.reviews_count || 0}
+                                            size="sm"
+                                            showCount={true}
+                                          />
+                                        </div>
+                                      )}
 
                                       {formatSalary(item.salary_min, item.salary_max) && (
                                         <div className="text-sm font-semibold text-green-600 mb-2">
@@ -1810,6 +1838,22 @@ export default function ProfessionalsPageContent({
         action={signUpPrompt.action}
       />
 
+      {/* Reviews Modal */}
+      {reviewsModal && (
+        <Dialog open={reviewsModal.isOpen} onOpenChange={(open) => !open && setReviewsModal(null)}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Reviews for {reviewsModal.userName}</DialogTitle>
+            </DialogHeader>
+            <ReviewsList
+              userId={reviewsModal.userId}
+              userType={reviewsModal.userType}
+              title=""
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Full-Screen Map Mode (Google Maps Style) OR Modal Mode */}
       {(isFullScreenMode || isModal) && (
         <div className="fixed inset-0 z-[9999] bg-white flex flex-col overflow-hidden h-screen max-h-screen">
@@ -2273,10 +2317,44 @@ export default function ProfessionalsPageContent({
                                   {isEmployer ? `${item.first_name || ''} ${item.last_name || ''}` : item.company_name || item.title}
                                 </h4>
                                 <p className={`text-xs text-gray-600 ${isExpanded ? '' : 'truncate'}`}>{item.title || item.industry}</p>
-                                <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5">
-                                  <MapPin className="h-3 w-3" />
-                                  <span className={isExpanded ? '' : 'truncate'}>{item.location}</span>
-                                </div>
+
+                                {/* Star Rating - Show for professionals */}
+                                {'first_name' in item && (
+                                  <div
+                                    className="mt-1 cursor-pointer hover:opacity-70 transition-opacity w-fit"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (item.reviews_count && item.reviews_count > 0) {
+                                        setReviewsModal({
+                                          isOpen: true,
+                                          userId: item.id,
+                                          userType: 'professional',
+                                          userName: `${item.first_name} ${item.last_name}`
+                                        })
+                                      }
+                                    }}
+                                    title={item.reviews_count && item.reviews_count > 0 ? "Click to view reviews" : "No reviews yet"}
+                                  >
+                                    <CompactStarRating
+                                      rating={item.average_rating || 0}
+                                      reviewCount={item.reviews_count || 0}
+                                      size="sm"
+                                      showCount={true}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Expected Salary - Show for professionals in short view */}
+                                {'first_name' in item && !isExpanded && (item.salary_min || item.salary_max) && (
+                                  <p className="text-xs font-semibold text-green-600 mt-1">
+                                    {item.salary_min && item.salary_max
+                                      ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
+                                      : item.salary_min
+                                      ? `From £${item.salary_min.toLocaleString()}`
+                                      : `Up to £${item.salary_max?.toLocaleString()}`}
+                                    {item.salary_frequency ? ` (${item.salary_frequency})` : ' (per year)'}
+                                  </p>
+                                )}
                               </div>
                             </div>
 
@@ -2536,6 +2614,44 @@ export default function ProfessionalsPageContent({
                               <p className="text-sm text-gray-600 truncate font-medium">
                                 {item.nickname || `${item.first_name} ${item.last_name}`}
                               </p>
+
+                              {/* Star Rating - Show for professionals */}
+                              {isProfessional && (
+                                <div
+                                  className="mt-1 cursor-pointer hover:opacity-70 transition-opacity w-fit"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (item.reviews_count && item.reviews_count > 0) {
+                                      setReviewsModal({
+                                        isOpen: true,
+                                        userId: item.id,
+                                        userType: 'professional',
+                                        userName: `${item.first_name} ${item.last_name}`
+                                      })
+                                    }
+                                  }}
+                                  title={item.reviews_count && item.reviews_count > 0 ? "Click to view reviews" : "No reviews yet"}
+                                >
+                                  <CompactStarRating
+                                    rating={item.average_rating || 0}
+                                    reviewCount={item.reviews_count || 0}
+                                    size="sm"
+                                    showCount={true}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Expected Salary - Show for professionals in short view */}
+                              {isProfessional && !isSelected && (item.salary_min || item.salary_max) && (
+                                <p className="text-sm font-semibold text-green-600 mt-1.5">
+                                  {item.salary_min && item.salary_max
+                                    ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
+                                    : item.salary_min
+                                    ? `From £${item.salary_min.toLocaleString()}`
+                                    : `Up to £${item.salary_max?.toLocaleString()}`}
+                                  {item.salary_frequency ? ` (${item.salary_frequency})` : ' (per year)'}
+                                </p>
+                              )}
 
                               {/* Skills Preview */}
                               {item.skills && item.skills.length > 0 && (

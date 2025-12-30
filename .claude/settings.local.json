@@ -50,7 +50,8 @@
       "Bash(timeout 60 npm run build:*)",
       "Bash(del appprofessionalspage.tsx)",
       "Bash(del:*)",
-      "Bash(echo.)"
+      "Bash(echo.)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

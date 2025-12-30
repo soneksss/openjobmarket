@@ -8,6 +8,7 @@ import dynamic from "next/dynamic"
 import { Input } from "@/components/ui/input"
 import { useLanguageRegion } from "@/contexts/language-region-context"
 import { getDefaultMapCenter } from "@/lib/i18n/language-region"
+import { useTranslation } from "@/lib/i18n/context"
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
@@ -80,11 +81,12 @@ export function MapLocationPicker({
   value,
   onChange,
   height = "400px",
-  placeholder = "Click on the map to select a location or search for an address",
+  placeholder,
 }: MapLocationPickerProps) {
   // Get language/region context for default map center
   const { state: languageRegionState } = useLanguageRegion()
   const defaultCenter = getDefaultMapCenter(languageRegionState.country)
+  const { t } = useTranslation()
 
   const [isClient, setIsClient] = useState(false)
   const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter)
@@ -191,7 +193,7 @@ export function MapLocationPicker({
       <div className="w-full bg-muted rounded-lg flex items-center justify-center" style={{ height }}>
         <div className="text-center">
           <MapPin className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading map...</p>
+          <p className="text-muted-foreground">{t('mapLocationPicker.loadingMap')}</p>
         </div>
       </div>
     )
@@ -202,7 +204,7 @@ export function MapLocationPicker({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <MapPin className="h-5 w-5" />
-          Select Job Location
+          {t('mapLocationPicker.selectLocationTitle')}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -213,7 +215,7 @@ export function MapLocationPicker({
             <Input
               value={searchQuery}
               onChange={handleSearchInputChange}
-              placeholder="Search for a location"
+              placeholder={t('mapLocationPicker.searchLocationPlaceholder')}
               className="pl-10"
             />
             {isSearching && (
@@ -247,7 +249,7 @@ export function MapLocationPicker({
             <div className="flex items-center gap-2">
               <CheckCircle className="h-4 w-4 text-green-600" />
               <div>
-                <p className="text-sm font-medium text-green-800">Location Selected</p>
+                <p className="text-sm font-medium text-green-800">{t('mapLocationPicker.locationSelected')}</p>
                 <p className="text-xs text-green-600">{value.address}</p>
                 <p className="text-xs text-green-500">
                   {value.latitude.toFixed(6)}, {value.longitude.toFixed(6)}
@@ -262,7 +264,7 @@ export function MapLocationPicker({
               className="text-green-700 border-green-300 hover:bg-green-100"
             >
               <RotateCcw className="h-3 w-3 mr-1" />
-              Reset
+              {t('mapLocationPicker.resetLocation')}
             </Button>
           </div>
         )}
@@ -284,7 +286,7 @@ export function MapLocationPicker({
               <Marker position={[value.latitude, value.longitude]}>
                 <Popup>
                   <div className="text-center">
-                    <div className="font-semibold text-gray-900 mb-1">Selected Location</div>
+                    <div className="font-semibold text-gray-900 mb-1">{t('mapLocationPicker.locationSelected')}</div>
                     <div className="text-sm text-gray-600 mb-2">{value.address}</div>
                     <div className="text-xs text-gray-500">
                       {value.latitude.toFixed(6)}, {value.longitude.toFixed(6)}
@@ -299,7 +301,7 @@ export function MapLocationPicker({
             <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
               <div className="bg-white rounded-lg shadow-lg p-4 flex items-center gap-2">
                 <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full" />
-                <span className="text-sm text-gray-600">Getting address...</span>
+                <span className="text-sm text-gray-600">{t('mapLocationPicker.gettingAddress')}</span>
               </div>
             </div>
           )}

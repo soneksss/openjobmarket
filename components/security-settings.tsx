@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Lock, Mail, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react"
+import { Lock, Mail, Eye, EyeOff, CheckCircle, AlertCircle, Trash2, AlertTriangle } from "lucide-react"
 import { createClient } from "@/lib/client"
+import { useRouter } from "next/navigation"
+import { AccountDeletionFlow } from "@/components/account-deletion-flow"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface SecuritySettingsProps {
   userEmail: string
@@ -22,8 +25,11 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+  const [showDeletionFlow, setShowDeletionFlow] = useState(false)
 
+  const { t } = useTranslation()
   const supabase = createClient()
+  const router = useRouter()
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,22 +37,22 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
 
     // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
-      setMessage({ type: "error", text: "All fields are required" })
+      setMessage({ type: "error", text: t('security.allFieldsRequired') })
       return
     }
 
     if (newPassword.length < 8) {
-      setMessage({ type: "error", text: "New password must be at least 8 characters long" })
+      setMessage({ type: "error", text: t('security.passwordMinLength') })
       return
     }
 
     if (newPassword !== confirmPassword) {
-      setMessage({ type: "error", text: "New password and confirmation do not match" })
+      setMessage({ type: "error", text: t('security.passwordsNoMatch') })
       return
     }
 
     if (currentPassword === newPassword) {
-      setMessage({ type: "error", text: "New password must be different from current password" })
+      setMessage({ type: "error", text: t('security.passwordMustDiffer') })
       return
     }
 
@@ -60,7 +66,7 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
       })
 
       if (signInError) {
-        setMessage({ type: "error", text: "Current password is incorrect" })
+        setMessage({ type: "error", text: t('security.incorrectPassword') })
         setIsLoading(false)
         return
       }
@@ -71,20 +77,21 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
       })
 
       if (updateError) {
-        setMessage({ type: "error", text: updateError.message || "Failed to update password" })
+        setMessage({ type: "error", text: updateError.message || t('security.unexpectedError') })
       } else {
-        setMessage({ type: "success", text: "Password updated successfully" })
+        setMessage({ type: "success", text: t('security.passwordUpdateSuccess') })
         // Clear form
         setCurrentPassword("")
         setNewPassword("")
         setConfirmPassword("")
       }
     } catch (err) {
-      setMessage({ type: "error", text: "An unexpected error occurred" })
+      setMessage({ type: "error", text: t('security.unexpectedError') })
     } finally {
       setIsLoading(false)
     }
   }
+
 
   return (
     <div className="space-y-6">
@@ -93,20 +100,20 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
         <CardHeader>
           <CardTitle className="text-lg flex items-center">
             <Mail className="h-5 w-5 mr-2" />
-            Email Address
+            {t('security.emailAddress')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
             <Label htmlFor="email" className="text-sm font-medium">
-              Your Email
+              {t('security.yourEmail')}
             </Label>
             <div className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
               <Mail className="h-4 w-4 text-muted-foreground" />
               <span className="text-sm font-medium">{userEmail}</span>
             </div>
             <p className="text-xs text-muted-foreground">
-              This is the email address associated with your account. To change it, please contact support.
+              {t('security.emailChangeMessage')}
             </p>
           </div>
         </CardContent>
@@ -117,7 +124,7 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
         <CardHeader>
           <CardTitle className="text-lg flex items-center">
             <Lock className="h-5 w-5 mr-2" />
-            Change Password
+            {t('security.changePassword')}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -125,7 +132,7 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
             {/* Current Password */}
             <div className="space-y-2">
               <Label htmlFor="currentPassword" className="text-sm font-medium">
-                Current Password
+                {t('security.currentPassword')}
               </Label>
               <div className="relative">
                 <Input
@@ -133,9 +140,10 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
                   type={showCurrentPassword ? "text" : "password"}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter your current password"
+                  placeholder={t('security.currentPasswordPlaceholder')}
                   className="pr-10"
                   disabled={isLoading}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
@@ -150,7 +158,7 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
             {/* New Password */}
             <div className="space-y-2">
               <Label htmlFor="newPassword" className="text-sm font-medium">
-                New Password
+                {t('security.newPassword')}
               </Label>
               <div className="relative">
                 <Input
@@ -158,9 +166,10 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
                   type={showNewPassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter your new password (min. 8 characters)"
+                  placeholder={t('security.newPasswordPlaceholder')}
                   className="pr-10"
                   disabled={isLoading}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -175,7 +184,7 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
             {/* Confirm New Password */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-sm font-medium">
-                Confirm New Password
+                {t('security.confirmNewPassword')}
               </Label>
               <div className="relative">
                 <Input
@@ -183,9 +192,10 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
                   type={showConfirmPassword ? "text" : "password"}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm your new password"
+                  placeholder={t('security.confirmPasswordPlaceholder')}
                   className="pr-10"
                   disabled={isLoading}
+                  autoComplete="new-password"
                 />
                 <button
                   type="button"
@@ -214,37 +224,73 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
               {isLoading ? (
                 <>
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  Updating Password...
+                  {t('security.updatingPassword')}
                 </>
               ) : (
                 <>
                   <Lock className="h-4 w-4 mr-2" />
-                  Update Password
+                  {t('security.updatePassword')}
                 </>
               )}
             </Button>
 
             {/* Password Requirements */}
             <div className="mt-4 p-3 bg-muted rounded-lg">
-              <p className="text-xs font-medium mb-2">Password Requirements:</p>
+              <p className="text-xs font-medium mb-2">{t('security.passwordRequirements')}</p>
               <ul className="text-xs text-muted-foreground space-y-1">
                 <li className="flex items-center gap-2">
                   <div className="w-1 h-1 bg-muted-foreground rounded-full" />
-                  At least 8 characters long
+                  {t('security.requirementMinLength')}
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1 h-1 bg-muted-foreground rounded-full" />
-                  Different from your current password
+                  {t('security.requirementDifferent')}
                 </li>
                 <li className="flex items-center gap-2">
                   <div className="w-1 h-1 bg-muted-foreground rounded-full" />
-                  Use a strong, unique password
+                  {t('security.requirementStrong')}
                 </li>
               </ul>
             </div>
           </form>
         </CardContent>
       </Card>
+
+      {/* Danger Zone - Delete Account */}
+      {!showDeletionFlow ? (
+        <Card className="border-destructive">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center text-destructive">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              {t('security.dangerZone')}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>{t('security.warningLabel')}</strong> {t('security.deletionWarning')}
+                </AlertDescription>
+              </Alert>
+
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => setShowDeletionFlow(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {t('security.deleteAccountButton')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <AccountDeletionFlow
+          userEmail={userEmail}
+          onCancel={() => setShowDeletionFlow(false)}
+        />
+      )}
     </div>
   )
 }

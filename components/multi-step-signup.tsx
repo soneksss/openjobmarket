@@ -8,10 +8,51 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { User, Building2, Briefcase, Home, Wrench, Users, ArrowRight, ArrowLeft, Loader2, Check } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { User, Building2, Briefcase, Home, Wrench, Users, ArrowRight, ArrowLeft, Loader2, Check, X } from "lucide-react"
 import Link from "next/link"
 import { MapLocationPicker } from "@/components/map-location-picker"
 import { useTranslation } from "@/lib/i18n/context"
+
+// Common job titles for autocomplete suggestions (locale-aware)
+const getJobTitles = (locale: string) => {
+  if (locale === 'pt-BR') {
+    return [
+      "Engenheiro de Software", "Desenvolvedor Web", "Analista de Dados", "Gerente de Projetos",
+      "Gerente de Marketing", "Representante de Vendas", "Contador", "Gerente de RH",
+      "Encanador", "Eletricista", "Carpinteiro", "Construtor", "Pintor",
+      "Faxineiro", "Motorista", "Auxiliar de Armazém", "Segurança",
+      "Enfermeiro", "Cuidador", "Professor", "Chef", "Mecânico"
+    ]
+  }
+  return [
+    "Software Engineer", "Web Developer", "Data Analyst", "Project Manager",
+    "Marketing Manager", "Sales Representative", "Accountant", "HR Manager",
+    "Plumber", "Electrician", "Carpenter", "Builder", "Painter",
+    "Cleaner", "Driver", "Warehouse Worker", "Security Guard",
+    "Nurse", "Care Worker", "Teacher", "Chef", "Mechanic"
+  ]
+}
+
+// Common skills for autocomplete suggestions (locale-aware)
+const getSkills = (locale: string) => {
+  if (locale === 'pt-BR') {
+    return [
+      "Comunicação", "Liderança", "Resolução de Problemas", "Trabalho em Equipe",
+      "Gestão de Projetos", "Agile", "Gestão de Tempo", "Atendimento ao Cliente",
+      "JavaScript", "Python", "React", "Node.js", "SQL", "AWS",
+      "Excel", "Contabilidade", "Marketing", "Vendas", "Microsoft Office",
+      "Encanamento", "Trabalho Elétrico", "Carpintaria", "Pintura", "Azulejista"
+    ]
+  }
+  return [
+    "Communication", "Leadership", "Problem Solving", "Teamwork",
+    "Project Management", "Agile", "Time Management", "Customer Service",
+    "JavaScript", "Python", "React", "Node.js", "SQL", "AWS",
+    "Excel", "Accounting", "Marketing", "Sales", "Microsoft Office",
+    "Plumbing", "Electrical Work", "Carpentry", "Painting", "Tiling"
+  ]
+}
 
 interface SignupData {
   accountType: "individual" | "company" | null
@@ -39,7 +80,12 @@ interface SignupData {
   bio: string
   experienceLevel: "entry" | "mid" | "senior" | "lead" | "executive"
   skills: string[]
-  hourlyRate: string
+  salaryMin: string
+  salaryMax: string
+  salaryFrequency: "per_year" | "per_month" | "per_hour"
+  drivingLicense: boolean
+  ownTransport: boolean
+  willingToRelocate: boolean
   // Company fields
   industry: string
   companyBio: string
@@ -89,7 +135,12 @@ export default function MultiStepSignup() {
     bio: "",
     experienceLevel: "mid",
     skills: [],
-    hourlyRate: "",
+    salaryMin: "",
+    salaryMax: "",
+    salaryFrequency: "per_month",
+    drivingLicense: false,
+    ownTransport: false,
+    willingToRelocate: false,
     industry: "",
     companyBio: "",
     services: [],
@@ -115,19 +166,36 @@ export default function MultiStepSignup() {
     return jobseeker || homeowner || employer || tradespeople
   }
 
-  const validateStep3 = () => {
+  const validateStep3 = async () => {
+    // Clear previous errors
+    setError(null)
+
+    // Check required fields
     if (!signupData.email || !signupData.password || !signupData.confirmPassword) {
       setError(t('signup.fillAllFields'))
       return false
     }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(signupData.email)) {
+      setError('Please enter a valid email address')
+      return false
+    }
+
+    // Check password match
     if (signupData.password !== signupData.confirmPassword) {
       setError(t('signup.passwordsDoNotMatch'))
       return false
     }
+
+    // Check password length
     if (signupData.password.length < 6) {
       setError(t('signup.passwordTooShort'))
       return false
     }
+
+    // Check name fields
     if (signupData.accountType === "individual" && (!signupData.firstName || !signupData.lastName)) {
       setError(t('signup.enterFullName'))
       return false
@@ -141,6 +209,31 @@ export default function MultiStepSignup() {
     const requiresLocation = signupData.roles.jobseeker || signupData.roles.tradespeople
     if (requiresLocation && (!signupData.latitude || !signupData.longitude)) {
       setError(t('signup.selectLocationRequired'))
+      return false
+    }
+
+    // Check if email already exists
+    try {
+      const supabase = createClient()
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users')
+        .select('email')
+        .eq('email', signupData.email.toLowerCase())
+        .maybeSingle()
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        console.error('Error checking email:', checkError)
+        setError('Unable to verify email. Please try again.')
+        return false
+      }
+
+      if (existingUser) {
+        setError('This email is already registered. Please use a different email or sign in.')
+        return false
+      }
+    } catch (err) {
+      console.error('Error validating email:', err)
+      setError('Unable to verify email. Please try again.')
       return false
     }
 
@@ -234,7 +327,6 @@ export default function MultiStepSignup() {
           bio: signupData.bio || null,
           experience_level: signupData.experienceLevel,
           skills: signupData.skills.length > 0 ? signupData.skills : null,
-          hourly_rate: signupData.hourlyRate ? parseFloat(signupData.hourlyRate) : null,
           location: signupData.location || null,
           latitude: signupData.latitude,
           longitude: signupData.longitude,
@@ -279,7 +371,7 @@ export default function MultiStepSignup() {
     }
   }
 
-  const nextStep = () => {
+  const nextStep = async () => {
     setError(null)
     if (currentStep === 1 && canProceedFromStep1) {
       // Determine which step 2 to show
@@ -296,7 +388,10 @@ export default function MultiStepSignup() {
       }
     } else if (currentStep === 4) {
       // Validate Step 4 before proceeding to Step 5
-      if (validateStep3()) {
+      setIsLoading(true)
+      const isValid = await validateStep3()
+      setIsLoading(false)
+      if (isValid) {
         setCurrentStep(5) // Detailed profile information
       }
     }
@@ -743,7 +838,7 @@ export default function MultiStepSignup() {
             <div className="space-y-4">
               {signupData.accountType === "individual" ? (
                 <>
-                  {/* Professional Title */}
+                  {/* Professional Title with Suggestions */}
                   <div>
                     <Label htmlFor="title">{t('signup.professionalTitle')} <span className="text-red-500">*</span></Label>
                     <Input
@@ -753,7 +848,13 @@ export default function MultiStepSignup() {
                       placeholder={t('signup.titlePlaceholder')}
                       required
                       className="border-2"
+                      list="titleSuggestions"
                     />
+                    <datalist id="titleSuggestions">
+                      {getJobTitles(locale).map((title) => (
+                        <option key={title} value={title} />
+                      ))}
+                    </datalist>
                   </div>
 
                   {/* Bio */}
@@ -775,7 +876,7 @@ export default function MultiStepSignup() {
                       id="experienceLevel"
                       value={signupData.experienceLevel}
                       onChange={(e) => updateSignupData({ experienceLevel: e.target.value as any })}
-                      className="w-full px-3 py-2 border-2 rounded-md"
+                      className="w-full px-3 py-2 border-2 rounded-md text-sm"
                     >
                       <option value="entry">{t('signup.entry')}</option>
                       <option value="mid">{t('signup.mid')}</option>
@@ -785,7 +886,7 @@ export default function MultiStepSignup() {
                     </select>
                   </div>
 
-                  {/* Skills */}
+                  {/* Skills with Suggestions */}
                   <div>
                     <Label htmlFor="skillInput">{t('signup.skills')}</Label>
                     <div className="flex gap-2 mb-2">
@@ -804,42 +905,126 @@ export default function MultiStepSignup() {
                           }
                         }}
                         className="border-2"
+                        list="skillSuggestions"
                       />
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {signupData.skills.map((skill, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                    <datalist id="skillSuggestions">
+                      {getSkills(locale).map((skill) => (
+                        <option key={skill} value={skill} />
+                      ))}
+                    </datalist>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <span className="text-sm text-muted-foreground">{locale === 'pt-BR' ? 'Adicionar rápido:' : 'Quick add:'}</span>
+                      {getSkills(locale).filter(s => !signupData.skills.includes(s)).slice(0, 10).map((skill) => (
+                        <Badge
+                          key={skill}
+                          variant="outline"
+                          className="cursor-pointer text-xs"
+                          onClick={() => updateSignupData({ skills: [...signupData.skills, skill] })}
                         >
                           {skill}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              updateSignupData({
-                                skills: signupData.skills.filter((_, i) => i !== index)
-                              })
-                            }}
-                            className="hover:bg-blue-200 rounded-full"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
+                        </Badge>
                       ))}
                     </div>
+                    {signupData.skills.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {signupData.skills.map((skill, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+                          >
+                            {skill}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                updateSignupData({
+                                  skills: signupData.skills.filter((_, i) => i !== index)
+                                })
+                              }}
+                              className="hover:bg-blue-200 rounded-full"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Hourly Rate (Optional) */}
-                  <div>
-                    <Label htmlFor="hourlyRate">{t('signup.hourlyRate')}</Label>
-                    <Input
-                      id="hourlyRate"
-                      type="number"
-                      value={signupData.hourlyRate}
-                      onChange={(e) => updateSignupData({ hourlyRate: e.target.value })}
-                      placeholder={t('signup.hourlyRatePlaceholder')}
-                      className="border-2"
-                    />
+                  {/* Salary Range */}
+                  <div className="space-y-3">
+                    <Label>{t('signup.salaryRange')} (Optional)</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="salaryMin" className="text-xs text-muted-foreground">{t('signup.minimum')}</Label>
+                        <Input
+                          id="salaryMin"
+                          type="number"
+                          value={signupData.salaryMin}
+                          onChange={(e) => updateSignupData({ salaryMin: e.target.value })}
+                          placeholder="0"
+                          className="border-2"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="salaryMax" className="text-xs text-muted-foreground">{t('signup.maximum')}</Label>
+                        <Input
+                          id="salaryMax"
+                          type="number"
+                          value={signupData.salaryMax}
+                          onChange={(e) => updateSignupData({ salaryMax: e.target.value })}
+                          placeholder="0"
+                          className="border-2"
+                        />
+                      </div>
+                    </div>
+                    <select
+                      value={signupData.salaryFrequency}
+                      onChange={(e) => updateSignupData({ salaryFrequency: e.target.value as any })}
+                      className="w-full px-3 py-2 border-2 rounded-md text-sm"
+                    >
+                      <option value="per_month">{t('signup.perMonth')}</option>
+                      <option value="per_year">{t('signup.perYear')}</option>
+                      <option value="per_hour">{t('signup.perHour')}</option>
+                    </select>
+                  </div>
+
+                  {/* Additional Information */}
+                  <div className="space-y-3 pt-4 border-t">
+                    <Label className="text-base font-semibold">{t('signup.additionalInfo')}</Label>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="drivingLicense"
+                        checked={signupData.drivingLicense}
+                        onCheckedChange={(checked) => updateSignupData({ drivingLicense: !!checked })}
+                      />
+                      <Label htmlFor="drivingLicense" className="text-sm font-normal cursor-pointer">
+                        {t('signup.hasDrivingLicence')}
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="ownTransport"
+                        checked={signupData.ownTransport}
+                        onCheckedChange={(checked) => updateSignupData({ ownTransport: !!checked })}
+                      />
+                      <Label htmlFor="ownTransport" className="text-sm font-normal cursor-pointer">
+                        {t('signup.hasOwnTransport')}
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="willingToRelocate"
+                        checked={signupData.willingToRelocate}
+                        onCheckedChange={(checked) => updateSignupData({ willingToRelocate: !!checked })}
+                      />
+                      <Label htmlFor="willingToRelocate" className="text-sm font-normal cursor-pointer">
+                        {t('signup.readyToRelocate')}
+                      </Label>
+                    </div>
                   </div>
                 </>
               ) : (

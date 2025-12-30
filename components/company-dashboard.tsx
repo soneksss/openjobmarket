@@ -48,6 +48,7 @@ import { LocationPicker } from "@/components/ui/location-picker"
 import { AdminButton } from "@/components/admin-button"
 import { StarRating } from "@/components/star-rating"
 import { useToast } from "@/hooks/use-toast"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface User {
   id: string
@@ -163,6 +164,7 @@ interface CompanyDashboardProps {
 }
 
 export default function CompanyDashboard({ user, profile, jobs, receivedApplications, submittedApplications, stats, rating, reviews }: CompanyDashboardProps) {
+  const { t, locale } = useTranslation()
   const router = useRouter()
   const { toast } = useToast()
   const [uploadingLogo, setUploadingLogo] = useState(false)
@@ -178,7 +180,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [latitude, setLatitude] = useState<number | null>(profile.latitude || null)
   const [longitude, setLongitude] = useState<number | null>(profile.longitude || null)
   const [showReviewsModal, setShowReviewsModal] = useState(false)
-  const [loadingJobs, setLoadingJobs] = useState(false)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -206,7 +207,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       return (
         <Badge variant="destructive" className="flex items-center gap-1">
           <AlertTriangle className="h-3 w-3" />
-          Expired
+          {t('common.expired')}
         </Badge>
       )
     } else if (job.expiration_status === "expiring_soon") {
@@ -217,9 +218,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
         </Badge>
       )
     } else if (job.is_active) {
-      return <Badge variant="default">Active</Badge>
+      return <Badge variant="default">{t('common.active')}</Badge>
     } else {
-      return <Badge variant="secondary">Inactive</Badge>
+      return <Badge variant="secondary">{t('common.inactive')}</Badge>
     }
   }
 
@@ -795,12 +796,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     }
   }
 
-  const handleSearchJobs = () => {
-    setLoadingJobs(true)
-    // Navigate to main page with Trade Jobs tab selected
-    router.push("/?tab=jobs_tasks")
-    setLoadingJobs(false)
-  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -901,7 +896,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                             <p className="text-xs text-muted-foreground">When active, people can see you on the map</p>
                           </PopoverContent>
                         </Popover>
-                        <span className="text-xs text-muted-foreground w-16 text-right">{profileVisible ? "Visible" : "Hidden"}</span>
+                        <span className="text-xs text-muted-foreground w-16 text-right">{profileVisible ? t('common.visible') : t('common.hidden')}</span>
                         <Switch
                           checked={profileVisible}
                           onCheckedChange={handleVisibilityToggle}
@@ -1052,7 +1047,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                       className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
                     />
                     <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
-                      {profileVisible ? "Visible" : "Hidden"}
+                      {profileVisible ? t('common.visible') : t('common.hidden')}
                     </p>
                     <Popover>
                       <PopoverTrigger asChild>
@@ -1229,7 +1224,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-2 h-16">
                 <div className="flex items-center justify-between h-full">
                   <div>
-                    <div className="text-xs font-medium text-foreground mb-0.5">Active Jobs</div>
+                    <div className="text-xs font-medium text-foreground mb-0.5">{t('dashboard.activeJobs')}</div>
                     <div className="text-lg font-bold text-foreground">{stats.activeJobs}</div>
                   </div>
                   <Briefcase className="h-4 w-4 text-primary" />
@@ -1239,7 +1234,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               <div className="bg-gradient-to-br from-secondary/10 to-secondary/5 border border-secondary/20 rounded-lg p-2 h-16">
                 <div className="flex items-center justify-between h-full">
                   <div>
-                    <div className="text-xs font-medium text-foreground mb-0.5">Total Apps</div>
+                    <div className="text-xs font-medium text-foreground mb-0.5">{t('dashboard.totalApps')}</div>
                     <div className="text-lg font-bold text-foreground">{stats.totalApplications}</div>
                   </div>
                   <Users className="h-4 w-4 text-secondary" />
@@ -1261,37 +1256,19 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Quick Actions - Text 30% larger */}
             <div className="space-y-4">
-              <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1.5 sm:gap-2 md:gap-3">
-                <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-green-500 hover:bg-green-600 text-white">
-                  <Link href="/?tab=talents">
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2 md:gap-3">
+                <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-blue-500 hover:bg-blue-600 text-white">
+                  <Link href={locale === 'pt-BR' ? '/br' : '/'}>
                     <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
-                    <span className="font-semibold text-sm sm:text-base leading-tight">Find Talent</span>
-                    <span className="text-sm opacity-90 hidden md:block">Search professionals</span>
+                    <span className="font-semibold text-sm sm:text-base leading-tight">{t('dashboard.backToSearch')}</span>
+                    <span className="text-sm opacity-90 hidden md:block">{t('dashboard.mainPage')}</span>
                   </Link>
-                </Button>
-                <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-orange-500 hover:bg-orange-600 text-white">
-                  <Link href="/?tab=traders">
-                    <Users className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
-                    <span className="font-semibold text-sm sm:text-base leading-tight">Trades</span>
-                    <span className="text-sm opacity-90 hidden md:block">Search contractors</span>
-                  </Link>
-                </Button>
-                <Button
-                  onClick={handleSearchJobs}
-                  disabled={loadingJobs}
-                  className="h-auto p-1 sm:p-2 flex-col bg-purple-500 hover:bg-purple-600 text-white"
-                >
-                  <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
-                  <span className="font-semibold text-sm sm:text-base leading-tight">
-                    {loadingJobs ? "..." : "Jobs"}
-                  </span>
-                  <span className="text-sm opacity-90 hidden md:block">Find tasks</span>
                 </Button>
                 <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-primary hover:bg-primary/90">
                   <Link href="/jobs/new">
                     <Plus className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
-                    <span className="font-semibold text-sm sm:text-base leading-tight">Post Job</span>
-                    <span className="text-sm opacity-90 hidden md:block">Create job listing</span>
+                    <span className="font-semibold text-sm sm:text-base leading-tight">{t('dashboard.postJob')}</span>
+                    <span className="text-sm opacity-90 hidden md:block">{t('dashboard.createJobListing')}</span>
                   </Link>
                 </Button>
                 <Button
@@ -1301,7 +1278,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                 >
                   <Link href="/dashboard/company/jobs">
                     <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
-                    <span className="font-semibold text-sm sm:text-base leading-tight">Manage</span>
+                    <span className="font-semibold text-sm sm:text-base leading-tight">{t('dashboard.manage')}</span>
                     <span className="text-xs sm:text-sm opacity-70">({jobs.length})</span>
                   </Link>
                 </Button>
@@ -1330,7 +1307,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                 <div className="flex lg:hidden items-center justify-between gap-2">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <Briefcase className="h-5 w-5 flex-shrink-0" />
-                    <CardTitle className="text-lg font-semibold truncate">Your Posted Jobs</CardTitle>
+                    <CardTitle className="text-lg font-semibold truncate">{t('dashboard.yourPostedJobs')}</CardTitle>
                     <Badge variant="secondary" className="text-base">{jobs.length}</Badge>
                   </div>
                   <Button variant="outline" size="sm" asChild className="h-9 px-3">
@@ -1345,14 +1322,14 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   <div>
                     <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
                       <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      Your Recent Posted Jobs
+                      {t('dashboard.yourRecentPostedJobs')}
                     </CardTitle>
                     <CardDescription className="text-xs sm:text-sm">Latest vacancies you've posted (last 5)</CardDescription>
                   </div>
                   <Button variant="outline" size="sm" asChild className="text-xs">
                     <Link href="/dashboard/company/jobs">
                       <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                      View All
+                      {t('common.viewAll')}
                     </Link>
                   </Button>
                 </div>
@@ -1447,7 +1424,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     ))}
                     {jobs.length >= 5 && (
                       <Button variant="outline" asChild className="w-full bg-transparent">
-                        <Link href="/dashboard/company/jobs">View All Jobs</Link>
+                        <Link href="/dashboard/company/jobs">{t('common.viewAll')} ({jobs.length})</Link>
                       </Button>
                     )}
                   </div>
@@ -1477,14 +1454,14 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   <div>
                     <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
                       <Users className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      Applications Received
+                      {t('dashboard.applications')}
                     </CardTitle>
                     <CardDescription className="text-xs sm:text-sm">Candidates who applied to your posted jobs (last 5)</CardDescription>
                   </div>
                   <Button variant="outline" size="sm" asChild className="text-xs w-full sm:w-auto">
                     <Link href="/dashboard/company/applications">
                       <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                      View All
+                      {t('common.viewAll')}
                     </Link>
                   </Button>
                 </div>
@@ -1577,7 +1554,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     })}
                     {receivedApplications.length > 5 && (
                       <Button variant="outline" asChild className="w-full bg-transparent">
-                        <Link href="/dashboard/company/applications">View All Received Applications</Link>
+                        <Link href="/dashboard/company/applications">{t('common.viewAll')} ({receivedApplications.length})</Link>
                       </Button>
                     )}
                   </div>
@@ -1614,7 +1591,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   <Button variant="outline" size="sm" asChild className="text-xs w-full sm:w-auto">
                     <Link href="/dashboard/company/my-applications">
                       <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-                      View All
+                      {t('common.viewAll')}
                     </Link>
                   </Button>
                 </div>
@@ -1677,7 +1654,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     })}
                     {submittedApplications.length > 5 && (
                       <Button variant="outline" asChild className="w-full bg-transparent text-xs">
-                        <Link href="/dashboard/company/my-applications">View All My Applications</Link>
+                        <Link href="/dashboard/company/my-applications">{t('common.viewAll')} ({submittedApplications.length})</Link>
                       </Button>
                     )}
                   </div>
