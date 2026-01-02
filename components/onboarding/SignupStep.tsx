@@ -18,6 +18,7 @@ export function SignupStep({ role, onSignup, onBack }: SignupStepProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [selectedLanguage, setSelectedLanguage] = useState<"en" | "pt-BR">("en")
 
   const roleLabels = {
     homeowner: "Homeowner",
@@ -144,6 +145,47 @@ export function SignupStep({ role, onSignup, onBack }: SignupStepProps) {
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
             >
               {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Language Selection */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Preferred Language / Idioma Preferido
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedLanguage("en")
+                document.cookie = `NEXT_LOCALE=en; path=/; max-age=${60 * 60 * 24 * 365}`
+              }}
+              className={`flex items-center justify-center gap-2 px-4 py-3 border-2 rounded-lg font-medium transition-all ${
+                selectedLanguage === "en"
+                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                  : "border-gray-300 hover:border-gray-400 text-gray-700"
+              }`}
+              disabled={loading}
+            >
+              <span className="text-2xl">🇬🇧</span>
+              <span>English</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedLanguage("pt-BR")
+                document.cookie = `NEXT_LOCALE=pt-BR; path=/; max-age=${60 * 60 * 24 * 365}`
+              }}
+              className={`flex items-center justify-center gap-2 px-4 py-3 border-2 rounded-lg font-medium transition-all ${
+                selectedLanguage === "pt-BR"
+                  ? "border-blue-600 bg-blue-50 text-blue-700"
+                  : "border-gray-300 hover:border-gray-400 text-gray-700"
+              }`}
+              disabled={loading}
+            >
+              <span className="text-2xl">🇧🇷</span>
+              <span>Português</span>
             </button>
           </div>
         </div>

@@ -1307,4 +1307,129 @@ export const ptBR: Dictionary = {
     step: 'Passo',
     of: 'de',
   },
+
+  profileEdit: {
+    // Cabeçalho
+    backToDashboard: 'Voltar ao Painel',
+    title: 'Editar Perfil',
+    description: 'Atualize suas informações e foto de perfil',
+
+    // Mensagens de sucesso
+    profileUpdated: 'Perfil atualizado com sucesso!',
+    redirectingSoon: 'Você será redirecionado para o painel em breve.',
+    photoUploaded: 'Foto enviada com sucesso!',
+    photoUploadReminder: 'Não se esqueça de clicar em "Salvar Alterações" no final para salvar sua foto de perfil.',
+
+    // Seção de Foto de Perfil
+    profilePhoto: 'Foto de Perfil',
+    uploadPhoto: 'Enviar Foto',
+    uploading: 'Enviando...',
+    photoFormatInfo: 'JPG, PNG ou GIF. Tamanho máximo 5MB.',
+
+    // Informações Básicas
+    basicInformation: 'Informações Básicas',
+    nickname: 'Apelido (Nome Público)',
+    alwaysVisible: 'Sempre visível',
+    nicknamePlaceholder: 'Como você gostaria de ser conhecido publicamente',
+    nicknameDescription: 'Isto é o que os empregadores verão em vez do seu nome real',
+    realName: 'Nome Real (Nome e Sobrenome)',
+    visibleToEmployers: 'Visível para empregadores',
+    private: 'Privado',
+    firstName: 'Nome',
+    lastName: 'Sobrenome',
+    realNameVisibleInfo: 'Seu nome real será visível para empregadores quando você se candidatar a vagas.',
+    realNamePrivateInfo: 'Seu nome real permanecerá privado. Apenas seu apelido será mostrado aos empregadores.',
+    fullName: 'Nome Completo',
+    email: 'Email',
+    emailVisibleInfo: 'Seu email será visível para empregadores quando você se candidatar a vagas ou enviar mensagens.',
+    emailPrivateInfo: 'Seu email permanecerá privado. Você pode escolher compartilhá-lo ao se candidatar a vagas específicas.',
+    phoneNumber: 'Número de Telefone',
+    phonePlaceholder: '+55 (11) 98765-4321',
+    phoneVisibleInfo: 'Seu número de telefone será visível para empregadores quando você se candidatar a vagas ou enviar mensagens.',
+    phonePrivateInfo: 'Seu número de telefone permanecerá privado. Você pode escolher compartilhá-lo ao se candidatar a vagas específicas.',
+    location: 'Localização',
+    cityOnly: 'Apenas cidade',
+    locationPlaceholder: 'Cidade, Estado',
+    locationFullInfo: 'Seus detalhes completos de endereço serão visíveis para empregadores.',
+    locationCityOnlyInfo: 'Apenas sua cidade será mostrada aos empregadores, os detalhes específicos do endereço permanecem privados.',
+
+    // Localização no Mapa
+    mapLocation: 'Localização no Mapa',
+    mapLocationDescription: 'Defina sua localização precisa no mapa para melhor correspondência de vagas. Isso será usado em vez da localização de texto acima.',
+
+    // Biografia
+    bio: 'Biografia',
+    bioPlaceholder: 'Conte-nos sobre você...',
+    website: 'Site',
+    websitePlaceholder: 'https://seusite.com',
+
+    // Informações Profissionais
+    professionalInformation: 'Informações Profissionais',
+    professionalTitle: 'Título Profissional',
+    titlePlaceholder: 'ex: Engenheiro de Software Sênior',
+    titleVisibleInfo: 'Seu título profissional será visível para empregadores.',
+    titlePrivateInfo: 'Seu título profissional permanecerá privado.',
+
+    // Habilidades
+    skills: 'Habilidades',
+    addSkillPlaceholder: 'Adicionar uma habilidade',
+
+    // Idiomas
+    spokenLanguages: 'Idiomas Falados',
+    addLanguagePlaceholder: 'Adicionar um idioma',
+
+    // Links
+    links: 'Links',
+    linksVisibleInfo: 'Seus links de portfólio e LinkedIn serão visíveis para empregadores.',
+    linksPrivateInfo: 'Seus links de portfólio e LinkedIn permanecerão privados.',
+    portfolioUrl: 'URL do Portfólio',
+    portfolioPlaceholder: 'https://seuportfolio.com',
+    linkedinUrl: 'URL do LinkedIn',
+    linkedinPlaceholder: 'https://linkedin.com/in/seuperfil',
+
+    // Informações Adicionais
+    additionalInformation: 'Informações Adicionais',
+    selfEmployed: 'Sou autônomo (disponível para trabalho por contrato)',
+    readyToRelocate: 'Pronto para se mudar',
+    validDrivingLicense: 'Carteira de motorista válida',
+    ownTransport: 'Transporte próprio',
+
+    // Status de Emprego
+    employmentStatus: 'Status de Emprego',
+    employedOpenToOffers: 'Atualmente empregado, mas aberto a ofertas de trabalho',
+    employedOpenToOffersDesc: 'Você tem um emprego, mas está aberto a novas oportunidades',
+    unemployedSeeking: 'Atualmente desempregado e procurando emprego',
+    unemployedSeekingDesc: 'Você está ativamente buscando emprego',
+    preferNotToSpecify: 'Prefiro não especificar',
+    preferNotToSpecifyDesc: 'Manter status de emprego privado',
+
+    // Ações
+    cancel: 'Cancelar',
+    saveChanges: 'Salvar Alterações',
+    saving: 'Salvando...',
+
+    // Zona de Perigo
+    dangerZone: 'Zona de Perigo',
+    dangerZoneDescription: 'Exclua permanentemente sua conta e todos os dados associados',
+    deleteAccount: 'Excluir Conta',
+    deletingAccount: 'Excluindo Conta...',
+    permanentlyDeleteAccount: 'Excluir permanentemente minha conta',
+
+    // Confirmação de Exclusão
+    areYouSure: 'Você tem certeza absoluta?',
+    deleteWarning: 'Esta ação não pode ser desfeita. Isso excluirá permanentemente sua conta e removerá todos os seus dados de nossos servidores.',
+    willDelete: 'Isso excluirá:',
+    deleteItems: {
+      profile: 'Seu perfil profissional e todas as informações pessoais',
+      applications: 'Todas as candidaturas a vagas',
+      savedJobs: 'Todas as vagas salvas',
+      cv: 'Seu currículo e arquivos de portfólio',
+      records: 'Seus registros de habilidades, experiência e educação',
+      files: 'Suas fotos de perfil e documentos enviados',
+      account: 'Toda a sua conta de usuário',
+    },
+    signOutWarning: 'Você será imediatamente desconectado e redirecionado para a página inicial.',
+    yesDelete: 'Sim, excluir minha conta',
+    deleting: 'Excluindo...',
+  },
 }

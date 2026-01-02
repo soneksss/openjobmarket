@@ -30,6 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface User {
   id: string
@@ -65,6 +66,7 @@ interface CompanyProfileEditFormProps {
 
 export default function CompanyProfileEditForm({ user, profile }: CompanyProfileEditFormProps) {
   const router = useRouter()
+  const { locale } = useTranslation()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
@@ -339,7 +341,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       if (error) throw error
 
       // Redirect back to dashboard
-      router.push("/dashboard/company")
+      router.push(locale === 'pt-BR' ? '/br/dashboard/company' : '/dashboard/company')
     } catch (error) {
       console.error("Error updating profile:", error)
       toast({
@@ -406,7 +408,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       {/* Header */}
       <div className="flex items-center space-x-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard/company">
+          <Link href={locale === 'pt-BR' ? '/br/dashboard/company' : '/dashboard/company'}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
           </Link>
@@ -856,7 +858,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
             <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4">
               <Button type="button" variant="outline" asChild className="text-sm bg-transparent">
-                <Link href="/dashboard/company">Cancel</Link>
+                <Link href={locale === 'pt-BR' ? '/br/dashboard/company' : '/dashboard/company'}>Cancel</Link>
               </Button>
               <Button type="submit" disabled={loading} className="text-sm">
                 {loading ? "Saving..." : "Save Changes"}

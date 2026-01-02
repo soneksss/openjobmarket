@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
+import { useTranslation } from "@/lib/i18n/context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +29,7 @@ import { createClient } from "@/lib/client"
 import Link from "next/link"
 import { LocationPicker } from "@/components/ui/location-picker"
 import { deleteProfessionalAccount } from "@/lib/actions"
+import LanguageSelector from "@/components/language-selector"
 
 interface User {
   id: string
@@ -90,11 +92,16 @@ interface ProfileEditFormProps {
 
 export default function ProfileEditForm({ user, userData, professionalProfile }: ProfileEditFormProps) {
   const router = useRouter()
+  const { t, locale } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [photoUploaded, setPhotoUploaded] = useState(false)
+
+  // Dashboard path with locale
+  const dashboardBasePath = userData?.user_type === "professional" ? "/dashboard/professional" : "/dashboard/company"
+  const dashboardPath = locale === 'pt-BR' ? `/br${dashboardBasePath}` : dashboardBasePath
 
   // Form state
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(userData?.profile_photo_url || "")
@@ -379,11 +386,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
 
       // Redirect back to dashboard after a short delay
       setTimeout(() => {
-        if (userData?.user_type === "professional") {
-          router.push("/dashboard/professional")
-        } else {
-          router.push("/dashboard/company")
-        }
+        router.push(dashboardPath)
       }, 1500)
     } catch (error: any) {
       console.error("Error updating profile:", error)
@@ -417,7 +420,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
 
         console.log("[PROFILE_EDIT] Account deletion completed successfully")
         // Redirect to homepage
-        router.push('/')
+        router.push(locale === 'pt-BR' ? '/br' : '/')
       } else {
         // For company accounts, we can implement later
         alert("Company account deletion not yet implemented")
@@ -454,8 +457,8 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-3">
           <CheckCircle className="h-5 w-5 text-green-600" />
           <div>
-            <p className="text-green-800 font-medium">Profile updated successfully!</p>
-            <p className="text-green-700 text-sm">You will be redirected to your dashboard shortly.</p>
+            <p className="text-green-800 font-medium">{t('profileEdit.profileUpdated')}</p>
+            <p className="text-green-700 text-sm">{t('profileEdit.redirectingSoon')}</p>
           </div>
         </div>
       )}
@@ -465,8 +468,8 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center space-x-3">
           <Upload className="h-5 w-5 text-blue-600" />
           <div>
-            <p className="text-blue-800 font-medium">Photo uploaded successfully!</p>
-            <p className="text-blue-700 text-sm">Don't forget to click "Save Changes" at the bottom to save your profile photo.</p>
+            <p className="text-blue-800 font-medium">{t('profileEdit.photoUploaded')}</p>
+            <p className="text-blue-700 text-sm">{t('profileEdit.photoUploadReminder')}</p>
           </div>
         </div>
       )}
@@ -474,23 +477,23 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
       {/* Header */}
       <div className="flex items-center space-x-4">
         <Button variant="ghost" size="sm" asChild>
-          <Link href={userData?.user_type === "professional" ? "/dashboard/professional" : "/dashboard/company"}>
+          <Link href={dashboardPath}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
+            {t('profileEdit.backToDashboard')}
           </Link>
         </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Edit Profile</CardTitle>
-          <CardDescription>Update your profile information and photo</CardDescription>
+          <CardTitle>{t('profileEdit.title')}</CardTitle>
+          <CardDescription>{t('profileEdit.description')}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Profile Photo Section */}
             <div className="space-y-4">
-              <Label>Profile Photo</Label>
+              <Label>{t('profileEdit.profilePhoto')}</Label>
               <div className="flex items-center space-x-4">
                 <Avatar className="h-20 w-20 rounded-full">
                   <AvatarImage
@@ -503,7 +506,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                   <Label htmlFor="photo-upload" className="cursor-pointer">
                     <div className="flex items-center space-x-2 px-4 py-2 border border-input rounded-md hover:bg-accent">
                       <Upload className="h-4 w-4" />
-                      <span>{uploading ? "Uploading..." : "Upload Photo"}</span>
+                      <span>{uploading ? t('profileEdit.uploading') : t('profileEdit.uploadPhoto')}</span>
                     </div>
                   </Label>
                   <Input
@@ -514,40 +517,40 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                     disabled={uploading}
                     className="hidden"
                   />
-                  <p className="text-xs text-muted-foreground">JPG, PNG or GIF. Max size 5MB.</p>
+                  <p className="text-xs text-muted-foreground">{t('profileEdit.photoFormatInfo')}</p>
                 </div>
               </div>
             </div>
 
             {/* Basic Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-medium">Basic Information</h3>
+              <h3 className="text-lg font-medium">{t('profileEdit.basicInformation')}</h3>
 
               {userData?.user_type === "professional" ? (
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="nickname">Nickname (Public Display Name)</Label>
+                      <Label htmlFor="nickname">{t('profileEdit.nickname')}</Label>
                       <div className="flex items-center space-x-2">
                         <Eye className="h-4 w-4 text-green-500" />
-                        <span className="text-sm text-muted-foreground">Always visible</span>
+                        <span className="text-sm text-muted-foreground">{t('profileEdit.alwaysVisible')}</span>
                       </div>
                     </div>
                     <Input
                       id="nickname"
                       value={nickname}
                       onChange={(e) => setNickname(e.target.value)}
-                      placeholder="How you'd like to be known publicly"
+                      placeholder={t('profileEdit.nicknamePlaceholder')}
                       className="border-2 border-gray-300 focus:border-blue-500"
                     />
                     <p className="text-sm text-muted-foreground">
-                      This is what employers will see instead of your real name
+                      {t('profileEdit.nicknameDescription')}
                     </p>
                   </div>
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label>Real Name (First & Last)</Label>
+                      <Label>{t('profileEdit.realName')}</Label>
                       <div className="flex items-center space-x-2">
                         {!hidePersonalName ? (
                           <Eye className="h-4 w-4 text-green-500" />
@@ -555,7 +558,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                           <EyeOff className="h-4 w-4 text-muted-foreground" />
                         )}
                         <span className="text-sm text-muted-foreground">
-                          {!hidePersonalName ? "Visible to employers" : "Private"}
+                          {!hidePersonalName ? t('profileEdit.visibleToEmployers') : t('profileEdit.private')}
                         </span>
                         <Switch
                           checked={!hidePersonalName}
@@ -566,28 +569,28 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name</Label>
-                        
+                        <Label htmlFor="firstName">{t('profileEdit.firstName')}</Label>
+
 <Input id="firstName" value={firstName} onChange={(e) => setFirstName(e.target.value)} required  className="border-2 border-gray-300 focus:border-blue-500" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name</Label>
-                        
+                        <Label htmlFor="lastName">{t('profileEdit.lastName')}</Label>
+
 <Input id="lastName" value={lastName} onChange={(e) => setLastName(e.target.value)} required  className="border-2 border-gray-300 focus:border-blue-500" />
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {!hidePersonalName
-                        ? "Your real name will be visible to employers when you apply to jobs."
-                        : "Your real name will remain private. Only your nickname will be shown to employers."
+                        ? t('profileEdit.realNameVisibleInfo')
+                        : t('profileEdit.realNamePrivateInfo')
                       }
                     </p>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  
+                  <Label htmlFor="fullName">{t('profileEdit.fullName')}</Label>
+
 <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)}  className="border-2 border-gray-300 focus:border-blue-500" />
                 </div>
               )}
@@ -595,7 +598,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="email" className="flex items-center">
-                    Email
+                    {t('profileEdit.email')}
                   </Label>
                   {userData?.user_type === "professional" && (
                     <div className="flex items-center space-x-2">
@@ -605,7 +608,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
                       )}
                       <span className="text-sm text-muted-foreground">
-                        {!hideEmail ? "Visible to employers" : "Private"}
+                        {!hideEmail ? t('profileEdit.visibleToEmployers') : t('profileEdit.private')}
                       </span>
                       <Switch
                         checked={!hideEmail}
@@ -615,12 +618,12 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                     </div>
                   )}
                 </div>
-                
+
 <Input id="email" value={user.email} readOnly className="bg-gray-50 cursor-not-allowed border-2 border-gray-300 focus:border-blue-500" />
                 <p className="text-xs text-muted-foreground">
                   {!hideEmail
-                    ? "Your email will be visible to employers when you apply to jobs or message them."
-                    : "Your email will remain private. You can choose to share it when applying to specific jobs."
+                    ? t('profileEdit.emailVisibleInfo')
+                    : t('profileEdit.emailPrivateInfo')
                   }
                 </p>
               </div>
@@ -629,7 +632,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                 <div className="flex items-center justify-between">
                   <Label htmlFor="phone" className="flex items-center">
                     <Phone className="h-4 w-4 mr-2" />
-                    Phone Number
+                    {t('profileEdit.phoneNumber')}
                   </Label>
                   <div className="flex items-center space-x-2">
                     {phoneVisible ? (
@@ -638,7 +641,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       <EyeOff className="h-4 w-4 text-muted-foreground" />
                     )}
                     <span className="text-sm text-muted-foreground">
-                      {phoneVisible ? "Visible to employers" : "Private"}
+                      {phoneVisible ? t('profileEdit.visibleToEmployers') : t('profileEdit.private')}
                     </span>
                     <Switch
                       checked={phoneVisible}
@@ -651,20 +654,20 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                   id="phone"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+1 (555) 123-4567"
+                  placeholder={t('profileEdit.phonePlaceholder')}
                   className="border-2 border-gray-300 focus:border-blue-500"
                 />
                 <p className="text-xs text-muted-foreground">
                   {phoneVisible
-                    ? "Your phone number will be visible to employers when you apply to jobs or message them."
-                    : "Your phone number will remain private. You can choose to share it when applying to specific jobs."
+                    ? t('profileEdit.phoneVisibleInfo')
+                    : t('profileEdit.phonePrivateInfo')
                   }
                 </p>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="location">Location</Label>
+                  <Label htmlFor="location">{t('profileEdit.location')}</Label>
                   {userData?.user_type === "professional" && (
                     <div className="flex items-center space-x-2">
                       {!hideAddressDetails ? (
@@ -673,7 +676,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
                       )}
                       <span className="text-sm text-muted-foreground">
-                        {!hideAddressDetails ? "Visible to employers" : "City only"}
+                        {!hideAddressDetails ? t('profileEdit.visibleToEmployers') : t('profileEdit.cityOnly')}
                       </span>
                       <Switch
                         checked={!hideAddressDetails}
@@ -691,14 +694,14 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       ? setProfessionalLocation(e.target.value)
                       : setLocation(e.target.value)
                   }
-                  placeholder="City, State"
+                  placeholder={t('profileEdit.locationPlaceholder')}
                   className="border-2 border-gray-300 focus:border-blue-500"
                 />
                 {userData?.user_type === "professional" && (
                   <p className="text-xs text-muted-foreground">
                     {!hideAddressDetails
-                      ? "Your full address details will be visible to employers."
-                      : "Only your city will be shown to employers, specific address details remain private."
+                      ? t('profileEdit.locationFullInfo')
+                      : t('profileEdit.locationCityOnlyInfo')
                     }
                   </p>
                 )}
@@ -708,10 +711,10 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
               <div className="space-y-4">
                 <h4 className="font-medium flex items-center">
                   <MapPin className="h-4 w-4 mr-2" />
-                  Map Location
+                  {t('profileEdit.mapLocation')}
                 </h4>
                 <p className="text-sm text-muted-foreground">
-                  Set your precise location on the map for better job matching. This will be used instead of the text location above.
+                  {t('profileEdit.mapLocationDescription')}
                 </p>
 
                 <LocationPicker
@@ -730,7 +733,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="bio">Bio</Label>
+                  <Label htmlFor="bio">{t('profileEdit.bio')}</Label>
                   {userData?.user_type === "professional" && (
                     <div className="flex items-center space-x-2">
                       {!hideBio ? (
@@ -739,7 +742,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
                       )}
                       <span className="text-sm text-muted-foreground">
-                        {!hideBio ? "Visible to employers" : "Private"}
+                        {!hideBio ? t('profileEdit.visibleToEmployers') : t('profileEdit.private')}
                       </span>
                       <Switch
                         checked={!hideBio}
@@ -755,14 +758,14 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                   onChange={(e) =>
                     userData?.user_type === "professional" ? setProfessionalBio(e.target.value) : setBio(e.target.value)
                   }
-                  placeholder="Tell us about yourself..."
+                  placeholder={t('profileEdit.bioPlaceholder')}
                   rows={4}
                   className="border-2 border-gray-300 focus:border-blue-500"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="website">Website</Label>
+                <Label htmlFor="website">{t('profileEdit.website')}</Label>
                 <Input
                   id="website"
                   type="url"
@@ -774,7 +777,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       setWebsite(`https://${value}`)
                     }
                   }}
-                  placeholder="https://yourwebsite.com"
+                  placeholder={t('profileEdit.websitePlaceholder')}
                   className="border-2 border-gray-300 focus:border-blue-500"
                 />
               </div>
@@ -783,11 +786,11 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
             {/* Professional Information */}
             {userData?.user_type === "professional" && (
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Professional Information</h3>
+                <h3 className="text-lg font-medium">{t('profileEdit.professionalInformation')}</h3>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="title">Professional Title</Label>
+                    <Label htmlFor="title">{t('profileEdit.professionalTitle')}</Label>
                     <div className="flex items-center space-x-2">
                       {!hideProfessionalTitle ? (
                         <Eye className="h-4 w-4 text-green-500" />
@@ -795,7 +798,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
                       )}
                       <span className="text-sm text-muted-foreground">
-                        {!hideProfessionalTitle ? "Visible to employers" : "Private"}
+                        {!hideProfessionalTitle ? t('profileEdit.visibleToEmployers') : t('profileEdit.private')}
                       </span>
                       <Switch
                         checked={!hideProfessionalTitle}
@@ -808,22 +811,22 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                     id="title"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Senior Software Engineer"
+                    placeholder={t('profileEdit.titlePlaceholder')}
                     className="border-2 border-gray-300 focus:border-blue-500"
                   />
                   <p className="text-xs text-muted-foreground">
                     {!hideProfessionalTitle
-                      ? "Your professional title will be visible to employers."
-                      : "Your professional title will remain private."
+                      ? t('profileEdit.titleVisibleInfo')
+                      : t('profileEdit.titlePrivateInfo')
                     }
                   </p>
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Skills</Label>
+                  <Label>{t('profileEdit.skills')}</Label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder="Add a skill"
+                      placeholder={t('profileEdit.addSkillPlaceholder')}
                       value={newSkill}
                       onChange={(e) => setNewSkill(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
@@ -844,32 +847,16 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Spoken Languages</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Add a language"
-                      value={newLanguage}
-                      onChange={(e) => setNewLanguage(e.target.value)}
-                      onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addLanguage())}
-                      className="border-2 border-gray-300 focus:border-blue-500"
-                    />
-                    <Button type="button" onClick={addLanguage} size="icon">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {spokenLanguages.map((language) => (
-                      <Badge key={language} variant="secondary" className="flex items-center gap-1">
-                        {language}
-                        <X className="h-3 w-3 cursor-pointer" onClick={() => removeLanguage(language)} />
-                      </Badge>
-                    ))}
-                  </div>
+                  <Label>{t('profileEdit.spokenLanguages')}</Label>
+                  <LanguageSelector
+                    selectedLanguages={spokenLanguages}
+                    onChange={setSpokenLanguages}
+                  />
                 </div>
 
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Links</h4>
+                    <h4 className="font-medium">{t('profileEdit.links')}</h4>
                     <div className="flex items-center space-x-2">
                       {!hidePortfolioLinks ? (
                         <Eye className="h-4 w-4 text-green-500" />
@@ -877,7 +864,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                         <EyeOff className="h-4 w-4 text-muted-foreground" />
                       )}
                       <span className="text-sm text-muted-foreground">
-                        {!hidePortfolioLinks ? "Visible to employers" : "Private"}
+                        {!hidePortfolioLinks ? t('profileEdit.visibleToEmployers') : t('profileEdit.private')}
                       </span>
                       <Switch
                         checked={!hidePortfolioLinks}
@@ -887,7 +874,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="portfolioUrl">Portfolio URL</Label>
+                    <Label htmlFor="portfolioUrl">{t('profileEdit.portfolioUrl')}</Label>
                     <Input
                       id="portfolioUrl"
                       type="url"
@@ -899,12 +886,12 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                           setPortfolioUrl(`https://${value}`)
                         }
                       }}
-                      placeholder="https://yourportfolio.com"
+                      placeholder={t('profileEdit.portfolioPlaceholder')}
                       className="border-2 border-gray-300 focus:border-blue-500"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="linkedinUrl">LinkedIn URL</Label>
+                    <Label htmlFor="linkedinUrl">{t('profileEdit.linkedinUrl')}</Label>
                     <Input
                       id="linkedinUrl"
                       type="url"
@@ -916,20 +903,20 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                           setLinkedinUrl(`https://${value}`)
                         }
                       }}
-                      placeholder="https://linkedin.com/in/yourprofile"
+                      placeholder={t('profileEdit.linkedinPlaceholder')}
                       className="border-2 border-gray-300 focus:border-blue-500"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {!hidePortfolioLinks
-                      ? "Your portfolio and LinkedIn links will be visible to employers."
-                      : "Your portfolio and LinkedIn links will remain private."
+                      ? t('profileEdit.linksVisibleInfo')
+                      : t('profileEdit.linksPrivateInfo')
                     }
                   </p>
                 </div>
 
                 <div className="space-y-4">
-                  <h4 className="font-medium">Additional Information</h4>
+                  <h4 className="font-medium">{t('profileEdit.additionalInformation')}</h4>
 
                   <div className="flex items-center space-x-2">
                     <input
@@ -940,7 +927,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                     />
                     <Label htmlFor="isSelfEmployed" className="text-base">
-                      I am self-employed (available for contract work)
+                      {t('profileEdit.selfEmployed')}
                     </Label>
                   </div>
 
@@ -953,7 +940,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                     />
                     <Label htmlFor="readyToRelocate" className="text-base">
-                      Ready to relocate
+                      {t('profileEdit.readyToRelocate')}
                     </Label>
                   </div>
 
@@ -966,7 +953,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                     />
                     <Label htmlFor="validDrivingLicense" className="text-base">
-                      Valid driving license
+                      {t('profileEdit.validDrivingLicense')}
                     </Label>
                   </div>
 
@@ -979,13 +966,13 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
                     />
                     <Label htmlFor="ownTransport" className="text-base">
-                      Own transport
+                      {t('profileEdit.ownTransport')}
                     </Label>
                   </div>
 
 
                   <div className="space-y-4">
-                    <Label className="text-base font-medium">Employment Status</Label>
+                    <Label className="text-base font-medium">{t('profileEdit.employmentStatus')}</Label>
                     <div className="space-y-3">
                       <div className={`flex items-center space-x-3 p-4 border rounded-lg transition-colors ${
                         employmentStatus === 'employed' ? 'border-primary bg-primary/5' : 'hover:bg-gray-50'
@@ -1000,10 +987,10 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                         />
                         <div className="flex-1">
                           <Label htmlFor="employedOpenToOffers" className="font-medium cursor-pointer">
-                            Currently employed but open to job offers
+                            {t('profileEdit.employedOpenToOffers')}
                           </Label>
                           <p className="text-sm text-muted-foreground mt-1">
-                            You have a job but are open to new opportunities
+                            {t('profileEdit.employedOpenToOffersDesc')}
                           </p>
                         </div>
                       </div>
@@ -1021,10 +1008,10 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                         />
                         <div className="flex-1">
                           <Label htmlFor="unemployedSeeking" className="font-medium cursor-pointer">
-                            Currently unemployed and looking for a job
+                            {t('profileEdit.unemployedSeeking')}
                           </Label>
                           <p className="text-sm text-muted-foreground mt-1">
-                            You are actively seeking employment
+                            {t('profileEdit.unemployedSeekingDesc')}
                           </p>
                         </div>
                       </div>
@@ -1042,10 +1029,10 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                         />
                         <div className="flex-1">
                           <Label htmlFor="noEmploymentStatus" className="font-medium cursor-pointer">
-                            Prefer not to specify
+                            {t('profileEdit.preferNotToSpecify')}
                           </Label>
                           <p className="text-sm text-muted-foreground mt-1">
-                            Keep employment status private
+                            {t('profileEdit.preferNotToSpecifyDesc')}
                           </p>
                         </div>
                       </div>
@@ -1059,80 +1046,68 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
 
             <div className="flex justify-end space-x-4">
               <Button type="button" variant="outline" asChild>
-                <Link href={userData?.user_type === "professional" ? "/dashboard/professional" : "/dashboard/company"}>
-                  Cancel
+                <Link href={dashboardPath}>
+                  {t('profileEdit.cancel')}
                 </Link>
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : "Save Changes"}
+                {loading ? t('profileEdit.saving') : t('profileEdit.saveChanges')}
               </Button>
             </div>
           </form>
         </CardContent>
       </Card>
 
-      {/* Danger Zone - Delete Account */}
-      <Card className="border-red-200">
-        <CardHeader className="pb-3 md:pb-6">
-          <CardTitle className="flex items-center text-red-600 text-base md:text-lg">
-            <Trash2 className="h-4 w-4 md:h-5 md:w-5 mr-2" />
-            Danger Zone
-          </CardTitle>
-          <CardDescription className="text-xs md:text-sm">
-            Permanently delete your account and all associated data
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                className="w-full text-xs md:text-sm"
+      {/* Delete Account Link */}
+      <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <button
+              className="text-xs text-blue-600 hover:text-blue-800 underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isDeleting}
+            >
+              {t('profileEdit.permanentlyDeleteAccount')}
+            </button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('profileEdit.areYouSure')}</AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2 text-sm text-muted-foreground">
+                <div>
+                  {t('profileEdit.deleteWarning')}
+                </div>
+                {userData?.user_type === "professional" && (
+                  <>
+                    <div className="text-sm font-medium">{t('profileEdit.willDelete')}</div>
+                    <ul className="text-sm list-disc pl-4 space-y-1">
+                      <li>{t('profileEdit.deleteItems.profile')}</li>
+                      <li>{t('profileEdit.deleteItems.applications')}</li>
+                      <li>{t('profileEdit.deleteItems.savedJobs')}</li>
+                      <li>{t('profileEdit.deleteItems.cv')}</li>
+                      <li>{t('profileEdit.deleteItems.records')}</li>
+                      <li>{t('profileEdit.deleteItems.files')}</li>
+                      <li>{t('profileEdit.deleteItems.account')}</li>
+                    </ul>
+                  </>
+                )}
+                <div className="text-sm font-medium text-red-600">
+                  {t('profileEdit.signOutWarning')}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('profileEdit.cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteAccount}
+                className="bg-red-600 hover:bg-red-700"
                 disabled={isDeleting}
               >
-                {isDeleting ? "Deleting Account..." : "Delete Account"}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                <AlertDialogDescription className="space-y-2 text-sm text-muted-foreground">
-                  <div>
-                    This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
-                  </div>
-                  {userData?.user_type === "professional" && (
-                    <>
-                      <div className="text-sm font-medium">This will delete:</div>
-                      <ul className="text-sm list-disc pl-4 space-y-1">
-                        <li>Your professional profile and all personal information</li>
-                        <li>All job applications</li>
-                        <li>All saved jobs</li>
-                        <li>Your CV and portfolio files</li>
-                        <li>Your skills, experience, and education records</li>
-                        <li>Your profile photos and uploaded documents</li>
-                        <li>Your entire user account</li>
-                      </ul>
-                    </>
-                  )}
-                  <div className="text-sm font-medium text-red-600">
-                    You will be immediately signed out and redirected to the homepage.
-                  </div>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={handleDeleteAccount}
-                  className="bg-red-600 hover:bg-red-700"
-                  disabled={isDeleting}
-                >
-                  {isDeleting ? "Deleting..." : "Yes, delete my account"}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </CardContent>
-      </Card>
+                {isDeleting ? t('profileEdit.deleting') : t('profileEdit.yesDelete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   )
 }

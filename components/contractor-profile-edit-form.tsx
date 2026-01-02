@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import { Loader2, Save } from "lucide-react"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface ContractorProfileEditFormProps {
   userId: string
@@ -17,6 +18,7 @@ interface ContractorProfileEditFormProps {
 
 export function ContractorProfileEditForm({ userId, profile }: ContractorProfileEditFormProps) {
   const router = useRouter()
+  const { locale } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -67,7 +69,7 @@ export function ContractorProfileEditForm({ userId, profile }: ContractorProfile
 
       setSuccess(true)
       setTimeout(() => {
-        router.push("/dashboard/contractor")
+        router.push(locale === 'pt-BR' ? '/br/dashboard/contractor' : '/dashboard/contractor')
         router.refresh()
       }, 1500)
     } catch (err: any) {

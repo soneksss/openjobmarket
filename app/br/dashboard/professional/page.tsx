@@ -36,5 +36,56 @@ export default async function ProfessionalDashboardPageBR() {
     }
   }
 
-  return <ProfessionalDashboard user={user} profile={profile} />
+  // Get recent job applications
+  const { data: applications } = await supabase
+    .from("job_applications")
+    .select(`
+      *,
+      jobs (
+        id,
+        title,
+        company_profiles (
+          company_name
+        )
+      )
+    `)
+    .eq("professional_id", profile.id)
+    .order("applied_at", { ascending: false })
+    .limit(5)
+
+  // Get saved jobs
+  const { data: savedJobs } = await supabase
+    .from("saved_jobs")
+    .select(`
+      *,
+      jobs (
+        id,
+        title,
+        location,
+        job_type,
+        company_profiles (
+          company_name
+        )
+      )
+    `)
+    .eq("professional_id", profile.id)
+    .order("saved_at", { ascending: false })
+    .limit(5)
+
+  // Check if CV exists
+  const { data: cvRecord } = await supabase
+    .from("professional_cvs")
+    .select("id")
+    .eq("professional_id", profile.id)
+    .single()
+
+  return (
+    <ProfessionalDashboard
+      user={user as any}
+      profile={profile}
+      applications={applications || []}
+      savedJobs={savedJobs || []}
+      hasCV={!!cvRecord}
+    />
+  )
 }

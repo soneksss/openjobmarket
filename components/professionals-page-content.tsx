@@ -69,7 +69,7 @@ interface Professional {
   profile_photo_url?: string
   is_self_employed?: boolean
   isPremium?: boolean
-  languages?: string[]
+  spoken_languages?: string[]
   ready_to_relocate?: boolean
   has_driving_licence?: boolean
   has_own_transport?: boolean
@@ -78,6 +78,10 @@ interface Professional {
   nickname?: string
   average_rating?: number
   reviews_count?: number
+  phone?: string
+  phone_visible?: boolean
+  employed_open_to_offers?: boolean
+  unemployed_seeking?: boolean
 }
 
 interface Job {
@@ -1285,17 +1289,17 @@ export default function ProfessionalsPageContent({
                                       )}
 
                                       {/* Languages - Show with flags */}
-                                      {item.languages && item.languages.length > 0 && (
+                                      {item.spoken_languages && item.spoken_languages.length > 0 && (
                                         <div className="text-xs text-gray-600 mb-2 flex items-center flex-wrap gap-1">
                                           <Globe className="h-3 w-3 inline mr-1" />
                                           <span className="font-medium mr-1">Languages:</span>
-                                          {item.languages.slice(0, 3).map((lang: string, idx: number) => (
+                                          {item.spoken_languages.slice(0, 3).map((lang: string, idx: number) => (
                                             <span key={idx} className="inline-flex items-center">
                                               <span className="text-base mr-0.5">{getLanguageFlag(lang)}</span>
-                                              <span>{lang}{idx < Math.min(2, item.languages.length - 1) ? ',' : ''}</span>
+                                              <span>{lang}{idx < Math.min(2, item.spoken_languages.length - 1) ? ',' : ''}</span>
                                             </span>
                                           ))}
-                                          {item.languages.length > 3 && <span className="ml-1">+{item.languages.length - 3} more</span>}
+                                          {item.spoken_languages.length > 3 && <span className="ml-1">+{item.spoken_languages.length - 3} more</span>}
                                         </div>
                                       )}
 
@@ -1305,6 +1309,18 @@ export default function ProfessionalsPageContent({
                                           <Badge className="text-xs bg-gradient-to-r from-green-600 to-emerald-700 text-white font-semibold">
                                             <Target className="h-2.5 w-2.5 mr-0.5" />
                                             Actively Looking
+                                          </Badge>
+                                        )}
+                                        {item.employed_open_to_offers && !item.actively_looking && (
+                                          <Badge className="text-xs bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold">
+                                            <Briefcase className="h-2.5 w-2.5 mr-0.5" />
+                                            Open to Offers
+                                          </Badge>
+                                        )}
+                                        {item.unemployed_seeking && (
+                                          <Badge className="text-xs bg-gradient-to-r from-orange-600 to-orange-700 text-white font-semibold">
+                                            <Users className="h-2.5 w-2.5 mr-0.5" />
+                                            Seeking Work
                                           </Badge>
                                         )}
                                         {item.isPremium && (
@@ -1368,6 +1384,20 @@ export default function ProfessionalsPageContent({
                                             </div>
                                           )}
 
+                                          {/* Phone Number - Only if visible */}
+                                          {item.phone_visible && item.phone && (
+                                            <div>
+                                              <h4 className="font-semibold text-sm text-gray-900 mb-1">Phone</h4>
+                                              <a
+                                                href={`tel:${item.phone}`}
+                                                className="text-sm text-blue-600 hover:underline"
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                {item.phone}
+                                              </a>
+                                            </div>
+                                          )}
+
                                           {/* All Skills - Show if more than initially displayed (3) */}
                                           {item.skills && item.skills.length > 3 && (
                                             <div>
@@ -1383,11 +1413,11 @@ export default function ProfessionalsPageContent({
                                           )}
 
                                           {/* All Languages - Only if more than shown initially */}
-                                          {item.languages && item.languages.length > 3 && (
+                                          {item.spoken_languages && item.spoken_languages.length > 3 && (
                                             <div>
-                                              <h4 className="font-semibold text-sm text-gray-900 mb-1">All Languages ({item.languages.length})</h4>
+                                              <h4 className="font-semibold text-sm text-gray-900 mb-1">All Languages ({item.spoken_languages.length})</h4>
                                               <div className="flex flex-wrap gap-1">
-                                                {item.languages.map((language: string, index: number) => (
+                                                {item.spoken_languages.map((language: string, index: number) => (
                                                   <Badge key={index} variant="outline" className="text-xs flex items-center gap-1">
                                                     <span className="text-sm">{getLanguageFlag(language)}</span>
                                                     {language}
@@ -2684,17 +2714,17 @@ export default function ProfessionalsPageContent({
                               )}
 
                               {/* Languages - Show with flags */}
-                              {item.languages && item.languages.length > 0 && (
+                              {item.spoken_languages && item.spoken_languages.length > 0 && (
                                 <div className="text-[10px] text-gray-600 mt-2 flex items-center flex-wrap gap-1">
                                   <Globe className="h-2.5 w-2.5 inline mr-1" />
                                   <span className="font-medium mr-1">Languages:</span>
-                                  {item.languages.slice(0, 2).map((lang: string, idx: number) => (
+                                  {item.spoken_languages.slice(0, 2).map((lang: string, idx: number) => (
                                     <span key={idx} className="inline-flex items-center">
                                       <span className="text-xs mr-0.5">{getLanguageFlag(lang)}</span>
-                                      <span>{lang}{idx < Math.min(1, item.languages.length - 1) ? ',' : ''}</span>
+                                      <span>{lang}{idx < Math.min(1, item.spoken_languages.length - 1) ? ',' : ''}</span>
                                     </span>
                                   ))}
-                                  {item.languages.length > 2 && <span className="ml-1">+{item.languages.length - 2}</span>}
+                                  {item.spoken_languages.length > 2 && <span className="ml-1">+{item.spoken_languages.length - 2}</span>}
                                 </div>
                               )}
 
@@ -2752,11 +2782,11 @@ export default function ProfessionalsPageContent({
                                   )}
 
                                   {/* All Languages */}
-                                  {item.languages && item.languages.length > 2 && (
+                                  {item.spoken_languages && item.spoken_languages.length > 2 && (
                                     <div>
-                                      <h4 className="font-semibold text-sm text-gray-900 mb-1">All Languages ({item.languages.length})</h4>
+                                      <h4 className="font-semibold text-sm text-gray-900 mb-1">All Languages ({item.spoken_languages.length})</h4>
                                       <div className="flex flex-wrap gap-1">
-                                        {item.languages.map((language: string, index: number) => (
+                                        {item.spoken_languages.map((language: string, index: number) => (
                                           <Badge key={index} variant="outline" className="text-xs flex items-center gap-1">
                                             <span className="text-sm">{getLanguageFlag(language)}</span>
                                             {language}

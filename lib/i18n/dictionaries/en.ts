@@ -1282,6 +1282,131 @@ export const en = {
     step: 'Step',
     of: 'of',
   },
+
+  profileEdit: {
+    // Header
+    backToDashboard: 'Back to Dashboard',
+    title: 'Edit Profile',
+    description: 'Update your profile information and photo',
+
+    // Success messages
+    profileUpdated: 'Profile updated successfully!',
+    redirectingSoon: 'You will be redirected to your dashboard shortly.',
+    photoUploaded: 'Photo uploaded successfully!',
+    photoUploadReminder: 'Don\'t forget to click "Save Changes" at the bottom to save your profile photo.',
+
+    // Profile Photo Section
+    profilePhoto: 'Profile Photo',
+    uploadPhoto: 'Upload Photo',
+    uploading: 'Uploading...',
+    photoFormatInfo: 'JPG, PNG or GIF. Max size 5MB.',
+
+    // Basic Information
+    basicInformation: 'Basic Information',
+    nickname: 'Nickname (Public Display Name)',
+    alwaysVisible: 'Always visible',
+    nicknamePlaceholder: 'How you\'d like to be known publicly',
+    nicknameDescription: 'This is what employers will see instead of your real name',
+    realName: 'Real Name (First & Last)',
+    visibleToEmployers: 'Visible to employers',
+    private: 'Private',
+    firstName: 'First Name',
+    lastName: 'Last Name',
+    realNameVisibleInfo: 'Your real name will be visible to employers when you apply to jobs.',
+    realNamePrivateInfo: 'Your real name will remain private. Only your nickname will be shown to employers.',
+    fullName: 'Full Name',
+    email: 'Email',
+    emailVisibleInfo: 'Your email will be visible to employers when you apply to jobs or message them.',
+    emailPrivateInfo: 'Your email will remain private. You can choose to share it when applying to specific jobs.',
+    phoneNumber: 'Phone Number',
+    phonePlaceholder: '+1 (555) 123-4567',
+    phoneVisibleInfo: 'Your phone number will be visible to employers when you apply to jobs or message them.',
+    phonePrivateInfo: 'Your phone number will remain private. You can choose to share it when applying to specific jobs.',
+    location: 'Location',
+    cityOnly: 'City only',
+    locationPlaceholder: 'City, State',
+    locationFullInfo: 'Your full address details will be visible to employers.',
+    locationCityOnlyInfo: 'Only your city will be shown to employers, specific address details remain private.',
+
+    // Map Location
+    mapLocation: 'Map Location',
+    mapLocationDescription: 'Set your precise location on the map for better job matching. This will be used instead of the text location above.',
+
+    // Bio
+    bio: 'Bio',
+    bioPlaceholder: 'Tell us about yourself...',
+    website: 'Website',
+    websitePlaceholder: 'https://yourwebsite.com',
+
+    // Professional Information
+    professionalInformation: 'Professional Information',
+    professionalTitle: 'Professional Title',
+    titlePlaceholder: 'e.g. Senior Software Engineer',
+    titleVisibleInfo: 'Your professional title will be visible to employers.',
+    titlePrivateInfo: 'Your professional title will remain private.',
+
+    // Skills
+    skills: 'Skills',
+    addSkillPlaceholder: 'Add a skill',
+
+    // Languages
+    spokenLanguages: 'Spoken Languages',
+    addLanguagePlaceholder: 'Add a language',
+
+    // Links
+    links: 'Links',
+    linksVisibleInfo: 'Your portfolio and LinkedIn links will be visible to employers.',
+    linksPrivateInfo: 'Your portfolio and LinkedIn links will remain private.',
+    portfolioUrl: 'Portfolio URL',
+    portfolioPlaceholder: 'https://yourportfolio.com',
+    linkedinUrl: 'LinkedIn URL',
+    linkedinPlaceholder: 'https://linkedin.com/in/yourprofile',
+
+    // Additional Information
+    additionalInformation: 'Additional Information',
+    selfEmployed: 'I am self-employed (available for contract work)',
+    readyToRelocate: 'Ready to relocate',
+    validDrivingLicense: 'Valid driving license',
+    ownTransport: 'Own transport',
+
+    // Employment Status
+    employmentStatus: 'Employment Status',
+    employedOpenToOffers: 'Currently employed but open to job offers',
+    employedOpenToOffersDesc: 'You have a job but are open to new opportunities',
+    unemployedSeeking: 'Currently unemployed and looking for a job',
+    unemployedSeekingDesc: 'You are actively seeking employment',
+    preferNotToSpecify: 'Prefer not to specify',
+    preferNotToSpecifyDesc: 'Keep employment status private',
+
+    // Actions
+    cancel: 'Cancel',
+    saveChanges: 'Save Changes',
+    saving: 'Saving...',
+
+    // Danger Zone
+    dangerZone: 'Danger Zone',
+    dangerZoneDescription: 'Permanently delete your account and all associated data',
+    deleteAccount: 'Delete Account',
+    deletingAccount: 'Deleting Account...',
+    permanentlyDeleteAccount: 'Permanently delete my account',
+
+    // Delete Confirmation
+    areYouSure: 'Are you absolutely sure?',
+    deleteWarning: 'This action cannot be undone. This will permanently delete your account and remove all your data from our servers.',
+    willDelete: 'This will delete:',
+    deleteItems: {
+      profile: 'Your professional profile and all personal information',
+      applications: 'All job applications',
+      savedJobs: 'All saved jobs',
+      cv: 'Your CV and portfolio files',
+      records: 'Your skills, experience, and education records',
+      files: 'Your profile photos and uploaded documents',
+      account: 'Your entire user account',
+    },
+    signOutWarning: 'You will be immediately signed out and redirected to the homepage.',
+    yesDelete: 'Yes, delete my account',
+    deleting: 'Deleting...',
+  },
 }
 
 export type Dictionary = typeof en
