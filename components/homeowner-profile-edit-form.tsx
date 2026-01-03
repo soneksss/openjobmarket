@@ -60,7 +60,6 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
       setSuccess(true)
       setTimeout(() => {
         router.push("/dashboard/homeowner")
-        router.refresh()
       }, 1500)
     } catch (err: any) {
       console.error("Update error:", err)

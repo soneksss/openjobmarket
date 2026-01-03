@@ -123,7 +123,6 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
   const [portfolioUrl, setPortfolioUrl] = useState(professionalProfile?.portfolio_url || "")
   const [linkedinUrl, setLinkedinUrl] = useState(professionalProfile?.linkedin_url || "")
   const [salaryMin, setSalaryMin] = useState(professionalProfile?.salary_min?.toString() || "")
-  const [isSelfEmployed, setIsSelfEmployed] = useState(professionalProfile?.is_self_employed || false)
 
   const [spokenLanguages, setSpokenLanguages] = useState<string[]>(professionalProfile?.spoken_languages || [])
   const [readyToRelocate, setReadyToRelocate] = useState(professionalProfile?.ready_to_relocate || false)
@@ -339,7 +338,6 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
           skills: skills,
           portfolio_url: portfolioUrl || null,
           linkedin_url: linkedinUrl || null,
-          is_self_employed: isSelfEmployed,
           spoken_languages: spokenLanguages,
           ready_to_relocate: readyToRelocate,
           latitude: latitude,
@@ -379,10 +377,6 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
       // Show success message
       setSaveSuccess(true)
       setPhotoUploaded(false) // Clear photo uploaded flag
-      setTimeout(() => setSaveSuccess(false), 3000) // Hide after 3 seconds
-
-      // Refresh to invalidate server-side cache and re-fetch updated data
-      router.refresh()
 
       // Redirect back to dashboard after a short delay
       setTimeout(() => {
@@ -917,19 +911,6 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
 
                 <div className="space-y-4">
                   <h4 className="font-medium">{t('profileEdit.additionalInformation')}</h4>
-
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isSelfEmployed"
-                      checked={isSelfEmployed}
-                      onChange={(e) => setIsSelfEmployed(e.target.checked)}
-                      className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                    />
-                    <Label htmlFor="isSelfEmployed" className="text-base">
-                      {t('profileEdit.selfEmployed')}
-                    </Label>
-                  </div>
 
                   <div className="flex items-center space-x-2">
                     <input

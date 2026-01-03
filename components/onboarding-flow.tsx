@@ -1718,24 +1718,59 @@ export default function OnboardingFlow({
             </div>
 
             {/* Employment Status */}
-            <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label htmlFor="employmentStatus" className="font-semibold">{t('onboardingFlow.employmentStatus')}</Label>
-              <Select
-                value={professionalData.employmentStatus ?? undefined}
-                onValueChange={(value) => setProfessionalData((prev) => ({ ...prev, employmentStatus: value || null }))}
-              >
-                <SelectTrigger className="border-2">
-                  <SelectValue placeholder={t('onboardingFlow.employmentStatusPlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="employed">{t('onboardingFlow.employed')}</SelectItem>
-                  <SelectItem value="unemployed">{t('onboardingFlow.unemployed')}</SelectItem>
-                  <SelectItem value="self_employed">{t('onboardingFlow.selfEmployed')}</SelectItem>
-                  <SelectItem value="student">{t('onboardingFlow.student')}</SelectItem>
-                  <SelectItem value="freelancer">{t('onboardingFlow.freelancer')}</SelectItem>
-                  <SelectItem value="contractor">{t('onboardingFlow.contractor')}</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-3 p-4 border rounded-lg shadow-sm bg-white">
+              <Label className="font-semibold">{t('onboardingFlow.employmentStatus')}</Label>
+              <div className="space-y-2">
+                <div className={`flex items-center space-x-3 p-3 rounded border transition-colors ${
+                  professionalData.employmentStatus === 'employed' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+                }`}>
+                  <input
+                    type="radio"
+                    id="employed"
+                    name="employmentStatus"
+                    checked={professionalData.employmentStatus === 'employed'}
+                    onChange={(e) => e.target.checked && setProfessionalData((prev) => ({ ...prev, employmentStatus: 'employed' }))}
+                    className="h-5 w-5 border-2 border-gray-300"
+                  />
+                  <Label htmlFor="employed" className="cursor-pointer flex-1">
+                    <div className="font-medium">{t('onboardingFlow.employed')}</div>
+                    <div className="text-sm text-muted-foreground">Currently employed but open to offers</div>
+                  </Label>
+                </div>
+
+                <div className={`flex items-center space-x-3 p-3 rounded border transition-colors ${
+                  professionalData.employmentStatus === 'unemployed' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+                }`}>
+                  <input
+                    type="radio"
+                    id="unemployed"
+                    name="employmentStatus"
+                    checked={professionalData.employmentStatus === 'unemployed'}
+                    onChange={(e) => e.target.checked && setProfessionalData((prev) => ({ ...prev, employmentStatus: 'unemployed' }))}
+                    className="h-5 w-5 border-2 border-gray-300"
+                  />
+                  <Label htmlFor="unemployed" className="cursor-pointer flex-1">
+                    <div className="font-medium">{t('onboardingFlow.unemployed')}</div>
+                    <div className="text-sm text-muted-foreground">Actively seeking employment</div>
+                  </Label>
+                </div>
+
+                <div className={`flex items-center space-x-3 p-3 rounded border transition-colors ${
+                  professionalData.employmentStatus === null ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-400 hover:bg-blue-50'
+                }`}>
+                  <input
+                    type="radio"
+                    id="noEmploymentStatus"
+                    name="employmentStatus"
+                    checked={professionalData.employmentStatus === null}
+                    onChange={(e) => e.target.checked && setProfessionalData((prev) => ({ ...prev, employmentStatus: null }))}
+                    className="h-5 w-5 border-2 border-gray-300"
+                  />
+                  <Label htmlFor="noEmploymentStatus" className="cursor-pointer flex-1">
+                    <div className="font-medium">Prefer not to specify</div>
+                  </Label>
+                </div>
+              </div>
             </div>
 
             {/* Availability */}

@@ -85,6 +85,27 @@ const SAMPLE_LOCATIONS: LocationSuggestion[] = [
     fullAddress: "Prague, Czech Republic",
   },
   { id: "20", display: "Warsaw, Poland", country: "Poland", city: "Warsaw", fullAddress: "Warsaw, Poland" },
+  // Brazilian cities
+  { id: "21", display: "São Paulo, Brazil", country: "Brazil", city: "São Paulo", fullAddress: "São Paulo, SP, Brazil" },
+  { id: "22", display: "Rio de Janeiro, Brazil", country: "Brazil", city: "Rio de Janeiro", fullAddress: "Rio de Janeiro, RJ, Brazil" },
+  { id: "23", display: "Brasília, Brazil", country: "Brazil", city: "Brasília", fullAddress: "Brasília, DF, Brazil" },
+  { id: "24", display: "Salvador, Brazil", country: "Brazil", city: "Salvador", fullAddress: "Salvador, BA, Brazil" },
+  { id: "25", display: "Fortaleza, Brazil", country: "Brazil", city: "Fortaleza", fullAddress: "Fortaleza, CE, Brazil" },
+  { id: "26", display: "Belo Horizonte, Brazil", country: "Brazil", city: "Belo Horizonte", fullAddress: "Belo Horizonte, MG, Brazil" },
+  { id: "27", display: "Manaus, Brazil", country: "Brazil", city: "Manaus", fullAddress: "Manaus, AM, Brazil" },
+  { id: "28", display: "Curitiba, Brazil", country: "Brazil", city: "Curitiba", fullAddress: "Curitiba, PR, Brazil" },
+  { id: "29", display: "Recife, Brazil", country: "Brazil", city: "Recife", fullAddress: "Recife, PE, Brazil" },
+  { id: "30", display: "Porto Alegre, Brazil", country: "Brazil", city: "Porto Alegre", fullAddress: "Porto Alegre, RS, Brazil" },
+  { id: "31", display: "Belém, Brazil", country: "Brazil", city: "Belém", fullAddress: "Belém, PA, Brazil" },
+  { id: "32", display: "Goiânia, Brazil", country: "Brazil", city: "Goiânia", fullAddress: "Goiânia, GO, Brazil" },
+  { id: "33", display: "Guarulhos, Brazil", country: "Brazil", city: "Guarulhos", fullAddress: "Guarulhos, SP, Brazil" },
+  { id: "34", display: "Campinas, Brazil", country: "Brazil", city: "Campinas", fullAddress: "Campinas, SP, Brazil" },
+  { id: "35", display: "Santos, Brazil", country: "Brazil", city: "Santos", fullAddress: "Santos, SP, Brazil" },
+  { id: "36", display: "São Vicente, Brazil", country: "Brazil", city: "São Vicente", fullAddress: "São Vicente, SP, Brazil" },
+  { id: "37", display: "São Bernardo do Campo, Brazil", country: "Brazil", city: "São Bernardo do Campo", fullAddress: "São Bernardo do Campo, SP, Brazil" },
+  { id: "38", display: "São José dos Campos, Brazil", country: "Brazil", city: "São José dos Campos", fullAddress: "São José dos Campos, SP, Brazil" },
+  { id: "39", display: "Ribeirão Preto, Brazil", country: "Brazil", city: "Ribeirão Preto", fullAddress: "Ribeirão Preto, SP, Brazil" },
+  { id: "40", display: "Sorocaba, Brazil", country: "Brazil", city: "Sorocaba", fullAddress: "Sorocaba, SP, Brazil" },
 ]
 
 export default function LocationAutocomplete({

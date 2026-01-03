@@ -70,7 +70,6 @@ export function ContractorProfileEditForm({ userId, profile }: ContractorProfile
       setSuccess(true)
       setTimeout(() => {
         router.push(locale === 'pt-BR' ? '/br/dashboard/contractor' : '/dashboard/contractor')
-        router.refresh()
       }, 1500)
     } catch (err: any) {
       console.error("Update error:", err)

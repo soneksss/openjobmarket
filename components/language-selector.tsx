@@ -15,6 +15,7 @@ const COMMON_LANGUAGES = [
   { name: "French", flag: "🇫🇷" },
   { name: "Arabic", flag: "🇸🇦" },
   { name: "Portuguese", flag: "🇵🇹" },
+  { name: "Brazilian Portuguese", flag: "🇧🇷" },
   { name: "Russian", flag: "🇷🇺" },
   { name: "German", flag: "🇩🇪" },
   { name: "Japanese", flag: "🇯🇵" },
