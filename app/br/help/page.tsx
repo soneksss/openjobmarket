@@ -129,10 +129,10 @@ export default function HelpPage() {
           <div className="max-w-4xl mx-auto text-center space-y-6">
             <Mail className="h-16 w-16 mx-auto text-blue-300" />
             <h2 className="text-3xl md:text-4xl font-bold">
-              Still need help?
+              {t('help.stillHaveQuestions')}
             </h2>
             <p className="text-xl text-blue-100">
-              Our support team is here to assist you
+              {t('help.supportTeamHelp')}
             </p>
             <div className="pt-6">
               <Link href={getLocalePath("/contact")}>
@@ -140,7 +140,7 @@ export default function HelpPage() {
                   size="lg"
                   className="bg-white text-blue-900 hover:bg-blue-50 font-bold text-lg px-8 py-6"
                 >
-                  Contact Support
+                  {t('help.contactSupport')}
                 </Button>
               </Link>
             </div>

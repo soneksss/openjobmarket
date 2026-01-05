@@ -8,12 +8,17 @@ import { Button } from "@/components/ui/button"
 import { useTranslation } from "@/lib/i18n/context"
 
 export function Footer() {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const [user, setUser] = useState<any>(null)
   const [userType, setUserType] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [legalExpanded, setLegalExpanded] = useState(false)
   const [supportExpanded, setSupportExpanded] = useState(false)
+
+  // Helper function to get locale-aware paths
+  const getLocalePath = (path: string) => {
+    return locale === 'pt-BR' ? `/br${path}` : path
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -55,14 +60,14 @@ export function Footer() {
   }
 
   const legalLinks = [
-    { href: "/terms", label: t('header.termsConditions') },
-    { href: "/privacy", label: t('header.privacyPolicy') },
-    { href: "/cookies", label: t('header.cookiePolicy') },
+    { href: getLocalePath("/terms"), label: t('header.termsConditions') },
+    { href: getLocalePath("/privacy"), label: t('header.privacyPolicy') },
+    { href: getLocalePath("/cookies"), label: t('header.cookiePolicy') },
   ]
 
   const supportLinks = [
-    { href: "/contact", label: t('header.contactUs') },
-    { href: "/security", label: t('dashboard.security') },
+    { href: getLocalePath("/contact"), label: t('header.contactUs') },
+    { href: getLocalePath("/security"), label: t('dashboard.security') },
     { href: getBillingHref(), label: user ? t('header.subscriptionBilling') : t('dashboard.billing') },
   ]
 

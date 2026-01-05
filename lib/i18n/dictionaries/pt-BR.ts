@@ -1529,4 +1529,63 @@ export const ptBR: Dictionary = {
       },
     },
   },
+  help: {
+    // Hero
+    title: 'Central de Ajuda e Perguntas Frequentes',
+    subtitle: 'Encontre respostas para perguntas comuns sobre o uso do Open Job Market',
+    // Categories
+    gettingStarted: 'Primeiros Passos',
+    forJobSeekers: 'Para Candidatos a Emprego',
+    forEmployers: 'Para Empregadores',
+    forTradespeopleHomeowners: 'Para Profissionais e Proprietários',
+    accountPrivacy: 'Conta e Privacidade',
+    paymentsBilling: 'Pagamentos e Cobrança',
+    // Getting Started
+    howCreateAccount: 'Como criar uma conta?',
+    howCreateAccountAnswer: 'Clique em "Inscrever-se" no cabeçalho, escolha se você é candidato a emprego ou empregador, e preencha seus dados. Você receberá um e-mail de verificação para ativar sua conta.',
+    isFree: 'O Open Job Market é gratuito?',
+    isFreeAnswer: 'Sim! Procurar empregos e navegar por talentos é completamente gratuito. Empregadores podem publicar vagas e enviar mensagens para candidatos com nossos planos de assinatura.',
+    canUseAnonymously: 'Posso usar a plataforma anonimamente?',
+    canUseAnonymouslyAnswer: 'Absolutamente! Você pode navegar por empregos e buscar oportunidades sem revelar sua identidade. Seu empregador atual não saberá que você está procurando.',
+    // For Job Seekers
+    howFindJobs: 'Como encontrar empregos?',
+    howFindJobsAnswer: 'Use a barra de pesquisa na página inicial para pesquisar empregos por palavras-chave, localização ou empresa. Você também pode navegar por empregos no mapa interativo.',
+    canApplyAnonymously: 'Posso me candidatar a empregos anonimamente?',
+    canApplyAnonymouslyAnswer: 'Sim, você pode navegar e se candidatar a empregos sem revelar sua identidade até que você escolha compartilhar seu perfil com um empregador.',
+    howSaveJobs: 'Como salvar empregos?',
+    howSaveJobsAnswer: 'Clique no ícone de marcador em qualquer anúncio de emprego para salvá-lo em sua lista de empregos salvos para revisão posterior.',
+    // For Employers
+    howPostJob: 'Como publicar uma vaga?',
+    howPostJobAnswer: 'Após se inscrever como empresa, vá para o seu painel e clique em "Publicar Vaga". Preencha os detalhes da vaga, localização, salário e requisitos, e publique.',
+    canSeeApplicants: 'Posso ver quem se candidatou ao meu emprego?',
+    canSeeApplicantsAnswer: 'Sim, como empregador você pode visualizar todas as candidaturas no seu painel e revisar os perfis dos candidatos.',
+    howContactCandidates: 'Como entrar em contato com candidatos?',
+    howContactCandidatesAnswer: 'Você pode enviar mensagens diretas para candidatos através do sistema de mensagens da plataforma a partir do perfil deles ou da candidatura.',
+    // For Tradespeople & Homeowners
+    howFindTradesperson: 'Como encontrar um profissional?',
+    howFindTradespersonAnswer: 'Pesquise profissionais por tipo de serviço e localização no nosso mapa. Revise seus perfis, avaliações e certificações antes de contatá-los.',
+    howOfferServices: 'Como oferecer meus serviços como profissional?',
+    howOfferServicesAnswer: 'Crie um perfil de profissional, liste seus serviços, carregue certificações e defina sua área de serviço. Os clientes poderão então encontrá-lo e contatá-lo.',
+    isVerified: 'Como saber se um profissional é verificado?',
+    isVerifiedAnswer: 'Profissionais verificados carregaram certificações, seguro e credenciais profissionais. Procure pelo selo de verificação no perfil deles.',
+    // Account & Privacy
+    howDeleteAccount: 'Como excluir minha conta?',
+    howDeleteAccountAnswer: 'Vá para Configurações da Conta > Privacidade > Excluir Conta. Note que esta ação é permanente e não pode ser desfeita.',
+    howChangeEmail: 'Como alterar meu endereço de e-mail?',
+    howChangeEmailAnswer: 'Vá para Configurações da Conta > Perfil > E-mail para atualizar seu endereço de e-mail. Você precisará verificar seu novo e-mail.',
+    whoSeesData: 'Quem pode ver meus dados pessoais?',
+    whoSeesDataAnswer: 'A visibilidade de seus dados depende das suas configurações de privacidade. Você pode controlar quem vê seu perfil e informações pessoais nas configurações da sua conta.',
+    // Payments & Billing
+    costToPost: 'Quanto custa publicar uma vaga?',
+    costToPostAnswer: 'Os custos de publicação de vagas variam de acordo com o plano de assinatura. Membros básicos têm postagens limitadas, enquanto planos premium oferecem publicações ilimitadas.',
+    premiumFeatures: 'Quais recursos premium estão disponíveis?',
+    premiumFeaturesAnswer: 'Os recursos premium incluem postagens ilimitadas de vagas, pesquisa avançada de candidatos, suporte prioritário, análises e maior visibilidade do perfil.',
+    refundPolicy: 'Qual é a política de reembolso?',
+    refundPolicyAnswer: 'Oferecemos uma garantia de reembolso de 14 dias para novas assinaturas. Entre em contato com o suporte dentro de 14 dias se não estiver satisfeito.',
+    // Contact Support Section
+    stillHaveQuestions: 'Ainda tem dúvidas?',
+    supportTeamHelp: 'Não encontrou a resposta que procura? Nossa equipe de suporte está aqui para ajudar.',
+    contactSupport: 'Contatar Suporte',
+    reportBug: 'Reportar um Bug',
+  },
 }
