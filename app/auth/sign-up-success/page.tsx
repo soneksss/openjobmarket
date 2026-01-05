@@ -4,14 +4,64 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { MailCheck, ArrowLeft } from "lucide-react"
 import Link from "next/link"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
+import { createClient } from "@/lib/client"
+import { useEffect, useState } from "react"
 
 export default function SignUpSuccessPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const locale = searchParams?.get('locale')
   const isPortuguese = locale === 'pt-BR'
+  const [isChecking, setIsChecking] = useState(true)
 
   const loginUrl = isPortuguese ? "/auth/login?locale=pt-BR" : "/auth/login"
+
+  // Check if user is already verified and redirect them
+  useEffect(() => {
+    const checkVerificationStatus = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user?.email_confirmed_at) {
+        // User is already verified, redirect to dashboard
+        console.log('[SIGN-UP-SUCCESS] User already verified, redirecting to dashboard')
+
+        // Get user type from database
+        const { data: userData } = await supabase
+          .from('users')
+          .select('user_type')
+          .eq('id', user.id)
+          .single()
+
+        if (userData?.user_type) {
+          const dashboardPath = userData.user_type === 'professional'
+            ? '/dashboard/professional'
+            : userData.user_type === 'company'
+            ? '/dashboard/company'
+            : '/dashboard/homeowner'
+
+          router.push(isPortuguese ? `/br${dashboardPath}` : dashboardPath)
+          return
+        }
+      }
+
+      setIsChecking(false)
+    }
+
+    checkVerificationStatus()
+  }, [router, isPortuguese])
+
+  if (isChecking) {
+    return (
+      <div className="relative min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+          <p>{isPortuguese ? "Verificando..." : "Checking..."}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="relative min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 overflow-hidden">

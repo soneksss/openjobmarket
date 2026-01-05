@@ -206,6 +206,19 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(url);
     }
 
+    // CRITICAL: Check if user has confirmed their email
+    // Redirect unverified users to the verification reminder page
+    if (!user.email_confirmed_at) {
+      console.log('[MIDDLEWARE] User email not verified, redirecting to sign-up-success');
+      const url = req.nextUrl.clone();
+      // Preserve locale if on /br route
+      url.pathname = "/auth/sign-up-success";
+      if (isOnBrRoute) {
+        url.searchParams.set('locale', 'pt-BR');
+      }
+      return NextResponse.redirect(url);
+    }
+
     return res;
   } catch (err) {
     console.error("MIDDLEWARE ERROR:", err);
