@@ -356,14 +356,24 @@ export default function MultiStepSignup() {
         if (profileError) throw profileError
       }
 
-      // Redirect directly to dashboard (locale-aware)
-      const dashboardUrl = userType === "professional"
-        ? getLocalePath("/dashboard/professional")
-        : userType === "company"
-        ? getLocalePath("/dashboard/company")
-        : getLocalePath("/dashboard/homeowner")
+      // Check if email confirmation is required
+      // If email_confirmed_at is null, user needs to confirm their email
+      if (!authData.user.email_confirmed_at) {
+        // Redirect to sign-up success page with locale
+        const signUpSuccessUrl = isOnBrRoute
+          ? "/auth/sign-up-success?locale=pt-BR"
+          : "/auth/sign-up-success"
+        router.push(signUpSuccessUrl)
+      } else {
+        // Email auto-confirmed, redirect directly to dashboard (locale-aware)
+        const dashboardUrl = userType === "professional"
+          ? getLocalePath("/dashboard/professional")
+          : userType === "company"
+          ? getLocalePath("/dashboard/company")
+          : getLocalePath("/dashboard/homeowner")
 
-      router.push(dashboardUrl)
+        router.push(dashboardUrl)
+      }
     } catch (err: any) {
       console.error("Signup error:", err)
       setError(err.message || "An error occurred during signup")

@@ -489,16 +489,21 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
             <div className="space-y-4">
               <Label>{t('profileEdit.profilePhoto')}</Label>
               <div className="flex items-center space-x-4">
-                <Avatar className="h-20 w-20 rounded-full">
-                  <AvatarImage
-                    src={profilePhotoUrl || "/placeholder.svg"}
-                    className="object-cover w-full h-full rounded-full"
-                  />
-                  <AvatarFallback className="text-lg rounded-full">{getInitials()}</AvatarFallback>
-                </Avatar>
+                <Label htmlFor="photo-upload" className="cursor-pointer group relative">
+                  <Avatar className="h-20 w-20 rounded-full ring-2 ring-offset-2 ring-gray-200 group-hover:ring-blue-500 transition-all">
+                    <AvatarImage
+                      src={profilePhotoUrl || "/placeholder.svg"}
+                      className="object-cover w-full h-full rounded-full"
+                    />
+                    <AvatarFallback className="text-lg rounded-full">{getInitials()}</AvatarFallback>
+                  </Avatar>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 rounded-full transition-all">
+                    <Upload className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Label>
                 <div className="space-y-2">
                   <Label htmlFor="photo-upload" className="cursor-pointer">
-                    <div className="flex items-center space-x-2 px-4 py-2 border border-input rounded-md hover:bg-accent">
+                    <div className="flex items-center space-x-2 px-4 py-2 border border-input rounded-md hover:bg-accent hover:border-blue-500 transition-colors">
                       <Upload className="h-4 w-4" />
                       <span>{uploading ? t('profileEdit.uploading') : t('profileEdit.uploadPhoto')}</span>
                     </div>

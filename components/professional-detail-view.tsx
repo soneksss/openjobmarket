@@ -23,7 +23,11 @@ import {
   FileText,
   CheckCircle,
   Crown,
-  Zap
+  Zap,
+  Languages as LanguagesIcon,
+  TrendingUp,
+  Car,
+  Clock
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -39,6 +43,7 @@ interface ProfessionalProfile {
   user_id: string
   first_name: string
   last_name: string
+  nickname?: string
   title: string
   bio: string
   location: string
@@ -46,6 +51,7 @@ interface ProfessionalProfile {
   longitude?: number
   experience_level: string
   skills: string[]
+  languages?: string[]
   portfolio_url?: string
   linkedin_url?: string
   github_url?: string
@@ -55,6 +61,11 @@ interface ProfessionalProfile {
   salary_max?: number
   available_for_work: boolean
   is_self_employed: boolean
+  ready_to_relocate?: boolean
+  has_driving_licence?: boolean
+  has_own_transport?: boolean
+  employment_status?: string
+  availability?: 'available_now' | 'available_week' | 'available_month' | 'not_specified'
   profile_photo_url?: string
   cv_url?: string
   average_rating?: number
@@ -70,7 +81,7 @@ interface User {
 interface ProfessionalDetailViewProps {
   professional: ProfessionalProfile
   user: User | null
-  userType: "professional" | "company" | null
+  userType: "professional" | "company" | "contractor" | "homeowner" | null
   isModal?: boolean
 }
 
@@ -148,6 +159,20 @@ export default function ProfessionalDetailView({ professional, user, userType, i
     return `Up to £${max?.toLocaleString()}`
   }
 
+  const formatAvailability = (availability?: string) => {
+    if (!availability || availability === 'not_specified') return 'Not specified'
+    switch (availability) {
+      case 'available_now':
+        return 'Available now'
+      case 'available_week':
+        return 'Available within a week'
+      case 'available_month':
+        return 'Available within a month'
+      default:
+        return 'Not specified'
+    }
+  }
+
   const handleContact = () => {
     if (!user) {
       router.push("/auth/login")
@@ -174,12 +199,12 @@ export default function ProfessionalDetailView({ professional, user, userType, i
     }
   }
 
-  const nickname = `${professional.first_name} ${professional.last_name.charAt(0)}.`
+  const displayName = professional.nickname || `${professional.first_name} ${professional.last_name.charAt(0)}.`
   const salaryDisplay = formatSalary(professional.salary_min, professional.salary_max)
 
   return (
     <div className={isModal ? "" : "min-h-screen bg-background"}>
-      <div className={isModal ? "px-4 py-6" : "container mx-auto px-4 py-6"}>
+      <div className={isModal ? "" : "container mx-auto px-4 py-6"}>
         {/* Header with back button */}
         {!isModal && (
           <div className="flex items-center gap-4 mb-6">
@@ -196,15 +221,15 @@ export default function ProfessionalDetailView({ professional, user, userType, i
           </div>
         )}
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className={isModal ? "flex flex-col gap-6" : "grid lg:grid-cols-3 gap-8"}>
           {/* Main Profile Card */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className={isModal ? "w-full space-y-6" : "lg:col-span-2 space-y-6"}>
             <Card>
               <CardHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center space-x-4">
                     <Avatar className="h-20 w-20 ring-2 ring-blue-100">
-                      <AvatarImage src={professional.profile_photo_url} alt={nickname} />
+                      <AvatarImage src={professional.profile_photo_url} alt={displayName} />
                       <AvatarFallback className="bg-blue-50 text-blue-600 font-medium text-2xl">
                         {professional.first_name.charAt(0)}{professional.last_name.charAt(0)}
                       </AvatarFallback>
@@ -213,7 +238,7 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                       <div>
                         <div className="flex items-center gap-2">
                           <h2 className={`text-3xl ${premiumStatus.isPremium ? 'font-extrabold' : 'font-bold'} text-foreground`}>
-                            {nickname}
+                            {displayName}
                           </h2>
                           {premiumStatus.isPremium && (
                             <div className="relative group">
@@ -278,12 +303,6 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                       {premiumStatus.isPremium ? "Actively Looking" : "Available"}
                     </Badge>
                   )}
-                  {salaryDisplay && (
-                    <Badge variant="outline" className="text-green-600">
-                      <DollarSign className="h-3 w-3 mr-1" />
-                      {salaryDisplay}
-                    </Badge>
-                  )}
                 </div>
 
                 {/* Bio */}
@@ -316,6 +335,79 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                   </div>
                 )}
 
+                {/* Languages */}
+                {professional.languages && professional.languages.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      <LanguagesIcon className="h-5 w-5" />
+                      Languages
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {professional.languages.map((language, index) => (
+                        <Badge key={index} variant="outline" className="text-sm">
+                          {language}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Additional Information */}
+                {(professional.ready_to_relocate || professional.has_driving_licence || professional.has_own_transport) && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Additional Information
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {professional.ready_to_relocate && (
+                        <Badge variant="outline" className="text-sm">
+                          <TrendingUp className="h-3 w-3 mr-1" />
+                          Ready to Relocate
+                        </Badge>
+                      )}
+                      {professional.has_driving_licence && (
+                        <Badge variant="outline" className="text-sm">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Driving Licence
+                        </Badge>
+                      )}
+                      {professional.has_own_transport && (
+                        <Badge variant="outline" className="text-sm">
+                          <Car className="h-3 w-3 mr-1" />
+                          Own Transport
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Employment Status & Availability */}
+                {(professional.employment_status || professional.availability) && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      <Briefcase className="h-5 w-5" />
+                      Employment Details
+                    </h3>
+                    <div className="space-y-2">
+                      {professional.employment_status && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="font-medium text-foreground">Status:</span>
+                          <span className="text-muted-foreground capitalize">{professional.employment_status.replace('_', ' ')}</span>
+                        </div>
+                      )}
+                      {professional.availability && (
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-600">
+                            {formatAvailability(professional.availability)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Experience Level */}
                 <div>
                   <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
@@ -340,7 +432,7 @@ export default function ProfessionalDetailView({ professional, user, userType, i
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className={isModal ? "w-full space-y-6" : "space-y-6"}>
             {/* Contact Card */}
             {!isOwnProfile && (
               <Card>
@@ -453,7 +545,9 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Availability:</span>
                     <span className={`font-medium ${professional.available_for_work ? "text-green-600" : "text-red-600"}`}>
-                      {professional.available_for_work ? "Available" : "Not Available"}
+                      {professional.available_for_work
+                        ? (professional.availability ? formatAvailability(professional.availability) : "Available")
+                        : "Not Available"}
                     </span>
                   </div>
                   {salaryDisplay && (

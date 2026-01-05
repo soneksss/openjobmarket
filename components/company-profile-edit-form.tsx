@@ -431,19 +431,24 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
             <div className="space-y-3">
               <Label className="text-sm font-medium">Company Logo</Label>
               <div className="flex items-center space-x-4">
-                <div className="relative h-20 w-20 sm:h-24 sm:w-24 bg-muted rounded-lg overflow-hidden border-2 border-gray-300 flex items-center justify-center">
-                  {logoUrl ? (
-                    <img
-                      src={logoUrl}
-                      alt="Company logo"
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  ) : (
-                    <div className="text-xs sm:text-sm font-medium text-muted-foreground text-center">
-                      {getInitials()}
-                    </div>
-                  )}
-                </div>
+                <Label htmlFor="logo-upload" className="cursor-pointer group relative block">
+                  <div className="relative h-20 w-20 sm:h-24 sm:w-24 bg-muted rounded-lg overflow-hidden border-2 border-gray-300 group-hover:border-blue-500 flex items-center justify-center transition-all">
+                    {logoUrl ? (
+                      <img
+                        src={logoUrl}
+                        alt="Company logo"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    ) : (
+                      <div className="text-xs sm:text-sm font-medium text-muted-foreground text-center">
+                        {getInitials()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 rounded-lg transition-all">
+                    <Upload className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </Label>
                 <div className="space-y-2">
                   <Label htmlFor="logo-upload" className="cursor-pointer">
                     <div className="flex items-center space-x-2 px-3 py-2 text-sm border-2 border-gray-300 rounded-md hover:bg-accent hover:border-blue-400 transition-colors">

@@ -17,100 +17,98 @@ interface CategoryCarouselProps {
 
 export function CategoryCarousel({ onCategoryClick }: CategoryCarouselProps) {
   const { t } = useTranslation()
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const categoriesScrollRef = useRef<HTMLDivElement>(null)
+  const industriesScrollRef = useRef<HTMLDivElement>(null)
 
-  const categories: Category[] = [
-    // Most Popular - Priority Order
-    { key: "plumber", icon: "🔧", color: "from-blue-500 to-blue-600" },
-    { key: "gasEngineer", icon: "🔥", color: "from-orange-600 to-orange-700" },
-    { key: "electrician", icon: "⚡", color: "from-yellow-500 to-orange-500" },
-    { key: "plasterer", icon: "🧱", color: "from-stone-500 to-stone-600" },
-    { key: "careWorker", icon: "🤝", color: "from-green-400 to-emerald-500" },
-    { key: "manWithVan", icon: "🚐", color: "from-blue-600 to-cyan-600" },
-    { key: "programmer", icon: "💻", color: "from-blue-600 to-indigo-600" },
-    { key: "delivery", icon: "📦", color: "from-orange-500 to-red-500" },
-    { key: "roofer", icon: "🏘️", color: "from-gray-600 to-gray-700" },
-    { key: "builder", icon: "🏗️", color: "from-orange-500 to-red-500" },
-    { key: "cleaner", icon: "✨", color: "from-cyan-500 to-blue-500" },
-    { key: "bathrooms", icon: "🛁", color: "from-teal-500 to-teal-600" },
-    { key: "windowsDoors", icon: "🪟", color: "from-sky-500 to-sky-600" },
-    { key: "driveways", icon: "🛤️", color: "from-zinc-500 to-zinc-600" },
-    { key: "labour", icon: "👷", color: "from-amber-600 to-orange-600" },
-    { key: "nurse", icon: "👩‍⚕️", color: "from-red-400 to-pink-400" },
-    { key: "driver", icon: "🚗", color: "from-blue-400 to-cyan-400" },
-    { key: "warehouse", icon: "📦", color: "from-orange-600 to-red-600" },
-    { key: "gardener", icon: "🌿", color: "from-green-500 to-emerald-600" },
-    { key: "administrator", icon: "📋", color: "from-slate-600 to-gray-600" },
-    { key: "tiler", icon: "◼️", color: "from-slate-500 to-slate-600" },
+  // Popular Professions - Specific job roles (top row)
+  const popularCategories: Category[] = [
+    { key: "plumber", icon: "🔧", color: "from-slate-600 to-slate-700" },
+    { key: "electrician", icon: "⚡", color: "from-slate-600 to-slate-700" },
+    { key: "gasEngineer", icon: "🔥", color: "from-slate-600 to-slate-700" },
+    { key: "builder", icon: "🏗️", color: "from-slate-600 to-slate-700" },
+    { key: "programmer", icon: "💻", color: "from-slate-600 to-slate-700" },
+    { key: "nurse", icon: "👩‍⚕️", color: "from-slate-600 to-slate-700" },
+    { key: "delivery", icon: "📦", color: "from-slate-600 to-slate-700" },
+    { key: "driver", icon: "🚗", color: "from-slate-600 to-slate-700" },
+    { key: "cleaner", icon: "✨", color: "from-slate-600 to-slate-700" },
+    { key: "gardener", icon: "🌿", color: "from-slate-600 to-slate-700" },
+    { key: "carpenter", icon: "🪵", color: "from-slate-600 to-slate-700" },
+    { key: "painter", icon: "🖌️", color: "from-slate-600 to-slate-700" },
+    { key: "chef", icon: "👨‍🍳", color: "from-slate-600 to-slate-700" },
+    { key: "barber", icon: "✂️", color: "from-slate-600 to-slate-700" },
+    { key: "mechanic", icon: "🔩", color: "from-slate-600 to-slate-700" },
+    { key: "administrator", icon: "📋", color: "from-slate-600 to-slate-700" },
+    { key: "teacher", icon: "👨‍🏫", color: "from-slate-600 to-slate-700" },
+    { key: "doctor", icon: "👨‍⚕️", color: "from-slate-600 to-slate-700" },
+    { key: "accountant", icon: "🧮", color: "from-slate-600 to-slate-700" },
+    { key: "receptionist", icon: "📞", color: "from-slate-600 to-slate-700" },
+    { key: "security", icon: "🔒", color: "from-slate-600 to-slate-700" },
+    { key: "pharmacist", icon: "💊", color: "from-slate-600 to-slate-700" },
+    { key: "photographer", icon: "📸", color: "from-slate-600 to-slate-700" },
+    { key: "writer", icon: "✍️", color: "from-slate-600 to-slate-700" },
+    { key: "translator", icon: "🌐", color: "from-slate-600 to-slate-700" },
+    { key: "salesperson", icon: "💰", color: "from-slate-600 to-slate-700" },
+    { key: "architect", icon: "📐", color: "from-slate-600 to-slate-700" },
+    { key: "florist", icon: "💐", color: "from-slate-600 to-slate-700" },
+    { key: "tailor", icon: "🧵", color: "from-slate-600 to-slate-700" },
+    { key: "hairdresser", icon: "💇", color: "from-slate-600 to-slate-700" },
+    { key: "dentist", icon: "🦷", color: "from-slate-600 to-slate-700" },
+    { key: "scientist", icon: "🔬", color: "from-slate-600 to-slate-700" },
+  ]
 
-    // Other Popular Trades
-    { key: "carpenter", icon: "🪵", color: "from-amber-600 to-amber-700" },
-    { key: "painter", icon: "🖌️", color: "from-purple-500 to-pink-500" },
-    { key: "handyman", icon: "🔨", color: "from-indigo-500 to-indigo-600" },
-    { key: "locksmith", icon: "🔑", color: "from-red-500 to-red-600" },
-    { key: "heating", icon: "♨️", color: "from-rose-500 to-rose-600" },
-    { key: "fencing", icon: "⬛", color: "from-lime-600 to-lime-700" },
-    { key: "treeSurgeon", icon: "🌲", color: "from-emerald-600 to-emerald-700" },
-    { key: "mechanic", icon: "🔩", color: "from-gray-500 to-gray-600" },
-    { key: "flooring", icon: "📐", color: "from-brown-500 to-amber-600" },
-    { key: "kitchenFitter", icon: "🍽️", color: "from-orange-400 to-red-500" },
-    { key: "hvac", icon: "🌡️", color: "from-blue-400 to-cyan-500" },
-    { key: "glazier", icon: "🪞", color: "from-sky-400 to-blue-500" },
-    { key: "decorator", icon: "🎨", color: "from-pink-400 to-purple-500" },
-    { key: "bricklayer", icon: "🧱", color: "from-red-600 to-orange-600" },
-    { key: "scaffolder", icon: "🏗️", color: "from-gray-500 to-slate-600" },
-    { key: "welder", icon: "⚡", color: "from-yellow-600 to-orange-600" },
-
-    // Tech & IT
-    { key: "softwareEngineer", icon: "⚙️", color: "from-indigo-600 to-purple-600" },
-    { key: "webDesigner", icon: "🎨", color: "from-pink-500 to-rose-500" },
-    { key: "designer", icon: "✏️", color: "from-violet-500 to-purple-500" },
-    { key: "aiSpecialist", icon: "🤖", color: "from-cyan-600 to-blue-600" },
-    { key: "itSupport", icon: "🖥️", color: "from-blue-500 to-cyan-500" },
-    { key: "dataAnalyst", icon: "📊", color: "from-green-600 to-teal-600" },
-    { key: "cybersecurity", icon: "🔒", color: "from-red-600 to-pink-600" },
-    { key: "devOps", icon: "🔄", color: "from-purple-600 to-indigo-600" },
-
-    // Healthcare
-    { key: "doctor", icon: "🩺", color: "from-blue-400 to-cyan-400" },
-    { key: "pharmacist", icon: "💊", color: "from-green-500 to-emerald-600" },
-    { key: "dentist", icon: "🦷", color: "from-sky-400 to-blue-500" },
-
-    // Professional Services
-    { key: "accountant", icon: "💰", color: "from-green-600 to-teal-600" },
-    { key: "marketing", icon: "📢", color: "from-orange-500 to-amber-500" },
-    { key: "sales", icon: "💼", color: "from-blue-500 to-sky-500" },
-    { key: "hrManager", icon: "👥", color: "from-purple-500 to-violet-500" },
-    { key: "lawyer", icon: "⚖️", color: "from-gray-700 to-slate-700" },
-    { key: "teacher", icon: "📚", color: "from-amber-500 to-yellow-500" },
-    { key: "recruiter", icon: "🎯", color: "from-indigo-500 to-purple-500" },
-    { key: "consultant", icon: "💡", color: "from-yellow-500 to-orange-500" },
-    { key: "architect", icon: "📐", color: "from-slate-600 to-gray-700" },
-
-    // Other Services
-    { key: "chef", icon: "👨‍🍳", color: "from-red-500 to-orange-500" },
-    { key: "security", icon: "🛡️", color: "from-slate-700 to-zinc-700" },
-    { key: "photographer", icon: "📷", color: "from-purple-400 to-pink-500" },
-    { key: "barber", icon: "✂️", color: "from-red-500 to-pink-500" },
-    { key: "personalTrainer", icon: "💪", color: "from-orange-500 to-red-500" },
-    { key: "eventPlanner", icon: "🎉", color: "from-pink-500 to-purple-500" },
+  // Popular Industries - Broader categories (bottom row)
+  const popularIndustries: Category[] = [
+    { key: "plumbingHeating", icon: "🔥", color: "from-slate-600 to-slate-700" },
+    { key: "construction", icon: "🏗️", color: "from-slate-600 to-slate-700" },
+    { key: "healthcareMedical", icon: "🏥", color: "from-slate-600 to-slate-700" },
+    { key: "technologyIT", icon: "💻", color: "from-slate-600 to-slate-700" },
+    { key: "transportationLogistics", icon: "🚐", color: "from-slate-600 to-slate-700" },
+    { key: "cleaningMaintenance", icon: "✨", color: "from-slate-600 to-slate-700" },
+    { key: "landscapingGardening", icon: "🌿", color: "from-slate-600 to-slate-700" },
+    { key: "hospitalityCatering", icon: "🍽️", color: "from-slate-600 to-slate-700" },
+    { key: "professionalServices", icon: "💼", color: "from-slate-600 to-slate-700" },
+    { key: "creativeDesign", icon: "🎨", color: "from-slate-600 to-slate-700" },
+    { key: "educationTraining", icon: "📚", color: "from-slate-600 to-slate-700" },
+    { key: "securitySafety", icon: "🛡️", color: "from-slate-600 to-slate-700" },
+    { key: "automotiveMechanical", icon: "🔩", color: "from-slate-600 to-slate-700" },
+    { key: "legalFinance", icon: "⚖️", color: "from-slate-600 to-slate-700" },
+    { key: "salesMarketing", icon: "📢", color: "from-slate-600 to-slate-700" },
+    { key: "realEstateProperty", icon: "🏘️", color: "from-slate-600 to-slate-700" },
   ]
 
   // Scroll amount for arrow buttons (in pixels)
   const scrollAmount = 600
 
-  const handlePrev = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({
+  const handleCategoriesPrev = () => {
+    if (categoriesScrollRef.current) {
+      categoriesScrollRef.current.scrollBy({
         left: -scrollAmount,
         behavior: 'smooth'
       })
     }
   }
 
-  const handleNext = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({
+  const handleCategoriesNext = () => {
+    if (categoriesScrollRef.current) {
+      categoriesScrollRef.current.scrollBy({
+        left: scrollAmount,
+        behavior: 'smooth'
+      })
+    }
+  }
+
+  const handleIndustriesPrev = () => {
+    if (industriesScrollRef.current) {
+      industriesScrollRef.current.scrollBy({
+        left: -scrollAmount,
+        behavior: 'smooth'
+      })
+    }
+  }
+
+  const handleIndustriesNext = () => {
+    if (industriesScrollRef.current) {
+      industriesScrollRef.current.scrollBy({
         left: scrollAmount,
         behavior: 'smooth'
       })
@@ -118,79 +116,164 @@ export function CategoryCarousel({ onCategoryClick }: CategoryCarouselProps) {
   }
 
   return (
-    <div className="relative mx-auto flex items-center gap-1 sm:gap-2">
-      {/* Left Arrow */}
-      <Button
-        onClick={handlePrev}
-        className="flex-shrink-0 h-10 w-10 rounded-full bg-white shadow-lg hover:bg-gray-100 p-0 z-10"
-        variant="outline"
-        aria-label="Scroll left"
-      >
-        <ChevronLeft className="h-6 w-6" />
-      </Button>
+    <div className="space-y-4">
+      {/* Popular Categories Section */}
+      <div>
+        <h4 className="text-sm font-semibold text-gray-700 mb-2 px-1 text-center">{t('search.popularCategories')}</h4>
+        <div className="relative mx-auto flex items-center gap-1 sm:gap-2">
+          {/* Left Arrow */}
+          <Button
+            onClick={handleCategoriesPrev}
+            className="flex-shrink-0 h-10 w-10 rounded-full bg-white shadow-lg hover:bg-gray-100 p-0 z-10"
+            variant="outline"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
 
-      {/* Categories Container - Horizontal Scroll with 2 Rows (Desktop) / 4 Rows (Mobile) */}
-      <div
-        ref={scrollContainerRef}
-        className="flex-1 overflow-x-auto overflow-y-hidden"
-        style={{
-          scrollbarWidth: 'none', /* Firefox */
-          msOverflowStyle: 'none', /* IE and Edge */
-          WebkitOverflowScrolling: 'touch', /* iOS momentum scrolling */
-        }}
-      >
-        <style jsx>{`
-          div::-webkit-scrollbar {
-            display: none; /* Chrome, Safari, Opera */
-          }
-          .category-grid {
-            grid-template-rows: repeat(4, minmax(0, 1fr));
-            height: 360px;
-          }
-          @media (min-width: 768px) {
-            .category-grid {
-              grid-template-rows: repeat(2, minmax(0, 1fr));
-              height: 180px;
-            }
-          }
-        `}</style>
+          {/* Categories Container - Horizontal Scroll with 2 Rows (Desktop) / 2 Rows (Mobile) */}
+          <div
+            ref={categoriesScrollRef}
+            className="flex-1 overflow-x-auto overflow-y-hidden"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            <style jsx>{`
+              div::-webkit-scrollbar {
+                display: none;
+              }
+              .category-grid-professions {
+                grid-template-rows: repeat(2, minmax(0, 1fr));
+                height: 180px;
+              }
+              @media (min-width: 768px) {
+                .category-grid-professions {
+                  grid-template-rows: repeat(1, minmax(0, 1fr));
+                  height: 90px;
+                }
+              }
+            `}</style>
 
-        {/* Grid with 4 rows on mobile, 2 rows on desktop, auto columns, scrolls horizontally */}
-        <div
-          className="category-grid grid gap-0.5"
-          style={{
-            gridAutoFlow: 'column',
-            gridAutoColumns: '75px',
-          }}
-        >
-          {categories.map((category) => (
-            <button
-              key={category.key}
-              onClick={() => onCategoryClick(t(`categories.${category.key}`))}
-              className={`group relative overflow-hidden rounded-lg p-1 bg-gradient-to-br ${category.color} text-white shadow-md hover:shadow-xl transform hover:scale-105 transition-all duration-300`}
-              aria-label={t(`categories.${category.key}`)}
+            {/* Grid with 2 rows on mobile, 1 row on desktop */}
+            <div
+              className="category-grid-professions grid gap-0.5"
+              style={{
+                gridAutoFlow: 'column',
+                gridAutoColumns: '100px',
+              }}
             >
-              <div className="flex flex-col items-center justify-center text-center h-full gap-1">
-                <div className="flex items-center justify-center flex-shrink-0">
-                  <span className="text-3xl sm:text-4xl drop-shadow-lg leading-none" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>{category.icon}</span>
-                </div>
-                <span className="text-[11px] sm:text-xs font-bold drop-shadow-md leading-tight line-clamp-2 px-1 break-words whitespace-normal w-full">{t(`categories.${category.key}`)}</span>
-              </div>
-              <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
-            </button>
-          ))}
+              {popularCategories.map((category) => (
+                <button
+                  key={category.key}
+                  onClick={() => onCategoryClick(t(`categories.${category.key}`))}
+                  className={`group relative overflow-hidden rounded-lg p-1 bg-gradient-to-br ${category.color} text-white shadow-md hover:shadow-xl transform hover:scale-105 transition-all duration-300`}
+                  aria-label={t(`categories.${category.key}`)}
+                >
+                  <div className="flex flex-col items-center justify-center text-center h-full gap-1">
+                    <div className="flex items-center justify-center flex-shrink-0">
+                      <span className="text-3xl sm:text-4xl drop-shadow-lg leading-none" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>{category.icon}</span>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-bold drop-shadow-md leading-tight line-clamp-2 px-1 break-words whitespace-normal w-full">{t(`categories.${category.key}`)}</span>
+                  </div>
+                  <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Arrow */}
+          <Button
+            onClick={handleCategoriesNext}
+            className="flex-shrink-0 h-10 w-10 rounded-full bg-white shadow-lg hover:bg-gray-100 p-0 z-10"
+            variant="outline"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
         </div>
       </div>
 
-      {/* Right Arrow */}
-      <Button
-        onClick={handleNext}
-        className="flex-shrink-0 h-10 w-10 rounded-full bg-white shadow-lg hover:bg-gray-100 p-0 z-10"
-        variant="outline"
-        aria-label="Scroll right"
-      >
-        <ChevronRight className="h-6 w-6" />
-      </Button>
+      {/* Popular Industries Section */}
+      <div>
+        <h4 className="text-sm font-semibold text-gray-700 mb-2 px-1 text-center">{t('search.popularIndustries')}</h4>
+        <div className="relative mx-auto flex items-center gap-1 sm:gap-2">
+          {/* Left Arrow */}
+          <Button
+            onClick={handleIndustriesPrev}
+            className="flex-shrink-0 h-10 w-10 rounded-full bg-white shadow-lg hover:bg-gray-100 p-0 z-10"
+            variant="outline"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+
+          {/* Industries Container - Horizontal Scroll with 2 Rows (Desktop) / 2 Rows (Mobile) */}
+          <div
+            ref={industriesScrollRef}
+            className="flex-1 overflow-x-auto overflow-y-hidden"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            <style jsx>{`
+              div::-webkit-scrollbar {
+                display: none;
+              }
+              .category-grid-industries {
+                grid-template-rows: repeat(2, minmax(0, 1fr));
+                height: 180px;
+              }
+              @media (min-width: 768px) {
+                .category-grid-industries {
+                  grid-template-rows: repeat(1, minmax(0, 1fr));
+                  height: 90px;
+                }
+              }
+            `}</style>
+
+            {/* Grid with 2 rows on mobile, 1 row on desktop */}
+            <div
+              className="category-grid-industries grid gap-0.5"
+              style={{
+                gridAutoFlow: 'column',
+                gridAutoColumns: '100px',
+              }}
+            >
+              {popularIndustries.map((category) => (
+                <button
+                  key={category.key}
+                  onClick={() => onCategoryClick(t(`categories.${category.key}`))}
+                  className={`group relative overflow-hidden rounded-lg p-1 bg-gradient-to-br ${category.color} text-white shadow-md hover:shadow-xl transform hover:scale-105 transition-all duration-300`}
+                  aria-label={t(`categories.${category.key}`)}
+                >
+                  <div className="flex flex-col items-center justify-center text-center h-full gap-1">
+                    <div className="flex items-center justify-center flex-shrink-0">
+                      <span className="text-3xl sm:text-4xl drop-shadow-lg leading-none" style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}>{category.icon}</span>
+                    </div>
+                    <span className="text-[11px] sm:text-xs font-bold drop-shadow-md leading-tight line-clamp-2 px-1 break-words whitespace-normal w-full">{t(`categories.${category.key}`)}</span>
+                  </div>
+                  <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Right Arrow */}
+          <Button
+            onClick={handleIndustriesNext}
+            className="flex-shrink-0 h-10 w-10 rounded-full bg-white shadow-lg hover:bg-gray-100 p-0 z-10"
+            variant="outline"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

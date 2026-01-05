@@ -48,6 +48,7 @@ import { SignUpPromptModal } from "@/components/sign-up-prompt-modal"
 import { getLanguageFlag } from "@/components/language-selector"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ReviewsList } from "@/components/reviews-list"
+import ProfessionalDetailView from "@/components/professional-detail-view"
 
 interface Professional {
   id: string
@@ -124,7 +125,7 @@ interface Company {
 interface ProfessionalsPageContentProps {
   data: Professional[] | Job[] | Company[]
   user: any | null
-  userType: "professional" | "company" | null
+  userType: "professional" | "company" | "contractor" | "homeowner" | null
   userProfile?: any | null
   searchParams: {
     search?: string
@@ -188,6 +189,8 @@ export default function ProfessionalsPageContent({
   const professionalCardRefs = useRef<{[key: string]: HTMLElement | null}>({})
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
+  const [viewProfileModalId, setViewProfileModalId] = useState<string | null>(null)
+  const [viewProfileData, setViewProfileData] = useState<any | null>(null)
 
   // Scroll to selected professional card
   useEffect(() => {
@@ -495,8 +498,22 @@ export default function ProfessionalsPageContent({
   })
 
 
-  const handleViewProfile = (profileId: string) => {
-    window.open(`/professionals/${profileId}`, '_blank')
+  const handleViewProfile = async (profileId: string) => {
+    // Fetch the full professional profile data
+    const { data, error } = await supabase
+      .from('professional_profiles')
+      .select('*')
+      .eq('id', profileId)
+      .single()
+
+    if (error) {
+      console.error('Error fetching professional profile:', error)
+      return
+    }
+
+    // Open the modal with the profile data
+    setViewProfileData(data)
+    setViewProfileModalId(profileId)
   }
 
   const handleSendInquiry = async (professionalProfileId: string, professionalName: string, professionalUserId?: string) => {
@@ -1880,6 +1897,22 @@ export default function ProfessionalsPageContent({
               userType={reviewsModal.userType}
               title=""
             />
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Professional Profile Modal */}
+      {viewProfileModalId && viewProfileData && (
+        <Dialog open={!!viewProfileModalId} onOpenChange={(open) => !open && setViewProfileModalId(null)}>
+          <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-hidden p-0">
+            <div className="overflow-y-auto max-h-[90vh] p-6">
+              <ProfessionalDetailView
+                professional={viewProfileData}
+                user={user}
+                userType={user ? userType : null}
+                isModal={true}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       )}

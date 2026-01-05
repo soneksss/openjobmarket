@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog"
 import { createClient } from "@/lib/client"
 import { useTranslation } from "@/lib/i18n/context"
+import { getBilingualSearchTerms } from "@/lib/bilingual-search"
 
 const RESULT_LIMIT = 100
 
@@ -45,7 +46,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [isSearching, setIsSearching] = useState(false)
   const [locationError, setLocationError] = useState("")
   const [user, setUser] = useState<any>(null)
-  const [userType, setUserType] = useState<"professional" | "company" | null>(null)
+  const [userType, setUserType] = useState<"professional" | "company" | "contractor" | "homeowner" | null>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [selectedSearchType, setSelectedSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders">("vacancies")
 
@@ -255,9 +256,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       // Set flag to skip autocomplete suggestions for this query
       skipAutocompleteRef.current = true
       setSearchQuery(externalSearchQuery)
-      // If user clicked a category but hasn't selected a location, show a helpful message
+      // If user clicked a category but hasn't selected a location, automatically open map picker
       if (!selectedLocation) {
-        setLocationError("Please select a location to search")
+        // Dispatch event to hide banners when map picker opens
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('mainPageSearch'))
+        }
+        setMapPickerKey(prev => prev + 1) // Increment key to force fresh map instance
+        setShowMapPicker(true)
       }
     }
   }, [externalSearchQuery, selectedLocation])
@@ -661,7 +667,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .eq("is_self_employed", true)
 
         if (searchQuery.trim()) {
-          profQuery = profQuery.or(`first_name.ilike.%${searchQuery.trim()}%,last_name.ilike.%${searchQuery.trim()}%,title.ilike.%${searchQuery.trim()}%`)
+          // Get bilingual search terms for cross-language search
+          const searchTerms = getBilingualSearchTerms(searchQuery.trim())
+          const orConditions = searchTerms.flatMap(term => [
+            `first_name.ilike.%${term}%`,
+            `last_name.ilike.%${term}%`,
+            `title.ilike.%${term}%`
+          ]).join(',')
+          profQuery = profQuery.or(orConditions)
         }
 
         // Apply location-based radius filtering
@@ -771,7 +784,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         console.log(`[MAIN-PAGE-SEARCH] Initial query built for talents`)
 
         if (searchQuery.trim()) {
-          query = query.or(`first_name.ilike.%${searchQuery.trim()}%,last_name.ilike.%${searchQuery.trim()}%,title.ilike.%${searchQuery.trim()}%`)
+          // Get bilingual search terms (e.g., "architect" + "arquiteto")
+          const searchTerms = getBilingualSearchTerms(searchQuery.trim())
+          console.log(`[MAIN-PAGE-SEARCH] Bilingual search terms:`, searchTerms)
+
+          // Build OR conditions for each search term variant
+          const orConditions = searchTerms.flatMap(term => [
+            `first_name.ilike.%${term}%`,
+            `last_name.ilike.%${term}%`,
+            `title.ilike.%${term}%`
+          ]).join(',')
+
+          query = query.or(orConditions)
         }
 
         // Apply talent filters
@@ -1215,7 +1239,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .eq("is_self_employed", true)
 
         if (searchTerm) {
-          profQuery = profQuery.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%`)
+          // Get bilingual search terms for cross-language search
+          const searchTerms = getBilingualSearchTerms(searchTerm)
+          const orConditions = searchTerms.flatMap(term => [
+            `first_name.ilike.%${term}%`,
+            `last_name.ilike.%${term}%`,
+            `title.ilike.%${term}%`
+          ]).join(',')
+          profQuery = profQuery.or(orConditions)
         }
 
         if (searchLat && searchLng) {
@@ -1299,7 +1330,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .eq("available_for_work", true)
 
         if (searchTerm) {
-          query = query.or(`first_name.ilike.%${searchTerm}%,last_name.ilike.%${searchTerm}%,title.ilike.%${searchTerm}%`)
+          // Get bilingual search terms for cross-language search
+          const searchTerms = getBilingualSearchTerms(searchTerm)
+          const orConditions = searchTerms.flatMap(term => [
+            `first_name.ilike.%${term}%`,
+            `last_name.ilike.%${term}%`,
+            `title.ilike.%${term}%`
+          ]).join(',')
+          query = query.or(orConditions)
         }
 
         // Apply location-based radius filtering if coordinates are available
@@ -2012,7 +2050,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               {/* Clear Filters Button */}
               <div className="flex gap-2 mt-4 pt-3 border-t border-white/10">
                 <Button
-                  onClick={() => {
+                  onClick={async () => {
                     // Reset all filters to default values
                     setJobType("all")
                     setExperienceLevel("all")
@@ -2032,6 +2070,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                     setHasOwnTransport(false)
                     setWillingToRelocate(false)
                     setAvailableForBusiness(false)
+
+                    // Trigger a new search with cleared filters
+                    // Use setTimeout to ensure state updates are processed first
+                    setTimeout(() => {
+                      handleSearch(selectedSearchType)
+                    }, 100)
                   }}
                   variant="outline"
                   className="flex-1 h-8 text-xs bg-white/5 border-white/20 text-white hover:bg-white/10"

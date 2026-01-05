@@ -13,10 +13,6 @@ export function BrowseCategoriesSection({ onCategoryClick }: BrowseCategoriesSec
   return (
     <div className="mt-6">
       <div className="container mx-auto px-1 sm:px-2">
-        <h3 className="text-base font-semibold text-gray-700 mb-4 text-center">
-          {t('search.mostPopularCategories')}
-        </h3>
-
         <CategoryCarousel onCategoryClick={onCategoryClick} />
       </div>
     </div>
