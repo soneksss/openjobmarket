@@ -441,6 +441,23 @@ export async function deleteProfessionalAccount(professionalProfileId: string) {
       console.warn("[DELETE_ACCOUNT] Storage cleanup error (non-critical):", storageError)
     }
 
+    // Step 2b: Delete CV files from storage (GDPR/LGPD compliance)
+    try {
+      const { data: cvFiles } = await supabase.storage
+        .from('cv-documents')
+        .list(user.id)
+
+      if (cvFiles && cvFiles.length > 0) {
+        const cvFileNames = cvFiles.map(file => `${user.id}/${file.name}`)
+        await supabase.storage
+          .from('cv-documents')
+          .remove(cvFileNames)
+        console.log("[DELETE_ACCOUNT] Deleted CV files:", cvFileNames)
+      }
+    } catch (storageError) {
+      console.warn("[DELETE_ACCOUNT] CV storage cleanup error (non-critical):", storageError)
+    }
+
     // Step 3: Use admin client to delete the auth user
     try {
       const adminClient = createAdminClient()

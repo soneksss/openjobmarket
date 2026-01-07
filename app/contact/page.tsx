@@ -29,14 +29,32 @@ export default function ContactPage() {
     setSubmitMessage("")
 
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          subject,
+          message,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send message')
+      }
+
       setSubmitMessage(t('contact.sent'))
       setName("")
       setEmail("")
       setSubject("")
       setMessage("")
     } catch (error) {
+      console.error('Contact form error:', error)
       setSubmitMessage(t('contact.error'))
     } finally {
       setIsSubmitting(false)

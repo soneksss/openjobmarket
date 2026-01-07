@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { Button } from "@/components/ui/button"
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { User, Building2, Briefcase, Home, Wrench, Users, ArrowRight, ArrowLeft, Loader2, Check, X } from "lucide-react"
+import { User, Building2, Briefcase, Home, Wrench, Users, ArrowRight, ArrowLeft, Loader2, Check, X, Plus } from "lucide-react"
 import Link from "next/link"
 import { MapLocationPicker } from "@/components/map-location-picker"
 import { useTranslation } from "@/lib/i18n/context"
@@ -68,12 +68,15 @@ interface SignupData {
   // Individual fields
   firstName: string
   lastName: string
+  nickname: string
   // Company fields
   companyName: string
   phone: string
   location: string
   latitude: number | null
   longitude: number | null
+  // Legal requirements
+  ageConfirmation: boolean
   // Step 5: Detailed Profile Fields
   // Professional/Jobseeker fields
   title: string
@@ -111,6 +114,7 @@ export default function MultiStepSignup() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const skillInputRef = useRef<HTMLInputElement>(null)
 
   const [signupData, setSignupData] = useState<SignupData>({
     accountType: null,
@@ -125,11 +129,13 @@ export default function MultiStepSignup() {
     confirmPassword: "",
     firstName: "",
     lastName: "",
+    nickname: "",
     companyName: "",
     phone: "",
     location: "",
     latitude: null,
     longitude: null,
+    ageConfirmation: false,
     // Step 5 fields
     title: "",
     bio: "",
@@ -192,6 +198,12 @@ export default function MultiStepSignup() {
     // Check password length
     if (signupData.password.length < 6) {
       setError(t('signup.passwordTooShort'))
+      return false
+    }
+
+    // Check age confirmation for jobseekers and homeowners
+    if ((signupData.roles.jobseeker || signupData.roles.homeowner) && !signupData.ageConfirmation) {
+      setError(t('signup.mustConfirmAge'))
       return false
     }
 
@@ -297,25 +309,28 @@ export default function MultiStepSignup() {
       if (signUpError) throw signUpError
       if (!authData.user) throw new Error("Failed to create user")
 
-      // Create user record
-      const { error: userError } = await supabase.from("users").upsert({
-        id: authData.user.id,
-        email: signupData.email,
-        user_type: userType,
-        account_type: signupData.accountType,
-        is_jobseeker: signupData.roles.jobseeker,
-        is_homeowner: signupData.roles.homeowner,
-        is_employer: signupData.roles.employer,
-        is_tradespeople: signupData.roles.tradespeople,
-        phone: signupData.phone || null,
-        location: signupData.location || null,
-        latitude: signupData.latitude,
-        longitude: signupData.longitude,
-      }, {
-        onConflict: 'id'
+      // Create user record using database function (bypasses RLS)
+      // This is needed because session may not be available if email confirmation is required
+      const { error: userError } = await supabase.rpc('create_user_on_signup', {
+        p_user_id: authData.user.id,
+        p_email: signupData.email,
+        p_user_type: userType,
+        p_account_type: signupData.accountType,
+        p_is_jobseeker: signupData.roles.jobseeker,
+        p_is_homeowner: signupData.roles.homeowner,
+        p_is_employer: signupData.roles.employer,
+        p_is_tradespeople: signupData.roles.tradespeople,
+        p_phone: signupData.phone || null,
+        p_nickname: signupData.nickname || null,
+        p_location: signupData.location || null,
+        p_latitude: signupData.latitude,
+        p_longitude: signupData.longitude
       })
 
-      if (userError) throw userError
+      if (userError) {
+        console.error("[SIGNUP] Error creating user record:", userError)
+        throw userError
+      }
 
       // Create profile based on user type
       if (userType === "professional") {
@@ -323,6 +338,7 @@ export default function MultiStepSignup() {
           user_id: authData.user.id,
           first_name: signupData.firstName,
           last_name: signupData.lastName,
+          nickname: signupData.nickname || null,
           title: signupData.title,
           bio: signupData.bio || null,
           experience_level: signupData.experienceLevel,
@@ -351,6 +367,7 @@ export default function MultiStepSignup() {
           user_id: authData.user.id,
           first_name: signupData.firstName,
           last_name: signupData.lastName,
+          nickname: signupData.nickname || null,
         })
 
         if (profileError) throw profileError
@@ -676,46 +693,65 @@ export default function MultiStepSignup() {
 
             <div className="space-y-4">
               {signupData.accountType === "individual" ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">{t('signup.firstNameLabel')}</Label>
-                    <Input
-                      id="firstName"
-                      value={signupData.firstName}
-                      onChange={(e) => updateSignupData({ firstName: e.target.value })}
-                      placeholder={t('signup.firstNamePlaceholder')}
-                      required
-                      className="border-2"
-                    />
+                <>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName" className="font-semibold">{t('signup.firstNameLabel')}</Label>
+                      <Input
+                        id="firstName"
+                        value={signupData.firstName}
+                        onChange={(e) => updateSignupData({ firstName: e.target.value })}
+                        placeholder={t('signup.firstNamePlaceholder')}
+                        required
+                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="lastName" className="font-semibold">{t('signup.lastNameLabel')}</Label>
+                      <Input
+                        id="lastName"
+                        value={signupData.lastName}
+                        onChange={(e) => updateSignupData({ lastName: e.target.value })}
+                        placeholder={t('signup.lastNamePlaceholder')}
+                        required
+                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                      />
+                    </div>
                   </div>
+
+                  {/* Nickname field - Optional */}
                   <div>
-                    <Label htmlFor="lastName">{t('signup.lastNameLabel')}</Label>
+                    <Label htmlFor="nickname" className="font-semibold">
+                      {t('signup.nicknameLabel')} <span className="text-xs text-muted-foreground">({t('common.optional')})</span>
+                    </Label>
                     <Input
-                      id="lastName"
-                      value={signupData.lastName}
-                      onChange={(e) => updateSignupData({ lastName: e.target.value })}
-                      placeholder={t('signup.lastNamePlaceholder')}
-                      required
-                      className="border-2"
+                      id="nickname"
+                      value={signupData.nickname}
+                      onChange={(e) => updateSignupData({ nickname: e.target.value })}
+                      placeholder={t('signup.nicknamePlaceholder')}
+                      className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('signup.nicknameHint')}
+                    </p>
                   </div>
-                </div>
+                </>
               ) : (
                 <div>
-                  <Label htmlFor="companyName">{t('signup.companyNameLabel')}</Label>
+                  <Label htmlFor="companyName" className="font-semibold">{t('signup.companyNameLabel')}</Label>
                   <Input
                     id="companyName"
                     value={signupData.companyName}
                     onChange={(e) => updateSignupData({ companyName: e.target.value })}
                     placeholder={t('signup.companyNamePlaceholder')}
                     required
-                    className="border-2"
+                    className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                   />
                 </div>
               )}
 
               <div>
-                <Label htmlFor="email">{t('signup.emailLabel')}</Label>
+                <Label htmlFor="email" className="font-semibold">{t('signup.emailLabel')}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -723,12 +759,12 @@ export default function MultiStepSignup() {
                   onChange={(e) => updateSignupData({ email: e.target.value })}
                   placeholder={t('signup.emailPlaceholderProfile')}
                   required
-                  className="border-2"
+                  className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="password">{t('signup.passwordLabel')}</Label>
+                <Label htmlFor="password" className="font-semibold">{t('signup.passwordLabel')}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -736,12 +772,12 @@ export default function MultiStepSignup() {
                   onChange={(e) => updateSignupData({ password: e.target.value })}
                   placeholder={t('signup.passwordPlaceholder')}
                   required
-                  className="border-2"
+                  className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="confirmPassword">{t('signup.confirmPasswordLabel')}</Label>
+                <Label htmlFor="confirmPassword" className="font-semibold">{t('signup.confirmPasswordLabel')}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -749,19 +785,19 @@ export default function MultiStepSignup() {
                   onChange={(e) => updateSignupData({ confirmPassword: e.target.value })}
                   placeholder={t('signup.confirmPasswordPlaceholder')}
                   required
-                  className="border-2"
+                  className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="phone">{t('signup.phoneLabel')}</Label>
+                <Label htmlFor="phone" className="font-semibold">{t('signup.phoneLabel')}</Label>
                 <Input
                   id="phone"
                   type="tel"
                   value={signupData.phone}
                   onChange={(e) => updateSignupData({ phone: e.target.value })}
                   placeholder={t('signup.phonePlaceholder')}
-                  className="border-2"
+                  className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                 />
               </div>
 
@@ -769,7 +805,7 @@ export default function MultiStepSignup() {
               <div>
                 {(signupData.roles.jobseeker || signupData.roles.tradespeople) ? (
                   <div className="space-y-2">
-                    <Label>
+                    <Label className="font-semibold">
                       {t('signup.yourLocation')}
                     </Label>
                     <MapLocationPicker
@@ -803,7 +839,7 @@ export default function MultiStepSignup() {
                   </div>
                 ) : (signupData.roles.homeowner || signupData.roles.employer) ? (
                   <div className="space-y-2">
-                    <Label>
+                    <Label className="font-semibold">
                       {t('signup.locationOptional')}
                       <span className="text-xs text-muted-foreground ml-2">
                         {t('signup.locationHint')}
@@ -814,10 +850,31 @@ export default function MultiStepSignup() {
                       value={signupData.location}
                       onChange={(e) => updateSignupData({ location: e.target.value })}
                       placeholder={t('signup.locationPlaceholderOptional')}
+                      className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                     />
                   </div>
                 ) : null}
               </div>
+
+              {/* Age Confirmation - Required for Jobseekers and Homeowners */}
+              {(signupData.roles.jobseeker || signupData.roles.homeowner) && (
+                <div className="flex items-start space-x-3 rounded-lg border-2 border-gray-300 bg-white p-4 shadow-sm">
+                  <Checkbox
+                    id="ageConfirmation"
+                    checked={signupData.ageConfirmation}
+                    onCheckedChange={(checked) => updateSignupData({ ageConfirmation: checked as boolean })}
+                    className="mt-1 border-2 border-gray-400"
+                  />
+                  <div className="flex-1">
+                    <label
+                      htmlFor="ageConfirmation"
+                      className="text-sm font-semibold leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                    >
+                      {t('signup.ageConfirmation')} <span className="text-red-500">*</span>
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between pt-4">
@@ -850,14 +907,14 @@ export default function MultiStepSignup() {
                 <>
                   {/* Professional Title with Suggestions */}
                   <div>
-                    <Label htmlFor="title">{t('signup.professionalTitle')} <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="title" className="font-semibold">{t('signup.professionalTitle')} <span className="text-red-500">*</span></Label>
                     <Input
                       id="title"
                       value={signupData.title}
                       onChange={(e) => updateSignupData({ title: e.target.value })}
                       placeholder={t('signup.titlePlaceholder')}
                       required
-                      className="border-2"
+                      className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                       list="titleSuggestions"
                     />
                     <datalist id="titleSuggestions">
@@ -869,24 +926,24 @@ export default function MultiStepSignup() {
 
                   {/* Bio */}
                   <div>
-                    <Label htmlFor="bio">{t('signup.bio')}</Label>
+                    <Label htmlFor="bio" className="font-semibold">{t('signup.bio')}</Label>
                     <textarea
                       id="bio"
                       value={signupData.bio}
                       onChange={(e) => updateSignupData({ bio: e.target.value })}
                       placeholder={t('signup.bioPlaceholder')}
-                      className="w-full min-h-[100px] px-3 py-2 border-2 rounded-md"
+                      className="w-full min-h-[100px] px-3 py-2 bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm rounded-md"
                     />
                   </div>
 
                   {/* Experience Level */}
                   <div>
-                    <Label htmlFor="experienceLevel">{t('signup.experienceLevel')}</Label>
+                    <Label htmlFor="experienceLevel" className="font-semibold">{t('signup.experienceLevel')}</Label>
                     <select
                       id="experienceLevel"
                       value={signupData.experienceLevel}
                       onChange={(e) => updateSignupData({ experienceLevel: e.target.value as any })}
-                      className="w-full px-3 py-2 border-2 rounded-md text-sm"
+                      className="w-full px-3 py-2 bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm rounded-md text-sm"
                     >
                       <option value="entry">{t('signup.entry')}</option>
                       <option value="mid">{t('signup.mid')}</option>
@@ -898,9 +955,10 @@ export default function MultiStepSignup() {
 
                   {/* Skills with Suggestions */}
                   <div>
-                    <Label htmlFor="skillInput">{t('signup.skills')}</Label>
+                    <Label htmlFor="skillInput" className="font-semibold">{t('signup.skills')}</Label>
                     <div className="flex gap-2 mb-2">
                       <Input
+                        ref={skillInputRef}
                         id="skillInput"
                         placeholder={t('signup.skillsPlaceholder')}
                         onKeyDown={(e) => {
@@ -914,9 +972,27 @@ export default function MultiStepSignup() {
                             }
                           }
                         }}
-                        className="border-2"
+                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                         list="skillSuggestions"
                       />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          if (skillInputRef.current) {
+                            const skill = skillInputRef.current.value.trim()
+                            if (skill && !signupData.skills.includes(skill)) {
+                              updateSignupData({ skills: [...signupData.skills, skill] })
+                              skillInputRef.current.value = ''
+                              skillInputRef.current.focus()
+                            }
+                          }
+                        }}
+                        className="shrink-0"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
                     </div>
                     <datalist id="skillSuggestions">
                       {getSkills(locale).map((skill) => (

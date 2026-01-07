@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import CVPreview from "./cv-preview" // Import CVPreview component
+import CVConsentModal from "./cv-consent-modal"
+import CVSensitiveDataWarning from "./cv-sensitive-data-warning"
 import {
   Plus,
   X,
@@ -132,6 +134,12 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
   const [activeSection, setActiveSection] = useState("summary")
   const [showPreview, setShowPreview] = useState(false)
 
+  // GDPR/LGPD Compliance
+  const [showConsentModal, setShowConsentModal] = useState(false)
+  const [showSensitiveWarning, setShowSensitiveWarning] = useState(false)
+  const [consentGiven, setConsentGiven] = useState(false)
+  const [consentChecked, setConsentChecked] = useState(false)
+
   const [cvData, setCvData] = useState<CVData>({
     summary: "",
     citizenship: "",
@@ -151,6 +159,64 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
   useEffect(() => {
     loadCVData()
   }, [])
+
+  // Check CV consent on mount (GDPR/LGPD compliance)
+  useEffect(() => {
+    checkCVConsent()
+  }, [])
+
+  const checkCVConsent = async () => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('professional_profiles')
+        .select('cv_consent_given, cv_source')
+        .eq('id', professionalId)
+        .single()
+
+      if (error) {
+        console.error("[CV-CONSENT] Error checking consent:", error)
+        return
+      }
+
+      setConsentGiven(profile.cv_consent_given || false)
+      setConsentChecked(true)
+
+      // Show consent modal if consent not given
+      if (!profile.cv_consent_given) {
+        setShowConsentModal(true)
+      }
+
+      // If switching from upload to builder, delete uploaded file
+      if (profile.cv_source === 'upload') {
+        await deleteUploadedCV()
+      }
+    } catch (error) {
+      console.error("[CV-CONSENT] Error:", error)
+      setConsentChecked(true)
+    }
+  }
+
+  const deleteUploadedCV = async () => {
+    try {
+      await fetch('/api/cv/upload', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ professionalId }),
+      })
+      console.log("[CV] Deleted uploaded CV (switching to builder)")
+    } catch (error) {
+      console.error("[CV] Error deleting uploaded CV:", error)
+    }
+  }
+
+  const handleConsentGiven = async () => {
+    setConsentGiven(true)
+    setShowConsentModal(false)
+  }
+
+  const handleConsentDeclined = () => {
+    router.push('/dashboard')
+  }
 
   const loadCVData = async () => {
     console.log("[CV] ========== LOADING CV DATA ==========")
@@ -339,6 +405,26 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
     console.log("[CV] ========== END LOADING CV DATA ==========")
   }
 
+  const handleSaveClick = () => {
+    // Check consent first
+    if (!consentGiven) {
+      setShowConsentModal(true)
+      return
+    }
+
+    // Show sensitive data warning before save
+    setShowSensitiveWarning(true)
+  }
+
+  const handleSensitiveWarningContinue = async () => {
+    setShowSensitiveWarning(false)
+    await saveCVData()
+  }
+
+  const handleSensitiveWarningReview = () => {
+    setShowSensitiveWarning(false)
+  }
+
   const saveCVData = async () => {
     setSaving(true)
     try {
@@ -398,6 +484,22 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         saveCertifications(cvId!),
         saveProjects(cvId!),
       ])
+
+      // Update professional_profiles to set cv_source = 'builder'
+      console.log("[v0] Updating professional profile cv_source...")
+      const { error: profileError } = await supabase
+        .from("professional_profiles")
+        .update({
+          cv_source: 'builder',
+          cv_sensitive_data_warning_acknowledged: true,
+          cv_sensitive_data_warning_acknowledged_at: new Date().toISOString(),
+        })
+        .eq("id", professionalId)
+
+      if (profileError) {
+        console.error("[v0] Error updating profile:", profileError)
+        // Don't throw - CV is already saved
+      }
 
       setCvData((prev) => ({ ...prev, id: cvId }))
       console.log("[v0] CV saved successfully!")
@@ -881,7 +983,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
               <Download className="h-4 w-4 mr-2" />
               Download PDF
             </Button>
-            <Button onClick={saveCVData} disabled={saving}>
+            <Button onClick={handleSaveClick} disabled={saving}>
               <Save className="h-4 w-4 mr-2" />
               {saving ? "Saving..." : "Save CV"}
             </Button>
@@ -1704,6 +1806,22 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
 
       {/* CV Preview Modal */}
       <CVPreview professionalId={professionalId} isOpen={showPreview} onClose={() => setShowPreview(false)} />
+
+      {/* CV Consent Modal (GDPR/LGPD Compliance) */}
+      <CVConsentModal
+        isOpen={showConsentModal}
+        onConsent={handleConsentGiven}
+        onDecline={handleConsentDeclined}
+        professionalId={professionalId}
+      />
+
+      {/* Sensitive Data Warning Modal (GDPR/LGPD Compliance) */}
+      <CVSensitiveDataWarning
+        isOpen={showSensitiveWarning}
+        onContinue={handleSensitiveWarningContinue}
+        onReview={handleSensitiveWarningReview}
+        professionalId={professionalId}
+      />
     </div>
   )
 }
