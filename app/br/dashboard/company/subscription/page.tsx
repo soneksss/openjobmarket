@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import {
   Crown,
   Building2,
@@ -16,7 +15,9 @@ import {
   AlertCircle,
   Star,
   Receipt,
-  Download
+  Download,
+  Filter,
+  TrendingUp
 } from "lucide-react"
 import { createClient } from "@/lib/client"
 
@@ -59,7 +60,14 @@ interface BillingHistory {
   invoice_url?: string
 }
 
-export default function CompanySubscriptionPage() {
+// Conversion rate: £1 = R$7
+const GBP_TO_BRL = 7
+
+const convertToBRL = (gbpPrice: number): number => {
+  return Math.round(gbpPrice * GBP_TO_BRL)
+}
+
+export default function CompanySubscriptionPageBR() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [userSubscription, setUserSubscription] = useState<UserSubscription | null>(null)
   const [billingHistory, setBillingHistory] = useState<BillingHistory[]>([])
@@ -78,7 +86,7 @@ export default function CompanySubscriptionPage() {
     try {
       // Get current user
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      if (!user) throw new Error("Não autenticado")
 
       // Load admin settings to check if subscriptions are enabled
       const { data: settings } = await supabase
@@ -107,7 +115,7 @@ export default function CompanySubscriptionPage() {
       if (subError) throw subError
       setUserSubscription(subscriptionData)
 
-      // Load billing history - get all user subscriptions for history
+      // Load billing history
       const { data: historyData, error: historyError } = await supabase
         .from("user_subscriptions")
         .select(`
@@ -123,25 +131,24 @@ export default function CompanySubscriptionPage() {
         .order("created_at", { ascending: false })
 
       if (historyError) {
-        console.warn("Error loading billing history:", historyError)
+        console.warn("Erro ao carregar histórico:", historyError)
       } else {
-        // Transform the data for display
         const transformedHistory: BillingHistory[] = (historyData || []).map((item: any) => ({
           id: item.id,
           created_at: item.created_at,
-          plan_name: item.subscription_plans?.name || "Unknown Plan",
+          plan_name: item.subscription_plans?.name || "Plano Desconhecido",
           amount: item.subscription_plans?.price || item.payment_data?.amount || 0,
-          currency: item.payment_data?.currency || "GBP",
+          currency: item.payment_data?.currency || "BRL",
           status: item.status === 'active' || item.status === 'expired' ? 'completed' : item.status,
-          payment_method: item.payment_data?.payment_gateway || "Credit Card",
+          payment_method: item.payment_data?.payment_gateway || "Cartão de Crédito",
           invoice_url: item.payment_data?.invoice_url
         }))
         setBillingHistory(transformedHistory)
       }
 
     } catch (err) {
-      console.error("Error loading subscription data:", err)
-      setError("Failed to load subscription information")
+      console.error("Erro ao carregar dados de assinatura:", err)
+      setError("Falha ao carregar informações de assinatura")
     } finally {
       setLoading(false)
     }
@@ -153,16 +160,14 @@ export default function CompanySubscriptionPage() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not authenticated")
+      if (!user) throw new Error("Não autenticado")
 
       const plan = plans.find(p => p.id === planId)
-      if (!plan) throw new Error("Plan not found")
+      if (!plan) throw new Error("Plano não encontrado")
 
-      // Calculate end date
       const startDate = new Date()
       const endDate = new Date(startDate.getTime() + (plan.duration_days * 24 * 60 * 60 * 1000))
 
-      // Create subscription record
       const { error: insertError } = await supabase
         .from("user_subscriptions")
         .insert({
@@ -173,8 +178,8 @@ export default function CompanySubscriptionPage() {
           status: 'active',
           payment_data: {
             type: 'simulated_payment',
-            amount: plan.price,
-            currency: 'GBP',
+            amount: convertToBRL(plan.price),
+            currency: 'BRL',
             timestamp: new Date().toISOString(),
             payment_gateway: 'simulated'
           }
@@ -182,28 +187,27 @@ export default function CompanySubscriptionPage() {
 
       if (insertError) throw insertError
 
-      // Reload subscription data
       await loadData()
 
     } catch (err) {
-      console.error("Error purchasing subscription:", err)
-      setError("Failed to purchase subscription. Please try again.")
+      console.error("Erro ao comprar assinatura:", err)
+      setError("Falha ao comprar assinatura. Por favor, tente novamente.")
     } finally {
       setPurchasing(null)
     }
   }
 
   const formatDuration = (days: number) => {
-    if (days === 1) return "1 day"
-    if (days === 7) return "1 week"
-    if (days === 30) return "1 month"
-    if (days < 7) return `${days} days`
-    if (days < 30) return `${Math.floor(days / 7)} weeks`
-    return `${Math.floor(days / 30)} months`
+    if (days === 1) return "1 dia"
+    if (days === 7) return "1 semana"
+    if (days === 30) return "1 mês"
+    if (days < 7) return `${days} dias`
+    if (days < 30) return `${Math.floor(days / 7)} semanas`
+    return `${Math.floor(days / 30)} meses`
   }
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-GB', {
+    return new Date(dateString).toLocaleDateString('pt-BR', {
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -216,35 +220,58 @@ export default function CompanySubscriptionPage() {
         <div className="flex items-center space-x-2">
           <Crown className="h-8 w-8 text-muted-foreground animate-spin" />
           <div>
-            <h1 className="text-3xl font-bold">Subscription</h1>
-            <p className="text-muted-foreground">Loading subscription details...</p>
+            <h1 className="text-3xl font-bold">Assinatura</h1>
+            <p className="text-muted-foreground">Carregando detalhes da assinatura...</p>
           </div>
         </div>
       </div>
     )
   }
 
-  // If subscriptions are disabled, show message
+  // If subscriptions are disabled, show free message
   if (!adminSettings?.subscriptions_enabled) {
     return (
       <div className="space-y-6">
         <div className="flex items-center space-x-2">
           <Crown className="h-8 w-8 text-blue-600" />
           <div>
-            <h1 className="text-3xl font-bold">Subscription</h1>
-            <p className="text-muted-foreground">Manage your company subscription</p>
+            <h1 className="text-3xl font-bold">Assinatura</h1>
+            <p className="text-muted-foreground">Gerenciar sua assinatura de empresa</p>
           </div>
         </div>
 
         <Card className="bg-blue-50 border-blue-200">
           <CardContent className="pt-6">
-            <div className="flex items-center space-x-3">
-              <Star className="h-8 w-8 text-blue-600" />
-              <div>
-                <h3 className="text-lg font-semibold text-blue-800">All Features Available</h3>
-                <p className="text-blue-600">
-                  Subscriptions are currently disabled. You have access to all platform features at no cost.
-                </p>
+            <div className="flex items-start space-x-3">
+              <Star className="h-8 w-8 text-blue-600 flex-shrink-0 mt-1" />
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-800">Todos os Recursos Disponíveis Gratuitamente</h3>
+                  <p className="text-blue-600 mt-1">
+                    As assinaturas foram desabilitadas pelo administrador. Você tem acesso total a todos os recursos da plataforma sem custo.
+                  </p>
+                </div>
+                <div className="bg-white/50 rounded-lg p-3">
+                  <p className="text-sm text-blue-700 font-medium mb-2">Recursos incluídos:</p>
+                  <ul className="text-sm text-blue-600 space-y-1">
+                    <li className="flex items-center space-x-2">
+                      <Check className="h-3 w-3" />
+                      <span>Publicações de vagas ilimitadas</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <Check className="h-3 w-3" />
+                      <span>Contatos profissionais ilimitados</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <Check className="h-3 w-3" />
+                      <span>Filtros de pesquisa avançados</span>
+                    </li>
+                    <li className="flex items-center space-x-2">
+                      <Check className="h-3 w-3" />
+                      <span>Colocação prioritária de vagas</span>
+                    </li>
+                  </ul>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -258,8 +285,8 @@ export default function CompanySubscriptionPage() {
       <div className="flex items-center space-x-2">
         <Crown className="h-8 w-8 text-blue-600" />
         <div>
-          <h1 className="text-3xl font-bold">Subscription</h1>
-          <p className="text-muted-foreground">Manage your company subscription</p>
+          <h1 className="text-3xl font-bold">Assinatura</h1>
+          <p className="text-muted-foreground">Gerenciar sua assinatura de empresa</p>
         </div>
       </div>
 
@@ -280,22 +307,22 @@ export default function CompanySubscriptionPage() {
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-green-800">
               <Check className="h-5 w-5" />
-              <span>Active Subscription</span>
+              <span>Assinatura Ativa</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <h3 className="font-semibold text-green-800">{userSubscription.plan_name} Plan</h3>
-                <p className="text-green-600">£{userSubscription.price}/{formatDuration(30)}</p>
+                <h3 className="font-semibold text-green-800">Plano {userSubscription.plan_name}</h3>
+                <p className="text-green-600">R${convertToBRL(userSubscription.price || 0)}/{formatDuration(30)}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-green-600">Expires on</p>
+                <p className="text-sm text-green-600">Expira em</p>
                 <p className="font-medium text-green-800">
                   {userSubscription.end_date && formatDate(userSubscription.end_date)}
                 </p>
                 <p className="text-xs text-green-600">
-                  {userSubscription.days_remaining} days remaining
+                  {userSubscription.days_remaining} dias restantes
                 </p>
               </div>
             </div>
@@ -303,13 +330,12 @@ export default function CompanySubscriptionPage() {
             {/* Usage Statistics */}
             <div className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Job Postings Usage */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Job Postings</span>
+                    <span>Publicações de Vagas</span>
                     <span>
                       {userSubscription.jobs_used || 0}
-                      {userSubscription.jobs_limit ? ` / ${userSubscription.jobs_limit}` : ' / Unlimited'}
+                      {userSubscription.jobs_limit ? ` / ${userSubscription.jobs_limit}` : ' / Ilimitado'}
                     </span>
                   </div>
                   {userSubscription.jobs_limit && (
@@ -322,13 +348,12 @@ export default function CompanySubscriptionPage() {
                   )}
                 </div>
 
-                {/* Contact Usage */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span>Professional Contacts</span>
+                    <span>Contatos Profissionais</span>
                     <span>
                       {userSubscription.contacts_used || 0}
-                      {userSubscription.contacts_limit ? ` / ${userSubscription.contacts_limit}` : ' / Unlimited'}
+                      {userSubscription.contacts_limit ? ` / ${userSubscription.contacts_limit}` : ' / Ilimitado'}
                     </span>
                   </div>
                   {userSubscription.contacts_limit && (
@@ -350,9 +375,9 @@ export default function CompanySubscriptionPage() {
             <div className="flex items-center space-x-3">
               <AlertCircle className="h-8 w-8 text-amber-600" />
               <div>
-                <h3 className="text-lg font-semibold text-amber-800">No Active Subscription</h3>
+                <h3 className="text-lg font-semibold text-amber-800">Sem Assinatura Ativa</h3>
                 <p className="text-amber-600">
-                  You need an active subscription to post jobs and contact professionals.
+                  Você precisa de uma assinatura ativa para publicar vagas e contactar profissionais.
                 </p>
               </div>
             </div>
@@ -362,94 +387,94 @@ export default function CompanySubscriptionPage() {
 
       {/* Available Plans */}
       <div>
-        <h2 className="text-2xl font-bold mb-4">Available Plans</h2>
+        <h2 className="text-2xl font-bold mb-4">Planos Disponíveis</h2>
         <div className="grid gap-6 md:grid-cols-3">
-          {plans.map((plan) => (
-            <Card
-              key={plan.id}
-              className={`relative ${userSubscription?.plan_name === plan.name ? 'border-green-500 bg-green-50' : 'border-blue-200'}`}
-            >
-              {userSubscription?.plan_name === plan.name && (
-                <div className="absolute top-4 right-4">
-                  <Badge className="bg-green-600">Current Plan</Badge>
-                </div>
-              )}
+          {plans.map((plan) => {
+            const priceInBRL = convertToBRL(plan.price)
+            const isCurrentPlan = userSubscription?.plan_name === plan.name
 
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl">{plan.name}</CardTitle>
-                <div className="text-3xl font-bold text-blue-600">
-                  £{plan.price}
-                  <span className="text-sm font-normal text-muted-foreground">
-                    /{formatDuration(plan.duration_days)}
-                  </span>
-                </div>
-              </CardHeader>
+            return (
+              <Card
+                key={plan.id}
+                className={`relative ${isCurrentPlan ? 'border-green-500 bg-green-50' : 'border-blue-200'}`}
+              >
+                {isCurrentPlan && (
+                  <div className="absolute top-4 right-4">
+                    <Badge className="bg-green-600">Plano Atual</Badge>
+                  </div>
+                )}
 
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <Briefcase className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm">
-                      {plan.job_limit ? `${plan.job_limit} job postings` : 'Unlimited job postings'}
+                <CardHeader className="text-center">
+                  <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <div className="text-3xl font-bold text-blue-600">
+                    R${priceInBRL}
+                    <span className="text-sm font-normal text-muted-foreground">
+                      /{formatDuration(plan.duration_days)}
                     </span>
                   </div>
+                </CardHeader>
 
-                  <div className="flex items-center space-x-2">
-                    <Users className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm">
-                      {plan.contact_limit ? `${plan.contact_limit} professional contacts` : 'Unlimited professional contacts'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm">{formatDuration(plan.duration_days)} duration</span>
-                  </div>
-
-                  {plan.features?.support && (
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex items-center space-x-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-sm capitalize">
-                        {plan.features.support.replace('_', ' ')} support
+                      <Briefcase className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">
+                        {plan.job_limit ? `${plan.job_limit} publicações de vagas` : 'Publicações de vagas ilimitadas'}
                       </span>
                     </div>
-                  )}
 
-                  {plan.features?.analytics && (
                     <div className="flex items-center space-x-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-sm">Advanced analytics</span>
+                      <Users className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">
+                        {plan.contact_limit ? `${plan.contact_limit} contatos profissionais` : 'Contatos profissionais ilimitados'}
+                      </span>
                     </div>
-                  )}
 
-                  {plan.features?.featured_jobs && (
                     <div className="flex items-center space-x-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-sm">Featured job listings</span>
+                      <Filter className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">Filtros de pesquisa avançados</span>
                     </div>
-                  )}
-                </div>
 
-                <Button
-                  className="w-full"
-                  onClick={() => handlePurchaseSubscription(plan.id)}
-                  disabled={purchasing === plan.id || userSubscription?.plan_name === plan.name}
-                  variant={userSubscription?.plan_name === plan.name ? "outline" : "default"}
-                >
-                  {purchasing === plan.id ? (
-                    "Processing..."
-                  ) : userSubscription?.plan_name === plan.name ? (
-                    "Current Plan"
-                  ) : (
-                    <>
-                      <CreditCard className="w-4 h-4 mr-2" />
-                      Subscribe for £{plan.price}
-                    </>
+                    <div className="flex items-center space-x-2">
+                      <TrendingUp className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">Colocação prioritária de vagas</span>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm">Duração de {formatDuration(plan.duration_days)}</span>
+                    </div>
+                  </div>
+
+                  <Button
+                    className="w-full"
+                    onClick={() => handlePurchaseSubscription(plan.id)}
+                    disabled={purchasing === plan.id || isCurrentPlan || !adminSettings?.subscriptions_enabled}
+                    variant={isCurrentPlan ? "outline" : "default"}
+                  >
+                    {purchasing === plan.id ? (
+                      "Processando..."
+                    ) : isCurrentPlan ? (
+                      "Plano Atual"
+                    ) : !adminSettings?.subscriptions_enabled ? (
+                      "Desabilitado"
+                    ) : (
+                      <>
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Assinar por R${priceInBRL}
+                      </>
+                    )}
+                  </Button>
+
+                  {!adminSettings?.subscriptions_enabled && !isCurrentPlan && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      As assinaturas foram desabilitadas pelo administrador. A plataforma está gratuita.
+                    </p>
                   )}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       </div>
 
@@ -457,9 +482,9 @@ export default function CompanySubscriptionPage() {
         <Card className="text-center py-8">
           <CardContent>
             <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Plans Available</h3>
+            <h3 className="text-lg font-semibold mb-2">Nenhum Plano Disponível</h3>
             <p className="text-muted-foreground">
-              No subscription plans are currently available for companies.
+              Nenhum plano de assinatura está disponível atualmente para empresas.
             </p>
           </CardContent>
         </Card>
@@ -469,7 +494,7 @@ export default function CompanySubscriptionPage() {
       <div>
         <h2 className="text-2xl font-bold mb-4 flex items-center">
           <Receipt className="h-6 w-6 mr-2" />
-          Billing History
+          Histórico de Pagamentos
         </h2>
         <Card>
           <CardContent className="p-0">
@@ -478,19 +503,19 @@ export default function CompanySubscriptionPage() {
                 <table className="w-full">
                   <thead className="border-b bg-muted/50">
                     <tr>
-                      <th className="text-left p-4 font-medium">Date</th>
-                      <th className="text-left p-4 font-medium">Plan</th>
-                      <th className="text-left p-4 font-medium">Amount</th>
+                      <th className="text-left p-4 font-medium">Data</th>
+                      <th className="text-left p-4 font-medium">Plano</th>
+                      <th className="text-left p-4 font-medium">Valor</th>
                       <th className="text-left p-4 font-medium">Status</th>
-                      <th className="text-left p-4 font-medium">Payment</th>
-                      <th className="text-left p-4 font-medium">Invoice</th>
+                      <th className="text-left p-4 font-medium">Pagamento</th>
+                      <th className="text-left p-4 font-medium">Nota Fiscal</th>
                     </tr>
                   </thead>
                   <tbody>
                     {billingHistory.map((item) => (
                       <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/20">
                         <td className="p-4">
-                          {new Date(item.created_at).toLocaleDateString('en-GB', {
+                          {new Date(item.created_at).toLocaleDateString('pt-BR', {
                             day: 'numeric',
                             month: 'short',
                             year: 'numeric'
@@ -501,7 +526,8 @@ export default function CompanySubscriptionPage() {
                         </td>
                         <td className="p-4">
                           <div className="font-medium">
-                            {item.currency === 'GBP' ? '£' : item.currency}{item.amount}
+                            {item.currency === 'BRL' || item.currency === 'GBP' ? 'R$' : item.currency}
+                            {item.currency === 'GBP' ? convertToBRL(item.amount) : item.amount}
                           </div>
                         </td>
                         <td className="p-4">
@@ -513,8 +539,8 @@ export default function CompanySubscriptionPage() {
                               item.status === 'pending' ? 'bg-yellow-600' : 'bg-red-600'
                             }
                           >
-                            {item.status === 'completed' ? 'Paid' :
-                             item.status === 'pending' ? 'Pending' : 'Failed'}
+                            {item.status === 'completed' ? 'Pago' :
+                             item.status === 'pending' ? 'Pendente' : 'Falhou'}
                           </Badge>
                         </td>
                         <td className="p-4 text-muted-foreground capitalize">
@@ -525,7 +551,7 @@ export default function CompanySubscriptionPage() {
                             <Button variant="ghost" size="sm" asChild>
                               <a href={item.invoice_url} target="_blank" rel="noopener noreferrer">
                                 <Download className="h-4 w-4 mr-1" />
-                                Download
+                                Baixar
                               </a>
                             </Button>
                           ) : (
@@ -533,19 +559,18 @@ export default function CompanySubscriptionPage() {
                               variant="ghost"
                               size="sm"
                               onClick={() => {
-                                // Generate basic receipt info
-                                const receiptText = `Receipt for ${item.plan_name}\nDate: ${new Date(item.created_at).toLocaleDateString()}\nAmount: £${item.amount}\nStatus: ${item.status}`
+                                const receiptText = `Recibo para ${item.plan_name}\nData: ${new Date(item.created_at).toLocaleDateString('pt-BR')}\nValor: R$${item.currency === 'GBP' ? convertToBRL(item.amount) : item.amount}\nStatus: ${item.status}`
                                 const blob = new Blob([receiptText], { type: 'text/plain' })
                                 const url = URL.createObjectURL(blob)
                                 const a = document.createElement('a')
                                 a.href = url
-                                a.download = `receipt-${item.id}.txt`
+                                a.download = `recibo-${item.id}.txt`
                                 a.click()
                                 URL.revokeObjectURL(url)
                               }}
                             >
                               <Receipt className="h-4 w-4 mr-1" />
-                              Receipt
+                              Recibo
                             </Button>
                           )}
                         </td>
@@ -557,11 +582,11 @@ export default function CompanySubscriptionPage() {
             ) : (
               <div className="text-center py-8">
                 <Receipt className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">No billing history</h3>
+                <h3 className="text-lg font-semibold mb-2">Sem histórico de pagamentos</h3>
                 <p className="text-muted-foreground">
                   {userSubscription?.has_subscription
-                    ? "Your billing history will appear here after your first payment."
-                    : "Subscribe to a plan to see your billing history here."}
+                    ? "Seu histórico de pagamentos aparecerá aqui após o primeiro pagamento."
+                    : "Assine um plano para ver seu histórico de pagamentos aqui."}
                 </p>
               </div>
             )}

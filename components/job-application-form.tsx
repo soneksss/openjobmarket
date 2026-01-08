@@ -73,6 +73,14 @@ export default function JobApplicationForm({
   const [submissionError, setSubmissionError] = useState<string | null>(null)
   const [isCompany, setIsCompany] = useState(false)
   const [freshProfile, setFreshProfile] = useState<UserProfile>(userProfile)
+  const [applicationLimit, setApplicationLimit] = useState<{
+    can_apply: boolean
+    unlimited: boolean
+    applications_used: number
+    applications_limit: number | null
+    applications_remaining: number | null
+    reset_date?: string
+  } | null>(null)
 
   // Helper functions to get poster details (company or homeowner)
   const getPosterName = () => {
@@ -124,7 +132,31 @@ export default function JobApplicationForm({
 
     fetchFreshProfile()
     checkCVAvailability()
+    checkApplicationLimit()
   }, [])
+
+  const checkApplicationLimit = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Only check for professionals/homeowners, not companies
+      const isCompanyApplicant = !!(userProfile as any).company_name
+      if (isCompanyApplicant) return
+
+      const { data: limitData, error } = await supabase
+        .rpc('can_submit_application', { user_id_param: user.id })
+
+      if (error) {
+        console.error("[APPLICATION-LIMIT] Error checking limit:", error)
+      } else if (limitData) {
+        setApplicationLimit(limitData)
+        console.log("[APPLICATION-LIMIT] Limit data loaded:", limitData)
+      }
+    } catch (error) {
+      console.error("[APPLICATION-LIMIT] Exception checking limit:", error)
+    }
+  }
 
   const checkCVAvailability = async () => {
     setCheckingCV(true)
@@ -179,6 +211,37 @@ export default function JobApplicationForm({
       console.log("[v0] Share personal info:", sharePersonalInfo)
       console.log("[v0] Attach CV (UI only):", attachCV)
 
+      // Check application limit (only for professionals/homeowners, not companies)
+      if (!isCompanyApplicant) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          console.log("[APPLICATION-LIMIT] Checking application limit for user:", user.id)
+
+          const { data: limitCheck, error: limitError } = await supabase
+            .rpc('can_submit_application', { user_id_param: user.id })
+
+          if (limitError) {
+            console.error("[APPLICATION-LIMIT] Error checking limit:", limitError)
+          } else if (limitCheck && !limitCheck.can_apply) {
+            console.log("[APPLICATION-LIMIT] Application limit reached:", limitCheck)
+
+            const resetDate = limitCheck.reset_date
+              ? new Date(limitCheck.reset_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+              : 'next month'
+
+            setSubmissionError(
+              `You've reached your monthly application limit (${limitCheck.applications_used}/${limitCheck.applications_limit}). ` +
+              `Upgrade to Premium for unlimited applications, or wait until ${resetDate} when your limit resets.`
+            )
+            setTimeout(() => setSubmissionError(null), 8000)
+            setLoading(false)
+            return
+          } else {
+            console.log("[APPLICATION-LIMIT] Application allowed:", limitCheck)
+          }
+        }
+      }
+
       // Check for duplicate application
       const duplicateCheck = await supabase
         .from("job_applications")
@@ -220,6 +283,23 @@ export default function JobApplicationForm({
       }
 
       console.log("[v0] Application submitted successfully")
+
+      // Increment application counter (only for professionals/homeowners, not companies)
+      if (!isCompanyApplicant) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          console.log("[APPLICATION-LIMIT] Incrementing application counter for user:", user.id)
+
+          const { data: incrementResult, error: incrementError } = await supabase
+            .rpc('increment_application_counter', { user_id_param: user.id })
+
+          if (incrementError) {
+            console.error("[APPLICATION-LIMIT] Error incrementing counter:", incrementError)
+          } else {
+            console.log("[APPLICATION-LIMIT] Counter incremented:", incrementResult)
+          }
+        }
+      }
 
       // If user chose to share personal info, create privacy permission (only for professional applicants)
       if (sharePersonalInfo && !isCompanyApplicant) {
@@ -333,6 +413,64 @@ export default function JobApplicationForm({
       )}
 
       <div className="space-y-6 mt-4">
+              {/* Application Limit Warning */}
+              {!isCompany && applicationLimit && !applicationLimit.unlimited && (
+                <Card className={`border-2 ${
+                  applicationLimit.applications_remaining === 0
+                    ? 'border-red-300 bg-red-50'
+                    : (applicationLimit.applications_remaining || 0) <= 2
+                    ? 'border-amber-300 bg-amber-50'
+                    : 'border-blue-300 bg-blue-50'
+                }`}>
+                  <CardContent className="p-4">
+                    <div className="flex items-start space-x-3">
+                      <AlertCircle className={`h-5 w-5 flex-shrink-0 mt-0.5 ${
+                        applicationLimit.applications_remaining === 0
+                          ? 'text-red-600'
+                          : (applicationLimit.applications_remaining || 0) <= 2
+                          ? 'text-amber-600'
+                          : 'text-blue-600'
+                      }`} />
+                      <div className="flex-1">
+                        <h4 className={`font-semibold ${
+                          applicationLimit.applications_remaining === 0
+                            ? 'text-red-900'
+                            : (applicationLimit.applications_remaining || 0) <= 2
+                            ? 'text-amber-900'
+                            : 'text-blue-900'
+                        }`}>
+                          {applicationLimit.applications_remaining === 0
+                            ? 'Application Limit Reached'
+                            : `${applicationLimit.applications_remaining} Applications Remaining`}
+                        </h4>
+                        <p className={`text-sm mt-1 ${
+                          applicationLimit.applications_remaining === 0
+                            ? 'text-red-800'
+                            : (applicationLimit.applications_remaining || 0) <= 2
+                            ? 'text-amber-800'
+                            : 'text-blue-800'
+                        }`}>
+                          You've used {applicationLimit.applications_used} of {applicationLimit.applications_limit} applications this month.
+                          {applicationLimit.reset_date && ` Resets ${new Date(applicationLimit.reset_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`}
+                        </p>
+                        {(applicationLimit.applications_remaining || 0) <= 2 && (
+                          <Link
+                            href="/dashboard/professional/subscription"
+                            className={`text-sm font-medium inline-flex items-center mt-2 ${
+                              applicationLimit.applications_remaining === 0
+                                ? 'text-red-700 hover:text-red-800'
+                                : 'text-amber-700 hover:text-amber-800'
+                            }`}
+                          >
+                            Upgrade to Premium for unlimited applications →
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Privacy Control Section - Hidden for companies */}
               {!isCompany && (
                 <Card className="border-2 border-blue-200 bg-blue-50/50">
