@@ -311,7 +311,7 @@ export default function MultiStepSignup() {
 
       // Create user record using database function (bypasses RLS)
       // This is needed because session may not be available if email confirmation is required
-      const { error: userError } = await supabase.rpc('create_user_on_signup', {
+      const { data: userResult, error: userError } = await supabase.rpc('create_user_on_signup', {
         p_user_id: authData.user.id,
         p_email: signupData.email,
         p_user_type: userType,
@@ -330,6 +330,12 @@ export default function MultiStepSignup() {
       if (userError) {
         console.error("[SIGNUP] Error creating user record:", userError)
         throw userError
+      }
+
+      // Check if function returned an error in the response
+      if (userResult && !userResult.success) {
+        console.error("[SIGNUP] User creation failed:", userResult)
+        throw new Error(userResult.error || "Failed to create user record")
       }
 
       // Create profile based on user type using RPC functions (bypasses RLS)
