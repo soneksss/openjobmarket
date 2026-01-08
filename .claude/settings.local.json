@@ -55,7 +55,8 @@
       "Bash(if not exist \"c:\\\\Users\\\\sonek\\\\OneDrive\\\\Desktop\\\\MAIN\\\\openjobmarket\\\\app\\\\br\\\\profile\\\\edit\" mkdir \"c:\\\\Users\\\\sonek\\\\OneDrive\\\\Desktop\\\\MAIN\\\\openjobmarket\\\\app\\\\br\\\\profile\\\\edit\")",
       "Bash(copy \"c:\\\\Users\\\\sonek\\\\OneDrive\\\\Desktop\\\\MAIN\\\\openjobmarket\\\\app\\\\dashboard\\\\company\\\\subscription\\\\page.tsx\" \"c:\\\\Users\\\\sonek\\\\OneDrive\\\\Desktop\\\\MAIN\\\\openjobmarket\\\\app\\\\br\\\\dashboard\\\\company\\\\subscription\\\\page.tsx\")",
       "Bash(if exist \".next\" rd /s /q .next)",
-      "Bash(psql:*)"
+      "Bash(psql:*)",
+      "Bash(ren:*)"
     ],
     "deny": [],
     "ask": []

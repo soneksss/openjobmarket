@@ -332,45 +332,55 @@ export default function MultiStepSignup() {
         throw userError
       }
 
-      // Create profile based on user type
+      // Create profile based on user type using RPC functions (bypasses RLS)
+      // This is needed because session may not be available if email confirmation is required
       if (userType === "professional") {
-        const { error: profileError } = await supabase.from("professional_profiles").insert({
-          user_id: authData.user.id,
-          first_name: signupData.firstName,
-          last_name: signupData.lastName,
-          nickname: signupData.nickname || null,
-          title: signupData.title,
-          bio: signupData.bio || null,
-          experience_level: signupData.experienceLevel,
-          skills: signupData.skills.length > 0 ? signupData.skills : null,
-          location: signupData.location || null,
-          latitude: signupData.latitude,
-          longitude: signupData.longitude,
+        const { error: profileError } = await supabase.rpc('create_professional_profile_on_signup', {
+          p_user_id: authData.user.id,
+          p_first_name: signupData.firstName,
+          p_last_name: signupData.lastName,
+          p_nickname: signupData.nickname || null,
+          p_title: signupData.title || null,
+          p_bio: signupData.bio || null,
+          p_experience_level: signupData.experienceLevel,
+          p_skills: signupData.skills.length > 0 ? signupData.skills : null,
+          p_location: signupData.location || null,
+          p_latitude: signupData.latitude,
+          p_longitude: signupData.longitude,
         })
 
-        if (profileError) throw profileError
+        if (profileError) {
+          console.error("[SIGNUP] Error creating professional profile:", profileError)
+          throw profileError
+        }
       } else if (userType === "company") {
-        const { error: profileError } = await supabase.from("company_profiles").insert({
-          user_id: authData.user.id,
-          company_name: signupData.companyName,
-          industry: signupData.industry,
-          bio: signupData.companyBio || null,
-          services: signupData.services.length > 0 ? signupData.services : null,
-          location: signupData.location,
-          latitude: signupData.latitude,
-          longitude: signupData.longitude,
+        const { error: profileError } = await supabase.rpc('create_company_profile_on_signup', {
+          p_user_id: authData.user.id,
+          p_company_name: signupData.companyName,
+          p_industry: signupData.industry || null,
+          p_bio: signupData.companyBio || null,
+          p_services: signupData.services.length > 0 ? signupData.services : null,
+          p_location: signupData.location || null,
+          p_latitude: signupData.latitude,
+          p_longitude: signupData.longitude,
         })
 
-        if (profileError) throw profileError
+        if (profileError) {
+          console.error("[SIGNUP] Error creating company profile:", profileError)
+          throw profileError
+        }
       } else if (userType === "homeowner") {
-        const { error: profileError } = await supabase.from("homeowner_profiles").insert({
-          user_id: authData.user.id,
-          first_name: signupData.firstName,
-          last_name: signupData.lastName,
-          nickname: signupData.nickname || null,
+        const { error: profileError } = await supabase.rpc('create_homeowner_profile_on_signup', {
+          p_user_id: authData.user.id,
+          p_first_name: signupData.firstName,
+          p_last_name: signupData.lastName,
+          p_nickname: signupData.nickname || null,
         })
 
-        if (profileError) throw profileError
+        if (profileError) {
+          console.error("[SIGNUP] Error creating homeowner profile:", profileError)
+          throw profileError
+        }
       }
 
       // Check if email confirmation is required
