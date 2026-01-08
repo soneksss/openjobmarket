@@ -1,124 +1,212 @@
 "use client"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { MailCheck, ArrowLeft } from "lucide-react"
-import Link from "next/link"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/client"
-import { useEffect, useState } from "react"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Mail, CheckCircle2, AlertCircle, Loader2, RefreshCw } from "lucide-react"
+import Link from "next/link"
 
 export default function SignUpSuccessPage() {
-  const searchParams = useSearchParams()
   const router = useRouter()
-  const locale = searchParams?.get('locale')
-  const isPortuguese = locale === 'pt-BR'
-  const [isChecking, setIsChecking] = useState(true)
+  const searchParams = useSearchParams()
+  const locale = searchParams.get('locale')
+  const isPtBr = locale === 'pt-BR'
 
-  const loginUrl = isPortuguese ? "/auth/login?locale=pt-BR" : "/auth/login"
+  const [email, setEmail] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
+  const [resendSuccess, setResendSuccess] = useState(false)
+  const [resendError, setResendError] = useState<string | null>(null)
 
-  // Check if user is already verified and redirect them
   useEffect(() => {
-    const checkVerificationStatus = async () => {
+    // Try to get the user's email from session
+    const checkEmail = async () => {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { session } } = await supabase.auth.getSession()
 
-      if (user?.email_confirmed_at) {
-        // User is already verified, redirect to dashboard
-        console.log('[SIGN-UP-SUCCESS] User already verified, redirecting to dashboard')
-
-        // Get user type from database
-        const { data: userData } = await supabase
-          .from('users')
-          .select('user_type')
-          .eq('id', user.id)
-          .single()
-
-        if (userData?.user_type) {
-          const dashboardPath = userData.user_type === 'professional'
-            ? '/dashboard/professional'
-            : userData.user_type === 'company'
-            ? '/dashboard/company'
-            : '/dashboard/homeowner'
-
-          router.push(isPortuguese ? `/br${dashboardPath}` : dashboardPath)
-          return
+      if (session?.user?.email) {
+        setEmail(session.user.email)
+      } else {
+        // Try to get from localStorage (saved during signup)
+        const savedEmail = localStorage.getItem('signup_email')
+        if (savedEmail) {
+          setEmail(savedEmail)
         }
       }
-
-      setIsChecking(false)
     }
 
-    checkVerificationStatus()
-  }, [router, isPortuguese])
+    checkEmail()
+  }, [])
 
-  if (isChecking) {
-    return (
-      <div className="relative min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 flex items-center justify-center">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p>{isPortuguese ? "Verificando..." : "Checking..."}</p>
-        </div>
-      </div>
-    )
+  const handleResendEmail = async () => {
+    if (!email) {
+      setResendError(isPtBr
+        ? "Não foi possível encontrar seu e-mail. Por favor, tente se cadastrar novamente."
+        : "Could not find your email. Please try signing up again."
+      )
+      return
+    }
+
+    setResending(true)
+    setResendError(null)
+    setResendSuccess(false)
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        }
+      })
+
+      if (error) {
+        console.error('Resend error:', error)
+        setResendError(error.message)
+      } else {
+        setResendSuccess(true)
+        setTimeout(() => setResendSuccess(false), 5000)
+      }
+    } catch (err: any) {
+      console.error('Resend exception:', err)
+      setResendError(err.message || (isPtBr
+        ? "Erro ao reenviar o e-mail"
+        : "Failed to resend email")
+      )
+    } finally {
+      setResending(false)
+    }
+  }
+
+  const t = {
+    title: isPtBr ? "Obrigado por se cadastrar!" : "Thank you for signing up!",
+    description: isPtBr
+      ? "Enviamos um e-mail de confirmação para sua caixa de entrada."
+      : "We've sent a confirmation email to your inbox.",
+    checkEmail: isPtBr ? "Verifique seu e-mail" : "Check your email",
+    emailSentTo: isPtBr ? "Enviamos um e-mail de confirmação para:" : "We sent a confirmation email to:",
+    instructions: isPtBr
+      ? "Por favor, clique no link de confirmação no e-mail para ativar sua conta."
+      : "Please click the confirmation link in the email to activate your account.",
+    checkSpam: isPtBr
+      ? "Não viu o e-mail? Verifique sua pasta de spam ou lixo eletrônico."
+      : "Can't find the email? Check your spam or junk folder.",
+    resendButton: isPtBr ? "Reenviar E-mail de Confirmação" : "Resend Confirmation Email",
+    resending: isPtBr ? "Reenviando..." : "Resending...",
+    resendSuccess: isPtBr
+      ? "E-mail de confirmação reenviado com sucesso! Verifique sua caixa de entrada."
+      : "Confirmation email resent successfully! Check your inbox.",
+    backToLogin: isPtBr ? "Voltar para Login" : "Back to Login",
+    troubleTitle: isPtBr ? "Problemas?" : "Having trouble?",
+    troubleText: isPtBr
+      ? "Se você não receber o e-mail em alguns minutos, tente reenviar ou entre em contato com o suporte."
+      : "If you don't receive the email within a few minutes, try resending or contact support.",
+    emailSettings: isPtBr ? "Configurações de E-mail" : "Email Settings",
+    emailSettingsText: isPtBr
+      ? "Certifique-se de que nosso e-mail não está bloqueado pelo seu provedor. Adicione noreply@mail.app.supabase.co à sua lista de remetentes seguros."
+      : "Make sure our email isn't blocked by your provider. Add noreply@mail.app.supabase.co to your safe senders list.",
   }
 
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[url('/professional-office-buildings-cityscape.jpg')] bg-cover bg-center opacity-10"></div>
-      <div className="absolute inset-0 bg-gradient-to-t from-blue-900/80 to-blue-800/60"></div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-gray-50 to-gray-100">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <div className="bg-green-100 rounded-full p-3">
+              <Mail className="h-8 w-8 text-green-600" />
+            </div>
+          </div>
+          <CardTitle className="text-2xl">{t.title}</CardTitle>
+          <CardDescription>{t.description}</CardDescription>
+        </CardHeader>
 
-      {/* Content */}
-      <div className="relative z-10 flex min-h-screen items-center justify-center p-6 md:p-10">
-        <div className="w-full max-w-md">
-          <Card className="shadow-2xl">
-            <CardHeader className="text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <MailCheck className="h-8 w-8 text-green-600" />
-              </div>
-              <CardTitle className="text-2xl font-bold">
-                {isPortuguese ? "Obrigado por se cadastrar!" : "Thank you for signing up!"}
-              </CardTitle>
-              <CardDescription className="text-base">
-                {isPortuguese ? "Verifique seu e-mail para confirmar" : "Check your email to confirm"}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground text-center">
-                {isPortuguese
-                  ? "Enviamos um link de confirmação para seu e-mail. Por favor, clique no link para verificar sua conta antes de fazer login."
-                  : "We've sent a confirmation link to your email. Please click the link to verify your account before signing in."}
-              </p>
-
-              <div className="rounded-lg bg-blue-50 p-4 border border-blue-200">
-                <p className="text-sm font-medium text-blue-900 mb-2">
-                  {isPortuguese ? "Não recebeu o e-mail?" : "Didn't receive the email?"}
+        <CardContent className="space-y-6">
+          <Alert className="bg-green-50 border-green-200">
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              <p className="font-medium mb-1">{t.checkEmail}</p>
+              {email && (
+                <p className="text-sm">
+                  {t.emailSentTo} <span className="font-semibold">{email}</span>
                 </p>
-                <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
-                  <li>{isPortuguese ? "Verifique sua pasta de spam" : "Check your spam folder"}</li>
-                  <li>{isPortuguese ? "Verifique se o endereço de e-mail está correto" : "Make sure the email address is correct"}</li>
-                  <li>{isPortuguese ? "Aguarde alguns minutos - pode demorar um pouco" : "Wait a few minutes - it may take a while"}</li>
-                </ul>
-              </div>
+              )}
+            </AlertDescription>
+          </Alert>
 
-              <div className="pt-4 space-y-2">
-                <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
-                  <Link href={loginUrl}>
-                    {isPortuguese ? "Ir para Login" : "Go to Login"}
-                  </Link>
-                </Button>
-                <Button asChild variant="outline" className="w-full">
-                  <Link href={isPortuguese ? "/br" : "/"}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    {isPortuguese ? "Voltar para Home" : "Back to Home"}
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+          <div className="space-y-3 text-sm text-gray-600">
+            <p className="flex items-start space-x-2">
+              <span className="text-blue-600 mt-0.5">1.</span>
+              <span>{t.instructions}</span>
+            </p>
+            <p className="flex items-start space-x-2">
+              <span className="text-blue-600 mt-0.5">2.</span>
+              <span>{t.checkSpam}</span>
+            </p>
+          </div>
+
+          {resendSuccess && (
+            <Alert className="bg-blue-50 border-blue-200">
+              <CheckCircle2 className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800">
+                {t.resendSuccess}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {resendError && (
+            <Alert className="bg-red-50 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertDescription className="text-red-800">
+                {resendError}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <Button
+            onClick={handleResendEmail}
+            disabled={resending || !email}
+            variant="outline"
+            className="w-full"
+          >
+            {resending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {t.resending}
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                {t.resendButton}
+              </>
+            )}
+          </Button>
+
+          <Alert className="bg-yellow-50 border-yellow-200">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-yellow-800 text-sm">
+              <p className="font-medium mb-1">{t.emailSettings}</p>
+              <p className="text-xs">{t.emailSettingsText}</p>
+            </AlertDescription>
+          </Alert>
+
+          <div className="border-t pt-4">
+            <p className="text-sm font-medium text-gray-700 mb-2">{t.troubleTitle}</p>
+            <p className="text-xs text-gray-600">{t.troubleText}</p>
+          </div>
+
+          <div className="text-center">
+            <Link
+              href={isPtBr ? '/auth/login?locale=pt-BR' : '/auth/login'}
+              className="text-sm text-blue-600 hover:underline"
+            >
+              {t.backToLogin}
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

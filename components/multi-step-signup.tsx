@@ -253,24 +253,7 @@ export default function MultiStepSignup() {
   }
 
   const handleSignup = async () => {
-    // Validate Step 5 data
     setError(null)
-
-    if (signupData.accountType === "individual" && !signupData.title) {
-      setError("Professional title is required")
-      return
-    }
-
-    if (signupData.accountType === "company" && !signupData.industry) {
-      setError("Industry is required")
-      return
-    }
-
-    if (signupData.accountType === "company" && (!signupData.latitude || !signupData.longitude)) {
-      setError("Company location is required")
-      return
-    }
-
     setIsLoading(true)
 
     try {
@@ -290,18 +273,36 @@ export default function MultiStepSignup() {
         userType = "company"
       }
 
-      // Create auth user
+      // Create auth user with basic metadata only
+      // Detailed profile will be completed in onboarding
+      // Database trigger automatically creates user and profile records
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: signupData.email,
         password: signupData.password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
-            account_type: signupData.accountType,
+            // User type and account type
             user_type: userType,
+            account_type: signupData.accountType,
+
+            // Role flags
+            is_jobseeker: signupData.roles.jobseeker,
+            is_homeowner: signupData.roles.homeowner,
+            is_employer: signupData.roles.employer,
+            is_tradespeople: signupData.roles.tradespeople,
+
+            // Basic personal info
             first_name: signupData.firstName,
             last_name: signupData.lastName,
+            nickname: signupData.nickname || null,
             company_name: signupData.companyName,
+
+            // Contact and location (only if provided in Step 3)
+            phone: signupData.phone || null,
+            location: signupData.location || null,
+            latitude: signupData.latitude,
+            longitude: signupData.longitude,
           },
         },
       })
@@ -309,85 +310,8 @@ export default function MultiStepSignup() {
       if (signUpError) throw signUpError
       if (!authData.user) throw new Error("Failed to create user")
 
-      // Create user record using database function (bypasses RLS)
-      // This is needed because session may not be available if email confirmation is required
-      const { data: userResult, error: userError } = await supabase.rpc('create_user_on_signup', {
-        p_user_id: authData.user.id,
-        p_email: signupData.email,
-        p_user_type: userType,
-        p_account_type: signupData.accountType,
-        p_is_jobseeker: signupData.roles.jobseeker,
-        p_is_homeowner: signupData.roles.homeowner,
-        p_is_employer: signupData.roles.employer,
-        p_is_tradespeople: signupData.roles.tradespeople,
-        p_phone: signupData.phone || null,
-        p_nickname: signupData.nickname || null,
-        p_location: signupData.location || null,
-        p_latitude: signupData.latitude,
-        p_longitude: signupData.longitude
-      })
-
-      if (userError) {
-        console.error("[SIGNUP] Error creating user record:", userError)
-        throw userError
-      }
-
-      // Check if function returned an error in the response
-      if (userResult && !userResult.success) {
-        console.error("[SIGNUP] User creation failed:", userResult)
-        throw new Error(userResult.error || "Failed to create user record")
-      }
-
-      // Create profile based on user type using RPC functions (bypasses RLS)
-      // This is needed because session may not be available if email confirmation is required
-      if (userType === "professional") {
-        const { error: profileError } = await supabase.rpc('create_professional_profile_on_signup', {
-          p_user_id: authData.user.id,
-          p_first_name: signupData.firstName,
-          p_last_name: signupData.lastName,
-          p_nickname: signupData.nickname || null,
-          p_title: signupData.title || null,
-          p_bio: signupData.bio || null,
-          p_experience_level: signupData.experienceLevel,
-          p_skills: signupData.skills.length > 0 ? signupData.skills : null,
-          p_location: signupData.location || null,
-          p_latitude: signupData.latitude,
-          p_longitude: signupData.longitude,
-        })
-
-        if (profileError) {
-          console.error("[SIGNUP] Error creating professional profile:", profileError)
-          throw profileError
-        }
-      } else if (userType === "company") {
-        const { error: profileError } = await supabase.rpc('create_company_profile_on_signup', {
-          p_user_id: authData.user.id,
-          p_company_name: signupData.companyName,
-          p_industry: signupData.industry || null,
-          p_bio: signupData.companyBio || null,
-          p_services: signupData.services.length > 0 ? signupData.services : null,
-          p_location: signupData.location || null,
-          p_latitude: signupData.latitude,
-          p_longitude: signupData.longitude,
-        })
-
-        if (profileError) {
-          console.error("[SIGNUP] Error creating company profile:", profileError)
-          throw profileError
-        }
-      } else if (userType === "homeowner") {
-        const { error: profileError } = await supabase.rpc('create_homeowner_profile_on_signup', {
-          p_user_id: authData.user.id,
-          p_first_name: signupData.firstName,
-          p_last_name: signupData.lastName,
-          p_nickname: signupData.nickname || null,
-        })
-
-        if (profileError) {
-          console.error("[SIGNUP] Error creating homeowner profile:", profileError)
-          throw profileError
-        }
-      }
+      // Save email to localStorage for resend functionality
+      localStorage.setItem('signup_email', signupData.email)
 
       // Check if email confirmation is required
       // If email_confirmed_at is null, user needs to confirm their email
@@ -398,14 +322,8 @@ export default function MultiStepSignup() {
           : "/auth/sign-up-success"
         router.push(signUpSuccessUrl)
       } else {
-        // Email auto-confirmed, redirect directly to dashboard (locale-aware)
-        const dashboardUrl = userType === "professional"
-          ? getLocalePath("/dashboard/professional")
-          : userType === "company"
-          ? getLocalePath("/dashboard/company")
-          : getLocalePath("/dashboard/homeowner")
-
-        router.push(dashboardUrl)
+        // Email auto-confirmed, redirect to onboarding to complete profile
+        router.push(onboardingUrl)
       }
     } catch (err: any) {
       console.error("Signup error:", err)
@@ -425,27 +343,25 @@ export default function MultiStepSignup() {
       }
     } else if (currentStep === 2 || currentStep === 3) {
       if (canProceedFromStep2()) {
-        setCurrentStep(4) // Profile setup
+        setCurrentStep(4) // Basic profile setup (final step)
       } else {
         setError(t('signup.selectAtLeastOneRole'))
       }
     } else if (currentStep === 4) {
-      // Validate Step 4 before proceeding to Step 5
+      // Validate Step 4 and complete signup
       setIsLoading(true)
       const isValid = await validateStep3()
       setIsLoading(false)
       if (isValid) {
-        setCurrentStep(5) // Detailed profile information
+        // Call handleSignup directly instead of moving to Step 5
+        await handleSignup()
       }
     }
   }
 
   const prevStep = () => {
     setError(null)
-    if (currentStep === 5) {
-      // Go back to profile setup
-      setCurrentStep(4)
-    } else if (currentStep === 4) {
+    if (currentStep === 4) {
       // Go back to appropriate role selection
       setCurrentStep(signupData.accountType === "individual" ? 2 : 3)
     } else if (currentStep === 2 || currentStep === 3) {
@@ -458,7 +374,7 @@ export default function MultiStepSignup() {
       <CardHeader>
         <CardTitle className="text-2xl">{t('signup.title')}</CardTitle>
         <CardDescription>
-          {t('signup.step')} {currentStep === 1 ? "1" : currentStep === 2 || currentStep === 3 ? "2" : currentStep === 4 ? "3" : "4"} {t('signup.of')} 4
+          {t('signup.step')} {currentStep === 1 ? "1" : currentStep === 2 || currentStep === 3 ? "2" : "3"} {t('signup.of')} 3
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -899,349 +815,6 @@ export default function MultiStepSignup() {
                 {t('common.back')}
               </Button>
               <Button onClick={nextStep} disabled={isLoading} className="min-w-32">
-                {t('common.continue')}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 5: Detailed Profile Information */}
-        {currentStep === 5 && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">{t('signup.profileDetails')}</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {signupData.accountType === "individual"
-                  ? t('signup.completeYourProfile')
-                  : t('signup.tellUsAboutCompany')}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              {signupData.accountType === "individual" ? (
-                <>
-                  {/* Professional Title with Suggestions */}
-                  <div>
-                    <Label htmlFor="title" className="font-semibold">{t('signup.professionalTitle')} <span className="text-red-500">*</span></Label>
-                    <Input
-                      id="title"
-                      value={signupData.title}
-                      onChange={(e) => updateSignupData({ title: e.target.value })}
-                      placeholder={t('signup.titlePlaceholder')}
-                      required
-                      className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
-                      list="titleSuggestions"
-                    />
-                    <datalist id="titleSuggestions">
-                      {getJobTitles(locale).map((title) => (
-                        <option key={title} value={title} />
-                      ))}
-                    </datalist>
-                  </div>
-
-                  {/* Bio */}
-                  <div>
-                    <Label htmlFor="bio" className="font-semibold">{t('signup.bio')}</Label>
-                    <textarea
-                      id="bio"
-                      value={signupData.bio}
-                      onChange={(e) => updateSignupData({ bio: e.target.value })}
-                      placeholder={t('signup.bioPlaceholder')}
-                      className="w-full min-h-[100px] px-3 py-2 bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm rounded-md"
-                    />
-                  </div>
-
-                  {/* Experience Level */}
-                  <div>
-                    <Label htmlFor="experienceLevel" className="font-semibold">{t('signup.experienceLevel')}</Label>
-                    <select
-                      id="experienceLevel"
-                      value={signupData.experienceLevel}
-                      onChange={(e) => updateSignupData({ experienceLevel: e.target.value as any })}
-                      className="w-full px-3 py-2 bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm rounded-md text-sm"
-                    >
-                      <option value="entry">{t('signup.entry')}</option>
-                      <option value="mid">{t('signup.mid')}</option>
-                      <option value="senior">{t('signup.senior')}</option>
-                      <option value="lead">{t('signup.lead')}</option>
-                      <option value="executive">{t('signup.executive')}</option>
-                    </select>
-                  </div>
-
-                  {/* Skills with Suggestions */}
-                  <div>
-                    <Label htmlFor="skillInput" className="font-semibold">{t('signup.skills')}</Label>
-                    <div className="flex gap-2 mb-2">
-                      <Input
-                        ref={skillInputRef}
-                        id="skillInput"
-                        placeholder={t('signup.skillsPlaceholder')}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            const input = e.currentTarget
-                            const skill = input.value.trim()
-                            if (skill && !signupData.skills.includes(skill)) {
-                              updateSignupData({ skills: [...signupData.skills, skill] })
-                              input.value = ''
-                            }
-                          }
-                        }}
-                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
-                        list="skillSuggestions"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        onClick={() => {
-                          if (skillInputRef.current) {
-                            const skill = skillInputRef.current.value.trim()
-                            if (skill && !signupData.skills.includes(skill)) {
-                              updateSignupData({ skills: [...signupData.skills, skill] })
-                              skillInputRef.current.value = ''
-                              skillInputRef.current.focus()
-                            }
-                          }
-                        }}
-                        className="shrink-0"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <datalist id="skillSuggestions">
-                      {getSkills(locale).map((skill) => (
-                        <option key={skill} value={skill} />
-                      ))}
-                    </datalist>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      <span className="text-sm text-muted-foreground">{locale === 'pt-BR' ? 'Adicionar rápido:' : 'Quick add:'}</span>
-                      {getSkills(locale).filter(s => !signupData.skills.includes(s)).slice(0, 10).map((skill) => (
-                        <Badge
-                          key={skill}
-                          variant="outline"
-                          className="cursor-pointer text-xs"
-                          onClick={() => updateSignupData({ skills: [...signupData.skills, skill] })}
-                        >
-                          {skill}
-                        </Badge>
-                      ))}
-                    </div>
-                    {signupData.skills.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {signupData.skills.map((skill, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                          >
-                            {skill}
-                            <button
-                              type="button"
-                              onClick={() => {
-                                updateSignupData({
-                                  skills: signupData.skills.filter((_, i) => i !== index)
-                                })
-                              }}
-                              className="hover:bg-blue-200 rounded-full"
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Salary Range */}
-                  <div className="space-y-3">
-                    <Label>{t('signup.salaryRange')} (Optional)</Label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="salaryMin" className="text-xs text-muted-foreground">{t('signup.minimum')}</Label>
-                        <Input
-                          id="salaryMin"
-                          type="number"
-                          value={signupData.salaryMin}
-                          onChange={(e) => updateSignupData({ salaryMin: e.target.value })}
-                          placeholder="0"
-                          className="border-2"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="salaryMax" className="text-xs text-muted-foreground">{t('signup.maximum')}</Label>
-                        <Input
-                          id="salaryMax"
-                          type="number"
-                          value={signupData.salaryMax}
-                          onChange={(e) => updateSignupData({ salaryMax: e.target.value })}
-                          placeholder="0"
-                          className="border-2"
-                        />
-                      </div>
-                    </div>
-                    <select
-                      value={signupData.salaryFrequency}
-                      onChange={(e) => updateSignupData({ salaryFrequency: e.target.value as any })}
-                      className="w-full px-3 py-2 border-2 rounded-md text-sm"
-                    >
-                      <option value="per_month">{t('signup.perMonth')}</option>
-                      <option value="per_year">{t('signup.perYear')}</option>
-                      <option value="per_hour">{t('signup.perHour')}</option>
-                    </select>
-                  </div>
-
-                  {/* Additional Information */}
-                  <div className="space-y-3 pt-4 border-t">
-                    <Label className="text-base font-semibold">{t('signup.additionalInfo')}</Label>
-
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="drivingLicense"
-                        checked={signupData.drivingLicense}
-                        onCheckedChange={(checked) => updateSignupData({ drivingLicense: !!checked })}
-                      />
-                      <Label htmlFor="drivingLicense" className="text-sm font-normal cursor-pointer">
-                        {t('signup.hasDrivingLicence')}
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="ownTransport"
-                        checked={signupData.ownTransport}
-                        onCheckedChange={(checked) => updateSignupData({ ownTransport: !!checked })}
-                      />
-                      <Label htmlFor="ownTransport" className="text-sm font-normal cursor-pointer">
-                        {t('signup.hasOwnTransport')}
-                      </Label>
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="willingToRelocate"
-                        checked={signupData.willingToRelocate}
-                        onCheckedChange={(checked) => updateSignupData({ willingToRelocate: !!checked })}
-                      />
-                      <Label htmlFor="willingToRelocate" className="text-sm font-normal cursor-pointer">
-                        {t('signup.readyToRelocate')}
-                      </Label>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Industry */}
-                  <div>
-                    <Label htmlFor="industry">{t('signup.industry')} <span className="text-red-500">*</span></Label>
-                    <Input
-                      id="industry"
-                      value={signupData.industry}
-                      onChange={(e) => updateSignupData({ industry: e.target.value })}
-                      placeholder={t('signup.industryPlaceholder')}
-                      required
-                      className="border-2"
-                    />
-                  </div>
-
-                  {/* Company Bio */}
-                  <div>
-                    <Label htmlFor="companyBio">{t('signup.companyBio')}</Label>
-                    <textarea
-                      id="companyBio"
-                      value={signupData.companyBio}
-                      onChange={(e) => updateSignupData({ companyBio: e.target.value })}
-                      placeholder={t('signup.companyBioPlaceholder')}
-                      className="w-full min-h-[100px] px-3 py-2 border-2 rounded-md"
-                    />
-                  </div>
-
-                  {/* Services */}
-                  <div>
-                    <Label htmlFor="serviceInput">{t('signup.services')}</Label>
-                    <div className="flex gap-2 mb-2">
-                      <Input
-                        id="serviceInput"
-                        placeholder={t('signup.servicesPlaceholder')}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault()
-                            const input = e.currentTarget
-                            const service = input.value.trim()
-                            if (service && !signupData.services.includes(service)) {
-                              updateSignupData({ services: [...signupData.services, service] })
-                              input.value = ''
-                            }
-                          }
-                        }}
-                        className="border-2"
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {signupData.services.map((service, index) => (
-                        <span
-                          key={index}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
-                        >
-                          {service}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              updateSignupData({
-                                services: signupData.services.filter((_, i) => i !== index)
-                              })
-                            }}
-                            className="hover:bg-blue-200 rounded-full"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Company Location on Map */}
-                  <div>
-                    <Label>{t('signup.companyLocation')} <span className="text-red-500">*</span></Label>
-                    <MapLocationPicker
-                      value={
-                        signupData.latitude && signupData.longitude
-                          ? {
-                              latitude: signupData.latitude,
-                              longitude: signupData.longitude,
-                              address: signupData.location
-                            }
-                          : null
-                      }
-                      onChange={(location) => {
-                        if (location) {
-                          updateSignupData({
-                            latitude: location.latitude,
-                            longitude: location.longitude,
-                            location: location.address
-                          })
-                        } else {
-                          updateSignupData({
-                            latitude: null,
-                            longitude: null,
-                            location: ""
-                          })
-                        }
-                      }}
-                      height="350px"
-                      placeholder={t('signup.selectCompanyLocation')}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={prevStep} disabled={isLoading}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {t('common.back')}
-              </Button>
-              <Button onClick={handleSignup} disabled={isLoading} className="min-w-32">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1254,6 +827,7 @@ export default function MultiStepSignup() {
             </div>
           </div>
         )}
+
 
         <div className="mt-6 text-center text-sm">
           <span className="text-muted-foreground">{t('auth.alreadyHaveAccount')} </span>
