@@ -100,15 +100,34 @@ export default function UsefulInfoPage() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white">
-        <div className="absolute inset-0 bg-grid-white/10" />
-        <div className="container mx-auto px-4 py-16 md:py-24 relative">
-          <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h1 className="text-4xl md:text-6xl font-bold leading-tight">
+        <div className="container mx-auto px-4 py-8 relative">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-2xl md:text-3xl font-bold">
               {t('usefulInfo.title')}
             </h1>
-            <p className="text-xl md:text-2xl text-blue-100 font-light">
-              {t('usefulInfo.subtitle')}
-            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Quick Navigation */}
+      <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 text-white py-6">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {sections.map((section) => {
+                const Icon = section.icon
+                return (
+                  <a
+                    key={section.id}
+                    href={`#${section.id}`}
+                    className="flex items-center gap-2 p-3 bg-white/10 backdrop-blur rounded-lg hover:bg-white/20 transition-colors"
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{section.title}</span>
+                  </a>
+                )
+              })}
+            </div>
           </div>
         </div>
       </section>
@@ -148,30 +167,6 @@ export default function UsefulInfoPage() {
               </div>
             )
           })}
-        </div>
-      </section>
-
-      {/* Quick Navigation */}
-      <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 text-white py-12">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <h3 className="text-2xl font-bold text-center mb-8">{t('usefulInfo.quickNav')}</h3>
-            <div className="grid md:grid-cols-2 gap-4">
-              {sections.map((section) => {
-                const Icon = section.icon
-                return (
-                  <a
-                    key={section.id}
-                    href={`#${section.id}`}
-                    className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur rounded-lg hover:bg-white/20 transition-colors"
-                  >
-                    <Icon className="h-6 w-6" />
-                    <span className="font-medium">{section.title}</span>
-                  </a>
-                )
-              })}
-            </div>
-          </div>
         </div>
       </section>
     </div>

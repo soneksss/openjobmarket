@@ -32,11 +32,17 @@ export default function CVSensitiveDataWarning({
   const [isLoading, setIsLoading] = useState(false)
 
   const handleContinue = async () => {
-    if (!acknowledged) return
+    console.log('Continue clicked, acknowledged:', acknowledged)
+    if (!acknowledged) {
+      console.log('Cannot continue - not acknowledged')
+      return
+    }
 
     setIsLoading(true)
     try {
+      console.log('Calling onContinue...')
       await onContinue()
+      console.log('onContinue completed')
     } catch (error) {
       console.error('Error continuing after warning:', error)
     } finally {
@@ -51,29 +57,33 @@ export default function CVSensitiveDataWarning({
 
   return (
     <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent
+        className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[95vw] max-w-[95vw] sm:w-full p-4 sm:p-6"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
-          <div className="flex items-center gap-3 mb-2">
-            <AlertTriangle className="h-8 w-8 text-orange-600" />
-            <DialogTitle className="text-2xl text-orange-900">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <AlertTriangle className="h-6 w-6 sm:h-8 sm:w-8 text-orange-600 flex-shrink-0" />
+            <DialogTitle className="text-xl sm:text-2xl text-orange-900">
               {t('cv.sensitiveWarning.title')}
             </DialogTitle>
           </div>
-          <DialogDescription className="text-base">
+          <DialogDescription className="text-sm sm:text-base">
             {t('cv.sensitiveWarning.description')}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-3 sm:space-y-4 py-3 sm:py-4">
           {/* Warning box */}
-          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-4">
-            <p className="font-semibold text-sm text-red-900 mb-3">
+          <div className="bg-red-50 border-2 border-red-300 rounded-lg p-3 sm:p-4">
+            <p className="font-semibold text-xs sm:text-sm text-red-900 mb-2 sm:mb-3">
               {t('cv.sensitiveWarning.doNotIncludeTitle')}
             </p>
-            <ul className="space-y-2">
+            <ul className="space-y-1 sm:space-y-2">
               {t('cv.sensitiveWarning.doNotInclude').map((item: string, index: number) => (
-                <li key={index} className="flex items-start gap-2 text-sm text-red-800">
-                  <XCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <li key={index} className="flex items-start gap-2 text-xs sm:text-sm text-red-800">
+                  <XCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
                   <span>{item}</span>
                 </li>
               ))}
@@ -81,21 +91,21 @@ export default function CVSensitiveDataWarning({
           </div>
 
           {/* Why this matters */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="font-medium text-sm text-blue-900 mb-2">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+            <p className="font-medium text-xs sm:text-sm text-blue-900 mb-1 sm:mb-2">
               {t('cv.sensitiveWarning.whyThisMatters')}
             </p>
-            <p className="text-sm text-blue-800">
+            <p className="text-xs sm:text-sm text-blue-800">
               {t('cv.sensitiveWarning.gdprLgpdExplanation')}
             </p>
           </div>
 
           {/* What to include instead */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="font-medium text-sm text-green-900 mb-2">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+            <p className="font-medium text-xs sm:text-sm text-green-900 mb-1 sm:mb-2">
               {t('cv.sensitiveWarning.safeToInclude')}
             </p>
-            <ul className="text-sm text-green-800 space-y-1 ml-4 list-disc">
+            <ul className="text-xs sm:text-sm text-green-800 space-y-0.5 sm:space-y-1 ml-3 sm:ml-4 list-disc">
               <li>{t('cv.sensitiveWarning.professionalTitle')}</li>
               <li>{t('cv.sensitiveWarning.workExperience')}</li>
               <li>{t('cv.sensitiveWarning.educationQualifications')}</li>
@@ -106,35 +116,42 @@ export default function CVSensitiveDataWarning({
           </div>
 
           {/* Acknowledgment checkbox */}
-          <div className="flex items-start space-x-3 pt-4 border-t">
+          <div className="flex items-start space-x-2 sm:space-x-3 pt-3 sm:pt-4 border-t">
             <Checkbox
               id="acknowledge"
               checked={acknowledged}
-              onCheckedChange={(checked) => setAcknowledged(checked as boolean)}
-              className="mt-1"
+              onCheckedChange={(checked) => {
+                console.log('Checkbox changed:', checked)
+                setAcknowledged(checked as boolean)
+              }}
+              className="mt-1 flex-shrink-0"
             />
             <label
               htmlFor="acknowledge"
-              className="text-sm font-medium leading-tight cursor-pointer"
+              className="text-xs sm:text-sm font-medium leading-normal cursor-pointer flex-1"
             >
               {t('cv.sensitiveWarning.acknowledgment')}
             </label>
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
+        <DialogFooter className="flex-col sm:flex-row gap-2 pt-2 sm:pt-0">
           <Button
             variant="outline"
             onClick={handleReset}
             disabled={isLoading}
-            className="sm:flex-1"
+            className="w-full sm:flex-1 text-xs sm:text-sm h-10 px-4"
           >
             {t('cv.sensitiveWarning.reviewButton')}
           </Button>
           <Button
             onClick={handleContinue}
             disabled={!acknowledged || isLoading}
-            className="sm:flex-1 bg-green-600 hover:bg-green-700"
+            className={`w-full sm:flex-1 text-xs sm:text-sm h-10 px-4 ${
+              acknowledged && !isLoading
+                ? 'bg-green-600 hover:bg-green-700 text-white'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
           >
             {isLoading ? t('common.loading') : t('cv.sensitiveWarning.continueButton')}
           </Button>

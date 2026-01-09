@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Briefcase, MapPin, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Search, TrendingUp, Info, Filter } from "lucide-react"
+import { Briefcase, MapPin, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Search, TrendingUp, Info, Filter, Upload } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
@@ -21,6 +22,8 @@ import { AdminButton } from "@/components/admin-button"
 import ActivelyLookingModal from "@/components/actively-looking-modal"
 import { usePremiumStatus } from "@/hooks/use-premium-status"
 import { useTranslation } from "@/lib/i18n/context"
+import { useToast } from "@/hooks/use-toast"
+import pica from "pica"
 
 interface User {
   id: string
@@ -124,9 +127,12 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
   const [longitude, setLongitude] = useState<number | null>(profile.longitude || null)
   const [location, setLocation] = useState<string>(profile.location || '')
   const [salaryMin, setSalaryMin] = useState<number | null>(profile.salary_min || null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(profile.profile_photo_url || null)
 
   const supabase = createClient()
   const router = useRouter()
+  const { toast } = useToast()
 
   // NOTE: Subscriptions are only for companies and contractors (businesses), not jobseekers/professionals
   // Passing 'professional' ensures the hook returns early without checking
@@ -504,6 +510,201 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
     }
   }
 
+  const resizeImage = async (file: File, maxSize: number = 300): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      img.onload = async () => {
+        try {
+          if (img.width === 0 || img.height === 0) {
+            reject(new Error("IMAGE_DIMENSIONS_INVALID: Image has invalid dimensions"))
+            return
+          }
+
+          if (img.width > 10000 || img.height > 10000) {
+            reject(new Error("IMAGE_TOO_LARGE: Image dimensions exceed 10000x10000 pixels"))
+            return
+          }
+
+          const canvas = document.createElement("canvas")
+          const size = Math.min(img.width, img.height)
+          const cropX = (img.width - size) / 2
+          const cropY = (img.height - size) / 2
+
+          canvas.width = maxSize
+          canvas.height = maxSize
+
+          let blob: Blob | null = null
+
+          try {
+            const picaInstance = pica()
+            const tempCanvas = document.createElement("canvas")
+            tempCanvas.width = size
+            tempCanvas.height = size
+            const tempCtx = tempCanvas.getContext("2d")
+            if (!tempCtx) {
+              throw new Error("Failed to get temp canvas context")
+            }
+
+            tempCtx.drawImage(img, cropX, cropY, size, size, 0, 0, size, size)
+            await picaInstance.resize(tempCanvas, canvas)
+            // Aggressive compression for avatars - 0.75 quality (smaller file size, still good quality for small display)
+            blob = await picaInstance.toBlob(canvas, "image/webp", 0.75)
+          } catch (picaError) {
+            const ctx = canvas.getContext("2d")
+            if (!ctx) {
+              reject(new Error("IMAGE_PROCESSING_FAILED: Failed to get canvas context"))
+              return
+            }
+
+            ctx.drawImage(img, cropX, cropY, size, size, 0, 0, maxSize, maxSize)
+            blob = await new Promise<Blob | null>((blobResolve) => {
+              // Aggressive compression for avatars - 0.75 quality
+              canvas.toBlob(blobResolve, "image/webp", 0.75)
+            })
+          }
+
+          if (!blob || blob.size === 0) {
+            reject(new Error("IMAGE_CONVERSION_FAILED: Failed to convert image to WebP format"))
+            return
+          }
+
+          const resizedFile = new File([blob], "profile-photo.webp", { type: "image/webp" })
+          URL.revokeObjectURL(img.src)
+          resolve(resizedFile)
+        } catch (error) {
+          URL.revokeObjectURL(img.src)
+          if (error instanceof Error) {
+            reject(error)
+          } else {
+            reject(new Error("IMAGE_PROCESSING_FAILED: Unknown error during image processing"))
+          }
+        }
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src)
+        reject(new Error("IMAGE_LOAD_FAILED: Unable to load image. The file may be corrupted or in an unsupported format"))
+      }
+      const objectUrl = URL.createObjectURL(file)
+      img.src = objectUrl
+    })
+  }
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (typeof window === 'undefined' || !window.Image) {
+      toast({
+        title: "Browser Not Supported",
+        description: "Your browser does not support the required image processing features.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a valid image file (JPEG, PNG, GIF, WebP).",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: `File size is ${(file.size / 1024 / 1024).toFixed(2)}MB. Maximum is 10MB.`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUploadingPhoto(true)
+    try {
+      const resizedFile = await resizeImage(file, 300)
+      const fileName = `${user.id}/profile-photo.webp`
+
+      // Delete old photo if exists
+      if (profilePhotoUrl) {
+        const oldFileName = profilePhotoUrl.split('/').pop()
+        if (oldFileName) {
+          await supabase.storage.from('profile-photos').remove([`${user.id}/${oldFileName}`])
+        }
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, resizedFile, {
+          upsert: true,
+          contentType: 'image/webp',
+        })
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError)
+        toast({
+          title: "Upload Failed",
+          description: uploadError.message,
+          variant: "destructive",
+        })
+        return
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(fileName)
+
+      const { error: updateError } = await supabase
+        .from("professional_profiles")
+        .update({ profile_photo_url: publicUrl })
+        .eq("id", profile.id)
+
+      if (updateError) {
+        console.error("Database update error:", updateError)
+        toast({
+          title: "Update Failed",
+          description: updateError.message,
+          variant: "destructive",
+        })
+        return
+      }
+
+      setProfilePhotoUrl(publicUrl)
+      toast({
+        title: "Success",
+        description: "Profile photo updated successfully!",
+      })
+      router.refresh()
+    } catch (error) {
+      console.error("Error uploading photo:", error)
+
+      if (error instanceof Error) {
+        const errorMessage = error.message
+        if (errorMessage.includes('IMAGE_LOAD_FAILED')) {
+          toast({
+            title: "Failed to Load Image",
+            description: "The image file could not be loaded. Try a different file.",
+            variant: "destructive",
+          })
+        } else if (errorMessage.includes('IMAGE_TOO_LARGE')) {
+          toast({
+            title: "Image Too Large",
+            description: "Image dimensions exceed 10,000x10,000 pixels.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Upload Error",
+            description: errorMessage,
+            variant: "destructive",
+          })
+        }
+      }
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -515,16 +716,33 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
               <CardHeader className="p-3 sm:p-4 relative">
                 {/* Mobile & Desktop Layout */}
                 <div className="flex items-start gap-3 mb-3 sm:mb-2">
-                  <Avatar className="h-16 w-16 sm:h-20 sm:w-20 rounded-full flex-shrink-0">
-                    <AvatarImage
-                      src={profile.profile_photo_url || "/placeholder.svg"}
-                      className="object-cover w-full h-full rounded-full"
+                  <div className="relative flex-shrink-0">
+                    <Avatar className="h-16 w-16 sm:h-20 sm:w-20 rounded-full">
+                      <AvatarImage
+                        src={profilePhotoUrl || "/placeholder.svg"}
+                        className="object-cover w-full h-full rounded-full"
+                      />
+                      <AvatarFallback className="text-lg sm:text-2xl rounded-full">
+                        {profile.first_name[0]}
+                        {profile.last_name[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <Label
+                      htmlFor="photo-upload"
+                      className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1.5 cursor-pointer hover:bg-primary/90 transition-colors shadow-lg"
+                      title="Upload profile photo"
+                    >
+                      <Upload className="h-3 w-3 sm:h-4 sm:w-4" />
+                    </Label>
+                    <Input
+                      id="photo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                      disabled={uploadingPhoto}
                     />
-                    <AvatarFallback className="text-lg sm:text-2xl rounded-full">
-                      {profile.first_name[0]}
-                      {profile.last_name[0]}
-                    </AvatarFallback>
-                  </Avatar>
+                  </div>
 
                   {/* Profile Info - Center */}
                   <div className="flex-1 min-w-0">
@@ -632,21 +850,21 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                 )}
 
                 {profile.bio && (
-                  <p className="text-[10px] sm:text-sm text-foreground line-clamp-2 sm:line-clamp-3 hidden sm:block">{profile.bio}</p>
+                  <p className="text-[10px] sm:text-sm text-foreground line-clamp-2 sm:line-clamp-3">{profile.bio}</p>
                 )}
 
                 {/* Skills */}
                 {profile.skills && profile.skills.length > 0 && (
-                  <div className="space-y-0.5 sm:space-y-1 hidden sm:block">
+                  <div className="space-y-0.5 sm:space-y-1">
                     <h4 className="font-medium text-xs sm:text-sm text-foreground">Skills</h4>
                     <div className="flex flex-wrap gap-1">
                       {profile.skills.slice(0, 3).map((skill, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
+                        <Badge key={idx} variant="secondary" className="text-[10px] sm:text-xs">
                           {skill}
                         </Badge>
                       ))}
                       {profile.skills.length > 3 && (
-                        <span className="text-xs text-muted-foreground">+{profile.skills.length - 3} {t('common.more')}</span>
+                        <span className="text-[10px] sm:text-xs text-muted-foreground">+{profile.skills.length - 3} {t('common.more')}</span>
                       )}
                     </div>
                   </div>

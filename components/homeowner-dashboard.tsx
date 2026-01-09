@@ -6,7 +6,10 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { RatingDisplay } from "@/components/rating-display"
 import { Switch } from "@/components/ui/switch"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import Image from "next/image"
 import {
   Briefcase,
   CheckCircle2,
@@ -23,12 +26,15 @@ import {
   FileText,
   BookmarkIcon,
   Home,
-  Edit
+  Edit,
+  Upload
 } from "lucide-react"
 import { useState } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import { useTranslation } from "@/lib/i18n/context"
+import { useToast } from "@/hooks/use-toast"
+import pica from "pica"
 
 interface HomeownerJob {
   id: string
@@ -82,7 +88,10 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
   const [isTogglingMarket, setIsTogglingMarket] = useState(false)
   const [profileVisible, setProfileVisible] = useState(true)
   const [updatingVisibility, setUpdatingVisibility] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(profile.profile_photo_url || null)
   const router = useRouter()
+  const { toast } = useToast()
 
   const handleToggleMarket = async () => {
     setIsTogglingMarket(true)
@@ -129,6 +138,224 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
     }
   }
 
+  const resizeImage = async (file: File, maxSize: number = 300): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      img.onload = async () => {
+        try {
+          if (img.width === 0 || img.height === 0) {
+            reject(new Error("IMAGE_DIMENSIONS_INVALID: Image has invalid dimensions"))
+            return
+          }
+          if (img.width > 10000 || img.height > 10000) {
+            reject(new Error("IMAGE_TOO_LARGE: Image dimensions exceed 10000x10000 pixels"))
+            return
+          }
+
+          const canvas = document.createElement("canvas")
+          const size = Math.min(img.width, img.height)
+          const cropX = (img.width - size) / 2
+          const cropY = (img.height - size) / 2
+          canvas.width = maxSize
+          canvas.height = maxSize
+
+          let blob: Blob | null = null
+
+          try {
+            const picaInstance = pica()
+            const tempCanvas = document.createElement("canvas")
+            tempCanvas.width = size
+            tempCanvas.height = size
+            const tempCtx = tempCanvas.getContext("2d")
+            if (!tempCtx) throw new Error("Failed to get temp canvas context")
+
+            tempCtx.drawImage(img, cropX, cropY, size, size, 0, 0, size, size)
+            await picaInstance.resize(tempCanvas, canvas)
+            blob = await picaInstance.toBlob(canvas, "image/webp", 0.75)
+          } catch (picaError) {
+            const ctx = canvas.getContext("2d")
+            if (!ctx) {
+              reject(new Error("IMAGE_PROCESSING_FAILED: Failed to get canvas context"))
+              return
+            }
+            ctx.drawImage(img, cropX, cropY, size, size, 0, 0, maxSize, maxSize)
+            blob = await new Promise<Blob | null>((blobResolve) => {
+              canvas.toBlob(blobResolve, "image/webp", 0.75)
+            })
+          }
+
+          if (!blob || blob.size === 0) {
+            reject(new Error("IMAGE_CONVERSION_FAILED: Failed to convert image to WebP format"))
+            return
+          }
+
+          const resizedFile = new File([blob], "profile-photo.webp", { type: "image/webp" })
+          URL.revokeObjectURL(img.src)
+          resolve(resizedFile)
+        } catch (error) {
+          URL.revokeObjectURL(img.src)
+          if (error instanceof Error) {
+            reject(error)
+          } else {
+            reject(new Error("IMAGE_PROCESSING_FAILED: Unknown error during image processing"))
+          }
+        }
+      }
+      img.onerror = () => {
+        URL.revokeObjectURL(img.src)
+        reject(new Error("IMAGE_LOAD_FAILED: Unable to load image"))
+      }
+      const objectUrl = URL.createObjectURL(file)
+      img.src = objectUrl
+    })
+  }
+
+  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "User not found. Please refresh the page.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (typeof window === 'undefined' || !window.Image) {
+      toast({
+        title: "Browser Not Supported",
+        description: "Your browser doesn't support image uploads",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid File Type",
+        description: "Please upload a JPG, PNG, GIF, or WebP image",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File Too Large",
+        description: "Image must be smaller than 10MB",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setUploadingPhoto(true)
+    try {
+      const resizedFile = await resizeImage(file, 300)
+      const supabase = createClient()
+      const fileName = `${user.id}/profile-photo.webp`
+
+      if (profilePhotoUrl) {
+        const oldFileName = profilePhotoUrl.split('/').pop()
+        if (oldFileName) {
+          await supabase.storage.from('profile-photos').remove([`${user.id}/${oldFileName}`])
+        }
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, resizedFile, {
+          upsert: true,
+          contentType: 'image/webp',
+        })
+
+      if (uploadError) {
+        toast({
+          title: "Upload Failed",
+          description: uploadError.message,
+          variant: "destructive",
+        })
+        return
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(fileName)
+
+      const { error: updateError } = await supabase
+        .from("homeowner_profiles")
+        .update({ profile_photo_url: publicUrl })
+        .eq("id", profile.id)
+
+      if (updateError) {
+        toast({
+          title: "Update Failed",
+          description: updateError.message,
+          variant: "destructive",
+        })
+        return
+      }
+
+      setProfilePhotoUrl(publicUrl)
+      toast({
+        title: "Success",
+        description: "Profile photo updated successfully!",
+      })
+      router.refresh()
+    } catch (error) {
+      if (error instanceof Error) {
+        const errorMessage = error.message
+        if (errorMessage.includes('IMAGE_LOAD_FAILED')) {
+          toast({
+            title: "Failed to Load Image",
+            description: "Unable to load the image. Please try a different file.",
+            variant: "destructive",
+          })
+        } else if (errorMessage.includes('IMAGE_TOO_LARGE')) {
+          toast({
+            title: "Image Too Large",
+            description: "Image dimensions exceed 10000x10000 pixels",
+            variant: "destructive",
+          })
+        } else if (errorMessage.includes('IMAGE_DIMENSIONS_INVALID')) {
+          toast({
+            title: "Invalid Image",
+            description: "Image has invalid dimensions",
+            variant: "destructive",
+          })
+        } else if (errorMessage.includes('IMAGE_PROCESSING_FAILED')) {
+          toast({
+            title: "Processing Failed",
+            description: "Failed to process image. Please try again.",
+            variant: "destructive",
+          })
+        } else if (errorMessage.includes('IMAGE_CONVERSION_FAILED')) {
+          toast({
+            title: "Conversion Failed",
+            description: "Failed to convert image to WebP format",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Upload Error",
+            description: errorMessage,
+            variant: "destructive",
+          })
+        }
+      } else {
+        toast({
+          title: "Upload Error",
+          description: "An unexpected error occurred",
+          variant: "destructive",
+        })
+      }
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
   const getStatusInfo = (job: HomeownerJob) => {
     const now = new Date()
     const expiresAt = job.expires_at ? new Date(job.expires_at) : null
@@ -159,15 +386,32 @@ export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDash
                   </Button>
                 </Link>
                 <div className="flex items-center gap-2 mb-3">
-                  <Avatar className="h-12 w-12 rounded-full">
-                    <AvatarImage
-                      src={profile.profile_photo_url || user?.profile_photo_url || "/placeholder.svg"}
-                      className="object-cover"
+                  <div className="relative flex-shrink-0">
+                    <Avatar className="h-12 w-12 rounded-full">
+                      <AvatarImage
+                        src={profilePhotoUrl || "/placeholder.svg"}
+                        className="object-cover w-full h-full rounded-full"
+                      />
+                      <AvatarFallback className="text-sm rounded-full">
+                        {profile.first_name[0]}{profile.last_name[0]}
+                      </AvatarFallback>
+                    </Avatar>
+                    <Label
+                      htmlFor="homeowner-photo-upload"
+                      className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1 cursor-pointer hover:bg-primary/90 transition-colors shadow-lg"
+                      title="Upload profile photo"
+                    >
+                      <Upload className="h-3 w-3" />
+                    </Label>
+                    <Input
+                      id="homeowner-photo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handlePhotoUpload}
+                      disabled={uploadingPhoto}
                     />
-                    <AvatarFallback className="text-sm">
-                      {profile.first_name[0]}{profile.last_name[0]}
-                    </AvatarFallback>
-                  </Avatar>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <h2 className="text-sm font-bold truncate">{displayName}</h2>
                     <p className="text-xs text-muted-foreground">{displayTitle}</p>

@@ -96,15 +96,34 @@ export default function UsefulInfoPage() {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-900 text-white">
-        <div className="absolute inset-0 bg-grid-white/10" />
-        <div className="container mx-auto px-4 py-16 md:py-20 relative">
-          <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h1 className="text-4xl md:text-6xl font-bold leading-tight">
+        <div className="container mx-auto px-4 py-8 relative">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="text-2xl md:text-3xl font-bold">
               {t('usefulInfo.title')}
             </h1>
-            <p className="text-xl md:text-2xl text-blue-100 font-light">
-              {t('usefulInfo.subtitle')}
-            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Quick Navigation */}
+      <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 text-white py-6">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {sections.map((section) => {
+                const Icon = section.icon
+                return (
+                  <a
+                    key={section.id}
+                    href={`#${section.id}`}
+                    className="flex items-center gap-2 p-3 bg-white/10 backdrop-blur rounded-lg hover:bg-white/20 transition-colors"
+                  >
+                    <Icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-sm font-medium">{section.title}</span>
+                  </a>
+                )
+              })}
+            </div>
           </div>
         </div>
       </section>
@@ -117,7 +136,7 @@ export default function UsefulInfoPage() {
             const colors = colorClasses[section.color as keyof typeof colorClasses]
 
             return (
-              <div key={section.id} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div key={section.id} id={section.id} className="bg-white rounded-2xl shadow-lg overflow-hidden scroll-mt-20">
                 <div className={`bg-gradient-to-r ${colors.gradient} text-white px-6 md:px-8 py-6`}>
                   <div className="flex items-center gap-4">
                     <Icon className="h-10 w-10 md:h-12 md:w-12" />
@@ -144,32 +163,6 @@ export default function UsefulInfoPage() {
               </div>
             )
           })}
-        </div>
-      </section>
-
-      {/* Quick Navigation */}
-      <section className="bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 text-white py-12 md:py-16">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-bold text-center mb-8">
-              Quick Navigation
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {sections.map((section) => {
-                const Icon = section.icon
-                return (
-                  <a
-                    key={section.id}
-                    href={`#${section.id}`}
-                    className="flex flex-col items-center gap-3 p-4 bg-white/10 backdrop-blur rounded-lg hover:bg-white/20 transition-colors"
-                  >
-                    <Icon className="h-8 w-8" />
-                    <span className="text-sm font-medium text-center">{section.title}</span>
-                  </a>
-                )
-              })}
-            </div>
-          </div>
         </div>
       </section>
     </div>
