@@ -1,20 +1,9 @@
--- Migration: Create Auth User Trigger for Automatic User Profile Creation
--- Date: 2026-01-08 14:00:00
--- Description: Database trigger that automatically creates user and profile records when auth user is created
--- This eliminates race conditions and foreign key violations during signup
+-- Migration: Update Auth Trigger to Handle Re-registration
+-- Date: 2026-01-09
+-- Description: Adds ON CONFLICT handling to allow users to re-register with previously deleted accounts
 
--- ============================================================================
--- DROP OLD SIGNUP FUNCTIONS (No longer needed)
--- ============================================================================
-
-DROP FUNCTION IF EXISTS public.create_user_on_signup(UUID, TEXT, TEXT, TEXT, BOOLEAN, BOOLEAN, BOOLEAN, BOOLEAN, TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION);
-DROP FUNCTION IF EXISTS public.create_professional_profile_on_signup(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT[], TEXT, DOUBLE PRECISION, DOUBLE PRECISION);
-DROP FUNCTION IF EXISTS public.create_company_profile_on_signup(UUID, TEXT, TEXT, TEXT, TEXT[], TEXT, DOUBLE PRECISION, DOUBLE PRECISION);
-DROP FUNCTION IF EXISTS public.create_homeowner_profile_on_signup(UUID, TEXT, TEXT, TEXT);
-
--- ============================================================================
--- CREATE TRIGGER FUNCTION
--- ============================================================================
+-- Drop and recreate the trigger function with conflict handling
+DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER
@@ -235,16 +224,13 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.handle_new_user IS
-  'Trigger function that automatically creates user and profile records when a new auth user is created. Eliminates race conditions.';
-
--- ============================================================================
--- CREATE TRIGGER
--- ============================================================================
-
+-- Recreate the trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
   EXECUTE FUNCTION public.handle_new_user();
+
+COMMENT ON FUNCTION public.handle_new_user IS
+  'Trigger function that automatically creates user and profile records when a new auth user is created. Supports re-registration by updating existing records on conflict.';

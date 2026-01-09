@@ -24,15 +24,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  console.log("[v0] Layout rendering...")
-
   const supabase = await createClient()
   const {
     data: { user },
     error: userError,
   } = await supabase.auth.getUser()
-
-  console.log("[LAYOUT] User data:", { hasUser: !!user, userEmail: user?.email, userId: user?.id, userError })
 
   let userType = null
   if (user) {
@@ -40,15 +36,9 @@ export default async function RootLayout({
       const { data: userData, error } = await supabase.from("users").select("user_type").eq("id", user.id).single()
       if (error) {
         // Log error but don't break - user might be in the process of onboarding
-        if (typeof console !== 'undefined' && console.log) {
-          console.log("[LAYOUT] Could not fetch user type (user may be onboarding):", error.code)
-        }
         userType = null
       } else {
         userType = userData?.user_type
-        if (typeof console !== 'undefined' && console.log) {
-          console.log("[LAYOUT] User type found:", userType)
-        }
       }
     } catch (error) {
       // Silently handle - user might be mid-onboarding
@@ -56,16 +46,12 @@ export default async function RootLayout({
     }
   }
 
-  console.log("[LAYOUT] Final user data for layout:", { hasUser: !!user, userType })
-
   // Read locale from cookie set by middleware (server-side)
   const cookieStore = await cookies()
   const localeCookie = cookieStore.get('NEXT_LOCALE')
   let serverLocale: Locale = (localeCookie?.value === 'pt-BR' || localeCookie?.value === 'en')
     ? localeCookie.value as Locale
     : 'en'
-
-  console.log("[LAYOUT] Server-side locale detected:", serverLocale, "from cookie:", localeCookie?.value)
 
   return (
     <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
