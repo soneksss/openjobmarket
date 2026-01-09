@@ -171,10 +171,20 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         .from('professional_profiles')
         .select('cv_consent_given, cv_source')
         .eq('id', professionalId)
-        .single()
+        .maybeSingle()
 
       if (error) {
-        console.error("[CV-CONSENT] Error checking consent:", error)
+        // Columns don't exist yet (migrations not run) - skip consent check
+        console.warn("[CV-CONSENT] Consent columns not available yet:", error)
+        setConsentGiven(true) // Default to true when feature not available
+        setConsentChecked(true)
+        return
+      }
+
+      if (!profile) {
+        // No profile found - skip consent check
+        setConsentGiven(true)
+        setConsentChecked(true)
         return
       }
 
@@ -192,6 +202,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
       }
     } catch (error) {
       console.error("[CV-CONSENT] Error:", error)
+      setConsentGiven(true) // Default to true on error
       setConsentChecked(true)
     }
   }
@@ -203,7 +214,6 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ professionalId }),
       })
-      console.log("[CV] Deleted uploaded CV (switching to builder)")
     } catch (error) {
       console.error("[CV] Error deleting uploaded CV:", error)
     }
@@ -219,39 +229,40 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
   }
 
   const loadCVData = async () => {
-    console.log("[CV] ========== LOADING CV DATA ==========")
-    console.log("[CV] Professional ID:", professionalId)
-    console.log("[CV] Professional ID type:", typeof professionalId)
-    console.log("[CV] Professional ID value:", JSON.stringify(professionalId))
     setLoading(true)
     try {
-      console.log("[CV] Fetching CV main record from database...")
-      console.log("[CV] Query: SELECT * FROM professional_cvs WHERE professional_id =", professionalId)
-
       // Get CV main record only - fast query
       const { data: cvRecord, error: cvError } = await supabase
         .from("professional_cvs")
         .select("*")
         .eq("professional_id", professionalId)
-        .single()
-
-      console.log("[CV] Query completed!")
-      console.log("[CV] CV Record:", cvRecord)
-      console.log("[CV] CV Error:", cvError)
-      console.log("[CV] Error code:", cvError?.code)
-      console.log("[CV] Error message:", cvError?.message)
-      console.log("[CV] Error details:", cvError?.details)
+        .maybeSingle() // Use maybeSingle() instead of single() to avoid errors for new users
 
       if (cvError) {
-        console.log("[CV] ❌ No existing CV found or error:", cvError)
+        console.error("[CV] Error fetching CV:", cvError)
+        // Pre-populate with profile data on error
+        setCvData((prev) => ({
+          ...prev,
+          summary: initialProfileData.bio,
+          skills: initialProfileData.skills.map((skillName) => ({
+            skillName,
+            category: "",
+            proficiencyLevel: "",
+            yearsExperience: undefined,
+          })),
+        }))
+        setLoading(false)
+        return
+      }
+
+      if (!cvRecord) {
         // This is normal for first-time users - pre-populate with profile data
-        console.log("[CV] Pre-populating with profile data:", initialProfileData)
 
         // Pre-fill form with profile information
         setCvData((prev) => ({
           ...prev,
           summary: initialProfileData.bio,
-          skills: initialProfileData.skills.map((skillName, index) => ({
+          skills: initialProfileData.skills.map((skillName) => ({
             skillName,
             category: "",
             proficiencyLevel: "",
@@ -259,14 +270,11 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
           })),
         }))
 
-        console.log("[CV] ✅ No CV exists - form pre-populated, setting loading = false")
         setLoading(false)
         return
       }
 
       if (cvRecord) {
-        console.log("[CV] ✅ Found existing CV:", cvRecord.id)
-
         // Set the basic CV data immediately so form shows
         setCvData({
           id: cvRecord.id,
@@ -283,10 +291,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         })
 
         // Stop loading state so form becomes interactive
-        console.log("[CV] ✅ Setting loading = false (basic CV loaded)")
         setLoading(false)
-        console.log("[CV] Loading state is now:", false)
-        console.log("[CV] Loading sections in background...")
 
         // Load all sections in parallel in the background
         Promise.all([
@@ -297,7 +302,6 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
           supabase.from("cv_certifications").select("*").eq("cv_id", cvRecord.id).order("display_order"),
           supabase.from("cv_projects").select("*").eq("cv_id", cvRecord.id).order("display_order"),
         ]).then(([workExp, education, skills, languages, certifications, projects]) => {
-          console.log("[CV] Background sections loaded successfully")
 
           // Check for errors in each section
           if (workExp.error) console.warn("[CV] Error loading work experience:", workExp.error)
@@ -378,7 +382,6 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                 role: proj.role || "",
               })) || [],
           })
-          console.log("[CV] All sections loaded and updated")
         }).catch((error) => {
           console.error("[CV] Error loading sections in background:", error)
         })
@@ -399,10 +402,8 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
           yearsExperience: undefined,
         })),
       }))
-      console.log("[CV] ✅ Error handled, setting loading = false")
       setLoading(false)
     }
-    console.log("[CV] ========== END LOADING CV DATA ==========")
   }
 
   const handleSaveClick = () => {
@@ -513,7 +514,6 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
   }
 
   const saveWorkExperience = async (cvId: string) => {
-    console.log("[CV] Saving work experience...")
     // Delete existing entries
     const { error: deleteError } = await supabase.from("cv_work_experience").delete().eq("cv_id", cvId)
     if (deleteError) {
@@ -542,11 +542,9 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         throw new Error(`Failed to insert work experience: ${insertError.message}`)
       }
     }
-    console.log("[CV] Work experience saved successfully")
   }
 
   const saveEducation = async (cvId: string) => {
-    console.log("[CV] Saving education...")
     const { error: deleteError } = await supabase.from("cv_education").delete().eq("cv_id", cvId)
     if (deleteError) {
       console.error("[CV] Error deleting education:", deleteError)
@@ -574,11 +572,9 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         throw new Error(`Failed to insert education: ${insertError.message}`)
       }
     }
-    console.log("[CV] Education saved successfully")
   }
 
   const saveSkills = async (cvId: string) => {
-    console.log("[CV] Saving skills...")
     const { error: deleteError } = await supabase.from("cv_skills").delete().eq("cv_id", cvId)
     if (deleteError) {
       console.error("[CV] Error deleting skills:", deleteError)
@@ -601,11 +597,9 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         throw new Error(`Failed to insert skills: ${insertError.message}`)
       }
     }
-    console.log("[CV] Skills saved successfully")
   }
 
   const saveLanguages = async (cvId: string) => {
-    console.log("[CV] Saving languages...")
     const { error: deleteError } = await supabase.from("cv_languages").delete().eq("cv_id", cvId)
     if (deleteError) {
       console.error("[CV] Error deleting languages:", deleteError)
@@ -627,11 +621,9 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         throw new Error(`Failed to insert languages: ${insertError.message}`)
       }
     }
-    console.log("[CV] Languages saved successfully")
   }
 
   const saveCertifications = async (cvId: string) => {
-    console.log("[CV] Saving certifications...")
     const { error: deleteError } = await supabase.from("cv_certifications").delete().eq("cv_id", cvId)
     if (deleteError) {
       console.error("[CV] Error deleting certifications:", deleteError)
@@ -657,11 +649,9 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         throw new Error(`Failed to insert certifications: ${insertError.message}`)
       }
     }
-    console.log("[CV] Certifications saved successfully")
   }
 
   const saveProjects = async (cvId: string) => {
-    console.log("[CV] Saving projects...")
     const { error: deleteError } = await supabase.from("cv_projects").delete().eq("cv_id", cvId)
     if (deleteError) {
       console.error("[CV] Error deleting projects:", deleteError)
@@ -688,7 +678,6 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         throw new Error(`Failed to insert projects: ${insertError.message}`)
       }
     }
-    console.log("[CV] Projects saved successfully")
   }
 
   // Helper functions for adding/removing items
@@ -959,52 +948,52 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-6xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" asChild>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4 sm:mb-8">
+          <div className="flex items-center space-x-2 sm:space-x-4 w-full sm:w-auto">
+            <Button variant="ghost" size="sm" asChild className="h-8 sm:h-9">
               <Link href="/dashboard/professional">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Dashboard
+                <ArrowLeft className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Back to Dashboard</span>
               </Link>
             </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">CV Builder</h1>
-              <p className="text-muted-foreground">Build your professional CV step by step</p>
+            <div className="flex-1 sm:flex-initial">
+              <h1 className="text-xl sm:text-3xl font-bold text-foreground">CV Builder</h1>
+              <p className="text-xs sm:text-base text-muted-foreground hidden sm:block">Build your professional CV step by step</p>
             </div>
           </div>
-          <div className="flex items-center space-x-2">
-            <Button variant="outline" size="sm" onClick={() => setShowPreview(true)}>
-              <Eye className="h-4 w-4 mr-2" />
-              Preview
+          <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-end">
+            <Button variant="outline" size="sm" onClick={() => setShowPreview(true)} className="h-8 sm:h-9 px-2 sm:px-4">
+              <Eye className="h-4 w-4" />
+              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm hidden sm:inline">Preview</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
-              <Download className="h-4 w-4 mr-2" />
-              Download PDF
+            <Button variant="outline" size="sm" onClick={handleDownloadPDF} className="h-8 sm:h-9 px-2 sm:px-4">
+              <Download className="h-4 w-4" />
+              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm hidden sm:inline">Download</span>
             </Button>
-            <Button onClick={handleSaveClick} disabled={saving}>
-              <Save className="h-4 w-4 mr-2" />
-              {saving ? "Saving..." : "Save CV"}
+            <Button onClick={handleSaveClick} disabled={saving} size="sm" className="h-8 sm:h-9 px-2 sm:px-4">
+              <Save className="h-4 w-4" />
+              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm">{saving ? "..." : <span className="hidden sm:inline">Save CV</span>}</span>
             </Button>
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-4 gap-8">
+        <div className="grid lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
           {/* Navigation Sidebar */}
           <div className="lg:col-span-1">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">CV Sections</CardTitle>
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-base sm:text-lg">CV Sections</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
+              <CardContent className="space-y-1 sm:space-y-2 p-4 sm:p-6 pt-0">
                 {sections.map((section) => {
                   const Icon = section.icon
                   return (
                     <Button
                       key={section.id}
                       variant={activeSection === section.id ? "default" : "ghost"}
-                      className="w-full justify-start"
+                      className="w-full justify-start text-sm sm:text-base h-9 sm:h-10"
                       onClick={() => setActiveSection(section.id)}
                     >
                       <Icon className="h-4 w-4 mr-2" />
@@ -1021,51 +1010,52 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
             {/* Summary Section */}
             {activeSection === "summary" && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <FileText className="h-5 w-5 mr-2" />
+                <CardHeader className="p-4 sm:p-6">
+                  <CardTitle className="flex items-center text-base sm:text-lg">
+                    <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                     Professional Summary & Personal Information
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs sm:text-sm">
                     Write a brief overview of your professional background and add personal details
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="space-y-4 sm:space-y-6">
                     <div>
-                      <Label htmlFor="summary">Summary / About Me</Label>
+                      <Label htmlFor="summary" className="text-sm">Summary / About Me</Label>
                       <Textarea
                         id="summary"
                         placeholder="Write a compelling summary of your professional experience, key skills, and career goals..."
                         value={cvData.summary}
                         onChange={(e) => setCvData((prev) => ({ ...prev, summary: e.target.value }))}
                         rows={6}
-                        className="mt-2"
+                        className="mt-1.5 text-sm sm:text-base"
                       />
-                      <p className="text-sm text-muted-foreground mt-2">
+                      <p className="text-xs sm:text-sm text-muted-foreground mt-2">
                         Tip: Keep it concise (2-3 sentences) and highlight your most relevant experience
                       </p>
                     </div>
 
                     <div className="border-t pt-6">
-                      <h3 className="text-lg font-medium mb-4">Personal Information</h3>
-                      <div className="grid grid-cols-2 gap-4">
+                      <h3 className="text-base sm:text-lg font-medium mb-4">Personal Information</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <Label htmlFor="citizenship">Citizenship</Label>
+                          <Label htmlFor="citizenship" className="text-sm">Citizenship</Label>
                           <Input
                             id="citizenship"
                             placeholder="e.g. British, American, etc."
                             value={cvData.citizenship}
                             onChange={(e) => setCvData((prev) => ({ ...prev, citizenship: e.target.value }))}
+                            className="mt-1.5"
                           />
                         </div>
                         <div>
-                          <Label htmlFor="workPermit">Work Permit Status</Label>
+                          <Label htmlFor="workPermit" className="text-sm">Work Permit Status</Label>
                           <Select
                             value={cvData.workPermitStatus}
                             onValueChange={(value) => setCvData((prev) => ({ ...prev, workPermitStatus: value }))}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="mt-1.5">
                               <SelectValue placeholder="Select work permit status" />
                             </SelectTrigger>
                             <SelectContent>
@@ -1121,7 +1111,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </Button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Job Title *</Label>
                             <Input
@@ -1149,7 +1139,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Start Date *</Label>
                             <Input
@@ -1258,7 +1248,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </Button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Institution Name *</Label>
                             <Input
@@ -1277,7 +1267,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Field of Study</Label>
                             <Input
@@ -1296,7 +1286,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Start Date</Label>
                             <Input
@@ -1392,7 +1382,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </Button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Skill Name *</Label>
                             <Input
@@ -1504,7 +1494,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </Button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Language *</Label>
                             <Input
@@ -1587,7 +1577,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </Button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Certification Name *</Label>
                             <Input
@@ -1606,7 +1596,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Issue Date</Label>
                             <Input
@@ -1625,7 +1615,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Credential ID (Optional)</Label>
                             <Input
@@ -1700,7 +1690,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           </Button>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Project Name *</Label>
                             <Input
@@ -1746,7 +1736,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
                           <p className="text-sm text-muted-foreground mt-1">Enter each technology on a new line</p>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <Label>Start Date</Label>
                             <Input

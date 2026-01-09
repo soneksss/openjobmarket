@@ -33,13 +33,6 @@ export function LayoutContent({
     ? localeParam as Locale
     : (serverLocale || getLocaleFromPathname(pathname || '/'))
 
-  console.log('[LAYOUT-CONTENT] Locale resolution:', {
-    localeParam,
-    serverLocale,
-    finalLocale: locale,
-    pathname
-  })
-
   // Get initial language/region state from query param, server locale, or cookie (client-side)
   const getInitialLanguageRegionState = () => {
     // Check query parameter first (highest priority)
@@ -76,14 +69,6 @@ export function LayoutContent({
 
   // Enable auto-logout for authenticated users
   useAutoLogout()
-
-  // Debug logging for header user data
-  console.log('[LAYOUT-CONTENT] User data passed to header:', {
-    hasUser: !!user,
-    userEmail: user?.email,
-    userType,
-    pathname
-  })
 
   if (isAdminRoute) {
     return (

@@ -55,8 +55,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   // Detect if user is on Portuguese version using both i18n context and pathname (most reliable)
   const isOnBrRoute = locale === 'pt-BR' || pathname?.startsWith('/br')
 
-  console.log('[HEADER] Locale detection:', { locale, isOnBrRoute, pathname, pathnameBrCheck: pathname?.startsWith('/br') })
-
   const signUpUrl = isOnBrRoute
     ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
     : '/auth/sign-up'
@@ -76,13 +74,10 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
   // Listen for auth state changes
   useEffect(() => {
-    console.log('[HEADER] Setting up auth listener', { serverUser: !!user, serverUserType: userType })
-
     const supabase = createClient()
 
     // If we have a server user, check if they're an admin
     if (user) {
-      console.log('[HEADER] Using server user, checking admin status')
       const checkAdminStatus = async () => {
         try {
           const { data: userData } = await supabase
@@ -91,7 +86,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
             .eq('id', user.id)
             .single()
 
-          console.log('[HEADER] Server user type:', userData?.user_type)
           setIsAdmin(userData?.user_type === 'admin')
         } catch (err) {
           console.error('[HEADER] Failed to check admin status:', err)
@@ -107,14 +101,12 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
         const { data: { user: authUser }, error } = await supabase.auth.getUser()
 
         if (error) {
-          console.log('[HEADER] Auth check error:', error.message)
           setClientUser(null)
           setClientUserType(undefined)
           return
         }
 
         if (authUser) {
-          console.log('[HEADER] User authenticated:', authUser.email)
           // Fetch user type
           const { data: userData } = await supabase
             .from('users')
@@ -126,7 +118,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
           setClientUserType(userData?.user_type as "professional" | "company")
           setIsAdmin(userData?.user_type === 'admin')
         } else {
-          console.log('[HEADER] No authenticated user')
           setClientUser(null)
           setClientUserType(undefined)
         }
@@ -142,8 +133,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
     // Listen for auth state changes (only if no server user)
     if (!user) {
       const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('[HEADER] Auth state changed:', event, 'has session:', !!session)
-
         if (event === 'SIGNED_IN' && session?.user) {
           // User just signed in
           const { data: userData } = await supabase
@@ -170,13 +159,10 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   }, [user]) // Re-run if user prop changes
 
   const handleSignOut = async () => {
-    console.log('[HEADER] Sign out clicked')
     try {
       if (onSignOut) {
-        console.log('[HEADER] Using onSignOut callback')
         onSignOut()
       } else {
-        console.log('[HEADER] Clearing storage and signing out')
         // Clear storage first
         if (typeof window !== 'undefined') {
           localStorage.clear()
@@ -184,7 +170,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
         }
 
         // Use server-side sign out action which will redirect
-        console.log('[HEADER] Calling server signOut action')
         await signOut()
       }
     } catch (error) {
@@ -200,19 +185,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   const currentUser = user || clientUser
   const currentUserType = userType || clientUserType
 
-  console.log('[HEADER] Render state:', {
-    currentUser: !!currentUser,
-    currentUserEmail: currentUser?.email,
-    currentUserMetadataEmail: currentUser?.user_metadata?.email,
-    currentUserNewEmail: currentUser?.new_email,
-    currentUserType,
-    isLoading,
-    serverUser: !!user,
-    serverUserEmail: user?.email,
-    serverUserMetadataEmail: user?.user_metadata?.email,
-    emailToDisplay: currentUser?.email || currentUser?.user_metadata?.email || currentUser?.new_email || currentUser?.user_metadata?.preferred_username || 'User'
-  })
-
   const handleManualRefresh = async () => {
     setIsRefreshing(true)
     try {
@@ -221,23 +193,15 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
       if (error) {
         // Handle session errors in manual refresh
-        if (error.message === 'Auth session missing!' ||
+        if (!(error.message === 'Auth session missing!' ||
             error.message === 'Invalid JWT' ||
-            error.message.includes('AuthSessionMissingError')) {
-          console.log('[HEADER] Session error in manual refresh, clearing local auth state')
-        } else {
+            error.message.includes('AuthSessionMissingError'))) {
           console.error('[HEADER] Manual refresh error:', error)
         }
         setClientUser(null)
         setClientUserType(undefined)
         return
       }
-
-      console.log('[HEADER] Manual refresh result:', {
-        hasUser: !!refreshedUser,
-        email: refreshedUser?.email,
-        metadataEmail: refreshedUser?.user_metadata?.email
-      })
 
       if (refreshedUser) {
         setClientUser(refreshedUser)
@@ -269,7 +233,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
               onClick={() => {
                 // If in modal mode, close the modal instead of navigating
                 if (isModal && onModalClose) {
-                  console.log('[HEADER] Logo clicked in modal mode, closing modal')
                   onModalClose()
                   return
                 }
@@ -284,20 +247,8 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
                 // Don't redirect if already on the target page
                 if (pathname === targetUrl || (targetUrl === "/" && pathname === "/")) {
-                  console.log('[HEADER] Already on target page:', targetUrl)
                   return
                 }
-
-                console.log('[HEADER] Logo clicked:', {
-                  currentUserType,
-                  serverUserType,
-                  effectiveUserType,
-                  pathname,
-                  targetUrl,
-                  hasUser,
-                  user: !!user,
-                  clientUser: !!clientUser
-                })
 
                 router.push(targetUrl)
               }}

@@ -224,30 +224,8 @@ export default function MultiStepSignup() {
       return false
     }
 
-    // Check if email already exists
-    try {
-      const supabase = createClient()
-      const { data: existingUser, error: checkError } = await supabase
-        .from('users')
-        .select('email')
-        .eq('email', signupData.email.toLowerCase())
-        .maybeSingle()
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        console.error('Error checking email:', checkError)
-        setError('Unable to verify email. Please try again.')
-        return false
-      }
-
-      if (existingUser) {
-        setError('This email is already registered. Please use a different email or sign in.')
-        return false
-      }
-    } catch (err) {
-      console.error('Error validating email:', err)
-      setError('Unable to verify email. Please try again.')
-      return false
-    }
+    // Note: Email uniqueness is checked by Supabase Auth during signUp()
+    // No need for pre-check which causes CORS issues
 
     return true
   }
@@ -327,7 +305,16 @@ export default function MultiStepSignup() {
       }
     } catch (err: any) {
       console.error("Signup error:", err)
-      setError(err.message || "An error occurred during signup")
+
+      // Handle specific error cases
+      if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
+        setError('This email is already registered. Please use a different email or sign in.')
+      } else if (err.message?.includes('Database error')) {
+        setError('There was a problem creating your account. Please try again.')
+      } else {
+        setError(err.message || "An error occurred during signup")
+      }
+
       setIsLoading(false)
     }
   }

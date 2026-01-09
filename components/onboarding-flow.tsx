@@ -182,10 +182,15 @@ export default function OnboardingFlow({
           .from("users")
           .select("location, latitude, longitude")
           .eq("id", user.id)
-          .single()
+          .maybeSingle() // Use maybeSingle() to handle missing records gracefully
 
         if (userError) {
           console.error("Error fetching user data:", userError)
+        }
+
+        // If no user record exists yet (trigger might have failed), we'll just use metadata
+        if (!userData) {
+          console.warn("User record not found in database, using metadata only")
         }
 
         // Pre-fill professional form
@@ -195,7 +200,6 @@ export default function OnboardingFlow({
             try {
               const parsed = JSON.parse(savedProfessionalData)
               setProfessionalData(parsed)
-              console.log("Loaded professional form from localStorage")
             } catch (e) {
               console.error("Error parsing saved professional data:", e)
             }
@@ -205,10 +209,12 @@ export default function OnboardingFlow({
               ...prev,
               firstName: user.user_metadata?.first_name || "",
               lastName: user.user_metadata?.last_name || "",
+              nickname: user.user_metadata?.nickname || "",
+              phoneNumber: user.user_metadata?.phone || "",
+              location: userData?.location || "",
               latitude: userData?.latitude || null,
               longitude: userData?.longitude || null,
             }))
-            console.log("Pre-filled professional form with signup data")
           }
         }
 
@@ -219,7 +225,6 @@ export default function OnboardingFlow({
             try {
               const parsed = JSON.parse(savedCompanyData)
               setCompanyData(parsed)
-              console.log("Loaded company form from localStorage")
             } catch (e) {
               console.error("Error parsing saved company data:", e)
             }
@@ -228,11 +233,11 @@ export default function OnboardingFlow({
             setCompanyData(prev => ({
               ...prev,
               companyName: user.user_metadata?.company_name || "",
+              phoneNumber: user.user_metadata?.phone || "",
               latitude: userData?.latitude || null,
               longitude: userData?.longitude || null,
               location: userData?.location || "",
             }))
-            console.log("Pre-filled company form with signup data")
           }
         }
 
