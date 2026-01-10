@@ -78,6 +78,7 @@ interface Job {
   work_location: string
   location: string
   is_active: boolean
+  status: string
   is_tradespeople_job?: boolean
   applications_count: number
   views_count: number
@@ -203,6 +204,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   }
 
   const getJobStatusBadge = (job: Job) => {
+    // Priority 1: Check expiration status
     if (job.expiration_status === "expired") {
       return (
         <Badge variant="destructive" className="flex items-center gap-1">
@@ -217,10 +219,50 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           Expires in {job.days_until_expiration} day{job.days_until_expiration === 1 ? "" : "s"}
         </Badge>
       )
-    } else if (job.is_active) {
+    }
+
+    // Priority 2: Check job status (draft, open, accepted, etc.)
+    if (job.status === 'draft') {
+      return (
+        <Badge variant="secondary" className="bg-gray-100 text-gray-700 border-gray-300">
+          Draft
+        </Badge>
+      )
+    } else if (job.status === 'open' && job.is_active) {
       return <Badge variant="default">{t('common.active')}</Badge>
-    } else {
+    } else if (job.status === 'open' && !job.is_active) {
       return <Badge variant="secondary">{t('common.inactive')}</Badge>
+    } else if (job.status === 'accepted') {
+      return (
+        <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+          Accepted
+        </Badge>
+      )
+    } else if (job.status === 'in_progress') {
+      return (
+        <Badge className="bg-purple-100 text-purple-700 border-purple-300">
+          In Progress
+        </Badge>
+      )
+    } else if (job.status === 'completed') {
+      return (
+        <Badge className="bg-green-100 text-green-700 border-green-300">
+          Completed
+        </Badge>
+      )
+    } else if (job.status === 'failed') {
+      return (
+        <Badge variant="destructive">
+          Failed
+        </Badge>
+      )
+    } else {
+      // Fallback to is_active if status is unknown
+      return job.is_active ? (
+        <Badge variant="default">{t('common.active')}</Badge>
+      ) : (
+        <Badge variant="secondary">{t('common.inactive')}</Badge>
+      )
     }
   }
 

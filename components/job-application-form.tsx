@@ -16,6 +16,7 @@ import Link from "next/link"
 interface Job {
   id: string
   title: string
+  is_tradespeople_job?: boolean
   company_profiles?: {
     id: string
     company_name: string
@@ -72,6 +73,7 @@ export default function JobApplicationForm({
   const [submissionSuccess, setSubmissionSuccess] = useState(false)
   const [submissionError, setSubmissionError] = useState<string | null>(null)
   const [isCompany, setIsCompany] = useState(false)
+  const [userType, setUserType] = useState<string | null>(null)
   const [freshProfile, setFreshProfile] = useState<UserProfile>(userProfile)
   const [applicationLimit, setApplicationLimit] = useState<{
     can_apply: boolean
@@ -103,6 +105,18 @@ export default function JobApplicationForm({
       try {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
+
+        // Fetch user type from users table
+        const { data: userData } = await supabase
+          .from("users")
+          .select("user_type")
+          .eq("id", user.id)
+          .single()
+
+        if (userData) {
+          setUserType(userData.user_type)
+          console.log("[JOB-APPLICATION] User type fetched:", userData.user_type)
+        }
 
         // Fetch fresh profile data
         const { data: profile } = await supabase
@@ -197,10 +211,23 @@ export default function JobApplicationForm({
       return
     }
 
+    // CRITICAL: Block jobseekers and homeowners from applying to Trade Jobs
+    if (job.is_tradespeople_job && (userType === 'professional' || userType === 'homeowner')) {
+      console.error("[JOB-APPLICATION] BLOCKED: User type '" + userType + "' cannot apply to Trade Jobs")
+      setSubmissionError(
+        userType === 'professional'
+          ? "Jobseekers cannot apply to Trade Jobs. Trade Jobs are for businesses and tradespeople offering services. Please browse the Vacancies section for employment opportunities."
+          : "Homeowners cannot apply to Trade Jobs. Trade Jobs are for businesses and tradespeople offering services. If you need a service, you can post a Trade Job instead."
+      )
+      return
+    }
+
     setLoading(true)
     try {
       console.log("[v0] Starting job application process")
       console.log("[v0] Job ID:", job.id)
+      console.log("[v0] Job is Trade Job:", job.is_tradespeople_job)
+      console.log("[v0] User type:", userType)
 
       // Detect if this is a company or professional applying
       // Company profiles have company_name, professional profiles don't

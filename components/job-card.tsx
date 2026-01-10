@@ -14,6 +14,7 @@ import JobApplicationForm from "@/components/job-application-form"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import ProfileModal from "@/components/profile-modal"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface Job {
   id: string
@@ -32,6 +33,7 @@ interface Job {
   applications_count: number
   created_at: string
   job_photo_url?: string
+  is_tradespeople_job?: boolean
   company_profiles?: {
     id: string
     company_name: string
@@ -75,6 +77,7 @@ interface JobCardProps {
 const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isSelected = false, onSelect, onApply, userProfile }, ref) => {
   const router = useRouter()
   const pathname = usePathname()
+  const { t } = useTranslation()
   const [isExpanded, setIsExpanded] = useState(false)
   const [showSignUpDialog, setShowSignUpDialog] = useState(false)
   const [showApplicationModal, setShowApplicationModal] = useState(false)
@@ -404,9 +407,20 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               )}
 
               {/* Job Title */}
-              <h3 className="text-xl font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">
-                {job.title}
-              </h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                  {job.title}
+                </h3>
+                {job.is_tradespeople_job ? (
+                  <Badge className="bg-orange-500 text-white hover:bg-orange-600 text-xs px-2 py-0.5 flex-shrink-0">
+                    {t('jobs.tradeJob')}
+                  </Badge>
+                ) : (
+                  <Badge className="bg-green-600 text-white hover:bg-green-700 text-xs px-2 py-0.5 flex-shrink-0">
+                    {t('jobs.vacancy')}
+                  </Badge>
+                )}
+              </div>
 
               {/* Company Name with Stars - Show in collapsed view */}
               {!isExpanded && companyName && (

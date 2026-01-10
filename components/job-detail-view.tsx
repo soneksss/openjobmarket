@@ -24,6 +24,7 @@ import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import JobApplicationForm from "./job-application-form"
+import { useTranslation } from "@/lib/i18n/context"
 
 interface Job {
   id: string
@@ -118,6 +119,7 @@ export default function JobDetailView({
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
+  const { t } = useTranslation()
 
   // Locale-aware sign-up URL
   const isOnBrRoute = pathname?.startsWith('/br')
@@ -131,6 +133,8 @@ export default function JobDetailView({
   const [inquiryMessage, setInquiryMessage] = useState("")
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [showApplicationModal, setShowApplicationModal] = useState(false)
+  const [showBlockedModal, setShowBlockedModal] = useState(false)
+  const [userType, setUserType] = useState<string | null>(null)
 
   // Debug: Log if job photo exists
   useEffect(() => {
@@ -217,11 +221,44 @@ export default function JobDetailView({
       checkIfJobSaved()
     }
 
+    // Fetch user type to check apply restrictions
+    if (user) {
+      fetchUserType()
+    }
+
     // Auto-open application modal if apply=true in URL
     if (searchParams?.apply === 'true' && userProfile && !hasApplied) {
-      setShowApplicationModal(true)
+      handleApplyClick()
     }
   }, [job, user, userProfile, hasApplied, companyStatus, searchParams])
+
+  const fetchUserType = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', user?.id)
+        .single()
+
+      if (!error && data) {
+        setUserType(data.user_type)
+      }
+    } catch (error) {
+      console.error("[JOB-DETAIL-VIEW] Error fetching user type:", error)
+    }
+  }
+
+  const handleApplyClick = () => {
+    // Check if this is a trade job and user type
+    if (job.is_tradespeople_job) {
+      // Only contractors and companies can apply to trade jobs
+      if (userType === 'professional' || userType === 'homeowner') {
+        setShowBlockedModal(true)
+        return
+      }
+    }
+    setShowApplicationModal(true)
+  }
 
   const validateSession = async () => {
     try {
@@ -485,7 +522,18 @@ export default function JobDetailView({
                     </div>
 
                     {/* Job Title */}
-                    <h1 className="text-3xl font-bold mb-3 text-gray-900 leading-tight">{job.title}</h1>
+                    <div className="flex items-center gap-3 mb-3">
+                      <h1 className="text-3xl font-bold text-gray-900 leading-tight">{job.title}</h1>
+                      {job.is_tradespeople_job ? (
+                        <Badge className="bg-orange-500 text-white hover:bg-orange-600 text-sm px-3 py-1">
+                          {t('jobs.tradeJob')}
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-green-600 text-white hover:bg-green-700 text-sm px-3 py-1">
+                          {t('jobs.vacancy')}
+                        </Badge>
+                      )}
+                    </div>
 
                     {/* Job Badges */}
                     <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -676,7 +724,7 @@ export default function JobDetailView({
                       : "Review what information will be shared and submit your application."}
                   </p>
                   <Button
-                    onClick={() => !hasApplied && setShowApplicationModal(true)}
+                    onClick={() => !hasApplied && handleApplyClick()}
                     className={hasApplied
                       ? "bg-green-600 text-white px-8 py-3 cursor-not-allowed opacity-90"
                       : "bg-blue-600 hover:bg-blue-700 px-8 py-3"
@@ -913,6 +961,42 @@ export default function JobDetailView({
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Blocked Application Modal - Tradespeople Jobs Only */}
+      <Dialog open={showBlockedModal} onOpenChange={setShowBlockedModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-red-600">
+              {t('jobs.blockedModalTitle')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('jobs.blockedModalDescription')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-700">
+              {t('jobs.blockedModalExplanation')} <strong>{t('jobs.blockedModalVacanciesLink')}</strong> {t('jobs.blockedModalSectionInstead')}
+            </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-semibold text-blue-900 mb-2">{t('jobs.blockedModalWantToApply')}</h4>
+              <p className="text-sm text-blue-800 mb-3">
+                {t('jobs.blockedModalAccountRequired')}
+              </p>
+              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+                <Link href="/auth/sign-up">{t('jobs.blockedModalCreateAccount')}</Link>
+              </Button>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowBlockedModal(false)}>
+              {t('common.close')}
+            </Button>
+            <Button asChild variant="default">
+              <Link href="/?tab=vacancies">{t('jobs.blockedModalBrowseVacancies')}</Link>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

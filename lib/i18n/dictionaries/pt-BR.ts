@@ -139,6 +139,16 @@ export const ptBR: Dictionary = {
     statusInProgress: 'Em Andamento',
     statusCompleted: 'Concluído',
     statusFailed: 'Falhou',
+    // Blocked application modal
+    blockedModalTitle: 'Tipo de Conta Necessário',
+    blockedModalDescription: 'Esta é uma vaga de serviço. Para se candidatar a vagas de serviço, você deve se registrar como uma conta de Empresa ou Prestador de Serviços.',
+    blockedModalExplanation: 'Vagas de serviço são para empresas e prestadores oferecendo serviços. Se você é um candidato a emprego procurando trabalho, por favor navegue na seção de',
+    blockedModalVacanciesLink: 'Vagas',
+    blockedModalSectionInstead: 'em vez disso.',
+    blockedModalWantToApply: 'Quer se candidatar para vagas de serviço?',
+    blockedModalAccountRequired: 'Você precisará criar uma conta de Empresa ou Prestador de Serviços para oferecer seus serviços.',
+    blockedModalCreateAccount: 'Criar Conta de Empresa',
+    blockedModalBrowseVacancies: 'Navegar Vagas',
   },
   professionals: {
     title: 'Profissionais',
@@ -615,6 +625,15 @@ export const ptBR: Dictionary = {
     hairdresser: 'Cabeleireiro',
     dentist: 'Dentista',
     scientist: 'Cientista',
+    roofer: 'Telhadista',
+    handyman: 'Faz Tudo',
+    manAndVan: 'Frete & Mudança',
+    plasterer: 'Gesseiro',
+    tiler: 'Ladrilheiro',
+    windowInstaller: 'Instalador de Janelas',
+    gutterSpecialist: 'Especialista em Calhas',
+    drivewaySpecialist: 'Pavimentação',
+    fencing: 'Cercas',
     // Categorias Baseadas em Indústria
     plumbingHeating: 'Encanamento & Aquecimento',
     construction: 'Construção',
@@ -670,6 +689,7 @@ export const ptBR: Dictionary = {
     selectLocation: 'Por favor, selecione uma localização',
     selectValidLocation: 'Por favor, selecione uma localização válida da lista',
     searchFailed: 'Busca falhou. Por favor, tente novamente.',
+    searchTimeout: 'Busca expirou. Por favor, tente novamente ou ajuste seus filtros.',
 
     // Filter Labels
     jobType: 'Tipo de Trabalho',

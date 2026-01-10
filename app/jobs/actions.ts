@@ -21,6 +21,7 @@ interface JobData {
   skills_required: string[]
   benefits: string[]
   is_active: boolean
+  status: string
 }
 
 export async function createJob(jobData: JobData) {

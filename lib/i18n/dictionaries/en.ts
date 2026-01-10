@@ -137,6 +137,16 @@ export const en = {
     statusInProgress: 'In Progress',
     statusCompleted: 'Completed',
     statusFailed: 'Failed',
+    // Blocked application modal
+    blockedModalTitle: 'Account Type Required',
+    blockedModalDescription: 'This is a trade job posting. To apply for trade jobs, you must register as a Business or Tradesperson account.',
+    blockedModalExplanation: 'Trade jobs are for businesses and tradespeople offering services. If you\'re a job seeker looking for employment, please browse the',
+    blockedModalVacanciesLink: 'Vacancies',
+    blockedModalSectionInstead: 'section instead.',
+    blockedModalWantToApply: 'Want to apply for trade jobs?',
+    blockedModalAccountRequired: 'You\'ll need to create a Business or Tradesperson account to offer your services.',
+    blockedModalCreateAccount: 'Create Business Account',
+    blockedModalBrowseVacancies: 'Browse Vacancies',
   },
   professionals: {
     title: 'Professionals',
@@ -615,6 +625,15 @@ export const en = {
     hairdresser: 'Hairdresser',
     dentist: 'Dentist',
     scientist: 'Scientist',
+    roofer: 'Roofer',
+    handyman: 'Handyman',
+    manAndVan: 'Man & Van',
+    plasterer: 'Plasterer',
+    tiler: 'Tiler',
+    windowInstaller: 'Window Installer',
+    gutterSpecialist: 'Gutter Specialist',
+    drivewaySpecialist: 'Driveway Specialist',
+    fencing: 'Fencing',
     // Industry-Based Categories
     plumbingHeating: 'Plumbing & Heating',
     construction: 'Construction',
@@ -670,6 +689,7 @@ export const en = {
     selectLocation: 'Please select a location',
     selectValidLocation: 'Please select a valid location from the list',
     searchFailed: 'Search failed. Please try again.',
+    searchTimeout: 'Search timed out. Please try again or adjust your filters.',
 
     // Filter Labels
     jobType: 'Job Type',

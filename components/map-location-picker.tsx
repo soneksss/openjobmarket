@@ -114,6 +114,14 @@ export function MapLocationPicker({
     }
   }, [value])
 
+  // Update map center when country changes (for Brazilian/Global switching)
+  useEffect(() => {
+    if (!value) {
+      const newCenter = getDefaultMapCenter(languageRegionState.country)
+      setMapCenter(newCenter)
+    }
+  }, [languageRegionState.country, value])
+
   const searchLocations = async (query: string) => {
     if (query.length < 3) {
       setSuggestions([])

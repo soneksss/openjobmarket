@@ -1053,24 +1053,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           }
         }
 
-        // Apply location-based radius filtering if coordinates are available
-        if (selectedLocation) {
-          console.log(`[MAIN-PAGE-SEARCH] Applying location filter with radius ${radiusMiles} miles:`, selectedLocation)
-          const lat = selectedLocation.lat
-          const lon = selectedLocation.lon
-          const radiusKm = radiusMiles * 1.60934 // Convert miles to km
-
-          // Use bounding box approximation for radius search
-          const latDelta = radiusKm / 111.0 // Rough conversion: 1 degree ≈ 111 km
-          const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
-
-          // Apply location filters directly (AND logic)
-          query = query
-            .gte("latitude", lat - latDelta)
-            .lte("latitude", lat + latDelta)
-            .gte("longitude", lon - lngDelta)
-            .lte("longitude", lon + lngDelta)
-        }
+        // NOTE: Location filtering is done client-side after fetching results
+        // to avoid excluding jobs without coordinates (which is common for vacancies)
+        // Database-level filtering would exclude ALL jobs missing lat/lon values
 
         if (searchQuery.trim()) {
           console.log(`[MAIN-PAGE-SEARCH] Applying search filter: ${searchQuery.trim()}`)
@@ -1098,36 +1083,102 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           }
         }
 
-        console.log(`[MAIN-PAGE-SEARCH] Executing query...`)
-        const { data, error } = await query.limit(RESULT_LIMIT + 1)
+        console.log(`[MAIN-PAGE-SEARCH] ===== EXECUTING VACANCY/JOB QUERY =====`)
+        console.log(`[MAIN-PAGE-SEARCH] Query parameters:`, {
+          type: type,
+          is_tradespeople_job: type === "jobs_tasks",
+          status: "open",
+          is_active: true,
+          searchQuery: searchQuery.trim() || 'none',
+          filters: type === "vacancies" ? {
+            jobType,
+            experienceLevel,
+            workLocation,
+            salaryRange,
+            noExperienceRequired,
+            drivingLicenseRequired,
+            ownTransportRequired
+          } : {
+            tradeCategory,
+            urgency,
+            budgetRange,
+            tradeJobType
+          }
+        })
+
+        // Add timeout protection to prevent infinite waiting
+        const queryPromise = query.limit(RESULT_LIMIT + 1)
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000)
+        )
+
+        console.log(`[MAIN-PAGE-SEARCH] Executing query with 10s timeout...`)
+        const { data, error } = await Promise.race([queryPromise, timeoutPromise])
+          .catch((err) => {
+            console.error(`[MAIN-PAGE-SEARCH] Query failed:`, err)
+            return { data: null, error: err }
+          }) as any
+
         console.log(`[MAIN-PAGE-SEARCH] Query completed. Error:`, error, `Data count:`, data?.length)
+
+        if (data && data.length > 0) {
+          console.log(`[MAIN-PAGE-SEARCH] Sample job data (first result):`, {
+            id: data[0].id,
+            title: data[0].title,
+            is_tradespeople_job: data[0].is_tradespeople_job,
+            status: data[0].status,
+            is_active: data[0].is_active,
+            latitude: data[0].latitude,
+            longitude: data[0].longitude,
+            location: data[0].location,
+            expires_at: data[0].expires_at
+          })
+        }
 
         if (error) {
           console.error(`[MAIN-PAGE-SEARCH] Query error:`, error)
+          // Show error message to user
+          if (error.message?.includes('timeout')) {
+            alert(t('mainSearch.searchTimeout') || 'Search timed out. Please try again or adjust your filters.')
+          } else {
+            alert(t('mainSearch.searchFailed') || 'Search failed. Please try again.')
+          }
+          return
         }
 
         if (!error && data) {
           console.log(`[MAIN-PAGE-SEARCH] Raw data received:`, data.length, 'jobs')
+
+          // Count jobs with and without coordinates for debugging
+          const jobsWithCoords = data.filter((item: any) => item.latitude && item.longitude).length
+          const jobsWithoutCoords = data.length - jobsWithCoords
+          console.log(`[MAIN-PAGE-SEARCH] Jobs with coordinates: ${jobsWithCoords}, without coordinates: ${jobsWithoutCoords}`)
+
           // Enrich jobs with poster information
-          results = data
-            .filter(item => item.latitude && item.longitude)
-            .map((job: any) => {
+          // IMPORTANT: Do NOT filter out jobs without coordinates - they should still appear in search results
+          results = data.map((job: any) => {
               const homeownerProfile = job.homeowner_profiles
+              const companyProfile = job.company_profiles
+
+              // For Trade Jobs, poster could be homeowner OR company
+              // For Vacancies, poster is always company
+              const isTradeJob = job.is_tradespeople_job
 
               return {
                 ...job,
-                // Add poster information from homeowner profile if available
+                // Add poster information (prioritize homeowner for trade jobs, company for vacancies)
                 poster_first_name: homeownerProfile?.first_name || null,
                 poster_last_name: homeownerProfile?.last_name || null,
-                poster_nickname: null, // Homeowners don't have nicknames
-                poster_logo_url: homeownerProfile?.profile_photo_url || null,
-                // Add rating information from homeowner profile
+                poster_nickname: null,
+                poster_logo_url: homeownerProfile?.profile_photo_url || companyProfile?.logo_url || null,
+                poster_company_name: companyProfile?.company_name || null,
+                // Add rating information
                 average_rating: homeownerProfile?.average_rating || 0,
                 total_reviews: homeownerProfile?.reviews_count || 0,
               }
             })
 
-          console.log(`[MAIN-PAGE-SEARCH] Enriched ${results.length} jobs with poster data`)
+          console.log(`[MAIN-PAGE-SEARCH] Enriched ${results.length} jobs with poster data (including ${jobsWithoutCoords} without coordinates)`)
         }
       }
 

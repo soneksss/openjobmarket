@@ -385,6 +385,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         languages: formData.languages.length > 0 ? formData.languages : null,
         benefits: formData.benefits.length > 0 ? formData.benefits : null,
         is_active: true,
+        status: 'open',  // Set status to 'open' so job appears in search
         expires_at: expirationDate.toISOString(),
         created_at: new Date().toISOString(),
       }

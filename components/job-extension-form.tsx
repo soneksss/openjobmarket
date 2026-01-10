@@ -44,10 +44,12 @@ interface JobExtensionFormProps {
 }
 
 const TIMELINE_OPTIONS = [
-  { value: "3_days", label: "3 days", price: 0, displayPrice: "Free" },
-  { value: "5_days", label: "5 days", price: 0, displayPrice: "Free" },
-  { value: "7_days", label: "7 days", price: 0, displayPrice: "Free" },
-  { value: "14_days", label: "14 days", price: 0, displayPrice: "Free" },
+  { value: "3_days", label: "3 days", price: 0 },
+  { value: "5_days", label: "5 days", price: 0 },
+  { value: "7_days", label: "7 days", price: 0 },
+  { value: "14_days", label: "14 days (2 weeks)", price: 0 },
+  { value: "21_days", label: "21 days (3 weeks)", price: 0 },
+  { value: "28_days", label: "28 days (4 weeks)", price: 0 },
 ]
 
 export default function JobExtensionForm({ job, companyProfile }: JobExtensionFormProps) {
@@ -84,6 +86,8 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
         "5_days": 5,
         "7_days": 7,
         "14_days": 14,
+        "21_days": 21,
+        "28_days": 28,
       }[selectedOption.value] || 7
 
     const newDate = new Date(now.getTime() + daysToAdd * 24 * 60 * 60 * 1000)
@@ -93,7 +97,7 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
   const handleExtend = () => {
     if (!selectedOption) return
 
-    // All extensions are now free, no payment required
+    // Extensions available with subscription
     setShowConfirmDialog(true)
   }
 
@@ -214,7 +218,7 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
             </div>
             <div>
               <p className="text-sm text-muted-foreground">Original Timeline</p>
-              <p className="font-medium capitalize">{job.recruitment_timeline.replace("_", " ")}</p>
+              <p className="font-medium capitalize">{job.recruitment_timeline ? job.recruitment_timeline.replace("_", " ") : "N/A"}</p>
             </div>
           </div>
         </CardContent>
@@ -232,7 +236,7 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
           <Alert className="border-blue-200 bg-blue-50">
             <Info className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800">
-              <strong>Extension Policy:</strong> Extend your job posting for free to keep it visible to candidates.
+              <strong>Extension Policy:</strong> Extend your job posting to keep it visible to candidates.
             </AlertDescription>
           </Alert>
 
@@ -259,7 +263,6 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-lg font-bold text-primary">{option.displayPrice}</span>
                   {selectedTimeline === option.value && <CheckCircle className="w-5 h-5 text-primary" />}
                 </div>
               </label>

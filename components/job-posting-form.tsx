@@ -327,6 +327,7 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
         skills_required: formData.skillsRequired,
         benefits: formData.benefits,
         is_active: formData.isActive,
+        status: 'open', // Set status to 'open' so job appears in search immediately
       }
 
       // Add photo URL if it exists or was changed
