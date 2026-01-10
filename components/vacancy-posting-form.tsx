@@ -401,10 +401,16 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
       }
 
       // Increment job usage counter
-      await supabase.rpc("increment_subscription_usage", {
+      const { error: incrementError } = await supabase.rpc("increment_subscription_usage", {
         user_id_param: user.id,
         usage_type: "job"
       })
+
+      if (incrementError) {
+        console.error("Error incrementing subscription usage:", incrementError)
+        // Don't fail the whole operation, job is already posted
+        // Just log the error
+      }
 
       // Show success toast and redirect
       toast({
@@ -413,13 +419,16 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         duration: 5000,
       })
 
+      // Reset loading before redirect
+      setLoading(false)
+
       setTimeout(() => {
         router.push("/dashboard/company")
         router.refresh()
       }, 1000)
     } catch (err: any) {
-      console.error(err)
-      setErr(err?.message || "Unexpected error")
+      console.error("Unexpected error during vacancy submission:", err)
+      setErr(err?.message || "Unexpected error occurred. Please try again.")
       setLoading(false)
     }
   }

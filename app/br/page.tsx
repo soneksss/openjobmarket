@@ -7,22 +7,18 @@ import BannerMap from "@/components/BannerMap"
 import { GuestBanner } from "@/components/guest-banner"
 import { createClient } from "@/lib/server"
 import Link from "next/link"
+import { generateSEO } from "@/lib/seo"
 
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
 
-// Metadata for Brazilian Portuguese version
-export const metadata = {
-  title: "Open Job Market - O Primeiro Marketplace de Empregos Baseado em Mapas do Mundo",
-  description: "Descubra empregos e talentos em um mapa interativo. Correspondência com IA, alcance global e abordagem de privacidade para contratação.",
-  alternates: {
-    canonical: 'https://openjobmarket.com/br',
-    languages: {
-      'pt-BR': 'https://openjobmarket.com/br',
-      'en': 'https://openjobmarket.com',
-    },
-  },
-}
+// SEO Metadata for Brazilian Portuguese version
+export const metadata = generateSEO({
+  title: 'Encontre Empregos, Contrate Talentos e Conecte-se com Profissionais',
+  description: 'Encontre empregos, contrate profissionais e conecte-se com profissionais qualificados no OpenJobMarket. Publique vagas, construa seu currículo e descubra oportunidades no Reino Unido e Brasil.',
+  path: '/',
+  locale: 'pt-BR',
+})
 
 export default async function HomePageBR() {
   console.log("[v0] HomePage BR rendering")

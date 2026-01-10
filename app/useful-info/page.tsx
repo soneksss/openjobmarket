@@ -3,6 +3,9 @@
 import { Users, Building2, Wrench, Home } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/context"
 
+// This page is client-side, so metadata must be set in parent or via head tags
+// Consider converting to server component for better SEO
+
 export default function UsefulInfoPage() {
   const { t } = useTranslation()
 

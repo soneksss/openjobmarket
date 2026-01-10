@@ -8,9 +8,18 @@ import BannerMap from "@/components/BannerMap"
 import { GuestBanner } from "@/components/guest-banner"
 import { createClient } from "@/lib/server"
 import Link from "next/link"
+import { generateSEO } from "@/lib/seo"
 
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
+
+// SEO Metadata
+export const metadata = generateSEO({
+  title: 'Find Jobs, Hire Talent & Connect with Tradespeople',
+  description: 'Find jobs, hire professionals, and connect with skilled tradespeople on OpenJobMarket. Post job listings, build your CV, and discover opportunities across the UK and Brazil.',
+  path: '/',
+  locale: 'en',
+})
 
 export default async function HomePage() {
   console.log("[v0] HomePage rendering")

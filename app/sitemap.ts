@@ -5,104 +5,44 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://openjobmarket.com"
   const supabase = await createClient()
 
-  const staticPages: MetadataRoute.Sitemap = [
-    {
-      url: baseUrl,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 1,
-    },
-    {
-      url: `${baseUrl}/jobs`,
-      lastModified: new Date(),
-      changeFrequency: "hourly",
-      priority: 0.9,
-    },
-    {
-      url: `${baseUrl}/search`,
-      lastModified: new Date(),
-      changeFrequency: "daily",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/auth/login`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/auth/sign-up`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/jobs/new`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/jobs/vacancy/new`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/homeowner/jobs/new`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/cv/builder`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.6,
-    },
-    {
-      url: `${baseUrl}/about`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: `${baseUrl}/contact`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/billing`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
-    },
-    {
-      url: `${baseUrl}/privacy`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.4,
-    },
-    {
-      url: `${baseUrl}/terms`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.4,
-    },
-    {
-      url: `${baseUrl}/cookies`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.4,
-    },
-    {
-      url: `${baseUrl}/privacy-centre`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.4,
-    },
+  // Define public pages (excluding auth, dashboard, admin, api)
+  const publicPages = [
+    { path: "/", priority: 1, changeFrequency: "daily" as const },
+    { path: "/jobs", priority: 0.9, changeFrequency: "hourly" as const },
+    { path: "/search", priority: 0.8, changeFrequency: "daily" as const },
+    { path: "/about", priority: 0.8, changeFrequency: "monthly" as const },
+    { path: "/help", priority: 0.7, changeFrequency: "weekly" as const },
+    { path: "/useful-info", priority: 0.7, changeFrequency: "weekly" as const },
+    { path: "/contact", priority: 0.6, changeFrequency: "monthly" as const },
+    { path: "/companies", priority: 0.7, changeFrequency: "daily" as const },
+    { path: "/contractors", priority: 0.7, changeFrequency: "daily" as const },
+    { path: "/homeowners", priority: 0.7, changeFrequency: "daily" as const },
+    { path: "/professionals", priority: 0.7, changeFrequency: "daily" as const },
+    { path: "/reviews", priority: 0.6, changeFrequency: "weekly" as const },
+    { path: "/security", priority: 0.6, changeFrequency: "monthly" as const },
+    { path: "/privacy", priority: 0.5, changeFrequency: "monthly" as const },
+    { path: "/terms", priority: 0.5, changeFrequency: "monthly" as const },
+    { path: "/cookies", priority: 0.4, changeFrequency: "monthly" as const },
+    { path: "/privacy-centre", priority: 0.4, changeFrequency: "monthly" as const },
   ]
+
+  // Generate English pages
+  const enPages: MetadataRoute.Sitemap = publicPages.map(page => ({
+    url: `${baseUrl}${page.path}`,
+    lastModified: new Date(),
+    changeFrequency: page.changeFrequency,
+    priority: page.priority,
+  }))
+
+  // Generate Portuguese pages (all public pages have /br equivalents)
+  const ptPages: MetadataRoute.Sitemap = publicPages.map(page => ({
+    url: `${baseUrl}/br${page.path}`,
+    lastModified: new Date(),
+    changeFrequency: page.changeFrequency,
+    priority: page.priority,
+  }))
+
+  const staticPages: MetadataRoute.Sitemap = [...enPages, ...ptPages]
 
   // Fetch all active job postings
   const { data: jobs } = await supabase
