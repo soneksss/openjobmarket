@@ -73,60 +73,54 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     })) || []
 
-  // Generate location-specific pages for major UK cities
-  const cities = [
-    "london", "manchester", "birmingham", "leeds", "glasgow",
-    "liverpool", "edinburgh", "bristol", "cardiff", "sheffield",
-    "newcastle", "nottingham", "southampton", "portsmouth", "leicester"
-  ]
+  // Fetch active company profiles
+  const { data: companies } = await supabase
+    .from("company_profiles")
+    .select("id, updated_at")
+    .limit(1000)
 
-  const cityPages: MetadataRoute.Sitemap = cities.flatMap(city => [
-    {
-      url: `${baseUrl}/jobs?location=${encodeURIComponent(city)}`,
-      lastModified: new Date(),
-      changeFrequency: "daily" as const,
-      priority: 0.7,
-    },
-    {
-      url: `${baseUrl}/?tab=talents&location=${encodeURIComponent(city)}`,
-      lastModified: new Date(),
-      changeFrequency: "daily" as const,
-      priority: 0.7,
-    }
-  ])
+  const companyPages: MetadataRoute.Sitemap =
+    companies?.map((company) => ({
+      url: `${baseUrl}/companies/${company.id}`,
+      lastModified: company.updated_at ? new Date(company.updated_at) : new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    })) || []
 
-  // Generate job type pages
-  const jobTypes = [
-    "remote", "full-time", "part-time", "contract", "freelance",
-    "temporary", "internship", "apprenticeship"
-  ]
+  // Fetch active contractor profiles
+  const { data: contractors } = await supabase
+    .from("contractor_profiles")
+    .select("id, updated_at")
+    .limit(1000)
 
-  const jobTypePages: MetadataRoute.Sitemap = jobTypes.map(type => ({
-    url: `${baseUrl}/jobs?type=${encodeURIComponent(type)}`,
-    lastModified: new Date(),
-    changeFrequency: "daily" as const,
-    priority: 0.7,
-  }))
+  const contractorPages: MetadataRoute.Sitemap =
+    contractors?.map((contractor) => ({
+      url: `${baseUrl}/contractors/${contractor.id}`,
+      lastModified: contractor.updated_at ? new Date(contractor.updated_at) : new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    })) || []
 
-  // Generate trade category pages
-  const trades = [
-    "plumber", "electrician", "carpenter", "builder", "painter",
-    "decorator", "roofer", "bricklayer", "plasterer", "tiler"
-  ]
+  // Fetch active homeowner profiles
+  const { data: homeowners } = await supabase
+    .from("homeowner_profiles")
+    .select("id, updated_at")
+    .limit(1000)
 
-  const tradePages: MetadataRoute.Sitemap = trades.map(trade => ({
-    url: `${baseUrl}/?tab=traders&trade=${encodeURIComponent(trade)}`,
-    lastModified: new Date(),
-    changeFrequency: "daily" as const,
-    priority: 0.7,
-  }))
+  const homeownerPages: MetadataRoute.Sitemap =
+    homeowners?.map((homeowner) => ({
+      url: `${baseUrl}/homeowners/${homeowner.id}`,
+      lastModified: homeowner.updated_at ? new Date(homeowner.updated_at) : new Date(),
+      changeFrequency: "weekly" as const,
+      priority: 0.6,
+    })) || []
 
   return [
     ...staticPages,
     ...jobPages,
     ...professionalPages,
-    ...cityPages,
-    ...jobTypePages,
-    ...tradePages
+    ...companyPages,
+    ...contractorPages,
+    ...homeownerPages,
   ]
 }
