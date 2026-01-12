@@ -40,6 +40,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import ProfessionalMap from "@/components/professional-map"
 import JobMap from "@/components/job-map"
 import JobCard from "@/components/job-card"
+import JobApplicationForm from "@/components/job-application-form"
 import { LocationInput } from "@/components/location-input"
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"
 import { createBrowserClient } from "@supabase/ssr"
@@ -191,6 +192,10 @@ export default function ProfessionalsPageContent({
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
   const [viewProfileModalId, setViewProfileModalId] = useState<string | null>(null)
   const [viewProfileData, setViewProfileData] = useState<any | null>(null)
+
+  // Application modal state
+  const [showApplicationModal, setShowApplicationModal] = useState(false)
+  const [selectedJobForApplication, setSelectedJobForApplication] = useState<any | null>(null)
 
   // Scroll to selected professional card
   useEffect(() => {
@@ -580,18 +585,17 @@ export default function ProfessionalsPageContent({
       setSignUpPrompt({ isOpen: true, action: "message" })
       return
     }
-    // Build URL with search parameters to enable "Back to Search"
-    console.log("[PROFESSIONALS-PAGE] Building job URL with searchParams:", searchParams)
-    const params = new URLSearchParams()
-    if (searchParams.search) params.set('query', searchParams.search)
-    if (searchParams.location) params.set('location', searchParams.location)
-    if (searchParams.lat) params.set('lat', searchParams.lat)
-    if (searchParams.lng) params.set('lon', searchParams.lng)
 
-    const queryString = params.toString()
-    const finalUrl = `/jobs/${jobId}${queryString ? `?${queryString}` : ''}`
-    console.log("[PROFESSIONALS-PAGE] Navigating to:", finalUrl)
-    router.push(finalUrl)
+    // Find the job in the data array
+    const job = data.find((item: any) => item.id === jobId)
+    if (!job) {
+      console.error("[PROFESSIONALS-PAGE] Job not found:", jobId)
+      return
+    }
+
+    console.log("[PROFESSIONALS-PAGE] Opening application modal for job:", jobId)
+    setSelectedJobForApplication(job)
+    setShowApplicationModal(true)
   }
 
   const handleSaveJob = async (jobId: string) => {
@@ -1165,17 +1169,17 @@ export default function ProfessionalsPageContent({
 
               {/* Sidebar - Professional List */}
               <div className="w-full lg:w-96">
-                <Card className="h-[500px] lg:h-[600px] overflow-hidden shadow-xl border-0 rounded-xl">
+                <Card className="h-auto max-h-[calc(100vh-200px)] lg:h-[600px] flex flex-col shadow-xl border-0 rounded-xl">
                   {/* Professional List */}
                   <>
-                    <div className="p-4 border-b border-gray-200">
-                      <h2 className="text-lg font-semibold text-gray-900">
+                    <div className="p-3 sm:p-4 border-b border-gray-200 flex-shrink-0">
+                      <h2 className="text-base sm:text-lg font-semibold text-gray-900">
                         {isEmployer ? "Professionals" : isShowingCompanies ? "Companies" : isShowingTraders ? "Traders" : "Results"}
                       </h2>
-                      <p className="text-sm text-gray-600">Click on professionals below or map markers</p>
+                      <p className="text-xs sm:text-sm text-gray-600">Click on professionals below or map markers</p>
                     </div>
 
-                      <div className="h-full overflow-y-auto">
+                      <div className="flex-1 overflow-y-auto overflow-x-hidden pb-4">
                         {data.length === 0 ? (
                           <div className="text-center py-12 px-4">
                             <UserIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -1183,7 +1187,7 @@ export default function ProfessionalsPageContent({
                             <p className="text-gray-600 mb-4">Try adjusting your search criteria</p>
                           </div>
                         ) : (
-                          <div className="space-y-4 p-4">
+                          <div className="space-y-3 p-3 sm:p-4">
                             {sortedData.map((item: any) => {
                               const isSelected = selectedProfessionalId === item.id
 
@@ -1901,6 +1905,34 @@ export default function ProfessionalsPageContent({
         </Dialog>
       )}
 
+      {/* Job Application Modal - Mobile-friendly */}
+      {selectedJobForApplication && userProfile && (
+        <Dialog open={showApplicationModal} onOpenChange={setShowApplicationModal}>
+          <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <DialogHeader>
+              <DialogTitle className="text-lg sm:text-2xl font-bold pr-8">
+                Apply for {selectedJobForApplication.title}
+              </DialogTitle>
+            </DialogHeader>
+            <JobApplicationForm
+              job={selectedJobForApplication as any}
+              userProfile={userProfile as any}
+              hasApplied={false}
+              onApplicationSubmitted={() => {
+                setShowApplicationModal(false)
+                setSelectedJobForApplication(null)
+                // Refresh the page to update application status
+                router.refresh()
+              }}
+              onClose={() => {
+                setShowApplicationModal(false)
+                setSelectedJobForApplication(null)
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Professional Profile Modal */}
       {viewProfileModalId && viewProfileData && (
         <Dialog open={!!viewProfileModalId} onOpenChange={(open) => !open && setViewProfileModalId(null)}>
@@ -2325,7 +2357,7 @@ export default function ProfessionalsPageContent({
 
                                 {/* Description - show truncated or full based on expanded state */}
                                 {item.description && (
-                                  <p className={`text-xs text-gray-700 mt-2 ${isExpanded ? '' : 'line-clamp-2'}`}>
+                                  <p className={`text-xs text-gray-700 mt-2 whitespace-pre-line ${isExpanded ? '' : 'line-clamp-2'}`}>
                                     {item.description}
                                   </p>
                                 )}
@@ -2361,6 +2393,45 @@ export default function ProfessionalsPageContent({
                                     {isExpanded ? 'Tap to collapse' : 'Tap to see more'}
                                   </p>
                                 )}
+
+                                {/* Action Buttons - ALWAYS VISIBLE on mobile */}
+                                <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-10 px-4 flex-1 text-sm touch-manipulation"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      // Build URL with return context to enable "Back to Search"
+                                      const params = new URLSearchParams()
+                                      if (searchParams.search) params.set('returnQuery', searchParams.search)
+                                      if (searchParams.location) params.set('returnLocation', searchParams.location)
+                                      if (searchParams.lat) params.set('returnLat', searchParams.lat)
+                                      if (searchParams.lng) params.set('returnLon', searchParams.lng)
+                                      if (searchParams.radius) params.set('returnRadius', searchParams.radius)
+                                      params.set('returnToSearch', 'true') // Flag to show "Back to Search" button
+                                      const queryString = params.toString()
+                                      router.push(`/jobs/${item.id}${queryString ? `?${queryString}` : ''}`)
+                                    }}
+                                  >
+                                    <ExternalLink className="h-4 w-4 mr-2" />
+                                    View Details
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="h-10 px-4 flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium touch-manipulation"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      if (user) {
+                                        handleApplyToJob(item.id)
+                                      } else {
+                                        setSignUpPrompt({ isOpen: true, action: "apply" })
+                                      }
+                                    }}
+                                  >
+                                    Apply Now
+                                  </Button>
+                                </div>
                               </div>
                             </div>
                           </div>

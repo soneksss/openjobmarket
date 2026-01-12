@@ -89,6 +89,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
   // State for restoring search from "Back to Search"
   const [restoreSearch, setRestoreSearch] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
+  const [isRestoringSearch, setIsRestoringSearch] = useState(false)
+
+  // Ref to track processed restoration URLs (prevent infinite loop)
+  const processedRestorationRef = useRef<string | null>(null)
 
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -330,54 +334,116 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   // Handle tab URL parameter and restore search state from "Back to Search"
   useEffect(() => {
     const tab = searchParams?.get('tab')
+    const returnToSearch = searchParams?.get('returnToSearch')
+
     console.log("[MAIN-PAGE-SEARCH] URL changed, all searchParams:", {
       tab,
-      query: searchParams?.get('query'),
-      location: searchParams?.get('location'),
-      lat: searchParams?.get('lat'),
-      lon: searchParams?.get('lon')
+      returnToSearch,
+      returnQuery: searchParams?.get('returnQuery'),
+      returnLocation: searchParams?.get('returnLocation'),
+      returnLat: searchParams?.get('returnLat'),
+      returnLon: searchParams?.get('returnLon'),
+      returnRadius: searchParams?.get('returnRadius')
     })
 
+    // PRIORITY: Check returnToSearch flag (single source of truth)
+    if (returnToSearch === 'true') {
+      // Create unique URL signature to track if we've already processed this restoration
+      const urlSignature = searchParams?.toString() || ''
+
+      // CRITICAL: Check if we've already processed this exact URL
+      if (processedRestorationRef.current === urlSignature) {
+        console.log("[MAIN-PAGE-SEARCH] ⏭️ Restoration already processed for this URL - skipping to prevent loop")
+        return // Exit early - already processed
+      }
+
+      console.log("[MAIN-PAGE-SEARCH] 🔄 returnToSearch=true detected - forcing restoration (first time for this URL)")
+
+      // Mark this URL as processed IMMEDIATELY to prevent re-entry
+      processedRestorationRef.current = urlSignature
+
+      // CRITICAL: Set restoration flag to skip auth checks
+      setIsRestoringSearch(true)
+      console.log("[MAIN-PAGE-SEARCH] 🔒 isRestoringSearch set to TRUE - auth redirects will be skipped")
+
+      // Read return params (allow partial - use whatever is available)
+      const returnQuery = searchParams?.get('returnQuery')
+      const returnLocation = searchParams?.get('returnLocation')
+      const returnLat = searchParams?.get('returnLat')
+      const returnLon = searchParams?.get('returnLon')
+      const returnRadius = searchParams?.get('returnRadius')
+
+      console.log("[MAIN-PAGE-SEARCH] ✅ Restoring search from job detail return:", {
+        returnQuery,
+        returnLocation,
+        returnLat,
+        returnLon,
+        returnRadius,
+        hasAllParams: !!(returnQuery && returnLocation && returnLat && returnLon)
+      })
+
+      // Restore whatever params are available
+      if (returnQuery) setSearchQuery(returnQuery)
+      if (returnLocation) setLocation(returnLocation)
+      if (returnLat && returnLon) {
+        setSelectedLocation({
+          lat: parseFloat(returnLat),
+          lon: parseFloat(returnLon)
+        })
+      }
+      if (returnRadius) setDistance(returnRadius)
+
+      // Determine search type from tab or default to vacancies
+      const searchType = tab || 'vacancies'
+      if (searchType === 'vacancies' || searchType === 'jobs_tasks' || searchType === 'talents' || searchType === 'traders') {
+        setSelectedSearchType(searchType)
+      }
+
+      // CRITICAL: Open the map modal
+      setShowMapModal(true)
+      console.log("[MAIN-PAGE-SEARCH] 🗺️ Map modal opened")
+
+      // Trigger search restoration (even with partial params)
+      setRestoreSearch(searchType)
+
+      return // Exit early - restoration takes priority
+    } else {
+      // If returnToSearch is not present, clear the processed ref
+      // This allows new restorations after user performs a new search
+      processedRestorationRef.current = null
+    }
+
+    // Fallback: Old tab-based logic (if no returnToSearch flag)
     if (tab) {
       console.log("[MAIN-PAGE-SEARCH] Tab parameter detected:", tab)
       if (tab === 'vacancies' || tab === 'jobs_tasks' || tab === 'talents' || tab === 'traders') {
         setSelectedSearchType(tab)
         console.log("[MAIN-PAGE-SEARCH] Selected search type set to:", tab)
-
-        // Check if we're returning from a job detail page with search params
-        const query = searchParams?.get('query')
-        const locationName = searchParams?.get('location')
-        const lat = searchParams?.get('lat')
-        const lon = searchParams?.get('lon')
-
-        if (query && locationName && lat && lon) {
-          console.log("[MAIN-PAGE-SEARCH] ✅ Restoring search from job detail return:", {
-            query, locationName, lat, lon
-          })
-          // Restore search state
-          setSearchQuery(query)
-          setLocation(locationName)
-          setSelectedLocation({ lat: parseFloat(lat), lon: parseFloat(lon) })
-          // Set a flag to trigger search after state is updated
-          setRestoreSearch(tab)
-        } else {
-          console.log("[MAIN-PAGE-SEARCH] ❌ Missing search params - not restoring:", {
-            hasQuery: !!query,
-            hasLocation: !!locationName,
-            hasLat: !!lat,
-            hasLon: !!lon
-          })
-        }
       }
     }
   }, [searchParams])
 
   // Separate effect to trigger search after state restoration
   useEffect(() => {
-    if (restoreSearch && searchQuery && location && selectedLocation) {
-      console.log("[MAIN-PAGE-SEARCH] State restored, triggering search for:", restoreSearch)
-      handleSearch(restoreSearch)
-      setRestoreSearch(null) // Clear the flag
+    if (restoreSearch) {
+      // Allow restoration with partial params (at minimum, we need location coordinates)
+      if (selectedLocation) {
+        console.log("[MAIN-PAGE-SEARCH] State restored, triggering search for:", restoreSearch, {
+          hasQuery: !!searchQuery,
+          hasLocation: !!location,
+          hasCoordinates: !!selectedLocation
+        })
+        handleSearch(restoreSearch)
+        setRestoreSearch(null) // Clear the flag
+
+        // Clear restoration flag after a short delay to allow search to complete
+        setTimeout(() => {
+          setIsRestoringSearch(false)
+          console.log("[MAIN-PAGE-SEARCH] 🔓 isRestoringSearch cleared - auth checks re-enabled")
+        }, 2000)
+      } else {
+        console.log("[MAIN-PAGE-SEARCH] ⏳ Waiting for location coordinates to restore search")
+      }
     }
   }, [restoreSearch, searchQuery, location, selectedLocation])
 
@@ -460,6 +526,38 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     setLocationError("")
   }
 
+  // Haversine distance calculation (returns distance in km)
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371 // Earth's radius in kilometers
+    const dLat = (lat2 - lat1) * Math.PI / 180
+    const dLon = (lon2 - lon1) * Math.PI / 180
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    return R * c
+  }
+
+  // Filter results by actual circular radius (not just bounding box)
+  const filterByRadius = <T extends { latitude?: number | null; longitude?: number | null }>(
+    items: T[],
+    centerLat: number,
+    centerLon: number,
+    radiusMiles: number
+  ): T[] => {
+    const radiusKm = radiusMiles * 1.60934
+    return items.filter(item => {
+      if (!item.latitude || !item.longitude) return false
+      const distance = calculateDistance(centerLat, centerLon, item.latitude, item.longitude)
+      const withinRadius = distance <= radiusKm
+      if (!withinRadius) {
+        console.log(`[RADIUS-FILTER] Excluding item at ${item.latitude},${item.longitude} - distance: ${distance.toFixed(2)}km > radius: ${radiusKm.toFixed(2)}km`)
+      }
+      return withinRadius
+    })
+  }
+
   const validateSearch = () => {
     console.log(`[VALIDATE-SEARCH] Starting validation for ${selectedSearchType}`)
     console.log(`[VALIDATE-SEARCH] searchQuery:`, searchQuery)
@@ -517,44 +615,49 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const handleSearch = async (type: "vacancies" | "jobs_tasks" | "talents" | "traders") => {
     console.log(`[MAIN-PAGE-SEARCH] handleSearch called with type: ${type}`)
 
-    // Check if sign-in is required to search (with timeout to prevent hanging)
-    try {
-      console.log('[MAIN-PAGE-SEARCH] Calling is_signin_required_to_search RPC...')
+    // CRITICAL: Skip auth checks during search restoration
+    if (isRestoringSearch) {
+      console.log('[MAIN-PAGE-SEARCH] 🔓 Skipping auth check - search restoration in progress')
+    } else {
+      // Check if sign-in is required to search (with timeout to prevent hanging)
+      try {
+        console.log('[MAIN-PAGE-SEARCH] Calling is_signin_required_to_search RPC...')
 
-      // Create a timeout promise that resolves after 3 seconds
-      const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
-        setTimeout(() => {
-          console.warn('[MAIN-PAGE-SEARCH] RPC timeout after 3 seconds')
-          resolve({ data: null, error: new Error('RPC timeout') })
-        }, 3000)
-      })
+        // Create a timeout promise that resolves after 3 seconds
+        const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
+          setTimeout(() => {
+            console.warn('[MAIN-PAGE-SEARCH] RPC timeout after 3 seconds')
+            resolve({ data: null, error: new Error('RPC timeout') })
+          }, 3000)
+        })
 
-      // Race between the RPC call and timeout
-      const rpcPromise = supabase.rpc('is_signin_required_to_search')
-      const result = await Promise.race([rpcPromise, timeoutPromise])
-      const { data: signinRequired, error: signinError } = result
+        // Race between the RPC call and timeout
+        const rpcPromise = supabase.rpc('is_signin_required_to_search')
+        const result = await Promise.race([rpcPromise, timeoutPromise])
+        const { data: signinRequired, error: signinError } = result
 
-      console.log('[MAIN-PAGE-SEARCH] RPC returned. signinRequired:', signinRequired, 'error:', signinError, 'user:', user ? 'logged in' : 'not logged in')
+        console.log('[MAIN-PAGE-SEARCH] RPC returned. signinRequired:', signinRequired, 'error:', signinError, 'user:', user ? 'logged in' : 'not logged in')
 
-      if (signinError) {
-        console.error('[MAIN-PAGE-SEARCH] Error checking signin requirement:', signinError)
+        if (signinError) {
+          console.error('[MAIN-PAGE-SEARCH] Error checking signin requirement:', signinError)
+          // Continue with search on error (fail open for better UX)
+        } else if (signinRequired && !user) {
+          console.log('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
+          // Redirect to sign-up page to encourage new user registration
+          // Preserve locale when redirecting
+          const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
+          const isOnBrRoute = pathname?.startsWith('/br')
+          const signUpUrl = isOnBrRoute
+            ? `/auth/sign-up?locale=pt-BR&redirect=${returnUrl}`
+            : `/auth/sign-up?redirect=${returnUrl}`
+          router.push(signUpUrl)
+          return
+        }
+        console.log('[MAIN-PAGE-SEARCH] Sign-in check passed, continuing to validation...')
+      } catch (err) {
+        console.error('[MAIN-PAGE-SEARCH] Exception checking signin requirement:', err)
         // Continue with search on error (fail open for better UX)
-      } else if (signinRequired && !user) {
-        console.log('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
-        // Redirect to sign-up page to encourage new user registration
-        // Preserve locale when redirecting
-        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
-        const isOnBrRoute = pathname?.startsWith('/br')
-        const signUpUrl = isOnBrRoute
-          ? `/auth/sign-up?locale=pt-BR&redirect=${returnUrl}`
-          : `/auth/sign-up?redirect=${returnUrl}`
-        router.push(signUpUrl)
-        return
       }
-      console.log('[MAIN-PAGE-SEARCH] Sign-in check passed, continuing to validation...')
-    } catch (err) {
-      console.error('[MAIN-PAGE-SEARCH] Exception checking signin requirement:', err)
-      // Continue with search on error (fail open for better UX)
     }
 
     console.log('[MAIN-PAGE-SEARCH] About to call validateSearch()')
@@ -644,18 +747,26 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         if (contractorData) {
-          contractorResults = contractorData
-            .filter(item => item.latitude && item.longitude)
-            .map(item => ({
-              ...item,
-              id: item.id,
-              name: item.company_name || 'Contractor',
-              coordinates: {
-                lat: item.latitude,
-                lon: item.longitude
-              },
-              type: 'contractor'
-            }))
+          // Apply radius filtering to contractor results
+          let filteredContractors = contractorData.filter(item => item.latitude && item.longitude)
+
+          if (selectedLocation) {
+            const radiusMiles = parseInt(distance) || 10
+            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredContractors.length} contractors (${radiusMiles} miles)`)
+            filteredContractors = filterByRadius(filteredContractors, selectedLocation.lat, selectedLocation.lon, radiusMiles)
+            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredContractors.length} contractors`)
+          }
+
+          contractorResults = filteredContractors.map(item => ({
+            ...item,
+            id: item.id,
+            name: item.company_name || 'Contractor',
+            coordinates: {
+              lat: item.latitude!,
+              lon: item.longitude!
+            },
+            type: 'contractor'
+          }))
         }
 
         // Fetch self-employed professionals as well
@@ -703,18 +814,26 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         if (profData) {
-          professionalResults = profData
-            .filter(item => item.latitude && item.longitude)
-            .map(item => ({
-              ...item,
-              id: item.id,
-              name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),
-              coordinates: {
-                lat: item.latitude,
-                lon: item.longitude
-              },
-              type: 'professional'
-            }))
+          // Apply radius filtering to professional results
+          let filteredProfessionals = profData.filter(item => item.latitude && item.longitude)
+
+          if (selectedLocation) {
+            const radiusMiles = parseInt(distance) || 10
+            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredProfessionals.length} professionals (${radiusMiles} miles)`)
+            filteredProfessionals = filterByRadius(filteredProfessionals, selectedLocation.lat, selectedLocation.lon, radiusMiles)
+            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredProfessionals.length} professionals`)
+          }
+
+          professionalResults = filteredProfessionals.map(item => ({
+            ...item,
+            id: item.id,
+            name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),
+            coordinates: {
+              lat: item.latitude!,
+              lon: item.longitude!
+            },
+            type: 'professional'
+          }))
         }
 
         // Fetch companies who trade (open_for_business)
@@ -753,18 +872,26 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         if (companyData) {
-          companyResults = companyData
-            .filter(item => item.latitude && item.longitude)
-            .map(item => ({
-              ...item,
-              id: item.id,
-              name: item.company_name,
-              coordinates: {
-                lat: item.latitude,
-                lon: item.longitude
-              },
-              type: 'company'
-            }))
+          // Apply radius filtering to company results
+          let filteredCompanies = companyData.filter(item => item.latitude && item.longitude)
+
+          if (selectedLocation) {
+            const radiusMiles = parseInt(distance) || 10
+            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredCompanies.length} companies (${radiusMiles} miles)`)
+            filteredCompanies = filterByRadius(filteredCompanies, selectedLocation.lat, selectedLocation.lon, radiusMiles)
+            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredCompanies.length} companies`)
+          }
+
+          companyResults = filteredCompanies.map(item => ({
+            ...item,
+            id: item.id,
+            name: item.company_name,
+            coordinates: {
+              lat: item.latitude!,
+              lon: item.longitude!
+            },
+            type: 'company'
+          }))
         }
 
         // Combine all results
@@ -887,18 +1014,27 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         if (!error && data) {
           console.log(`[MAIN-PAGE-SEARCH] Raw talents data:`, data)
+
+          // Apply radius filtering to talents results
+          let filteredTalents = data.filter(item => item.latitude && item.longitude)
+
+          if (selectedLocation && distance !== "remote") {
+            const radiusMiles = parseInt(distance) || 10
+            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredTalents.length} talents (${radiusMiles} miles)`)
+            filteredTalents = filterByRadius(filteredTalents, selectedLocation.lat, selectedLocation.lon, radiusMiles)
+            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredTalents.length} talents`)
+          }
+
           // Transform data to match ProfessionalMap expected format
-          results = data
-            .filter(item => item.latitude && item.longitude)
-            .map(item => ({
-              ...item,
-              id: item.id,
-              name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),
-              coordinates: {
-                lat: item.latitude,
-                lon: item.longitude
-              }
-            }))
+          results = filteredTalents.map(item => ({
+            ...item,
+            id: item.id,
+            name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),
+            coordinates: {
+              lat: item.latitude!,
+              lon: item.longitude!
+            }
+          }))
           console.log(`[MAIN-PAGE-SEARCH] Filtered/transformed talents results:`, results.length, `items`)
         }
       } else if (type === "vacancies" || type === "jobs_tasks") {
@@ -1154,9 +1290,25 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           const jobsWithoutCoords = data.length - jobsWithCoords
           console.log(`[MAIN-PAGE-SEARCH] Jobs with coordinates: ${jobsWithCoords}, without coordinates: ${jobsWithoutCoords}`)
 
+          // Apply radius filtering to jobs WITH coordinates (keep jobs without coordinates)
+          let filteredData = data
+          if (selectedLocation && distance !== "remote") {
+            const radiusMiles = parseInt(distance) || 10
+            const jobsWithCoordsArray = data.filter((item: any) => item.latitude && item.longitude)
+            const jobsWithoutCoordsArray = data.filter((item: any) => !item.latitude || !item.longitude)
+
+            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${jobsWithCoordsArray.length} jobs with coordinates (${radiusMiles} miles)`)
+            const filteredJobsWithCoords = filterByRadius(jobsWithCoordsArray, selectedLocation.lat, selectedLocation.lon, radiusMiles)
+            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredJobsWithCoords.length} jobs with coordinates`)
+
+            // Combine filtered jobs with coordinates + all jobs without coordinates
+            filteredData = [...filteredJobsWithCoords, ...jobsWithoutCoordsArray]
+            console.log(`[MAIN-PAGE-SEARCH] Total jobs after filtering: ${filteredData.length} (${filteredJobsWithCoords.length} with coords + ${jobsWithoutCoordsArray.length} without coords)`)
+          }
+
           // Enrich jobs with poster information
           // IMPORTANT: Do NOT filter out jobs without coordinates - they should still appear in search results
-          results = data.map((job: any) => {
+          results = filteredData.map((job: any) => {
               const homeownerProfile = job.homeowner_profiles
               const companyProfile = job.company_profiles
 
@@ -1178,7 +1330,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               }
             })
 
-          console.log(`[MAIN-PAGE-SEARCH] Enriched ${results.length} jobs with poster data (including ${jobsWithoutCoords} without coordinates)`)
+          console.log(`[MAIN-PAGE-SEARCH] Enriched ${results.length} jobs with poster data`)
         }
       }
 
@@ -1275,6 +1427,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       // Get location from params or use the original selectedLocation
       const searchLat = params.lat ? parseFloat(params.lat) : selectedLocation?.lat
       const searchLng = params.lng ? parseFloat(params.lng) : selectedLocation?.lon
+      const searchRadius = params.radius ? parseInt(params.radius) : (distance ? parseInt(distance) : 10)
 
       if (modalSearchType === "traders") {
         // Fetch traders: self-employed professionals AND companies who trade
@@ -1393,8 +1546,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         // Apply location-based radius filtering if coordinates are available
         if (searchLat && searchLng) {
-          const radius = 10 // Default to 10 miles radius
-          const radiusKm = radius * 1.60934 // Convert miles to km
+          const radiusKm = searchRadius * 1.60934 // Convert miles to km
 
           // Use bounding box approximation for radius search
           const latDelta = radiusKm / 111.0 // Rough conversion: 1 degree ≈ 111 km
@@ -1458,8 +1610,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         // Apply location-based radius filtering if coordinates are available
         if (searchLat && searchLng) {
-          const radius = 10 // Default to 10 miles radius
-          const radiusKm = radius * 1.60934 // Convert miles to km
+          const radiusKm = searchRadius * 1.60934 // Convert miles to km
 
           // Use bounding box approximation for radius search
           const latDelta = radiusKm / 111.0 // Rough conversion: 1 degree ≈ 111 km

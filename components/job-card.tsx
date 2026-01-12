@@ -89,6 +89,14 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
   const [selectedProfileType, setSelectedProfileType] = useState<"professional" | "company" | "contractor" | "homeowner" | null>(null)
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
 
+  // Track touch events to distinguish tap from scroll
+  const [touchStartY, setTouchStartY] = useState<number | null>(null)
+
+  // Handle card selection (works for both click and touch)
+  const handleCardSelect = () => {
+    onSelect?.()
+  }
+
   // Locale-aware auth URLs
   const isOnBrRoute = pathname?.startsWith('/br')
   const signUpUrl = isOnBrRoute
@@ -102,7 +110,38 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
   // Auto-collapse when deselected (another job is selected)
   useEffect(() => {
     setIsExpanded(isSelected)
-  }, [isSelected])
+
+    // Scroll card into view when expanded to show buttons
+    if (isSelected && ref && typeof ref !== 'function' && ref.current) {
+      // Delay scroll to allow expansion animation to complete
+      setTimeout(() => {
+        ref.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest', // Keep as much of the card visible as possible
+          inline: 'nearest'
+        })
+        // Additional scroll to ensure bottom of card (buttons) is visible
+        setTimeout(() => {
+          const cardElement = ref.current
+          if (cardElement) {
+            const cardRect = cardElement.getBoundingClientRect()
+            const container = cardElement.closest('.overflow-y-auto')
+            if (container) {
+              const containerRect = container.getBoundingClientRect()
+              const cardBottom = cardRect.bottom
+              const containerBottom = containerRect.bottom
+
+              // If card bottom is below container bottom, scroll down more
+              if (cardBottom > containerBottom) {
+                const scrollAmount = cardBottom - containerBottom + 20 // 20px padding
+                container.scrollBy({ top: scrollAmount, behavior: 'smooth' })
+              }
+            }
+          }
+        }, 300)
+      }, 200)
+    }
+  }, [isSelected, ref])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -318,13 +357,23 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
             ? "shadow-xl border-2 border-blue-500 bg-blue-50"
             : "border-gray-200 hover:border-gray-300"
         }`}
-        onClick={() => {
-          // Let the parent handle selection, which will update isSelected
-          // The useEffect will then update isExpanded based on isSelected
-          onSelect?.()
+        onClick={handleCardSelect}
+        onTouchStart={(e) => {
+          setTouchStartY(e.touches[0].clientY)
+        }}
+        onTouchEnd={(e) => {
+          if (touchStartY !== null) {
+            const touchEndY = e.changedTouches[0].clientY
+            const diff = Math.abs(touchEndY - touchStartY)
+            // Only trigger selection if it's a tap (not a scroll)
+            if (diff < 10) {
+              handleCardSelect()
+            }
+          }
+          setTouchStartY(null)
         }}
       >
-        <CardContent className="p-4">
+        <CardContent className="p-3 sm:p-4">
           <div className="flex gap-3">
             {/* Job Details */}
             <div className="flex-1 min-w-0">
@@ -407,16 +456,25 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               )}
 
               {/* Job Title */}
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-xl font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+              <div className="flex items-start gap-2 mb-1.5 sm:mb-1">
+                <h3
+                  className={`text-lg sm:text-xl font-semibold text-gray-900 transition-colors leading-tight flex-1 ${isExpanded ? 'hover:text-blue-600 cursor-pointer' : ''}`}
+                  onClick={(e) => {
+                    // Only navigate when card is already expanded
+                    if (isExpanded) {
+                      e.stopPropagation()
+                      router.push(`/jobs/${job.id}`)
+                    }
+                  }}
+                >
                   {job.title}
                 </h3>
                 {job.is_tradespeople_job ? (
-                  <Badge className="bg-orange-500 text-white hover:bg-orange-600 text-xs px-2 py-0.5 flex-shrink-0">
+                  <Badge className="bg-orange-500 text-white hover:bg-orange-600 text-xs px-2 py-0.5 flex-shrink-0 mt-0.5">
                     {t('jobs.tradeJob')}
                   </Badge>
                 ) : (
-                  <Badge className="bg-green-600 text-white hover:bg-green-700 text-xs px-2 py-0.5 flex-shrink-0">
+                  <Badge className="bg-green-600 text-white hover:bg-green-700 text-xs px-2 py-0.5 flex-shrink-0 mt-0.5">
                     {t('jobs.vacancy')}
                   </Badge>
                 )}
@@ -461,27 +519,107 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               )}
 
               {/* Short Description */}
-              <p className={`text-sm text-gray-600 mb-2 ${!isExpanded ? 'line-clamp-2' : ''}`}>
-                {isExpanded ? longDesc : (shortDesc?.substring(0, 120) + (shortDesc && shortDesc.length > 120 ? "..." : ""))}
+              <p className="text-sm sm:text-sm text-gray-600 mb-2 line-clamp-2 leading-relaxed">
+                {shortDesc?.substring(0, 120) + (shortDesc && shortDesc.length > 120 ? "..." : "")}
               </p>
 
               {/* Price */}
               {salary && (
-                <div className="text-sm font-bold text-green-600 mb-2">
-                  {salary} <span className="text-gray-500 font-normal">(per job)</span>
+                <div className="text-sm sm:text-sm font-bold text-green-600 mb-2">
+                  {salary} <span className="text-gray-500 font-normal text-xs">(per job)</span>
                 </div>
               )}
 
-              {/* Expanded Details */}
+              {/* Skills - Always show top 3 */}
+              {topSkills.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 sm:gap-1 mb-2">
+                  {topSkills.map((skill, index) => (
+                    <Badge
+                      key={index}
+                      variant="outline"
+                      className="text-xs bg-green-50 border-green-200 text-green-700 px-2 py-1"
+                    >
+                      {skill}
+                    </Badge>
+                  ))}
+                  {job.skills_required?.length > 3 && (
+                    <Badge variant="outline" className="text-xs text-gray-500 px-2 py-1">
+                      +{job.skills_required.length - 3} more
+                    </Badge>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons - ALWAYS VISIBLE */}
+              <div className="flex items-center justify-between gap-2 mb-2 mt-3">
+                <span className="text-xs sm:text-xs text-gray-500 flex-shrink-0">
+                  {formatDate(job.created_at)}
+                </span>
+                <div className="flex items-center gap-1.5 sm:gap-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-9 sm:h-7 sm:w-7 p-0 touch-manipulation"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleSaveClick()
+                    }}
+                    disabled={isSaving}
+                  >
+                    <Heart className={`h-4 w-4 sm:h-3 sm:w-3 ${isSaved ? "fill-current text-red-600" : ""}`} />
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 w-9 sm:h-7 sm:w-7 p-0 touch-manipulation"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleContactClick()
+                    }}
+                  >
+                    <MessageCircle className="h-4 w-4 sm:h-3 sm:w-3" />
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    className={hasApplied
+                      ? "h-9 px-4 sm:h-7 sm:px-3 bg-green-600 text-white cursor-not-allowed text-sm sm:text-xs touch-manipulation"
+                      : "h-9 px-4 sm:h-7 sm:px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-xs touch-manipulation font-medium"
+                    }
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (!hasApplied) {
+                        handleApplyClick()
+                      }
+                    }}
+                    disabled={hasApplied}
+                  >
+                    {hasApplied ? "Applied" : "Apply"}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Expanded Details - Extra info only */}
               {isExpanded && (
-                <div className="mt-3 pt-3 border-t border-gray-200 space-y-3" onClick={(e) => e.stopPropagation()}>
+                <div className="mt-3 pt-3 border-t border-gray-200 space-y-3 sm:space-y-3" onClick={(e) => e.stopPropagation()}>
+                  {/* Full Description */}
+                  {longDesc && longDesc.length > 120 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-700 mb-1.5">Full Description:</p>
+                      <p className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">
+                        {longDesc}
+                      </p>
+                    </div>
+                  )}
+
                   {/* Job Photo */}
                   {job.job_photo_url && (
                     <div className="mb-3">
                       <img
                         src={job.job_photo_url}
                         alt={job.title}
-                        className="w-full max-h-[250px] object-cover rounded-md shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
+                        className="w-full max-h-[200px] sm:max-h-[250px] object-cover rounded-md shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={(e) => {
                           e.stopPropagation()
                           setShowFullscreenImage(true)
@@ -492,105 +630,51 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                       />
                     </div>
                   )}
+
                   {/* Location */}
-                  <div className="flex items-center gap-1 text-sm text-gray-600">
-                    <MapPin className="h-4 w-4" />
-                    <span>{displayAddress}</span>
+                  <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                    <MapPin className="h-4 w-4 flex-shrink-0" />
+                    <span className="line-clamp-2">{displayAddress}</span>
                   </div>
 
                   {/* Job Type Badges */}
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100">
+                    <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs">
                       <Briefcase className="h-3 w-3 mr-1" />
                       {job.job_type}
                     </Badge>
-                    <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-200">
+                    <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs">
                       {job.work_location}
+                    </Badge>
+                    <Badge variant="secondary" className="bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs">
+                      {job.experience_level}
                     </Badge>
                   </div>
 
-                  {/* Skills */}
-                  {topSkills.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {topSkills.map((skill, index) => (
-                        <Badge
-                          key={index}
-                          variant="outline"
-                          className="text-xs bg-green-50 border-green-200 text-green-700"
-                        >
-                          {skill}
-                        </Badge>
-                      ))}
-                      {job.skills_required?.length > 3 && (
-                        <Badge variant="outline" className="text-xs text-gray-500">
-                          +{job.skills_required.length - 3} more
-                        </Badge>
-                      )}
+                  {/* All Skills (if more than 3) */}
+                  {job.skills_required && job.skills_required.length > 3 && (
+                    <div>
+                      <p className="text-sm text-gray-700 font-medium mb-1">All Skills:</p>
+                      <div className="flex flex-wrap gap-1">
+                        {job.skills_required.map((skill, index) => (
+                          <Badge
+                            key={index}
+                            variant="outline"
+                            className="text-xs bg-green-50 border-green-200 text-green-700"
+                          >
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                   )}
 
                   {/* Meta Info */}
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     <div className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      <span>{formatDate(job.created_at)}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
-                      <span>{job.applications_count} applications</span>
+                      <span>{job.applications_count} application{job.applications_count !== 1 ? 's' : ''}</span>
                     </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-1.5 sm:gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={`border-gray-300 hover:bg-gray-50 px-2 py-1 h-auto text-xs sm:text-sm ${
-                        isSaved ? "bg-red-50 border-red-300 text-red-700 hover:bg-red-100" : ""
-                      }`}
-                      disabled={isSaving}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleSaveClick()
-                      }}
-                    >
-                      <Heart className={`h-3 w-3 sm:h-4 sm:w-4 mr-1 ${isSaved ? "fill-current" : ""}`} />
-                      <span className="hidden sm:inline">{isSaving ? "..." : isSaved ? "Saved" : "Save"}</span>
-                      <span className="sm:hidden">{isSaving ? "..." : isSaved ? "Saved" : "Save"}</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-gray-300 hover:bg-gray-50 px-2 py-1 h-auto text-xs sm:text-sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleContactClick()
-                      }}
-                    >
-                      <MessageCircle className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                      <span className="hidden sm:inline">Contact</span>
-                      <span className="sm:hidden">Contact</span>
-                    </Button>
-
-                    <Button
-                      className={hasApplied
-                        ? "bg-green-600 text-white px-2 py-1 h-auto text-xs sm:text-sm flex-1 sm:flex-initial cursor-not-allowed opacity-90"
-                        : "bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 h-auto text-xs sm:text-sm flex-1 sm:flex-initial"
-                      }
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (!hasApplied) {
-                          handleApplyClick()
-                        }
-                      }}
-                      disabled={hasApplied}
-                    >
-                      <Briefcase className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-                      <span>{hasApplied ? "Applied" : "Apply Now"}</span>
-                    </Button>
                   </div>
                 </div>
               )}
