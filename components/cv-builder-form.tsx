@@ -429,15 +429,53 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
   const saveCVData = async () => {
     setSaving(true)
     try {
-      console.log("[v0] Starting CV save process...")
-      console.log("[v0] Professional ID:", professionalId)
-      console.log("[v0] Current CV data:", cvData)
+      console.log("[CV-SAVE] Starting CV save process...")
+      console.log("[CV-SAVE] Professional ID:", professionalId)
+
+      // CRITICAL: Check authentication and session status
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+
+      if (sessionError) {
+        console.error("[CV-SAVE] Session error:", sessionError)
+        alert("⚠️ Authentication error. Please refresh the page and try again.")
+        return
+      }
+
+      if (!session) {
+        console.error("[CV-SAVE] No active session found")
+        alert("⚠️ You are not logged in. Please log in again to save your CV.")
+        router.push('/auth/login')
+        return
+      }
+
+      // Check if session is expired or about to expire
+      const now = Date.now() / 1000
+      if (session.expires_at && session.expires_at < now) {
+        console.error("[CV-SAVE] Session expired")
+        alert("⚠️ Your session has expired. Please log in again.")
+        router.push('/auth/login')
+        return
+      }
+
+      // Refresh token if it's close to expiring (within 5 minutes)
+      if (session.expires_at && session.expires_at - now < 300) {
+        console.log("[CV-SAVE] Refreshing session token...")
+        const { error: refreshError } = await supabase.auth.refreshSession()
+        if (refreshError) {
+          console.error("[CV-SAVE] Token refresh failed:", refreshError)
+          alert("⚠️ Failed to refresh your session. Please log in again.")
+          router.push('/auth/login')
+          return
+        }
+      }
+
+      console.log("[CV-SAVE] Authentication validated ✓")
 
       let cvId = cvData.id
 
       // Create or update main CV record
       if (!cvId) {
-        console.log("[v0] Creating new CV record...")
+        console.log("[CV-SAVE] Creating new CV record...")
         const { data: newCV, error } = await supabase
           .from("professional_cvs")
           .insert({
@@ -451,13 +489,20 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
           .single()
 
         if (error) {
-          console.log("[v0] Error creating CV:", error)
+          console.error("[CV-SAVE] Error creating CV:", error)
+          if (error.code === 'PGRST301') {
+            alert("⚠️ Database connection error. Please check your internet connection and try again.")
+          } else if (error.message?.includes('JWT')) {
+            alert("⚠️ Authentication token expired. Please refresh the page and try again.")
+          } else {
+            alert(`⚠️ Failed to create CV: ${error.message || 'Unknown error'}`)
+          }
           throw error
         }
         cvId = newCV.id
-        console.log("[v0] Created CV with ID:", cvId)
+        console.log("[CV-SAVE] Created CV with ID:", cvId)
       } else {
-        console.log("[v0] Updating existing CV:", cvId)
+        console.log("[CV-SAVE] Updating existing CV:", cvId)
         const { error } = await supabase
           .from("professional_cvs")
           .update({
@@ -469,14 +514,21 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
           .eq("id", cvId)
 
         if (error) {
-          console.log("[v0] Error updating CV:", error)
+          console.error("[CV-SAVE] Error updating CV:", error)
+          if (error.code === 'PGRST301') {
+            alert("⚠️ Database connection error. Please check your internet connection and try again.")
+          } else if (error.message?.includes('JWT')) {
+            alert("⚠️ Authentication token expired. Please refresh the page and try again.")
+          } else {
+            alert(`⚠️ Failed to update CV: ${error.message || 'Unknown error'}`)
+          }
           throw error
         }
-        console.log("[v0] Updated CV successfully")
+        console.log("[CV-SAVE] Updated CV successfully")
       }
 
       // Save all sections
-      console.log("[v0] Saving CV sections...")
+      console.log("[CV-SAVE] Saving CV sections...")
       await Promise.all([
         saveWorkExperience(cvId!),
         saveEducation(cvId!),
@@ -487,7 +539,7 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
       ])
 
       // Update professional_profiles to set cv_source = 'builder'
-      console.log("[v0] Updating professional profile cv_source...")
+      console.log("[CV-SAVE] Updating professional profile cv_source...")
       const { error: profileError } = await supabase
         .from("professional_profiles")
         .update({
@@ -498,16 +550,22 @@ export default function CVBuilderForm({ professionalId, initialProfileData }: CV
         .eq("id", professionalId)
 
       if (profileError) {
-        console.error("[v0] Error updating profile:", profileError)
+        console.error("[CV-SAVE] Error updating profile:", profileError)
         // Don't throw - CV is already saved
       }
 
       setCvData((prev) => ({ ...prev, id: cvId }))
-      console.log("[v0] CV saved successfully!")
-      alert("CV saved successfully!")
+      console.log("[CV-SAVE] CV saved successfully! ✓")
+      alert("✅ CV saved successfully!")
     } catch (error) {
-      console.error("[v0] Error saving CV:", error)
-      alert(`Error saving CV: ${(error as any).message}`)
+      console.error("[CV-SAVE] ❌ Error saving CV:", error)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        alert("⚠️ Network error. Please check your internet connection and try again.")
+      } else if (!navigator.onLine) {
+        alert("⚠️ You are offline. Please check your internet connection and try again.")
+      } else {
+        alert(`⚠️ Error saving CV: ${(error as any).message || 'Unknown error occurred'}`)
+      }
     } finally {
       setSaving(false)
     }

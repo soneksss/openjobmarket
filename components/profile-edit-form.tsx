@@ -5,6 +5,43 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useTranslation } from "@/lib/i18n/context"
+
+// Popular skills for autocomplete suggestions (based on popular professions)
+const POPULAR_SKILLS = [
+  "Plumber", "Electrician", "Roofer", "Builder", "Handyman", "Man and Van",
+  "Gardener", "Plasterer", "Architect", "Delivery", "Painter", "Tiler",
+  "Window Installer", "Gutter Specialist", "Driveway Specialist", "Fencing",
+  "Programmer", "Gas Engineer", "Nurse", "Driver", "Cleaner", "Carpenter",
+  "Chef", "Barber", "Mechanic", "Administrator", "Teacher", "Doctor",
+  "Accountant", "Receptionist", "Security", "Pharmacist", "Photographer",
+  "Writer", "Translator", "Salesperson", "Florist", "Tailor", "Hairdresser",
+  "Dentist", "Scientist",
+  // Additional common skills
+  "Project Management", "Customer Service", "Data Analysis", "Sales",
+  "Marketing", "Communication", "Leadership", "Problem Solving",
+  "Time Management", "Teamwork", "Microsoft Office", "Excel", "Photoshop",
+  "JavaScript", "Python", "HTML/CSS", "React", "Node.js", "SQL",
+]
+
+// Popular Industries (same as main page categories)
+const POPULAR_INDUSTRIES = [
+  "Plumbing & Heating",
+  "Construction",
+  "Healthcare & Medical",
+  "Technology & IT",
+  "Transportation & Logistics",
+  "Cleaning & Maintenance",
+  "Landscaping & Gardening",
+  "Hospitality & Catering",
+  "Professional Services",
+  "Creative & Design",
+  "Education & Training",
+  "Security & Safety",
+  "Automotive & Mechanical",
+  "Legal & Finance",
+  "Sales & Marketing",
+  "Real Estate & Property",
+]
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -13,6 +50,7 @@ import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,7 +142,11 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
   const dashboardPath = locale === 'pt-BR' ? `/br${dashboardBasePath}` : dashboardBasePath
 
   // Form state
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState(userData?.profile_photo_url || "")
+  // For professionals, prefer professionalProfile.profile_photo_url over userData.profile_photo_url
+  const initialPhotoUrl = userData?.user_type === "professional"
+    ? (professionalProfile?.profile_photo_url || userData?.profile_photo_url || "")
+    : (userData?.profile_photo_url || "")
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(initialPhotoUrl)
   const [fullName, setFullName] = useState(userData?.full_name || "")
   const [bio, setBio] = useState(userData?.bio || "")
   const [location, setLocation] = useState(userData?.location || "")
@@ -117,6 +159,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
   const [firstName, setFirstName] = useState(professionalProfile?.first_name || "")
   const [lastName, setLastName] = useState(professionalProfile?.last_name || "")
   const [title, setTitle] = useState(professionalProfile?.title || "")
+  const [industry, setIndustry] = useState(professionalProfile?.industry || "")
   const [professionalBio, setProfessionalBio] = useState(professionalProfile?.bio || "")
   const [professionalLocation, setProfessionalLocation] = useState(professionalProfile?.location || "")
   const [skills, setSkills] = useState<string[]>(professionalProfile?.skills || [])
@@ -333,6 +376,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
           first_name: firstName,
           last_name: lastName,
           title: title,
+          industry: industry || null,
           bio: professionalBio,
           location: professionalLocation,
           skills: skills,
@@ -491,11 +535,16 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
               <div className="flex items-center space-x-4">
                 <Label htmlFor="photo-upload" className="cursor-pointer group relative">
                   <Avatar className="h-20 w-20 rounded-full ring-2 ring-offset-2 ring-gray-200 group-hover:ring-blue-500 transition-all">
-                    <AvatarImage
-                      src={profilePhotoUrl || "/placeholder.svg"}
-                      className="object-cover w-full h-full rounded-full"
-                    />
-                    <AvatarFallback className="text-lg rounded-full">{getInitials()}</AvatarFallback>
+                    {profilePhotoUrl ? (
+                      <AvatarImage
+                        src={profilePhotoUrl}
+                        alt="Profile photo"
+                        className="object-cover w-full h-full rounded-full"
+                      />
+                    ) : null}
+                    <AvatarFallback className="text-lg rounded-full bg-gradient-to-br from-blue-500 to-purple-600 text-white">
+                      {getInitials()}
+                    </AvatarFallback>
                   </Avatar>
                   <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 rounded-full transition-all">
                     <Upload className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -822,6 +871,28 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="industry">{t('profileEdit.industry')}</Label>
+                  <Select value={industry} onValueChange={setIndustry}>
+                    <SelectTrigger className="border-2 border-gray-300 focus:border-blue-500">
+                      <SelectValue placeholder={t('profileEdit.selectIndustry')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">
+                        <span className="text-muted-foreground">{t('profileEdit.noIndustry')}</span>
+                      </SelectItem>
+                      {POPULAR_INDUSTRIES.map((ind) => (
+                        <SelectItem key={ind} value={ind}>
+                          {ind}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t('profileEdit.industryHelp')}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
                   <Label>{t('profileEdit.skills')}</Label>
                   <div className="flex gap-2">
                     <Input
@@ -830,7 +901,14 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       onChange={(e) => setNewSkill(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addSkill())}
                       className="border-2 border-gray-300 focus:border-blue-500"
+                      list="skill-suggestions"
+                      autoComplete="off"
                     />
+                    <datalist id="skill-suggestions">
+                      {POPULAR_SKILLS.map((skill) => (
+                        <option key={skill} value={skill} />
+                      ))}
+                    </datalist>
                     <Button type="button" onClick={addSkill} size="icon">
                       <Plus className="h-4 w-4" />
                     </Button>

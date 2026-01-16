@@ -1379,6 +1379,12 @@ export const ptBR: Dictionary = {
     titleVisibleInfo: 'Seu título profissional será visível para empregadores.',
     titlePrivateInfo: 'Seu título profissional permanecerá privado.',
 
+    // Indústria
+    industry: 'Indústria',
+    selectIndustry: 'Selecione sua indústria',
+    noIndustry: 'Nenhuma indústria selecionada',
+    industryHelp: 'Escolher uma indústria ajuda empregadores a encontrá-lo mais facilmente ao pesquisar por categoria.',
+
     // Habilidades
     skills: 'Habilidades',
     addSkillPlaceholder: 'Adicionar uma habilidade',

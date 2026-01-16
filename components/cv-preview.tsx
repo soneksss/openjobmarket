@@ -891,28 +891,60 @@ export default function CVPreview({ professionalId, isOpen, onClose }: CVPreview
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-background rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-2xl font-bold">CV Preview</h2>
-          <div className="flex items-center space-x-2">
-            <Button onClick={handlePrint} disabled={!cvData} variant="outline">
-              <Printer className="h-4 w-4 mr-2" />
-              Print / Save as PDF
+    <div
+      className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)',
+      }}
+    >
+      <div className="bg-background w-full h-full sm:h-auto sm:max-h-[95vh] sm:max-w-4xl sm:rounded-lg shadow-xl flex flex-col overflow-hidden sm:m-4">
+        {/* Header - Fixed at top */}
+        <div className="flex-shrink-0 flex items-center justify-between p-3 sm:p-6 border-b bg-background sticky top-0 z-10">
+          <h2 className="text-lg sm:text-2xl font-bold">CV Preview</h2>
+          <div className="flex items-center gap-1 sm:gap-2">
+            {/* Print Button - Hidden on mobile, shown on tablet+ */}
+            <Button
+              onClick={handlePrint}
+              disabled={!cvData}
+              variant="outline"
+              className="hidden md:flex h-8 sm:h-10"
+              size="sm"
+            >
+              <Printer className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Print / Save as PDF</span>
             </Button>
-            <Button onClick={handleDownloadPDF} disabled={downloading || !cvData}>
-              <Download className="h-4 w-4 mr-2" />
-              {downloading ? "Generating..." : "Download PDF"}
+            {/* Download Button */}
+            <Button
+              onClick={handleDownloadPDF}
+              disabled={downloading || !cvData}
+              className="h-8 sm:h-10"
+              size="sm"
+            >
+              <Download className="h-4 w-4" />
+              <span className="ml-1.5 sm:ml-2 hidden sm:inline">{downloading ? "Generating..." : "Download PDF"}</span>
             </Button>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="h-4 w-4" />
+            {/* Close Button - Enhanced for mobile */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 sm:h-10 sm:w-10 p-0 touch-manipulation relative z-50"
+              aria-label="Close preview"
+            >
+              <X className="h-5 w-5 sm:h-4 sm:w-4" />
             </Button>
           </div>
         </div>
 
-        {/* Content */}
-        <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
+        {/* Content - Scrollable area */}
+        <div className="flex-1 overflow-y-auto overscroll-contain"
+          style={{
+            WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+          }}
+        >
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

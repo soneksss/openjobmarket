@@ -595,9 +595,17 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       return t('mainSearch.enterSearchTerm')
     }
 
-    // Allow empty location if work location is "Remote"
-    const canSkipLocation = workLocation === "remote"
-    console.log(`[VALIDATE-SEARCH] canSkipLocation:`, canSkipLocation)
+    // Allow empty location if work location is "Remote" (vacancies/trade jobs) or distance is "remote" (talents)
+    const canSkipLocation =
+      (selectedSearchType === "vacancies" && workLocation === "remote") ||
+      (selectedSearchType === "jobs_tasks" && workLocation === "remote") ||
+      (selectedSearchType === "talents" && distance === "remote")
+
+    console.log(`[VALIDATE-SEARCH] canSkipLocation:`, canSkipLocation, {
+      selectedSearchType,
+      workLocation,
+      distance
+    })
 
     if (!location.trim() && !canSkipLocation) {
       console.log(`[VALIDATE-SEARCH] FAILED: No location and cannot skip`)
@@ -1291,8 +1299,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           console.log(`[MAIN-PAGE-SEARCH] Jobs with coordinates: ${jobsWithCoords}, without coordinates: ${jobsWithoutCoords}`)
 
           // Apply radius filtering to jobs WITH coordinates (keep jobs without coordinates)
+          // Skip filtering if workLocation is "remote" (for vacancies/trade jobs)
           let filteredData = data
-          if (selectedLocation && distance !== "remote") {
+          if (selectedLocation && workLocation !== "remote") {
             const radiusMiles = parseInt(distance) || 10
             const jobsWithCoordsArray = data.filter((item: any) => item.latitude && item.longitude)
             const jobsWithoutCoordsArray = data.filter((item: any) => !item.latitude || !item.longitude)
@@ -1304,6 +1313,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             // Combine filtered jobs with coordinates + all jobs without coordinates
             filteredData = [...filteredJobsWithCoords, ...jobsWithoutCoordsArray]
             console.log(`[MAIN-PAGE-SEARCH] Total jobs after filtering: ${filteredData.length} (${filteredJobsWithCoords.length} with coords + ${jobsWithoutCoordsArray.length} without coords)`)
+          } else if (workLocation === "remote") {
+            console.log(`[MAIN-PAGE-SEARCH] Skipping radius filter - remote work location selected`)
           }
 
           // Enrich jobs with poster information

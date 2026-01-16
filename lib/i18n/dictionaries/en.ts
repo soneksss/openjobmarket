@@ -1406,6 +1406,12 @@ export const en = {
     titleVisibleInfo: 'Your professional title will be visible to employers.',
     titlePrivateInfo: 'Your professional title will remain private.',
 
+    // Industry
+    industry: 'Industry',
+    selectIndustry: 'Select your industry',
+    noIndustry: 'No industry selected',
+    industryHelp: 'Choosing an industry helps employers find you more easily when searching by category.',
+
     // Skills
     skills: 'Skills',
     addSkillPlaceholder: 'Add a skill',
