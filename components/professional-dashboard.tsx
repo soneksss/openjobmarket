@@ -198,7 +198,7 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
   useEffect(() => {
     async function loadAdminSettings() {
       try {
-        const { data, error } = await supabase.rpc("get_admin_settings")
+        const { data, error } = await supabase.rpc("get_public_admin_settings")
 
         if (error) {
           console.warn("Admin settings unavailable, using defaults:", error.message)

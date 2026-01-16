@@ -28,7 +28,7 @@ export default function BillingPage() {
 
   const checkSubscriptionStatus = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_admin_settings')
+      const { data, error } = await supabase.rpc('get_public_admin_settings')
 
       if (!error && data) {
         setSubscriptionsEnabled(data.subscriptions_enabled)

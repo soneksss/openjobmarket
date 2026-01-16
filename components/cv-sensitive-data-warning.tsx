@@ -55,12 +55,16 @@ export default function CVSensitiveDataWarning({
     onReview()
   }
 
+  const handleClose = () => {
+    console.log('Dialog close requested')
+    setAcknowledged(false)
+    onReview()
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent
         className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto w-[95vw] max-w-[95vw] sm:w-full p-4 sm:p-6"
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogHeader>
           <div className="flex items-center gap-2 sm:gap-3 mb-2">
@@ -115,23 +119,25 @@ export default function CVSensitiveDataWarning({
             </ul>
           </div>
 
-          {/* Acknowledgment checkbox */}
-          <div className="flex items-start space-x-2 sm:space-x-3 pt-3 sm:pt-4 border-t">
-            <Checkbox
-              id="acknowledge"
-              checked={acknowledged}
-              onCheckedChange={(checked) => {
-                console.log('Checkbox changed:', checked)
-                setAcknowledged(checked as boolean)
-              }}
-              className="mt-1 flex-shrink-0"
-            />
-            <label
-              htmlFor="acknowledge"
-              className="text-xs sm:text-sm font-medium leading-normal cursor-pointer flex-1"
-            >
-              {t('cv.sensitiveWarning.acknowledgment')}
-            </label>
+          {/* Acknowledgment checkbox - PROMINENT */}
+          <div className="bg-yellow-50 border-2 border-yellow-400 rounded-lg p-4 sm:p-5 mt-2">
+            <div className="flex items-start space-x-3 sm:space-x-4">
+              <Checkbox
+                id="acknowledge"
+                checked={acknowledged}
+                onCheckedChange={(checked) => {
+                  console.log('Checkbox changed:', checked)
+                  setAcknowledged(checked as boolean)
+                }}
+                className="mt-1 flex-shrink-0 h-5 w-5 sm:h-6 sm:w-6 border-2 border-yellow-600 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+              />
+              <label
+                htmlFor="acknowledge"
+                className="text-sm sm:text-base font-bold leading-normal cursor-pointer flex-1 text-gray-900"
+              >
+                {t('cv.sensitiveWarning.acknowledgment')}
+              </label>
+            </div>
           </div>
         </div>
 

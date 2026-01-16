@@ -39,7 +39,7 @@ export default function MessageModal({
     try {
       console.log("[MESSAGE-MODAL] Checking subscription limits...")
       // First check if subscriptions are even enabled
-      const { data: adminSettings } = await supabase.rpc('get_admin_settings')
+      const { data: adminSettings } = await supabase.rpc('get_public_admin_settings')
 
       // If subscriptions are disabled or not configured, allow contact
       if (!adminSettings?.subscriptions_enabled) {
