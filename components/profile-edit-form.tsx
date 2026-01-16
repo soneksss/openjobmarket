@@ -872,14 +872,11 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
 
                 <div className="space-y-2">
                   <Label htmlFor="industry">{t('profileEdit.industry')}</Label>
-                  <Select value={industry} onValueChange={setIndustry}>
+                  <Select value={industry || undefined} onValueChange={setIndustry}>
                     <SelectTrigger className="border-2 border-gray-300 focus:border-blue-500">
                       <SelectValue placeholder={t('profileEdit.selectIndustry')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">
-                        <span className="text-muted-foreground">{t('profileEdit.noIndustry')}</span>
-                      </SelectItem>
                       {POPULAR_INDUSTRIES.map((ind) => (
                         <SelectItem key={ind} value={ind}>
                           {ind}
