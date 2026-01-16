@@ -10,6 +10,7 @@ import {
   TopSkillsTable,
   SystemLogsTable,
   UsersByRegionTable,
+  UsersByCountryPieChart,
 } from "@/components/analytics-components"
 import { getAdminUser } from "@/lib/admin-auth"
 
@@ -99,6 +100,11 @@ export default async function AdminAnalyticsPage() {
           <UserTypesChart />
         </Suspense>
       </div>
+
+      {/* Users by Country Pie Chart */}
+      <Suspense fallback={<ChartSkeleton />}>
+        <UsersByCountryPieChart />
+      </Suspense>
 
       {/* Tables Section */}
       <div className="grid gap-6 lg:grid-cols-2">

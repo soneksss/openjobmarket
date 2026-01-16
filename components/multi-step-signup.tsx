@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useRef } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useState, useRef, useEffect } from "react"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -98,6 +98,7 @@ interface SignupData {
 export default function MultiStepSignup() {
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { t, locale } = useTranslation()
 
   // Locale-aware onboarding URL
@@ -165,6 +166,39 @@ export default function MultiStepSignup() {
       }
     }))
   }
+
+  // Read URL parameters from Quick Check modal and pre-populate form
+  useEffect(() => {
+    const accountTypeParam = searchParams?.get('accountType')
+    const rolesParam = searchParams?.get('roles')
+    const sourceParam = searchParams?.get('source')
+
+    if (sourceParam === 'quickcheck' && accountTypeParam && rolesParam) {
+      console.log('[SIGNUP] Pre-populating from Quick Check:', { accountTypeParam, rolesParam })
+
+      // Set account type
+      const accountType = accountTypeParam as 'individual' | 'company'
+
+      // Parse roles
+      const selectedRoles = rolesParam.split(',')
+      const rolesObject = {
+        jobseeker: selectedRoles.includes('jobseeker'),
+        homeowner: selectedRoles.includes('homeowner'),
+        employer: selectedRoles.includes('employer'),
+        tradespeople: selectedRoles.includes('tradespeople'),
+      }
+
+      // Update signup data
+      setSignupData(prev => ({
+        ...prev,
+        accountType,
+        roles: rolesObject
+      }))
+
+      // Skip to step 4 (basic profile info) since account type and roles are already selected
+      setCurrentStep(4)
+    }
+  }, [searchParams])
 
   const canProceedFromStep1 = signupData.accountType !== null
   const canProceedFromStep2 = () => {

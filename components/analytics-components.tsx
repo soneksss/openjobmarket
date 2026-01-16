@@ -918,6 +918,201 @@ const COUNTRY_FLAGS: { [key: string]: string } = {
   SA: "🇸🇦",
 }
 
+export function UsersByCountryPieChart() {
+  const [data, setData] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [totalUsers, setTotalUsers] = useState(0)
+
+  useEffect(() => {
+    async function fetchUsersByCountry() {
+      try {
+        console.log("[ANALYTICS-PIE] Fetching users by country...")
+        setLoading(true)
+
+        const response = await fetch("/api/admin/analytics/users-by-region")
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+
+        const apiData = await response.json()
+        console.log("[ANALYTICS-PIE] API response received:", apiData)
+
+        if (apiData.byCountry && apiData.byCountry.length > 0) {
+          // Transform data for pie chart
+          const chartData = apiData.byCountry.map((country: any) => ({
+            name: country.country_name,
+            value: country.count,
+            code: country.country_code,
+            flag: COUNTRY_FLAGS[country.country_code] || "🌍"
+          }))
+
+          setData(chartData)
+          setTotalUsers(apiData.totalWithLocation)
+        }
+        setError(null)
+      } catch (err) {
+        console.error("[ANALYTICS-PIE] API fetch failed:", err)
+        setError(err instanceof Error ? err.message : "Unknown error")
+        setData([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchUsersByCountry()
+  }, [])
+
+  if (loading) {
+    return (
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardHeader>
+          <CardTitle>Users by Country</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[400px] bg-zinc-800 rounded animate-pulse" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardHeader>
+          <CardTitle>Users by Country</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="p-4 bg-red-900/20 border border-red-700 rounded">
+            <p className="font-medium text-red-400">Error loading country data</p>
+            <p className="text-sm text-red-300">{error}</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (data.length === 0) {
+    return (
+      <Card className="bg-zinc-900 border-zinc-800">
+        <CardHeader>
+          <CardTitle>Users by Country</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8 text-zinc-500">
+            No country data available yet. Users need to set their location in their profile.
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Custom label to show flag, country name and percentage
+  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }: any) => {
+    const RADIAN = Math.PI / 180
+    const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+    const x = cx + radius * Math.cos(-midAngle * RADIAN)
+    const y = cy + radius * Math.sin(-midAngle * RADIAN)
+
+    // Only show label if percentage is >= 5%
+    if (percent < 0.05) return null
+
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="white"
+        textAnchor={x > cx ? 'start' : 'end'}
+        dominantBaseline="central"
+        className="text-sm font-medium"
+      >
+        {`${data[index].flag} ${(percent * 100).toFixed(0)}%`}
+      </text>
+    )
+  }
+
+  return (
+    <Card className="bg-zinc-900 border-zinc-800">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Users by Country</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Distribution of {totalUsers.toLocaleString()} users across {data.length} countries
+            </p>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Pie Chart */}
+          <div className="flex-1">
+            <ResponsiveContainer width="100%" height={400}>
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={renderCustomLabel}
+                  outerRadius={140}
+                  innerRadius={60}
+                  fill="#8884d8"
+                  dataKey="value"
+                  paddingAngle={2}
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#18181b',
+                    border: '1px solid #27272a',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                  formatter={(value: any) => [`${value} users`, 'Count']}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Legend with details */}
+          <div className="lg:w-64 space-y-2 max-h-[400px] overflow-y-auto">
+            {data.map((country, index) => {
+              const percentage = ((country.value / totalUsers) * 100).toFixed(1)
+              return (
+                <div
+                  key={country.code}
+                  className="flex items-center justify-between p-3 border border-zinc-800 rounded-lg hover:bg-zinc-800 transition-colors"
+                >
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    />
+                    <span className="text-xl">{country.flag}</span>
+                    <div>
+                      <div className="font-medium text-sm">{country.name}</div>
+                      <div className="text-xs text-muted-foreground">{country.code}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-bold text-sm">{country.value}</div>
+                    <div className="text-xs text-muted-foreground">{percentage}%</div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function UsersByRegionTable() {
   const [data, setData] = useState<any>(null)
   const [loading, setLoading] = useState(true)

@@ -48,8 +48,47 @@ export function QuickCheckModal({ isOpen, onClose }: QuickCheckModalProps) {
   }
 
   const handleCreateAccount = () => {
+    if (!selectedRole) return
+
+    // Map role selection to account type and roles
+    let accountType: 'individual' | 'company' = 'individual'
+    let roles: string[] = []
+
+    switch (selectedRole) {
+      case 'homeowner':
+        accountType = 'individual'
+        roles = ['homeowner']
+        break
+      case 'employed':
+      case 'unemployed':
+        accountType = 'individual'
+        roles = ['jobseeker']
+        break
+      case 'selfEmployed':
+        accountType = 'individual'
+        roles = ['tradespeople']
+        break
+      case 'companyOwner':
+      case 'agency':
+        accountType = 'company'
+        roles = ['employer']
+        break
+      case 'browsing':
+        // Just Browsing → redirect to homeowner account creation
+        accountType = 'individual'
+        roles = ['homeowner']
+        break
+    }
+
+    // Build URL with account type and roles
+    const params = new URLSearchParams({
+      accountType,
+      roles: roles.join(','),
+      source: 'quickcheck'
+    })
+
     onClose()
-    router.push('/auth/sign-up')
+    router.push(`/auth/sign-up?${params.toString()}`)
   }
 
   return (

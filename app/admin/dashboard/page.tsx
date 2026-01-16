@@ -52,29 +52,29 @@ async function StatsCards() {
       .select('id', { count: 'exact', head: true })
       .gte('last_sign_in_at', new Date(Date.now() - 15 * 60 * 1000).toISOString()),
 
-    // Count Employers
+    // Count Employers (using multi-role system)
     supabase
       .from('users')
       .select('id', { count: 'exact', head: true })
-      .eq('user_type', 'employer'),
+      .eq('is_employer', true),
 
-    // Count Jobseekers
+    // Count Jobseekers (using multi-role system)
     supabase
       .from('users')
       .select('id', { count: 'exact', head: true })
-      .eq('user_type', 'jobseeker'),
+      .eq('is_jobseeker', true),
 
-    // Count Tradespeople (contractors)
+    // Count Tradespeople (using multi-role system)
     supabase
       .from('users')
       .select('id', { count: 'exact', head: true })
-      .eq('user_type', 'contractor'),
+      .eq('is_tradespeople', true),
 
-    // Count Homeowners
+    // Count Homeowners (using multi-role system)
     supabase
       .from('users')
       .select('id', { count: 'exact', head: true })
-      .eq('user_type', 'homeowner'),
+      .eq('is_homeowner', true),
 
     // Total users (excluding admins)
     supabase

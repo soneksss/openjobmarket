@@ -1475,7 +1475,7 @@ export const en = {
     deleting: 'Deleting...',
   },
   quickCheck: {
-    ctaButton: 'Quick check if OpenJobMarket can benefit me',
+    ctaButton: 'How Open Job Market can help me?',
     modalTitle: 'How Can OpenJobMarket Benefit You?',
     selectRole: 'Select your situation:',
     createAccount: 'Create Account',

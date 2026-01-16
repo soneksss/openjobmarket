@@ -1448,7 +1448,7 @@ export const ptBR: Dictionary = {
     deleting: 'Excluindo...',
   },
   quickCheck: {
-    ctaButton: 'Verificação rápida se o OpenJobMarket pode me beneficiar',
+    ctaButton: 'Como o Open Job Market pode me ajudar?',
     modalTitle: 'Como o OpenJobMarket Pode Beneficiar Você?',
     selectRole: 'Selecione sua situação:',
     createAccount: 'Criar Conta',
