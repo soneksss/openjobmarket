@@ -61,12 +61,14 @@ export function QuickCheckModal({ isOpen, onClose }: QuickCheckModalProps) {
         break
       case 'employed':
       case 'unemployed':
+        // Jobseekers are often also homeowners who need to hire tradespeople
         accountType = 'individual'
-        roles = ['jobseeker']
+        roles = ['jobseeker', 'homeowner']
         break
       case 'selfEmployed':
-        accountType = 'individual'
-        roles = ['tradespeople']
+        // Self-employed/tradespeople are running a business, not individuals
+        accountType = 'company'
+        roles = ['tradespeople', 'employer']
         break
       case 'companyOwner':
       case 'agency':
@@ -183,7 +185,7 @@ export function QuickCheckModal({ isOpen, onClose }: QuickCheckModalProps) {
                   Key Benefits:
                 </h4>
                 <ul className="grid md:grid-cols-2 gap-x-6 gap-y-3">
-                  {t(`quickCheck.roles.${selectedRole}.benefits`).map((benefit: string, index: number) => (
+                  {(t(`quickCheck.roles.${selectedRole}.benefits`) as unknown as string[]).map((benefit: string, index: number) => (
                     <li key={index} className="flex items-start gap-3 group">
                       <div className="flex-shrink-0 w-5 h-5 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mt-0.5">
                         <span className="text-white text-xs font-bold">✓</span>

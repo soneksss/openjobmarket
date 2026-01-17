@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import ProfessionalDashboard from "@/components/professional-dashboard"
+import { formatAccountTypeLabel } from "@/lib/account-type-label"
 
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
@@ -94,12 +95,22 @@ export default async function ProfessionalDashboardPage() {
     .eq("professional_id", profile.id)
     .single()
 
+  // Get user roles for account type display
+  const { data: userData } = await supabase
+    .from("users")
+    .select("account_type, is_jobseeker, is_homeowner, is_employer, is_tradespeople, user_type")
+    .eq("id", user.id)
+    .single()
+
+  const accountTypeLabel = userData ? formatAccountTypeLabel(userData) : 'Individual - User'
+
   console.log("[PROFESSIONAL-DASHBOARD-PAGE] Passing user to component:", {
     hasUser: !!user,
     userEmail: user?.email,
     userEmailExists: !!user?.email,
     userObject: user,
-    userKeys: user ? Object.keys(user) : []
+    userKeys: user ? Object.keys(user) : [],
+    accountTypeLabel
   })
 
   console.log("[PROFESSIONAL-DASHBOARD-PAGE] Profile data:", {
@@ -116,6 +127,7 @@ export default async function ProfessionalDashboardPage() {
       applications={applications || []}
       savedJobs={savedJobs || []}
       hasCV={!!cvRecord}
+      accountTypeLabel={accountTypeLabel}
     />
   )
 }

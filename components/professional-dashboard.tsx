@@ -90,9 +90,10 @@ interface ProfessionalDashboardProps {
   applications: Application[]
   savedJobs: SavedJob[]
   hasCV: boolean
+  accountTypeLabel: string
 }
 
-export default function ProfessionalDashboard({ user, profile, applications, savedJobs, hasCV }: ProfessionalDashboardProps) {
+export default function ProfessionalDashboard({ user, profile, applications, savedJobs, hasCV, accountTypeLabel }: ProfessionalDashboardProps) {
   const { t, locale } = useTranslation()
 
   console.log("[PROFESSIONAL-DASHBOARD] Component received profile:", {
@@ -753,6 +754,11 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                     {profile.nickname && (
                       <p className="text-sm text-blue-600 break-words mb-1">"{profile.nickname}"</p>
                     )}
+
+                    {/* Account Type */}
+                    <p className="text-xs sm:text-sm font-medium text-gray-600 bg-gray-100 px-2 py-0.5 rounded inline-block mb-1">
+                      {accountTypeLabel}
+                    </p>
 
                     {/* Title */}
                     <p className="text-sm sm:text-base text-muted-foreground break-words">{profile.title}</p>

@@ -235,6 +235,11 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Last Update Date - Bottom Left Corner */}
+      <div className="fixed bottom-4 left-4 text-xs text-gray-500 z-10 bg-white/80 backdrop-blur-sm px-2 py-1 rounded shadow-sm">
+        Last updated: 17/01/2026 13:32
+      </div>
     </div>
   )
 }
