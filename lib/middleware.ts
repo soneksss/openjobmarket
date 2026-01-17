@@ -207,14 +207,17 @@ export async function middleware(req: NextRequest) {
     }
 
     // CRITICAL: Check if user has confirmed their email
-    // Redirect unverified users to the verification reminder page
+    // Redirect unverified users to the email verification page (OTP input)
     if (!user.email_confirmed_at) {
-      console.log('[MIDDLEWARE] User email not verified, redirecting to sign-up-success');
+      console.log('[MIDDLEWARE] User email not verified, redirecting to verify-email');
       const url = req.nextUrl.clone();
       // Preserve locale if on /br route
-      url.pathname = "/auth/sign-up-success";
+      url.pathname = "/auth/verify-email";
       if (isOnBrRoute) {
         url.searchParams.set('locale', 'pt-BR');
+      }
+      if (user.email) {
+        url.searchParams.set('email', user.email);
       }
       return NextResponse.redirect(url);
     }

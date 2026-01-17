@@ -22,9 +22,20 @@ export async function GET(request: NextRequest) {
       }
 
       if (data.user) {
-        console.log("[v0] Auth callback - user authenticated, checking user role")
+        console.log("[v0] Auth callback - user authenticated, completing profile creation")
 
-        // Get user role from users table (Facebook-style role-based auth)
+        // After email verification, create user profile if it doesn't exist
+        const { data: profileResult, error: profileError } = await supabase
+          .rpc("complete_user_profile_after_verification", { p_user_id: data.user.id })
+
+        if (profileError) {
+          console.log("[v0] Auth callback - error creating profile:", profileError)
+          // Continue anyway - user can complete profile in onboarding
+        } else {
+          console.log("[v0] Auth callback - profile creation result:", profileResult)
+        }
+
+        // Get user role from users table
         const { data: userData, error: userError } = await supabase
           .from("users")
           .select("user_type")

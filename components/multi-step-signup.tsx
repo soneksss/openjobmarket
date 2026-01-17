@@ -286,13 +286,15 @@ export default function MultiStepSignup() {
       }
 
       // Create auth user with basic metadata only
-      // Detailed profile will be completed in onboarding
-      // Database trigger automatically creates user and profile records
+      // Profile will be created AFTER email verification
+      // Database trigger creates minimal user record (no profile yet)
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: signupData.email,
         password: signupData.password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
+          // Enable OTP-based email verification
+          shouldCreateUser: true,
           data: {
             // User type and account type
             user_type: userType,
@@ -326,15 +328,15 @@ export default function MultiStepSignup() {
       localStorage.setItem('signup_email', signupData.email)
 
       // Check if email confirmation is required
-      // If email_confirmed_at is null, user needs to confirm their email
+      // If email_confirmed_at is null, user needs to verify with OTP code
       if (!authData.user.email_confirmed_at) {
-        // Redirect to sign-up success page with locale
-        const signUpSuccessUrl = isOnBrRoute
-          ? "/auth/sign-up-success?locale=pt-BR"
-          : "/auth/sign-up-success"
-        router.push(signUpSuccessUrl)
+        // Redirect to email verification page with OTP input
+        const verifyEmailUrl = isOnBrRoute
+          ? `/auth/verify-email?locale=pt-BR&email=${encodeURIComponent(signupData.email)}`
+          : `/auth/verify-email?email=${encodeURIComponent(signupData.email)}`
+        router.push(verifyEmailUrl)
       } else {
-        // Email auto-confirmed, redirect to onboarding to complete profile
+        // Email auto-confirmed (rare case), redirect to onboarding to complete profile
         router.push(onboardingUrl)
       }
     } catch (err: any) {
