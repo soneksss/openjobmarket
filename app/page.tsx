@@ -236,9 +236,11 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Last Update Date - Bottom Left Corner */}
-      <div className="fixed bottom-4 left-4 text-xs text-gray-500 z-10 bg-white/80 backdrop-blur-sm px-2 py-1 rounded shadow-sm">
-        Last updated: 17/01/2026 13:32
+      {/* Last Update Date - Bottom of Page */}
+      <div className="py-4 px-4 bg-white border-t border-gray-200">
+        <p className="text-xs text-gray-500">
+          Last updated: 17/01/2026 13:32
+        </p>
       </div>
     </div>
   )
