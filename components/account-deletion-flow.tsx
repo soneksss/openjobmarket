@@ -136,8 +136,8 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
         return
       }
 
-      // Call the delete_user_with_reason function
-      const { data, error: deleteError } = await supabase.rpc('delete_user_with_reason', {
+      // Call the delete_user_comprehensive function for complete cleanup
+      const { data, error: deleteError } = await supabase.rpc('delete_user_comprehensive', {
         p_primary_reason: selectedReason,
         p_custom_message: customFeedback || null,
         p_user_email: userEmail,
