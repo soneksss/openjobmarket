@@ -1,0 +1,246 @@
+-- Orphaned User Detection and Recovery System
+-- Date: 2026-01-18
+-- Description: Detect and log users in corrupted states (auth exists but profiles/preferences missing)
+
+-- Create audit table for orphaned user detection
+CREATE TABLE IF NOT EXISTS orphaned_user_audit_log (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL,
+  user_email TEXT,
+  detected_at TIMESTAMPTZ DEFAULT NOW(),
+  issue_type TEXT NOT NULL, -- 'missing_profile', 'missing_preferences', 'partial_data'
+  issue_details JSONB,
+  recovery_attempted BOOLEAN DEFAULT FALSE,
+  recovery_successful BOOLEAN,
+  recovery_attempted_at TIMESTAMPTZ,
+  recovery_error TEXT
+);
+
+CREATE INDEX idx_orphaned_users_user_id ON orphaned_user_audit_log(user_id);
+CREATE INDEX idx_orphaned_users_detected_at ON orphaned_user_audit_log(detected_at);
+CREATE INDEX idx_orphaned_users_issue_type ON orphaned_user_audit_log(issue_type);
+
+-- Function to detect orphaned users
+CREATE OR REPLACE FUNCTION detect_orphaned_user_state(
+  p_user_id UUID
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_auth_user_exists BOOLEAN := FALSE;
+  v_public_user_exists BOOLEAN := FALSE;
+  v_has_profile BOOLEAN := FALSE;
+  v_has_preferences BOOLEAN := FALSE;
+  v_user_email TEXT;
+  v_user_type TEXT;
+  v_account_type TEXT;
+  v_issues JSONB := '[]'::jsonb;
+  v_is_corrupted BOOLEAN := FALSE;
+BEGIN
+  -- Check if auth user exists
+  SELECT EXISTS(SELECT 1 FROM auth.users WHERE id = p_user_id)
+  INTO v_auth_user_exists;
+
+  IF NOT v_auth_user_exists THEN
+    RETURN jsonb_build_object(
+      'is_corrupted', false,
+      'reason', 'User does not exist in auth.users'
+    );
+  END IF;
+
+  -- Get user email
+  SELECT email INTO v_user_email FROM auth.users WHERE id = p_user_id;
+
+  -- Check if public.users exists
+  SELECT EXISTS(SELECT 1 FROM public.users WHERE id = p_user_id)
+  INTO v_public_user_exists;
+
+  IF NOT v_public_user_exists THEN
+    v_is_corrupted := TRUE;
+    v_issues := v_issues || jsonb_build_object(
+      'type', 'missing_public_user',
+      'severity', 'critical',
+      'message', 'User exists in auth.users but not in public.users'
+    );
+  ELSE
+    -- Get user type and account type
+    SELECT user_type, account_type
+    INTO v_user_type, v_account_type
+    FROM public.users
+    WHERE id = p_user_id;
+
+    -- Check if profile exists based on account type
+    IF v_account_type = 'company' THEN
+      SELECT EXISTS(SELECT 1 FROM company_profiles WHERE user_id = p_user_id)
+      INTO v_has_profile;
+
+      IF NOT v_has_profile THEN
+        v_is_corrupted := TRUE;
+        v_issues := v_issues || jsonb_build_object(
+          'type', 'missing_company_profile',
+          'severity', 'critical',
+          'message', 'Company account missing company_profiles record'
+        );
+      END IF;
+    ELSIF v_user_type IN ('professional', 'jobseeker') THEN
+      SELECT EXISTS(SELECT 1 FROM professional_profiles WHERE user_id = p_user_id)
+      INTO v_has_profile;
+
+      IF NOT v_has_profile THEN
+        v_is_corrupted := TRUE;
+        v_issues := v_issues || jsonb_build_object(
+          'type', 'missing_professional_profile',
+          'severity', 'critical',
+          'message', 'Professional account missing professional_profiles record'
+        );
+      END IF;
+    ELSIF v_user_type = 'homeowner' THEN
+      SELECT EXISTS(SELECT 1 FROM homeowner_profiles WHERE user_id = p_user_id)
+      INTO v_has_profile;
+
+      IF NOT v_has_profile THEN
+        v_is_corrupted := TRUE;
+        v_issues := v_issues || jsonb_build_object(
+          'type', 'missing_homeowner_profile',
+          'severity', 'critical',
+          'message', 'Homeowner account missing homeowner_profiles record'
+        );
+      END IF;
+    END IF;
+
+    -- Check if notification preferences exist
+    SELECT EXISTS(SELECT 1 FROM notification_preferences WHERE user_id = p_user_id)
+    INTO v_has_preferences;
+
+    IF NOT v_has_preferences THEN
+      v_is_corrupted := TRUE;
+      v_issues := v_issues || jsonb_build_object(
+        'type', 'missing_notification_preferences',
+        'severity', 'medium',
+        'message', 'User missing notification_preferences record'
+      );
+    END IF;
+  END IF;
+
+  -- Log if corrupted
+  IF v_is_corrupted THEN
+    INSERT INTO orphaned_user_audit_log (
+      user_id,
+      user_email,
+      issue_type,
+      issue_details
+    ) VALUES (
+      p_user_id,
+      v_user_email,
+      'orphaned_user_detected',
+      jsonb_build_object(
+        'issues', v_issues,
+        'auth_exists', v_auth_user_exists,
+        'public_user_exists', v_public_user_exists,
+        'has_profile', v_has_profile,
+        'has_preferences', v_has_preferences,
+        'user_type', v_user_type,
+        'account_type', v_account_type
+      )
+    );
+  END IF;
+
+  RETURN jsonb_build_object(
+    'is_corrupted', v_is_corrupted,
+    'user_id', p_user_id,
+    'user_email', v_user_email,
+    'auth_exists', v_auth_user_exists,
+    'public_user_exists', v_public_user_exists,
+    'has_profile', v_has_profile,
+    'has_preferences', v_has_preferences,
+    'user_type', v_user_type,
+    'account_type', v_account_type,
+    'issues', v_issues
+  );
+END;
+$$;
+
+-- Function to attempt recovery of corrupted user state
+CREATE OR REPLACE FUNCTION recover_orphaned_user(
+  p_user_id UUID
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_detection_result JSONB;
+  v_recovery_success BOOLEAN := TRUE;
+  v_recovery_steps TEXT[] := ARRAY[]::TEXT[];
+  v_error_message TEXT;
+BEGIN
+  -- First detect the issues
+  v_detection_result := detect_orphaned_user_state(p_user_id);
+
+  IF NOT (v_detection_result->>'is_corrupted')::BOOLEAN THEN
+    RETURN jsonb_build_object(
+      'success', true,
+      'message', 'User state is not corrupted, no recovery needed'
+    );
+  END IF;
+
+  -- Log recovery attempt
+  UPDATE orphaned_user_audit_log
+  SET recovery_attempted = TRUE,
+      recovery_attempted_at = NOW()
+  WHERE user_id = p_user_id
+    AND recovery_attempted = FALSE;
+
+  -- Attempt to recover by calling profile completion function
+  BEGIN
+    PERFORM complete_user_profile_after_verification(p_user_id);
+    v_recovery_steps := array_append(v_recovery_steps, 'Called complete_user_profile_after_verification');
+  EXCEPTION WHEN OTHERS THEN
+    v_recovery_success := FALSE;
+    v_error_message := SQLERRM;
+    v_recovery_steps := array_append(v_recovery_steps, 'Failed to create profile: ' || SQLERRM);
+  END;
+
+  -- Create notification preferences if missing
+  BEGIN
+    INSERT INTO notification_preferences (user_id, created_at, updated_at)
+    VALUES (p_user_id, NOW(), NOW())
+    ON CONFLICT (user_id) DO NOTHING;
+    v_recovery_steps := array_append(v_recovery_steps, 'Created notification_preferences');
+  EXCEPTION WHEN OTHERS THEN
+    v_recovery_success := FALSE;
+    v_error_message := COALESCE(v_error_message || ' | ', '') || SQLERRM;
+  END;
+
+  -- Update audit log with recovery result
+  UPDATE orphaned_user_audit_log
+  SET recovery_successful = v_recovery_success,
+      recovery_error = v_error_message
+  WHERE user_id = p_user_id
+    AND recovery_attempted = TRUE
+    AND recovery_successful IS NULL;
+
+  RETURN jsonb_build_object(
+    'success', v_recovery_success,
+    'user_id', p_user_id,
+    'recovery_steps', v_recovery_steps,
+    'error', v_error_message
+  );
+END;
+$$;
+
+-- Grant execution to authenticated users
+GRANT EXECUTE ON FUNCTION detect_orphaned_user_state(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION detect_orphaned_user_state(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION recover_orphaned_user(UUID) TO authenticated;
+GRANT EXECUTE ON FUNCTION recover_orphaned_user(UUID) TO service_role;
+
+COMMENT ON FUNCTION detect_orphaned_user_state(UUID) IS
+'Detects if a user is in a corrupted state (auth exists but profiles/preferences missing). Logs issues to orphaned_user_audit_log.';
+
+COMMENT ON FUNCTION recover_orphaned_user(UUID) IS
+'Attempts to recover a user in corrupted state by creating missing profiles and preferences. Returns recovery result.';

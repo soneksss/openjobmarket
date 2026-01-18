@@ -123,49 +123,49 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
     setError(null)
 
     try {
-      // First verify password by attempting to sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: userEmail,
-        password: confirmPassword,
+      // Call server-side API route for comprehensive deletion
+      const response = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          primaryReason: selectedReason,
+          customMessage: customFeedback || null,
+          userEmail: userEmail,
+          userPassword: confirmPassword,
+        }),
       })
 
-      if (signInError) {
-        setError(t('accountDeletion.invalidCredentials'))
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        setError(result.error || t('accountDeletion.errorMessage'))
         setIsDeleting(false)
         setShowFinalDialog(false)
         return
       }
 
-      // Call the delete_user_comprehensive function for complete cleanup
-      const { data, error: deleteError } = await supabase.rpc('delete_user_comprehensive', {
-        p_primary_reason: selectedReason,
-        p_custom_message: customFeedback || null,
-        p_user_email: userEmail,
-        p_user_password: confirmPassword,
-      })
+      console.log("[Deletion] Account deletion successful, cleaning up client state")
 
-      if (deleteError) {
-        setError(deleteError.message || t('accountDeletion.errorMessage'))
-        setIsDeleting(false)
-        setShowFinalDialog(false)
-        return
-      }
-
-      // Check if function returned error
-      if (data && data.error) {
-        setError(data.error)
-        setIsDeleting(false)
-        setShowFinalDialog(false)
-        return
-      }
-
-      // User is already deleted from database, just clear local session and redirect
-      // Note: signOut() would fail with 403 because the user no longer exists
-      localStorage.removeItem('supabase.auth.token')
+      // Clear all local storage and session storage
+      localStorage.clear()
       sessionStorage.clear()
 
-      // Force redirect to home page
-      window.location.href = "/"
+      // Force sign out on client (will likely fail but try anyway)
+      try {
+        await supabase.auth.signOut()
+      } catch (signOutError) {
+        console.log("[Deletion] Client sign out failed (expected):", signOutError)
+        // Expected to fail since user is deleted
+      }
+
+      // Redirect to signup page as instructed by server
+      const redirectUrl = result.redirect || '/auth/signup'
+      console.log("[Deletion] Redirecting to:", redirectUrl)
+
+      // Use window.location for hard redirect (clears all state)
+      window.location.href = redirectUrl
     } catch (err: any) {
       console.error("Error deleting account:", err)
       setError(err.message || t('accountDeletion.errorMessage'))
