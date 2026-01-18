@@ -91,9 +91,10 @@ interface ProfessionalDashboardProps {
   savedJobs: SavedJob[]
   hasCV: boolean
   accountTypeLabel: string
+  canPostTradeJobs?: boolean
 }
 
-export default function ProfessionalDashboard({ user, profile, applications, savedJobs, hasCV, accountTypeLabel }: ProfessionalDashboardProps) {
+export default function ProfessionalDashboard({ user, profile, applications, savedJobs, hasCV, accountTypeLabel, canPostTradeJobs = false }: ProfessionalDashboardProps) {
   const { t, locale } = useTranslation()
 
   console.log("[PROFESSIONAL-DASHBOARD] Component received profile:", {
@@ -932,7 +933,7 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
 
             {/* Quick Actions */}
             <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2 md:gap-3">
+              <div className={`grid ${canPostTradeJobs ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-5' : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-4'} gap-1.5 sm:gap-2 md:gap-3`}>
                 <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-blue-500 hover:bg-blue-600 text-white">
                   <Link href={locale === 'pt-BR' ? '/br' : '/'}>
                     <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
@@ -965,6 +966,15 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                     <span className="text-sm opacity-70 hidden md:block">{hasCV ? 'Edit CV' : 'Create CV'}</span>
                   </Link>
                 </Button>
+                {canPostTradeJobs && (
+                  <Button variant="outline" asChild className="h-auto p-1 sm:p-2 flex-col bg-transparent border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white">
+                    <Link href="/dashboard/professional/post-job">
+                      <Hammer className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
+                      <span className="font-semibold text-sm sm:text-base leading-tight">Post Trade Job</span>
+                      <span className="text-sm opacity-90 hidden md:block">Find Trades</span>
+                    </Link>
+                  </Button>
+                )}
               </div>
 
               {/* Admin Button - Only visible for admin users */}

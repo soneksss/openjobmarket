@@ -128,6 +128,7 @@ export default async function ProfessionalDashboardPage() {
       savedJobs={savedJobs || []}
       hasCV={!!cvRecord}
       accountTypeLabel={accountTypeLabel}
+      canPostTradeJobs={userData?.is_homeowner || false}
     />
   )
 }

@@ -34,11 +34,12 @@ export function getAccountTypeLabel(roles: UserRoles): {
     roleDescriptions.push('Tradesperson')
   }
 
+  // Jobseekers can do everything homeowners can (apply to jobs + post trade jobs)
+  // So we only show "Jobseeker" even if is_homeowner is also true
   if (is_jobseeker || user_type === 'professional' || user_type === 'jobseeker') {
     roleDescriptions.push('Jobseeker')
-  }
-
-  if (is_homeowner || user_type === 'homeowner') {
+  } else if (is_homeowner || user_type === 'homeowner') {
+    // Only show "Homeowner" if they're NOT a jobseeker
     roleDescriptions.push('Homeowner')
   }
 
