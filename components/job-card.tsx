@@ -88,6 +88,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
   const [showProfileModal, setShowProfileModal] = useState(false)
   const [selectedProfileType, setSelectedProfileType] = useState<"professional" | "company" | "contractor" | "homeowner" | null>(null)
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
+  const [userType, setUserType] = useState<string | null>(null)
 
   // Track touch events to distinguish tap from scroll
   const [touchStartY, setTouchStartY] = useState<number | null>(null)
@@ -229,6 +230,30 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
       }
     }
   }
+
+  // Fetch user type
+  useEffect(() => {
+    const fetchUserType = async () => {
+      if (!isLoggedIn) return
+
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (user) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("user_type")
+          .eq("id", user.id)
+          .single()
+
+        if (userData) {
+          setUserType(userData.user_type)
+        }
+      }
+    }
+
+    fetchUserType()
+  }, [isLoggedIn])
 
   // Check if user has already applied
   useEffect(() => {
@@ -569,17 +594,23 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                     <Heart className={`h-4 w-4 sm:h-3 sm:w-3 ${isSaved ? "fill-current text-red-600" : ""}`} />
                   </Button>
 
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 w-9 sm:h-7 sm:w-7 p-0 touch-manipulation"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleContactClick()
-                    }}
-                  >
-                    <MessageCircle className="h-4 w-4 sm:h-3 sm:w-3" />
-                  </Button>
+                  {/* Hide message button for companies/contractors on vacancies */}
+                  {!(
+                    !job.is_tradespeople_job &&
+                    (userType === 'company' || userType === 'contractor')
+                  ) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-9 w-9 sm:h-7 sm:w-7 p-0 touch-manipulation"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleContactClick()
+                      }}
+                    >
+                      <MessageCircle className="h-4 w-4 sm:h-3 sm:w-3" />
+                    </Button>
+                  )}
 
                   <Button
                     size="sm"

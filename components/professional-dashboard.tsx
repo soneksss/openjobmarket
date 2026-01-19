@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Briefcase, MapPin, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Search, TrendingUp, Info, Filter, Upload, Hammer } from "lucide-react"
+import { Briefcase, MapPin, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Search, TrendingUp, Info, Filter, Upload, Hammer, Building } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect } from "react"
@@ -84,17 +84,33 @@ interface SavedJob {
   }
 }
 
+interface PostedTradeJob {
+  id: string
+  title: string
+  description: string
+  location: string
+  category: string
+  urgency: string
+  budget_min: number
+  budget_max: number
+  status: string
+  created_at: string
+  expires_at: string
+  is_tradespeople_job: boolean
+}
+
 interface ProfessionalDashboardProps {
   user: User
   profile: Profile
   applications: Application[]
   savedJobs: SavedJob[]
+  postedTradeJobs?: PostedTradeJob[]
   hasCV: boolean
   accountTypeLabel: string
   canPostTradeJobs?: boolean
 }
 
-export default function ProfessionalDashboard({ user, profile, applications, savedJobs, hasCV, accountTypeLabel, canPostTradeJobs = false }: ProfessionalDashboardProps) {
+export default function ProfessionalDashboard({ user, profile, applications, savedJobs, postedTradeJobs = [], hasCV, accountTypeLabel, canPostTradeJobs = false }: ProfessionalDashboardProps) {
   const { t, locale } = useTranslation()
 
   console.log("[PROFESSIONAL-DASHBOARD] Component received profile:", {
@@ -1020,115 +1036,247 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                   </Button>
                 </div>
               </CardHeader>
-              <CardContent className="p-0 sm:p-4 md:p-6">
+              <CardContent className="p-0">
                 {applications.length === 0 ? (
-                  <div className="hidden lg:block text-center py-3 sm:py-4 text-muted-foreground">
-                    <p className="text-xs sm:text-sm">{t('dashboard.noApplicationsYet')}</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">{t('dashboard.noApplicationsYet')}</p>
                   </div>
                 ) : (
-                  <div className="space-y-0 sm:space-y-4">
-                    {applications.slice(0, 5).map((application, index) => (
-                      <div
-                        key={application.id}
-                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between px-2 py-1.5 sm:p-4 border-0 sm:border rounded-none sm:rounded-lg hover:bg-muted/50 transition-colors gap-1.5 sm:gap-4 ${index > 0 ? 'border-t' : ''}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-0.5 sm:mb-1">
-                            <h4 className="font-medium text-foreground text-lg sm:text-xl truncate">{application.jobs.title}</h4>
-                            <Badge className={`${getStatusColor(application.status)} text-base`}>
+                  <div className="overflow-x-auto">
+                    {/* Table Header */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 border-b-2 border-blue-200 text-xs font-semibold text-gray-700">
+                      <div className="col-span-5">JOB TITLE</div>
+                      <div className="col-span-3">COMPANY</div>
+                      <div className="col-span-2">STATUS</div>
+                      <div className="col-span-2">APPLIED</div>
+                    </div>
+                    {/* Table Rows */}
+                    <div className="divide-y divide-gray-100">
+                      {applications.slice(0, 5).map((application, index) => (
+                        <div
+                          key={application.id}
+                          className={`grid grid-cols-1 sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-blue-50/50 transition-colors ${
+                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                          }`}
+                        >
+                          <div className="col-span-1 sm:col-span-5 flex items-center gap-2">
+                            <Briefcase className="h-4 w-4 text-blue-600 flex-shrink-0 hidden sm:block" />
+                            <span className="font-medium text-gray-900 truncate text-sm">{application.jobs.title}</span>
+                          </div>
+                          <div className="col-span-1 sm:col-span-3 flex items-center gap-1 text-sm text-gray-600">
+                            <Building className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
+                            <span className="truncate">{application.jobs.company_profiles.company_name}</span>
+                          </div>
+                          <div className="col-span-1 sm:col-span-2 flex items-center">
+                            <Badge className={`${getStatusColor(application.status)} text-xs px-2 py-0.5 font-medium`}>
                               {application.status}
                             </Badge>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-base sm:text-lg text-muted-foreground">
-                            <span className="truncate">{application.jobs.company_profiles.company_name}</span>
-                            <span className="hidden sm:inline whitespace-nowrap">{formatDate(application.applied_at)}</span>
+                          <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-xs text-gray-500">
+                            <Clock className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                            <span className="whitespace-nowrap">{formatDate(application.applied_at)}</span>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                     {applications.length > 5 && (
-                      <Button variant="outline" asChild className="w-full bg-transparent">
-                        <Link href="/dashboard/professional/applications">{t('common.viewAll')} ({applications.length})</Link>
-                      </Button>
+                      <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                        <Button variant="outline" size="sm" asChild className="w-full text-xs bg-white hover:bg-blue-50">
+                          <Link href="/dashboard/professional/applications">
+                            {t('common.viewAll')} ({applications.length} total)
+                          </Link>
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}
               </CardContent>
             </Card>
 
+            {/* Posted Trade Jobs */}
+            {canPostTradeJobs && postedTradeJobs.length > 0 && (
+              <Card className="overflow-hidden">
+                <CardHeader className="px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Hammer className="h-5 w-5 text-orange-600" />
+                      <CardTitle className="text-lg font-semibold">My Posted Trade Jobs</CardTitle>
+                      <Badge variant="secondary" className="text-sm">{postedTradeJobs.length}</Badge>
+                    </div>
+                    {postedTradeJobs.length > 5 && (
+                      <Button variant="outline" size="sm" asChild className="text-xs">
+                        <Link href="/dashboard/professional/posted-jobs">
+                          <Filter className="h-4 w-4 mr-1" />
+                          {t('common.viewAll')}
+                        </Link>
+                      </Button>
+                    )}
+                  </div>
+                  <CardDescription className="text-sm mt-1">Trade jobs you've posted as a homeowner</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    {/* Table Header */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 bg-gradient-to-r from-orange-50 to-amber-50 border-b-2 border-orange-200 text-xs font-semibold text-gray-700">
+                      <div className="col-span-4">JOB TITLE</div>
+                      <div className="col-span-2">LOCATION</div>
+                      <div className="col-span-2">CATEGORY</div>
+                      <div className="col-span-2">BUDGET</div>
+                      <div className="col-span-1">STATUS</div>
+                      <div className="col-span-1">ACTION</div>
+                    </div>
+                    {/* Table Rows */}
+                    <div className="divide-y divide-gray-100">
+                      {postedTradeJobs.slice(0, 5).map((job, index) => {
+                        // Helper function to infer category from title if missing
+                        const inferCategory = (title: string, existingCategory?: string) => {
+                          if (existingCategory && existingCategory.trim()) return existingCategory
+
+                          const titleLower = title.toLowerCase()
+                          if (titleLower.includes('plumb')) return 'Plumbing'
+                          if (titleLower.includes('electr')) return 'Electrical'
+                          if (titleLower.includes('carpent') || titleLower.includes('wood')) return 'Carpentry'
+                          if (titleLower.includes('paint')) return 'Painting'
+                          if (titleLower.includes('roof')) return 'Roofing'
+                          if (titleLower.includes('heat') || titleLower.includes('hvac')) return 'Heating & Cooling'
+                          if (titleLower.includes('garden') || titleLower.includes('landscap')) return 'Gardening'
+                          if (titleLower.includes('clean')) return 'Cleaning'
+                          if (titleLower.includes('remov') || titleLower.includes('junk')) return 'Removals'
+                          if (titleLower.includes('mason') || titleLower.includes('brick')) return 'Masonry'
+                          return 'General Services'
+                        }
+
+                        const displayCategory = inferCategory(job.title, job.category)
+
+                        return (
+                          <div
+                            key={job.id}
+                            className={`grid grid-cols-1 sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-orange-50/50 transition-colors ${
+                              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                            }`}
+                          >
+                            <div className="col-span-1 sm:col-span-4 flex items-center gap-2">
+                              <Hammer className="h-4 w-4 text-orange-600 flex-shrink-0 hidden sm:block" />
+                              <span className="font-medium text-gray-900 truncate text-sm">{job.title}</span>
+                            </div>
+                            <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-sm text-gray-600">
+                              <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
+                              <span className="truncate">{job.location}</span>
+                            </div>
+                            <div className="col-span-1 sm:col-span-2 flex items-center">
+                              <Badge variant="outline" className="text-xs px-2 py-0.5">{displayCategory}</Badge>
+                            </div>
+                            <div className="col-span-1 sm:col-span-2 flex items-center text-xs text-gray-600">
+                              {job.budget_min != null && job.budget_max != null ? (
+                                <>£{(job.budget_min / 100).toFixed(0)} - £{(job.budget_max / 100).toFixed(0)}</>
+                              ) : (
+                                <span className="text-gray-400">Not specified</span>
+                              )}
+                            </div>
+                            <div className="col-span-1 sm:col-span-1 flex items-center">
+                              <Badge className={`${job.status === 'open' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'} text-xs px-2 py-0.5 font-medium`}>
+                                {job.status}
+                              </Badge>
+                            </div>
+                            <div className="col-span-1 sm:col-span-1 flex items-center">
+                              <Button size="sm" variant="ghost" asChild className="h-7 text-xs hover:bg-orange-100">
+                                <Link href={`/jobs/${job.id}`}>{t('common.view')}</Link>
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                    {postedTradeJobs.length > 5 && (
+                      <div className="px-4 py-3 border-t bg-gray-50/50">
+                        <Button variant="outline" asChild className="w-full text-xs hover:bg-orange-50">
+                          <Link href="/dashboard/professional/posted-jobs">{t('common.viewAll')} ({postedTradeJobs.length})</Link>
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Saved Jobs */}
             <Card className="overflow-hidden">
-              <CardHeader className="px-2 py-1.5 sm:p-4 md:p-6">
-                {/* Mobile: Compact single line */}
-                <div className="flex lg:hidden items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <BookmarkIcon className="h-5 w-5 flex-shrink-0" />
-                    <CardTitle className="text-lg font-semibold truncate">{t('dashboard.savedJobs')}</CardTitle>
-                    <Badge variant="secondary" className="text-base">{savedJobs.length}</Badge>
+              <CardHeader className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <BookmarkIcon className="h-5 w-5 text-green-600" />
+                    <CardTitle className="text-lg font-semibold">{t('dashboard.savedJobs')}</CardTitle>
+                    <Badge variant="secondary" className="text-sm">{savedJobs.length}</Badge>
                   </div>
-                  <Button variant="outline" size="sm" asChild className="h-9 px-3">
+                  <Button variant="outline" size="sm" asChild className="text-xs">
                     <Link href="/dashboard/professional/saved">
-                      <Eye className="h-5 w-5 mr-1" />
-                      <span className="text-base">{t('common.view')}</span>
-                    </Link>
-                  </Button>
-                </div>
-                {/* Desktop: Original layout */}
-                <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
-                      <BookmarkIcon className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      {t('dashboard.savedJobs')}
-                    </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Jobs you've saved for later (last 5)</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" asChild className="text-xs w-full sm:w-auto">
-                    <Link href="/dashboard/professional/saved">
-                      <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <Filter className="h-4 w-4 mr-1" />
                       {t('common.viewAll')}
                     </Link>
                   </Button>
                 </div>
+                <CardDescription className="text-sm mt-1">Jobs you've saved for later (last 5)</CardDescription>
               </CardHeader>
-              <CardContent className="p-0 sm:p-4 md:p-6">
+              <CardContent className="p-0">
                 {savedJobs.length === 0 ? (
-                  <div className="hidden lg:block text-center py-3 sm:py-4 text-muted-foreground">
-                    <p className="text-xs sm:text-sm">No saved jobs yet</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <BookmarkIcon className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No saved jobs yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-0 sm:space-y-3 md:space-y-4">
-                    {savedJobs.slice(0, 5).map((savedJob, index) => (
-                      <div
-                        key={savedJob.id}
-                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between px-2 py-1.5 sm:p-3 md:p-4 border-0 sm:border rounded-none sm:rounded-lg hover:bg-muted/50 transition-colors gap-1.5 sm:gap-3 ${index > 0 ? 'border-t' : ''}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-1 mb-0.5">
-                            <h4 className="font-medium text-foreground text-xs sm:text-sm truncate">
-                              {savedJob.jobs.title}
-                            </h4>
+                  <div className="overflow-x-auto">
+                    {/* Table Header */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 bg-gradient-to-r from-green-50 to-emerald-50 border-b-2 border-green-200 text-xs font-semibold text-gray-700">
+                      <div className="col-span-4">JOB TITLE</div>
+                      <div className="col-span-3">COMPANY</div>
+                      <div className="col-span-2">LOCATION</div>
+                      <div className="col-span-1">TYPE</div>
+                      <div className="col-span-1">SAVED</div>
+                      <div className="col-span-1">ACTION</div>
+                    </div>
+                    {/* Table Rows */}
+                    <div className="divide-y divide-gray-100">
+                      {savedJobs.slice(0, 5).map((savedJob, index) => (
+                        <div
+                          key={savedJob.id}
+                          className={`grid grid-cols-1 sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-green-50/50 transition-colors ${
+                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                          }`}
+                        >
+                          <div className="col-span-1 sm:col-span-4 flex items-center gap-2">
+                            <BookmarkIcon className="h-4 w-4 text-green-600 flex-shrink-0 hidden sm:block" />
+                            <span className="font-medium text-gray-900 truncate text-sm">{savedJob.jobs.title}</span>
                           </div>
-                          <p className="text-xs text-muted-foreground truncate hidden sm:block">{savedJob.jobs.company_profiles.company_name}</p>
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-1 sm:gap-2 text-xs text-muted-foreground mt-1">
-                            <span className="flex items-center whitespace-nowrap">
-                              <MapPin className="h-3 w-3 mr-1" />
-                              {savedJob.jobs.location}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {savedJob.jobs.job_type}
-                            </Badge>
-                            <span className="hidden sm:inline whitespace-nowrap">{formatDate(savedJob.saved_at)}</span>
+                          <div className="col-span-1 sm:col-span-3 flex items-center gap-1 text-sm text-gray-600">
+                            <Building className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
+                            <span className="truncate">{savedJob.jobs.company_profiles.company_name}</span>
+                          </div>
+                          <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-sm text-gray-600">
+                            <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
+                            <span className="truncate">{savedJob.jobs.location}</span>
+                          </div>
+                          <div className="col-span-1 sm:col-span-1 flex items-center">
+                            <Badge variant="outline" className="text-xs px-2 py-0.5">{savedJob.jobs.job_type}</Badge>
+                          </div>
+                          <div className="col-span-1 sm:col-span-1 flex items-center text-xs text-gray-500">
+                            <Clock className="h-3 w-3 text-gray-400 flex-shrink-0 mr-1" />
+                            <span className="whitespace-nowrap">{formatDate(savedJob.saved_at)}</span>
+                          </div>
+                          <div className="col-span-1 sm:col-span-1 flex items-center">
+                            <Button size="sm" variant="ghost" asChild className="h-7 text-xs hover:bg-green-100">
+                              <Link href={`/jobs/${savedJob.jobs.id}`}>{t('common.view')}</Link>
+                            </Button>
                           </div>
                         </div>
-                        <Button size="sm" asChild className="flex-1 sm:flex-none text-xs">
-                          <Link href={`/jobs/${savedJob.jobs.id}`}>{t('common.view')}</Link>
+                      ))}
+                    </div>
+                    {savedJobs.length > 5 && (
+                      <div className="px-4 py-3 border-t bg-gray-50/50">
+                        <Button variant="outline" asChild className="w-full text-xs hover:bg-green-50">
+                          <Link href="/dashboard/professional/saved">{t('common.viewAll')} ({savedJobs.length})</Link>
                         </Button>
                       </div>
-                    ))}
-                    {savedJobs.length > 5 && (
-                      <Button variant="outline" asChild className="w-full bg-transparent text-xs">
-                        <Link href="/dashboard/professional/saved">{t('common.viewAll')} ({savedJobs.length})</Link>
-                      </Button>
                     )}
                   </div>
                 )}

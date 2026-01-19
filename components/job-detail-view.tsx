@@ -296,10 +296,11 @@ export default function JobDetailView({
   }
 
   const formatSalary = (min?: number, max?: number) => {
+    const rateType = job.is_tradespeople_job ? "per job" : "per hour"
     if (!min && !max) return "Wages not specified"
-    if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()} per hour`
-    if (min) return `£${min.toLocaleString()}+ per hour`
-    return `Up to £${max?.toLocaleString()} per hour`
+    if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()} ${rateType}`
+    if (min) return `£${min.toLocaleString()}+ ${rateType}`
+    return `Up to £${max?.toLocaleString()} ${rateType}`
   }
 
   const checkIfJobSaved = async () => {
@@ -420,13 +421,23 @@ export default function JobDetailView({
       )}
 
       <div className="relative container mx-auto px-4 py-8 max-w-4xl">
-        {/* Back to Search Button */}
+        {/* Back Button */}
         <div className="mb-6">
-          <Button variant="outline" asChild className="hover:bg-blue-50 bg-white shadow-sm">
-            <Link href={backUrl}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to search
-            </Link>
+          <Button
+            variant="outline"
+            className="hover:bg-blue-50 bg-white shadow-sm"
+            onClick={() => {
+              // If search params exist, use the backUrl to preserve search state
+              if (searchParams && Object.keys(searchParams).length > 0) {
+                router.push(backUrl)
+              } else {
+                // Otherwise, go back to previous page
+                router.back()
+              }
+            }}
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back
           </Button>
         </div>
         <div className="grid lg:grid-cols-3 gap-8">

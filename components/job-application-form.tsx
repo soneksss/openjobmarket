@@ -222,6 +222,15 @@ export default function JobApplicationForm({
       return
     }
 
+    // CRITICAL: Block companies and contractors from applying to Vacancies
+    if (!job.is_tradespeople_job && (userType === 'company' || userType === 'contractor')) {
+      console.error("[JOB-APPLICATION] BLOCKED: User type '" + userType + "' cannot apply to Vacancies")
+      setSubmissionError(
+        "Businesses cannot apply for vacancy jobs. Vacancy jobs are employment positions for individual jobseekers. If you're looking to hire professionals or tradespeople, please post a job in the relevant section."
+      )
+      return
+    }
+
     setLoading(true)
     try {
       console.log("[v0] Starting job application process")

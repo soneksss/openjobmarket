@@ -1351,160 +1351,94 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             <div className="order-3 lg:order-none space-y-1.5 sm:space-y-4">
             {/* Recent Jobs */}
             <Card className="overflow-hidden">
-              <CardHeader className="px-2 py-1.5 sm:p-4 md:p-6">
-                {/* Mobile: Compact single line - 30% larger text */}
-                <div className="flex lg:hidden items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Briefcase className="h-5 w-5 flex-shrink-0" />
-                    <CardTitle className="text-lg font-semibold truncate">{t('dashboard.yourPostedJobs')}</CardTitle>
-                    <Badge variant="secondary" className="text-base">{jobs.length}</Badge>
-                  </div>
-                  <Button variant="outline" size="sm" asChild className="h-9 px-3">
-                    <Link href="/dashboard/company/jobs">
-                      <Eye className="h-5 w-5 mr-1" />
-                      <span className="text-base">View</span>
-                    </Link>
-                  </Button>
-                </div>
-                {/* Desktop: Original layout */}
-                <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
-                      <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      {t('dashboard.yourRecentPostedJobs')}
-                    </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Latest vacancies you've posted (last 5)</CardDescription>
+              <CardHeader className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-5 w-5 text-purple-600" />
+                    <CardTitle className="text-lg font-semibold">{t('dashboard.yourRecentPostedJobs')}</CardTitle>
+                    <Badge variant="secondary" className="text-sm">{jobs.length}</Badge>
                   </div>
                   <Button variant="outline" size="sm" asChild className="text-xs">
                     <Link href="/dashboard/company/jobs">
-                      <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <Filter className="h-4 w-4 mr-1" />
                       {t('common.viewAll')}
                     </Link>
                   </Button>
                 </div>
+                <CardDescription className="text-sm mt-1">Latest vacancies you've posted (last 5)</CardDescription>
               </CardHeader>
-              <CardContent className="p-0 sm:p-4 md:p-6">
+              <CardContent className="p-0">
                 {jobs.length === 0 ? (
-                  <div className="hidden lg:block text-center py-3 sm:py-4 text-muted-foreground">
-                    <p className="text-xs sm:text-sm">No jobs posted yet</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No jobs posted yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-0 sm:space-y-4">
-                    {jobs.map((job, index) => (
-                      <div
-                        key={job.id}
-                        className={`flex flex-col sm:flex-row sm:items-center sm:justify-between px-2 py-1.5 sm:p-4 border-0 sm:border rounded-none sm:rounded-lg hover:bg-muted/50 transition-colors gap-1.5 sm:gap-4 ${index > 0 ? 'border-t' : ''}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-0.5 sm:mb-1">
-                            <h4 className="font-medium text-foreground text-lg sm:text-xl truncate">{job.title}</h4>
-                            {getJobStatusBadge(job)}
-                            {job.is_tradespeople_job ? (
-                              <Badge className="bg-purple-100 text-purple-700 border-purple-300">
-                                Trade Job
-                              </Badge>
-                            ) : (
-                              <Badge className="bg-blue-100 text-blue-700 border-blue-300">
-                                Vacancy
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-base sm:text-lg text-muted-foreground">
-                            <span className="flex items-center whitespace-nowrap">
-                              <MapPin className="h-5 w-5 mr-1 flex-shrink-0" />
-                              <span className="truncate">{job.location}</span>
-                            </span>
-                            <Badge variant="outline" className="text-base">
-                              {job.job_type}
-                            </Badge>
-                            <Badge variant="outline" className="text-base">
-                              {job.work_location}
-                            </Badge>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-3 text-base text-muted-foreground mt-0.5 sm:mt-1">
-                            <span className="flex items-center whitespace-nowrap">
-                              <Users className="h-5 w-5 mr-1" />
-                              {job.applications_count} apps
-                            </span>
-                            {/* Application status breakdown */}
-                            {job.status_breakdown && job.applications_count > 0 && (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {job.status_breakdown.pending > 0 && (
-                                  <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700 border-slate-300">
-                                    {job.status_breakdown.pending} Pending
-                                  </Badge>
-                                )}
-                                {job.status_breakdown.reviewed > 0 && (
-                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
-                                    {job.status_breakdown.reviewed} Reviewed
-                                  </Badge>
-                                )}
-                                {job.status_breakdown.interview > 0 && (
-                                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-300">
-                                    {job.status_breakdown.interview} Interview
-                                  </Badge>
-                                )}
-                                {job.status_breakdown.accepted > 0 && (
-                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
-                                    {job.status_breakdown.accepted} Accepted
-                                  </Badge>
-                                )}
-                                {job.status_breakdown.rejected > 0 && (
-                                  <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">
-                                    {job.status_breakdown.rejected} Rejected
-                                  </Badge>
+                  <div className="overflow-x-auto">
+                    {/* Table Header */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-violet-50 border-b-2 border-purple-200 text-xs font-semibold text-gray-700">
+                      <div className="col-span-4">JOB TITLE</div>
+                      <div className="col-span-2">LOCATION</div>
+                      <div className="col-span-2">ENGAGEMENT</div>
+                      <div className="col-span-2">STATUS</div>
+                      <div className="col-span-2">ACTIONS</div>
+                    </div>
+                    {/* Table Rows */}
+                    <div className="divide-y divide-gray-100">
+                      {jobs.map((job, index) => (
+                        <div
+                          key={job.id}
+                          className={`grid grid-cols-1 sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-purple-50/50 transition-colors ${
+                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                          }`}
+                        >
+                          <div className="col-span-1 sm:col-span-4 flex items-center gap-2">
+                            <Briefcase className="h-4 w-4 text-purple-600 flex-shrink-0 hidden sm:block" />
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium text-gray-900 truncate text-sm block">{job.title}</span>
+                              <div className="flex gap-1 mt-0.5">
+                                {job.is_tradespeople_job ? (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0">Trade</Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0">Vacancy</Badge>
                                 )}
                               </div>
-                            )}
-                            <span className="flex items-center whitespace-nowrap">
-                              <Eye className="h-5 w-5 mr-1" />
-                              {job.views_count} views
+                            </div>
+                          </div>
+                          <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-sm text-gray-600">
+                            <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
+                            <span className="truncate">{job.location}</span>
+                          </div>
+                          <div className="col-span-1 sm:col-span-2 flex items-center gap-2 text-xs text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3 text-blue-600" />
+                              {job.applications_count}
                             </span>
-                            <span className="flex items-center whitespace-nowrap hidden sm:flex">
-                              <Calendar className="h-3 w-3 mr-1" />
-                              Posted {formatDate(job.created_at)}
+                            <span className="flex items-center gap-1">
+                              <Eye className="h-3 w-3 text-green-600" />
+                              {job.views_count}
                             </span>
-                            {job.expires_at && job.expiration_status !== "expired" && (
-                              <span className="flex items-center whitespace-nowrap">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Expires {formatDate(job.expires_at)}
-                              </span>
-                            )}
-                            {job.expiration_status === "expired" && job.expires_at && (
-                              <span className="flex items-center text-red-600 whitespace-nowrap">
-                                <Clock className="h-3 w-3 mr-1" />
-                                Expired {formatDate(job.expires_at)}
-                              </span>
-                            )}
+                          </div>
+                          <div className="col-span-1 sm:col-span-2 flex items-center">
+                            {getJobStatusBadge(job)}
+                          </div>
+                          <div className="col-span-1 sm:col-span-2 flex items-center gap-1">
+                            <Button size="sm" variant="ghost" asChild className="h-7 text-xs px-2 hover:bg-purple-100">
+                              <Link href={`/jobs/${job.id}/applications`}>Apps</Link>
+                            </Button>
+                            <Button size="sm" variant="ghost" asChild className="h-7 text-xs px-2 hover:bg-purple-100">
+                              <Link href={`/jobs/${job.id}/edit`}>Edit</Link>
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-1.5 sm:gap-2 w-full sm:w-auto">
-                          {(job.expiration_status === "expired" || job.expiration_status === "expiring_soon") && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="bg-green-50 text-green-700 hover:bg-green-100 text-xs"
-                              asChild
-                            >
-                              <Link href={`/jobs/${job.id}/extend`}>
-                                <Clock className="h-3 w-3 mr-1" />
-                                Extend
-                              </Link>
-                            </Button>
-                          )}
-                          <Button size="sm" variant="outline" asChild className="text-xs">
-                            <Link href={`/jobs/${job.id}/applications`}>Apps ({job.applications_count})</Link>
-                          </Button>
-                          <Button size="sm" variant="outline" asChild className="text-xs">
-                            <Link href={`/jobs/${job.id}/edit`}>Edit</Link>
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                     {jobs.length >= 5 && (
-                      <Button variant="outline" asChild className="w-full bg-transparent">
-                        <Link href="/dashboard/company/jobs">{t('common.viewAll')} ({jobs.length})</Link>
-                      </Button>
+                      <div className="px-4 py-3 border-t bg-gray-50/50">
+                        <Button variant="outline" asChild className="w-full text-xs hover:bg-purple-50">
+                          <Link href="/dashboard/company/jobs">{t('common.viewAll')} ({jobs.length})</Link>
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1513,128 +1447,115 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Applications Received */}
             <Card className="overflow-hidden">
-              <CardHeader className="px-2 py-1.5 sm:p-4 md:p-6">
-                {/* Mobile: Compact single line - 30% larger text */}
-                <div className="flex lg:hidden items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Users className="h-5 w-5 flex-shrink-0" />
-                    <CardTitle className="text-lg font-semibold truncate">Applications</CardTitle>
-                    <Badge variant="secondary" className="text-base">{receivedApplications.length}</Badge>
+              <CardHeader className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-5 w-5 text-teal-600" />
+                    <CardTitle className="text-lg font-semibold">{t('dashboard.applications')}</CardTitle>
+                    <Badge variant="secondary" className="text-sm">{receivedApplications.length}</Badge>
                   </div>
-                  <Button variant="outline" size="sm" asChild className="h-9 px-3">
+                  <Button variant="outline" size="sm" asChild className="text-xs">
                     <Link href="/dashboard/company/applications">
-                      <Eye className="h-5 w-5 mr-1" />
-                      <span className="text-base">View</span>
-                    </Link>
-                  </Button>
-                </div>
-                {/* Desktop: Original layout */}
-                <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
-                      <Users className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      {t('dashboard.applications')}
-                    </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Candidates who applied to your posted jobs (last 5)</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" asChild className="text-xs w-full sm:w-auto">
-                    <Link href="/dashboard/company/applications">
-                      <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <Filter className="h-4 w-4 mr-1" />
                       {t('common.viewAll')}
                     </Link>
                   </Button>
                 </div>
+                <CardDescription className="text-sm mt-1">Candidates who applied to your posted jobs (last 5)</CardDescription>
               </CardHeader>
-              <CardContent className="p-0 sm:p-4 md:p-6">
+              <CardContent className="p-0">
                 {receivedApplications.length === 0 ? (
-                  <div className="hidden lg:block text-center py-3 sm:py-4 text-muted-foreground">
-                    <p className="text-xs sm:text-sm">No applications received yet</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No applications received yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-0 sm:space-y-3 md:space-y-4">
-                    {receivedApplications.slice(0, 5).map((application, index) => {
-                      // Determine display values based on applicant type
-                      const isCompanyApplicant = application.applicant_type === "company"
-                      const isProfessionalApplicant = application.applicant_type === "professional"
+                  <div className="overflow-x-auto">
+                    {/* Table Header */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 bg-gradient-to-r from-teal-50 to-cyan-50 border-b-2 border-teal-200 text-xs font-semibold text-gray-700">
+                      <div className="col-span-4">APPLICANT</div>
+                      <div className="col-span-3">JOB</div>
+                      <div className="col-span-2">LOCATION</div>
+                      <div className="col-span-2">STATUS</div>
+                      <div className="col-span-1">ACTION</div>
+                    </div>
+                    {/* Table Rows */}
+                    <div className="divide-y divide-gray-100">
+                      {receivedApplications.slice(0, 5).map((application, index) => {
+                        // Determine display values based on applicant type
+                        const isCompanyApplicant = application.applicant_type === "company"
+                        const isProfessionalApplicant = application.applicant_type === "professional"
 
-                      const displayName = isCompanyApplicant && application.company_profiles
-                        ? application.company_profiles.company_name
-                        : isProfessionalApplicant && application.professional_profiles
-                        ? `${application.professional_profiles.first_name} ${application.professional_profiles.last_name}`
-                        : "Unknown Applicant"
+                        const displayName = isCompanyApplicant && application.company_profiles
+                          ? application.company_profiles.company_name
+                          : isProfessionalApplicant && application.professional_profiles
+                          ? `${application.professional_profiles.first_name} ${application.professional_profiles.last_name}`
+                          : "Unknown Applicant"
 
-                      const displayTitle = isCompanyApplicant && application.company_profiles
-                        ? application.company_profiles.industry
-                        : isProfessionalApplicant && application.professional_profiles
-                        ? application.professional_profiles.title
-                        : ""
+                        const displayLocation = isCompanyApplicant && application.company_profiles
+                          ? application.company_profiles.location
+                          : isProfessionalApplicant && application.professional_profiles
+                          ? application.professional_profiles.location
+                          : "N/A"
 
-                      const displayLocation = isCompanyApplicant && application.company_profiles
-                        ? application.company_profiles.location
-                        : isProfessionalApplicant && application.professional_profiles
-                        ? application.professional_profiles.location
-                        : "Location not specified"
+                        const displayAvatar = isCompanyApplicant && application.company_profiles
+                          ? application.company_profiles.logo_url
+                          : isProfessionalApplicant && application.professional_profiles
+                          ? application.professional_profiles.profile_photo_url
+                          : undefined
 
-                      const displayAvatar = isCompanyApplicant && application.company_profiles
-                        ? application.company_profiles.logo_url
-                        : isProfessionalApplicant && application.professional_profiles
-                        ? application.professional_profiles.profile_photo_url
-                        : undefined
+                        const displayInitials = isCompanyApplicant && application.company_profiles
+                          ? application.company_profiles.company_name.substring(0, 2).toUpperCase()
+                          : isProfessionalApplicant && application.professional_profiles
+                          ? `${application.professional_profiles.first_name[0]}${application.professional_profiles.last_name[0]}`
+                          : "?"
 
-                      const displayInitials = isCompanyApplicant && application.company_profiles
-                        ? application.company_profiles.company_name.substring(0, 2).toUpperCase()
-                        : isProfessionalApplicant && application.professional_profiles
-                        ? `${application.professional_profiles.first_name[0]}${application.professional_profiles.last_name[0]}`
-                        : "?"
-
-                      return (
-                        <div
-                          key={application.id}
-                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between px-2 py-1.5 sm:p-3 md:p-4 border-0 sm:border rounded-none sm:rounded-lg hover:bg-muted/50 transition-colors gap-1.5 sm:gap-3 ${index > 0 ? 'border-t' : ''}`}
-                        >
-                          <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
-                              <AvatarImage
-                                src={displayAvatar}
-                                alt={displayName}
-                              />
-                              <AvatarFallback className="text-xs">
-                                {displayInitials}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-1 mb-0.5">
-                                <h4 className="font-medium text-foreground text-xs sm:text-sm truncate">
-                                  {displayName}
-                                </h4>
+                        return (
+                          <div
+                            key={application.id}
+                            className={`grid grid-cols-1 sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-teal-50/50 transition-colors ${
+                              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                            }`}
+                          >
+                            <div className="col-span-1 sm:col-span-4 flex items-center gap-2">
+                              <Avatar className="h-8 w-8 flex-shrink-0 hidden sm:block">
+                                <AvatarImage src={displayAvatar} alt={displayName} />
+                                <AvatarFallback className="text-xs">{displayInitials}</AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-gray-900 truncate text-sm block">{displayName}</span>
                                 {isCompanyApplicant && (
-                                  <Badge variant="outline" className="text-xs">Company</Badge>
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0 mt-0.5">Company</Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-muted-foreground truncate hidden sm:block">{displayTitle}</p>
-                              <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-1 sm:gap-2 text-xs text-muted-foreground mt-1">
-                                <span className="truncate">For: {application.jobs.title}</span>
-                                <span className="hidden sm:flex items-center whitespace-nowrap">
-                                  <MapPin className="h-3 w-3 mr-1" />
-                                  {displayLocation}
-                                </span>
-                                <span className="hidden sm:inline whitespace-nowrap">{formatDate(application.applied_at)}</span>
-                              </div>
+                            </div>
+                            <div className="col-span-1 sm:col-span-3 flex items-center text-sm text-gray-600">
+                              <span className="truncate">{application.jobs.title}</span>
+                            </div>
+                            <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-sm text-gray-600">
+                              <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
+                              <span className="truncate">{displayLocation}</span>
+                            </div>
+                            <div className="col-span-1 sm:col-span-2 flex items-center">
+                              <Badge className={`${getStatusColor(application.status)} text-xs px-2 py-0.5 font-medium`}>
+                                {application.status}
+                              </Badge>
+                            </div>
+                            <div className="col-span-1 sm:col-span-1 flex items-center">
+                              <Button size="sm" variant="ghost" asChild className="h-7 text-xs px-2 hover:bg-teal-100">
+                                <Link href={`/applications/${application.id}`}>Review</Link>
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <Badge className={`${getStatusColor(application.status)} text-xs flex-1 sm:flex-none justify-center`}>{application.status}</Badge>
-                            <Button size="sm" asChild className="flex-1 sm:flex-none text-xs">
-                              <Link href={`/applications/${application.id}`}>Review</Link>
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                     {receivedApplications.length > 5 && (
-                      <Button variant="outline" asChild className="w-full bg-transparent">
-                        <Link href="/dashboard/company/applications">{t('common.viewAll')} ({receivedApplications.length})</Link>
-                      </Button>
+                      <div className="px-4 py-3 border-t bg-gray-50/50">
+                        <Button variant="outline" asChild className="w-full text-xs hover:bg-teal-50">
+                          <Link href="/dashboard/company/applications">{t('common.viewAll')} ({receivedApplications.length})</Link>
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}
@@ -1643,98 +1564,90 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Your Recent Applications (Submitted) */}
             <Card className="overflow-hidden">
-              <CardHeader className="px-2 py-1.5 sm:p-4 md:p-6">
-                {/* Mobile: Compact single line - 30% larger text */}
-                <div className="flex lg:hidden items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <FileText className="h-5 w-5 flex-shrink-0" />
-                    <CardTitle className="text-lg font-semibold truncate">My Applications</CardTitle>
-                    <Badge variant="secondary" className="text-base">{submittedApplications.length}</Badge>
+              <CardHeader className="px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-indigo-600" />
+                    <CardTitle className="text-lg font-semibold">Your Recent Applications</CardTitle>
+                    <Badge variant="secondary" className="text-sm">{submittedApplications.length}</Badge>
                   </div>
-                  <Button variant="outline" size="sm" asChild className="h-9 px-3">
+                  <Button variant="outline" size="sm" asChild className="text-xs">
                     <Link href="/dashboard/company/my-applications">
-                      <Eye className="h-5 w-5 mr-1" />
-                      <span className="text-base">View</span>
-                    </Link>
-                  </Button>
-                </div>
-                {/* Desktop: Original layout */}
-                <div className="hidden lg:flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <div>
-                    <CardTitle className="flex items-center text-foreground text-sm sm:text-base md:text-lg">
-                      <FileText className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                      Your Recent Applications
-                    </CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Jobs you've applied to (last 5)</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm" asChild className="text-xs w-full sm:w-auto">
-                    <Link href="/dashboard/company/my-applications">
-                      <Filter className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <Filter className="h-4 w-4 mr-1" />
                       {t('common.viewAll')}
                     </Link>
                   </Button>
                 </div>
+                <CardDescription className="text-sm mt-1">Jobs you've applied to (last 5)</CardDescription>
               </CardHeader>
-              <CardContent className="p-0 sm:p-4 md:p-6">
+              <CardContent className="p-0">
                 {submittedApplications.length === 0 ? (
-                  <div className="hidden lg:block text-center py-3 sm:py-4 text-muted-foreground">
-                    <p className="text-xs sm:text-sm">No applications submitted yet</p>
+                  <div className="text-center py-8 text-muted-foreground">
+                    <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No applications submitted yet</p>
                   </div>
                 ) : (
-                  <div className="space-y-0 sm:space-y-3 md:space-y-4">
-                    {submittedApplications.slice(0, 5).map((application, index) => {
-                      const displayInitials = application.job_poster_name.substring(0, 2).toUpperCase()
+                  <div className="overflow-x-auto">
+                    {/* Table Header */}
+                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 bg-gradient-to-r from-indigo-50 to-blue-50 border-b-2 border-indigo-200 text-xs font-semibold text-gray-700">
+                      <div className="col-span-4">JOB TITLE</div>
+                      <div className="col-span-3">POSTED BY</div>
+                      <div className="col-span-2">LOCATION</div>
+                      <div className="col-span-2">STATUS</div>
+                      <div className="col-span-1">ACTION</div>
+                    </div>
+                    {/* Table Rows */}
+                    <div className="divide-y divide-gray-100">
+                      {submittedApplications.slice(0, 5).map((application, index) => {
+                        const displayInitials = application.job_poster_name.substring(0, 2).toUpperCase()
 
-                      return (
-                        <div
-                          key={application.id}
-                          className={`flex flex-col sm:flex-row sm:items-center sm:justify-between px-2 py-1.5 sm:p-3 md:p-4 border-0 sm:border rounded-none sm:rounded-lg hover:bg-muted/50 transition-colors gap-1.5 sm:gap-3 ${index > 0 ? 'border-t' : ''}`}
-                        >
-                          <div className="flex items-start sm:items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                            <Avatar className="h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
-                              <AvatarImage
-                                src={application.job_poster_avatar || undefined}
-                                alt={application.job_poster_name}
-                              />
-                              <AvatarFallback className="text-xs">
-                                {displayInitials}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex flex-wrap items-center gap-1 mb-0.5">
-                                <h4 className="font-medium text-foreground text-xs sm:text-sm truncate">
-                                  {application.jobs.title}
-                                </h4>
+                        return (
+                          <div
+                            key={application.id}
+                            className={`grid grid-cols-1 sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-indigo-50/50 transition-colors ${
+                              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
+                            }`}
+                          >
+                            <div className="col-span-1 sm:col-span-4 flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-indigo-600 flex-shrink-0 hidden sm:block" />
+                              <div className="flex-1 min-w-0">
+                                <span className="font-medium text-gray-900 truncate text-sm block">{application.jobs.title}</span>
                                 {application.jobs.is_tradespeople_job && (
-                                  <Badge variant="outline" className="text-xs">Task</Badge>
+                                  <Badge variant="outline" className="text-xs px-1.5 py-0 mt-0.5">Trade</Badge>
                                 )}
                               </div>
-                              <p className="text-xs text-muted-foreground truncate">By: {application.job_poster_name}</p>
-                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs text-muted-foreground mt-1">
-                                <span className="hidden sm:flex items-center whitespace-nowrap">
-                                  <MapPin className="h-3 w-3 mr-1" />
-                                  {application.jobs.location}
-                                </span>
-                                <Badge variant="outline" className="text-xs">
-                                  {application.jobs.job_type}
-                                </Badge>
-                                <span className="hidden sm:inline whitespace-nowrap">{formatDate(application.applied_at)}</span>
-                              </div>
+                            </div>
+                            <div className="col-span-1 sm:col-span-3 flex items-center gap-2">
+                              <Avatar className="h-6 w-6 flex-shrink-0 hidden sm:block">
+                                <AvatarImage src={application.job_poster_avatar || undefined} alt={application.job_poster_name} />
+                                <AvatarFallback className="text-xs">{displayInitials}</AvatarFallback>
+                              </Avatar>
+                              <span className="truncate text-sm text-gray-600">{application.job_poster_name}</span>
+                            </div>
+                            <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-sm text-gray-600">
+                              <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
+                              <span className="truncate">{application.jobs.location}</span>
+                            </div>
+                            <div className="col-span-1 sm:col-span-2 flex items-center">
+                              <Badge className={`${getStatusColor(application.status)} text-xs px-2 py-0.5 font-medium`}>
+                                {application.status}
+                              </Badge>
+                            </div>
+                            <div className="col-span-1 sm:col-span-1 flex items-center">
+                              <Button size="sm" variant="ghost" asChild className="h-7 text-xs px-2 hover:bg-indigo-100">
+                                <Link href={`/jobs/${application.job_id}`}>View</Link>
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <Badge className={`${getStatusColor(application.status)} text-xs flex-1 sm:flex-none justify-center`}>{application.status}</Badge>
-                            <Button size="sm" asChild className="flex-1 sm:flex-none text-xs">
-                              <Link href={`/jobs/${application.job_id}`}>View Job</Link>
-                            </Button>
-                          </div>
-                        </div>
-                      )
-                    })}
+                        )
+                      })}
+                    </div>
                     {submittedApplications.length > 5 && (
-                      <Button variant="outline" asChild className="w-full bg-transparent text-xs">
-                        <Link href="/dashboard/company/my-applications">{t('common.viewAll')} ({submittedApplications.length})</Link>
-                      </Button>
+                      <div className="px-4 py-3 border-t bg-gray-50/50">
+                        <Button variant="outline" asChild className="w-full text-xs hover:bg-indigo-50">
+                          <Link href="/dashboard/company/my-applications">{t('common.viewAll')} ({submittedApplications.length})</Link>
+                        </Button>
+                      </div>
                     )}
                   </div>
                 )}

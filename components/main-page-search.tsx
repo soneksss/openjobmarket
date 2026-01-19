@@ -1256,21 +1256,28 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (searchQuery.trim()) {
           console.log(`[MAIN-PAGE-SEARCH] Applying search filter: ${searchQuery.trim()}`)
 
-          // Use full-text search (much faster than ILIKE with wildcards)
-          // Convert search query to tsquery format: replace common delimiters with spaces
-          const cleanedQuery = searchQuery.trim()
-            .replace(/[\/,()]+/g, ' ') // Replace delimiters with spaces
-            .split(/\s+/) // Split by whitespace
+          // Split search query by common delimiters to handle searches like "Builder (Construction)" or "electrician"
+          const searchTerms = searchQuery.trim()
+            .split(/[\/,\s()]+/) // Split by /, comma, space, or parentheses
             .filter(term => term.length > 0) // Remove empty strings
-            .join(' | ') // Join with OR operator for full-text search
+            .map(term => term.trim()) // Trim whitespace
 
-          console.log(`[MAIN-PAGE-SEARCH] Using full-text search with query: "${cleanedQuery}"`)
+          console.log(`[MAIN-PAGE-SEARCH] Search terms:`, searchTerms)
 
-          // Use textSearch for indexed full-text search (uses search_vector GIN index)
-          query = query.textSearch('search_vector', cleanedQuery, {
-            type: 'websearch',
-            config: 'english'
-          })
+          // Use ILIKE for compatibility (full-text search requires search_vector to be populated)
+          if (searchTerms.length > 1) {
+            // For multiple terms, search for ANY of the terms in title or description
+            const orConditions = searchTerms.map(term =>
+              `title.ilike.%${term}%,description.ilike.%${term}%,category.ilike.%${term}%`
+            ).join(',')
+
+            console.log(`[MAIN-PAGE-SEARCH] Using multi-term OR condition`)
+            query = query.or(orConditions)
+          } else {
+            // Single term - search in title, description, and category
+            const term = searchQuery.trim()
+            query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%,category.ilike.%${term}%`)
+          }
         }
 
         console.log(`[MAIN-PAGE-SEARCH] ===== EXECUTING VACANCY/JOB QUERY =====`)

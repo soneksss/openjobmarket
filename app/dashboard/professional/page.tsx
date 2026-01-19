@@ -88,6 +88,39 @@ export default async function ProfessionalDashboardPage() {
     .order("saved_at", { ascending: false })
     .limit(5)
 
+  // Get posted trade jobs (for jobseekers with is_homeowner=true)
+  let postedTradeJobs: any[] = []
+  const { data: homeownerProfile } = await supabase
+    .from("homeowner_profiles")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle()
+
+  if (homeownerProfile) {
+    const { data: tradeJobs } = await supabase
+      .from("jobs")
+      .select(`
+        id,
+        title,
+        description,
+        location,
+        category,
+        urgency,
+        budget_min,
+        budget_max,
+        status,
+        created_at,
+        expires_at,
+        is_tradespeople_job
+      `)
+      .eq("homeowner_id", homeownerProfile.id)
+      .eq("is_tradespeople_job", true)
+      .order("created_at", { ascending: false })
+      .limit(10)
+
+    postedTradeJobs = tradeJobs || []
+  }
+
   // Check if CV exists
   const { data: cvRecord } = await supabase
     .from("professional_cvs")
@@ -126,6 +159,7 @@ export default async function ProfessionalDashboardPage() {
       profile={profile}
       applications={applications || []}
       savedJobs={savedJobs || []}
+      postedTradeJobs={postedTradeJobs}
       hasCV={!!cvRecord}
       accountTypeLabel={accountTypeLabel}
       canPostTradeJobs={userData?.is_homeowner || false}
