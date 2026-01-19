@@ -69,6 +69,7 @@ WITH CHECK (
 
 -- INSERT Policy for Professionals (jobseekers with homeowner permission posting trade jobs)
 -- This allows professionals with is_homeowner=true to post trade jobs via their professional profile
+DROP POLICY IF EXISTS "Professionals with homeowner permission can insert trade jobs" ON jobs;
 CREATE POLICY "Professionals with homeowner permission can insert trade jobs"
 ON jobs FOR INSERT
 TO authenticated
@@ -83,6 +84,7 @@ WITH CHECK (
 );
 
 -- UPDATE Policy: Users can update their own jobs
+DROP POLICY IF EXISTS "Users can update their own jobs" ON jobs;
 CREATE POLICY "Users can update their own jobs"
 ON jobs FOR UPDATE
 TO authenticated
@@ -95,6 +97,7 @@ USING (
 );
 
 -- DELETE Policy: Users can delete their own jobs
+DROP POLICY IF EXISTS "Users can delete their own jobs" ON jobs;
 CREATE POLICY "Users can delete their own jobs"
 ON jobs FOR DELETE
 TO authenticated

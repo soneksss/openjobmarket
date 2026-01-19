@@ -38,9 +38,39 @@ export default async function ProfessionalPostJobPage() {
     redirect("/dashboard/professional")
   }
 
+  // Get or create homeowner profile for this user
+  // (Professionals with is_homeowner=true should have a homeowner_profile)
+  let { data: homeownerProfile } = await supabase
+    .from("homeowner_profiles")
+    .select("*")
+    .eq("user_id", user.id)
+    .single()
+
+  // If no homeowner profile exists, create one from professional profile
+  if (!homeownerProfile) {
+    const { data: newProfile, error: createError } = await supabase
+      .from("homeowner_profiles")
+      .insert({
+        user_id: user.id,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        profile_photo_url: profile.profile_photo_url,
+        location: profile.location || '',
+      })
+      .select()
+      .single()
+
+    if (createError) {
+      console.error("Failed to create homeowner profile:", createError)
+      redirect("/dashboard/professional")
+    }
+
+    homeownerProfile = newProfile
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <JobWizardModal companyProfile={profile} userType="homeowner" />
+      <JobWizardModal companyProfile={homeownerProfile} userType="homeowner" />
     </div>
   )
 }
