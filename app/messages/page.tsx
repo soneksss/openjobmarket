@@ -131,90 +131,108 @@ export default function MessagesPage() {
           continue
         }
 
-        // Get user info
-        const { data: otherUser } = await supabase
-          .from("users")
-          .select("user_type, full_name, nickname, profile_photo_url, email")
-          .eq("id", otherUserId)
-          .maybeSingle()
+        // Get user info with error handling for deleted users
+        let displayName = 'Deleted User'
+        let photoUrl: string | undefined = undefined
 
-        if (otherUser) {
-          let displayName = otherUser.nickname || otherUser.full_name || otherUser.email || 'Unknown User'
-          let photoUrl = otherUser.profile_photo_url
+        try {
+          const { data: otherUser, error: userError } = await supabase
+            .from("users")
+            .select("user_type, full_name, nickname, profile_photo_url, email")
+            .eq("id", otherUserId)
+            .maybeSingle()
 
-          // Get profile-specific data
-          if (otherUser.user_type === 'professional') {
-            const { data: profData } = await supabase
-              .from('professional_profiles')
-              .select('first_name, last_name, profile_photo_url')
-              .eq('user_id', otherUserId)
-              .maybeSingle()
+          // If user was deleted or query failed, use fallback
+          if (userError || !otherUser) {
+            console.log("[MESSAGES] User not found (likely deleted):", otherUserId)
+            // Continue with "Deleted User" as displayName
+          } else {
+            displayName = otherUser.nickname || otherUser.full_name || otherUser.email || 'Unknown User'
+            photoUrl = otherUser.profile_photo_url
 
-            if (profData) {
-              const fullName = [profData.first_name, profData.last_name].filter(Boolean).join(' ')
-              displayName = fullName || displayName
-              photoUrl = profData.profile_photo_url || photoUrl
-            }
-          } else if (otherUser.user_type === 'company') {
-            const { data: compData } = await supabase
-              .from('company_profiles')
-              .select('company_name, logo_url')
-              .eq('user_id', otherUserId)
-              .maybeSingle()
+            // Get profile-specific data with error handling
+            try {
+              if (otherUser.user_type === 'professional') {
+                const { data: profData } = await supabase
+                  .from('professional_profiles')
+                  .select('first_name, last_name, profile_photo_url')
+                  .eq('user_id', otherUserId)
+                  .maybeSingle()
 
-            if (compData) {
-              displayName = compData.company_name || displayName
-              photoUrl = compData.logo_url || photoUrl
-            }
-          } else if (otherUser.user_type === 'homeowner') {
-            const { data: homeownerData } = await supabase
-              .from('homeowner_profiles')
-              .select('first_name, last_name, profile_photo_url')
-              .eq('user_id', otherUserId)
-              .maybeSingle()
+                if (profData) {
+                  const fullName = [profData.first_name, profData.last_name].filter(Boolean).join(' ')
+                  displayName = fullName || displayName
+                  photoUrl = profData.profile_photo_url || photoUrl
+                }
+              } else if (otherUser.user_type === 'company') {
+                const { data: compData } = await supabase
+                  .from('company_profiles')
+                  .select('company_name, logo_url')
+                  .eq('user_id', otherUserId)
+                  .maybeSingle()
 
-            if (homeownerData) {
-              const fullName = [homeownerData.first_name, homeownerData.last_name].filter(Boolean).join(' ')
-              displayName = fullName || displayName
-              photoUrl = homeownerData.profile_photo_url || photoUrl
-            }
-          } else if (otherUser.user_type === 'contractor') {
-            const { data: contractorData } = await supabase
-              .from('contractor_profiles')
-              .select('company_name, profile_photo_url')
-              .eq('user_id', otherUserId)
-              .maybeSingle()
+                if (compData) {
+                  displayName = compData.company_name || displayName
+                  photoUrl = compData.logo_url || photoUrl
+                }
+              } else if (otherUser.user_type === 'homeowner') {
+                const { data: homeownerData } = await supabase
+                  .from('homeowner_profiles')
+                  .select('first_name, last_name, profile_photo_url')
+                  .eq('user_id', otherUserId)
+                  .maybeSingle()
 
-            if (contractorData) {
-              displayName = contractorData.company_name || displayName
-              photoUrl = contractorData.profile_photo_url || photoUrl
+                if (homeownerData) {
+                  const fullName = [homeownerData.first_name, homeownerData.last_name].filter(Boolean).join(' ')
+                  displayName = fullName || displayName
+                  photoUrl = homeownerData.profile_photo_url || photoUrl
+                }
+              } else if (otherUser.user_type === 'contractor') {
+                const { data: contractorData } = await supabase
+                  .from('contractor_profiles')
+                  .select('company_name, profile_photo_url')
+                  .eq('user_id', otherUserId)
+                  .maybeSingle()
+
+                if (contractorData) {
+                  displayName = contractorData.company_name || displayName
+                  photoUrl = contractorData.profile_photo_url || photoUrl
+                }
+              }
+            } catch (profileError) {
+              console.error("[MESSAGES] Error fetching profile for user:", otherUserId, profileError)
+              // Continue with basic displayName from users table
             }
           }
-
-          const lastMessage = convData.messages[0]
-          const unreadMessages = convData.messages.filter(
-            msg => msg.recipient_id === currentUser.id && !msg.is_read
-          )
-
-          // Use conversation_id if available, otherwise fallback to conversationKey
-          const conversationId = convData.conversation_id || conversationKey
-
-          conversationsData.push({
-            id: conversationId,
-            other_user: {
-              id: otherUserId,
-              name: displayName,
-              profile_photo_url: photoUrl
-            },
-            last_message: {
-              content: lastMessage.content,
-              created_at: lastMessage.created_at,
-              is_read: lastMessage.is_read,
-              sender_id: lastMessage.sender_id
-            },
-            unread_count: unreadMessages.length
-          })
+        } catch (error) {
+          console.error("[MESSAGES] Error fetching user:", otherUserId, error)
+          // Continue with "Deleted User" as displayName
         }
+
+        // Always add the conversation, even if user was deleted
+        const lastMessage = convData.messages[0]
+        const unreadMessages = convData.messages.filter(
+          msg => msg.recipient_id === currentUser.id && !msg.is_read
+        )
+
+        // Use conversation_id if available, otherwise fallback to conversationKey
+        const conversationId = convData.conversation_id || conversationKey
+
+        conversationsData.push({
+          id: conversationId,
+          other_user: {
+            id: otherUserId,
+            name: displayName,
+            profile_photo_url: photoUrl
+          },
+          last_message: {
+            content: lastMessage.content,
+            created_at: lastMessage.created_at,
+            is_read: lastMessage.is_read,
+            sender_id: lastMessage.sender_id
+          },
+          unread_count: unreadMessages.length
+        })
       }
 
       // Sort by most recent

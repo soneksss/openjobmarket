@@ -10,6 +10,7 @@ import { useTranslation } from "@/lib/i18n/context"
 type Props = {
   companyProfile: any
   userType: "company" | "homeowner"
+  redirectPath?: string // Optional redirect path after successful job posting
 }
 
 type JobFormData = {
@@ -279,7 +280,7 @@ const getCommonLanguages = (isPtBR: boolean) => {
   ]
 }
 
-export default function JobWizardModal({ companyProfile, userType }: Props) {
+export default function JobWizardModal({ companyProfile, userType, redirectPath }: Props) {
   const supabase = createClient()
   const router = useRouter()
   const { toast } = useToast()
@@ -315,7 +316,8 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
 
   const closeModal = () => {
     setOpen(false)
-    router.push(userType === "company" ? "/dashboard/company" : "/dashboard/homeowner")
+    const defaultRedirect = userType === "company" ? "/dashboard/company" : "/dashboard/homeowner"
+    router.push(redirectPath || defaultRedirect)
   }
 
   const handleMapLocationSelect = (location: { latitude: number; longitude: number; address: string } | null) => {
@@ -681,8 +683,8 @@ export default function JobWizardModal({ companyProfile, userType }: Props) {
       })
 
       // Redirect to dashboard
-      router.push(userType === "company" ? "/dashboard/company" : "/dashboard/homeowner")
-      router.refresh()
+      const defaultRedirect = userType === "company" ? "/dashboard/company" : "/dashboard/homeowner"
+      router.push(redirectPath || defaultRedirect)
     } catch (err: any) {
       console.error("[Job Wizard] Unexpected error:", err)
       setErr(err?.message || "An unexpected error occurred. Please try again.")

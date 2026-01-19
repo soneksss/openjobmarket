@@ -141,58 +141,101 @@ export default function ConversationPage() {
         console.log('[CONVERSATION] Step 9: Current user photo set')
       }
 
-      // Fetch other user's info
+      // Fetch other user's info with error handling for deleted users
       console.log('[CONVERSATION] Step 10: Fetching other user data for ID:', determinedOtherId)
-      const { data: userData, error: userDataError } = await supabase
-        .from("users")
-        .select("user_type, full_name, nickname, profile_photo_url, email")
-        .eq("id", determinedOtherId)
-        .single()
+      let displayName = 'Deleted User'
+      let photoUrl: string | undefined = undefined
 
-      console.log('[CONVERSATION] Step 11: Other user data retrieved:', !!userData, 'error:', userDataError)
+      try {
+        const { data: userData, error: userDataError } = await supabase
+          .from("users")
+          .select("user_type, full_name, nickname, profile_photo_url, email")
+          .eq("id", determinedOtherId)
+          .maybeSingle()
 
-      if (userData) {
-        let displayName = userData.nickname || userData.full_name || userData.email || 'Unknown User'
-        let photoUrl = userData.profile_photo_url
-        console.log('[CONVERSATION] Step 12: Other user type:', userData.user_type)
+        console.log('[CONVERSATION] Step 11: Other user data retrieved:', !!userData, 'error:', userDataError)
 
-        // Get profile-specific data
-        if (userData.user_type === 'professional') {
-          console.log('[CONVERSATION] Step 13a: Fetching professional profile...')
-          const { data: profData } = await supabase
-            .from('professional_profiles')
-            .select('first_name, last_name, profile_photo_url')
-            .eq('user_id', determinedOtherId)
-            .maybeSingle()
+        if (userData && !userDataError) {
+          displayName = userData.nickname || userData.full_name || userData.email || 'Unknown User'
+          photoUrl = userData.profile_photo_url
+          console.log('[CONVERSATION] Step 12: Other user type:', userData.user_type)
 
-          console.log('[CONVERSATION] Step 13b: Professional profile retrieved:', !!profData)
-          if (profData) {
-            const fullName = [profData.first_name, profData.last_name].filter(Boolean).join(' ')
-            displayName = fullName || displayName
-            photoUrl = profData.profile_photo_url || photoUrl
+          // Get profile-specific data with error handling
+          try {
+            if (userData.user_type === 'professional') {
+              console.log('[CONVERSATION] Step 13a: Fetching professional profile...')
+              const { data: profData } = await supabase
+                .from('professional_profiles')
+                .select('first_name, last_name, profile_photo_url')
+                .eq('user_id', determinedOtherId)
+                .maybeSingle()
+
+              console.log('[CONVERSATION] Step 13b: Professional profile retrieved:', !!profData)
+              if (profData) {
+                const fullName = [profData.first_name, profData.last_name].filter(Boolean).join(' ')
+                displayName = fullName || displayName
+                photoUrl = profData.profile_photo_url || photoUrl
+              }
+            } else if (userData.user_type === 'company') {
+              console.log('[CONVERSATION] Step 13a: Fetching company profile...')
+              const { data: compData } = await supabase
+                .from('company_profiles')
+                .select('company_name, logo_url')
+                .eq('user_id', determinedOtherId)
+                .maybeSingle()
+
+              console.log('[CONVERSATION] Step 13b: Company profile retrieved:', !!compData)
+              if (compData) {
+                displayName = compData.company_name || displayName
+                photoUrl = compData.logo_url || photoUrl
+              }
+            } else if (userData.user_type === 'homeowner') {
+              console.log('[CONVERSATION] Step 13a: Fetching homeowner profile...')
+              const { data: homeownerData } = await supabase
+                .from('homeowner_profiles')
+                .select('first_name, last_name, profile_photo_url')
+                .eq('user_id', determinedOtherId)
+                .maybeSingle()
+
+              console.log('[CONVERSATION] Step 13b: Homeowner profile retrieved:', !!homeownerData)
+              if (homeownerData) {
+                const fullName = [homeownerData.first_name, homeownerData.last_name].filter(Boolean).join(' ')
+                displayName = fullName || displayName
+                photoUrl = homeownerData.profile_photo_url || photoUrl
+              }
+            } else if (userData.user_type === 'contractor') {
+              console.log('[CONVERSATION] Step 13a: Fetching contractor profile...')
+              const { data: contractorData } = await supabase
+                .from('contractor_profiles')
+                .select('company_name, profile_photo_url')
+                .eq('user_id', determinedOtherId)
+                .maybeSingle()
+
+              console.log('[CONVERSATION] Step 13b: Contractor profile retrieved:', !!contractorData)
+              if (contractorData) {
+                displayName = contractorData.company_name || displayName
+                photoUrl = contractorData.profile_photo_url || photoUrl
+              }
+            }
+          } catch (profileError) {
+            console.error('[CONVERSATION] Error fetching profile:', profileError)
+            // Continue with basic displayName from users table
           }
-        } else if (userData.user_type === 'company') {
-          console.log('[CONVERSATION] Step 13a: Fetching company profile...')
-          const { data: compData } = await supabase
-            .from('company_profiles')
-            .select('company_name, logo_url')
-            .eq('user_id', determinedOtherId)
-            .maybeSingle()
-
-          console.log('[CONVERSATION] Step 13b: Company profile retrieved:', !!compData)
-          if (compData) {
-            displayName = compData.company_name || displayName
-            photoUrl = compData.logo_url || photoUrl
-          }
+        } else {
+          console.log('[CONVERSATION] User not found (likely deleted):', determinedOtherId)
         }
-
-        setOtherUser({
-          id: determinedOtherId,
-          name: displayName,
-          profile_photo_url: photoUrl
-        })
-        console.log('[CONVERSATION] Step 14: Other user state set:', displayName)
+      } catch (error) {
+        console.error('[CONVERSATION] Error fetching user:', error)
+        // Continue with "Deleted User" as displayName
       }
+
+      // Always set the other user, even if deleted
+      setOtherUser({
+        id: determinedOtherId,
+        name: displayName,
+        profile_photo_url: photoUrl
+      })
+      console.log('[CONVERSATION] Step 14: Other user state set:', displayName)
 
       // Fetch all messages in this conversation
       console.log('[CONVERSATION] Step 15: Fetching messages for conversation:', conversationId)

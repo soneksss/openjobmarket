@@ -179,22 +179,33 @@ export default async function CompanyDashboardPage() {
     job_type: j.job_type
   })))
 
-  // Get application counts for each job
+  // Get application counts for each job (with status breakdown)
   const jobIds = jobs?.map((job) => job.id) || []
   const { data: applicationCounts, error: countsError } = await supabase
     .from("job_applications")
-    .select("job_id")
+    .select("job_id, status")
     .in("job_id", jobIds)
 
   if (countsError) {
     console.log("[v0] Application counts error:", countsError)
   }
 
-  // Count applications per job
+  // Count applications per job (total and by status)
   const applicationCountsMap = new Map()
+  const applicationStatusMap = new Map() // Map<job_id, Map<status, count>>
+
   applicationCounts?.forEach((app) => {
+    // Total count
     const count = applicationCountsMap.get(app.job_id) || 0
     applicationCountsMap.set(app.job_id, count + 1)
+
+    // Status breakdown
+    if (!applicationStatusMap.has(app.job_id)) {
+      applicationStatusMap.set(app.job_id, new Map())
+    }
+    const statusMap = applicationStatusMap.get(app.job_id)!
+    const statusCount = statusMap.get(app.status) || 0
+    statusMap.set(app.status, statusCount + 1)
   })
 
   // Get recent applications RECEIVED for jobs posted by this company (support both professional and company applicants)
@@ -390,12 +401,22 @@ export default async function CompanyDashboardPage() {
     .eq("is_active", true)
     .neq("expiration_status", "expired")
 
-  // Enrich jobs with application counts (jobs already have expiration info from view)
+  // Enrich jobs with application counts and status breakdown (jobs already have expiration info from view)
   const enrichedJobs =
-    jobs?.map((job) => ({
-      ...job,
-      applications_count: applicationCountsMap.get(job.id) || 0,
-    })) || []
+    jobs?.map((job) => {
+      const statusMap = applicationStatusMap.get(job.id) || new Map()
+      return {
+        ...job,
+        applications_count: applicationCountsMap.get(job.id) || 0,
+        status_breakdown: {
+          pending: statusMap.get("pending") || 0,
+          reviewed: statusMap.get("reviewed") || 0,
+          interview: statusMap.get("interview") || 0,
+          accepted: statusMap.get("accepted") || 0,
+          rejected: statusMap.get("rejected") || 0,
+        },
+      }
+    }) || []
 
   console.log("[v0] Rendering dashboard with data:", {
     jobsCount: enrichedJobs.length,

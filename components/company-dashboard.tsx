@@ -86,6 +86,13 @@ interface Job {
   expires_at?: string
   expiration_status?: string
   days_until_expiration?: number
+  status_breakdown?: {
+    pending: number
+    reviewed: number
+    interview: number
+    accepted: number
+    rejected: number
+  }
 }
 
 interface ReceivedApplication {
@@ -1419,6 +1426,36 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                               <Users className="h-5 w-5 mr-1" />
                               {job.applications_count} apps
                             </span>
+                            {/* Application status breakdown */}
+                            {job.status_breakdown && job.applications_count > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {job.status_breakdown.pending > 0 && (
+                                  <Badge variant="outline" className="text-xs bg-slate-50 text-slate-700 border-slate-300">
+                                    {job.status_breakdown.pending} Pending
+                                  </Badge>
+                                )}
+                                {job.status_breakdown.reviewed > 0 && (
+                                  <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
+                                    {job.status_breakdown.reviewed} Reviewed
+                                  </Badge>
+                                )}
+                                {job.status_breakdown.interview > 0 && (
+                                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-300">
+                                    {job.status_breakdown.interview} Interview
+                                  </Badge>
+                                )}
+                                {job.status_breakdown.accepted > 0 && (
+                                  <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                                    {job.status_breakdown.accepted} Accepted
+                                  </Badge>
+                                )}
+                                {job.status_breakdown.rejected > 0 && (
+                                  <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-300">
+                                    {job.status_breakdown.rejected} Rejected
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
                             <span className="flex items-center whitespace-nowrap">
                               <Eye className="h-5 w-5 mr-1" />
                               {job.views_count} views

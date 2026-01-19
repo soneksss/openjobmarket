@@ -125,7 +125,10 @@ export default function ApplicationActions({
         }
       }
 
-      router.refresh()
+      // Wait a bit before reloading to ensure toast is visible
+      setTimeout(() => {
+        window.location.reload()
+      }, 1500)
     } catch (error) {
       console.error("[APPLICATION-ACTIONS] Error updating status:", error)
       toast({
@@ -134,7 +137,6 @@ export default function ApplicationActions({
         variant: "destructive",
         duration: 5000,
       })
-    } finally {
       setLoading(false)
     }
   }

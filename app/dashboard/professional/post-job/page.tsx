@@ -70,7 +70,11 @@ export default async function ProfessionalPostJobPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <JobWizardModal companyProfile={homeownerProfile} userType="homeowner" />
+      <JobWizardModal
+        companyProfile={homeownerProfile}
+        userType="homeowner"
+        redirectPath="/dashboard/professional"
+      />
     </div>
   )
 }
