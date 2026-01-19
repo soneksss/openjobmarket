@@ -285,14 +285,40 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .eq("id", user.id)
           .single()
 
-        setUserType(userData?.user_type || null)
+        const fetchedUserType = userData?.user_type || null
+        setUserType(fetchedUserType)
 
-        // Fetch professional profile if user is a professional
-        const { data: profileData } = await supabase
-          .from("professional_profiles")
-          .select("id, first_name, last_name")
-          .eq("user_id", user.id)
-          .maybeSingle()
+        // Fetch the appropriate profile based on user type
+        let profileData = null
+        if (fetchedUserType === 'professional') {
+          const { data } = await supabase
+            .from("professional_profiles")
+            .select("id, first_name, last_name")
+            .eq("user_id", user.id)
+            .maybeSingle()
+          profileData = data
+        } else if (fetchedUserType === 'company') {
+          const { data } = await supabase
+            .from("company_profiles")
+            .select("id, company_name")
+            .eq("user_id", user.id)
+            .maybeSingle()
+          profileData = data
+        } else if (fetchedUserType === 'homeowner') {
+          const { data } = await supabase
+            .from("homeowner_profiles")
+            .select("id, first_name, last_name")
+            .eq("user_id", user.id)
+            .maybeSingle()
+          profileData = data
+        } else if (fetchedUserType === 'contractor') {
+          const { data } = await supabase
+            .from("contractor_profiles")
+            .select("id, company_name")
+            .eq("user_id", user.id)
+            .maybeSingle()
+          profileData = data
+        }
 
         setUserProfile(profileData)
       } else {
@@ -312,14 +338,40 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .eq("id", session.user.id)
           .single()
 
-        setUserType(userData?.user_type || null)
+        const fetchedUserType = userData?.user_type || null
+        setUserType(fetchedUserType)
 
-        // Fetch professional profile if user is a professional
-        const { data: profileData } = await supabase
-          .from("professional_profiles")
-          .select("id, first_name, last_name")
-          .eq("user_id", session.user.id)
-          .maybeSingle()
+        // Fetch the appropriate profile based on user type
+        let profileData = null
+        if (fetchedUserType === 'professional') {
+          const { data } = await supabase
+            .from("professional_profiles")
+            .select("id, first_name, last_name")
+            .eq("user_id", session.user.id)
+            .maybeSingle()
+          profileData = data
+        } else if (fetchedUserType === 'company') {
+          const { data } = await supabase
+            .from("company_profiles")
+            .select("id, company_name")
+            .eq("user_id", session.user.id)
+            .maybeSingle()
+          profileData = data
+        } else if (fetchedUserType === 'homeowner') {
+          const { data } = await supabase
+            .from("homeowner_profiles")
+            .select("id, first_name, last_name")
+            .eq("user_id", session.user.id)
+            .maybeSingle()
+          profileData = data
+        } else if (fetchedUserType === 'contractor') {
+          const { data } = await supabase
+            .from("contractor_profiles")
+            .select("id, company_name")
+            .eq("user_id", session.user.id)
+            .maybeSingle()
+          profileData = data
+        }
 
         setUserProfile(profileData)
       } else {
@@ -1204,27 +1256,21 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (searchQuery.trim()) {
           console.log(`[MAIN-PAGE-SEARCH] Applying search filter: ${searchQuery.trim()}`)
 
-          // Split search query by common delimiters (/, comma, space, parentheses) to handle searches like "Builder (Construction)"
-          const searchTerms = searchQuery.trim()
-            .split(/[\/,\s()]+/) // Split by /, comma, space, or parentheses
+          // Use full-text search (much faster than ILIKE with wildcards)
+          // Convert search query to tsquery format: replace common delimiters with spaces
+          const cleanedQuery = searchQuery.trim()
+            .replace(/[\/,()]+/g, ' ') // Replace delimiters with spaces
+            .split(/\s+/) // Split by whitespace
             .filter(term => term.length > 0) // Remove empty strings
-            .map(term => term.trim()) // Trim whitespace
+            .join(' | ') // Join with OR operator for full-text search
 
-          console.log(`[MAIN-PAGE-SEARCH] Search terms after splitting:`, searchTerms)
+          console.log(`[MAIN-PAGE-SEARCH] Using full-text search with query: "${cleanedQuery}"`)
 
-          if (searchTerms.length > 1) {
-            // For multiple terms (e.g., "Builder/Extension" -> ["Builder", "Extension"])
-            // Search for ANY of the terms in title or description
-            const orConditions = searchTerms.map(term =>
-              `title.ilike.%${term}%,description.ilike.%${term}%`
-            ).join(',')
-
-            console.log(`[MAIN-PAGE-SEARCH] Using multi-term OR condition:`, orConditions)
-            query = query.or(orConditions)
-          } else {
-            // Single term - use original logic
-            query = query.or(`title.ilike.%${searchQuery.trim()}%,description.ilike.%${searchQuery.trim()}%`)
-          }
+          // Use textSearch for indexed full-text search (uses search_vector GIN index)
+          query = query.textSearch('search_vector', cleanedQuery, {
+            type: 'websearch',
+            config: 'english'
+          })
         }
 
         console.log(`[MAIN-PAGE-SEARCH] ===== EXECUTING VACANCY/JOB QUERY =====`)
@@ -1253,10 +1299,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Add timeout protection to prevent infinite waiting
         const queryPromise = query.limit(RESULT_LIMIT + 1)
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Query timeout after 10 seconds')), 10000)
+          setTimeout(() => reject(new Error('Query timeout after 20 seconds')), 20000)
         )
 
-        console.log(`[MAIN-PAGE-SEARCH] Executing query with 10s timeout...`)
+        console.log(`[MAIN-PAGE-SEARCH] Executing optimized query with 20s timeout...`)
         const { data, error } = await Promise.race([queryPromise, timeoutPromise])
           .catch((err) => {
             console.error(`[MAIN-PAGE-SEARCH] Query failed:`, err)

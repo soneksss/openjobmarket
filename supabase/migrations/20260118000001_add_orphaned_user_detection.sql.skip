@@ -16,9 +16,9 @@ CREATE TABLE IF NOT EXISTS orphaned_user_audit_log (
   recovery_error TEXT
 );
 
-CREATE INDEX idx_orphaned_users_user_id ON orphaned_user_audit_log(user_id);
-CREATE INDEX idx_orphaned_users_detected_at ON orphaned_user_audit_log(detected_at);
-CREATE INDEX idx_orphaned_users_issue_type ON orphaned_user_audit_log(issue_type);
+CREATE INDEX IF NOT EXISTS idx_orphaned_users_user_id ON orphaned_user_audit_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_orphaned_users_detected_at ON orphaned_user_audit_log(detected_at);
+CREATE INDEX IF NOT EXISTS idx_orphaned_users_issue_type ON orphaned_user_audit_log(issue_type);
 
 -- Function to detect orphaned users
 CREATE OR REPLACE FUNCTION detect_orphaned_user_state(
