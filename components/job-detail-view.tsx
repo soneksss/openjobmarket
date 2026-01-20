@@ -616,7 +616,9 @@ export default function JobDetailView({
             {/* Job Description */}
             <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="text-xl text-gray-900">About this role</CardTitle>
+                <CardTitle className="text-xl text-gray-900">
+                  {job.is_tradespeople_job ? "About this job" : "About this role"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {/* Job Photo - if available */}

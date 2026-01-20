@@ -44,6 +44,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [location, setLocation] = useState("")
   const [selectedLocation, setSelectedLocation] = useState<{ lat: number; lon: number } | null>(null)
   const [isSearching, setIsSearching] = useState(false)
+  const [searchProgress, setSearchProgress] = useState<string>("")
+  const [searchResultCount, setSearchResultCount] = useState<number>(0)
   const [locationError, setLocationError] = useState("")
   const [user, setUser] = useState<any>(null)
   const [userType, setUserType] = useState<"professional" | "company" | "contractor" | "homeowner" | null>(null)
@@ -730,6 +732,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
     console.log(`[MAIN-PAGE-SEARCH] Starting search for ${type}`)
     setIsSearching(true)
+    setSearchProgress("Initializing search...")
+    setSearchResultCount(0)
     setResultLimitReached(false) // Reset limit warning
 
     // Always show modal for all users (registered and unregistered)
@@ -741,6 +745,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
       if (type === "traders") {
         console.log(`[MAIN-PAGE-SEARCH] Fetching traders/contractors`)
+        setSearchProgress("Searching for traders and contractors...")
         // Fetch traders: contractors AND self-employed professionals AND companies who trade
         let contractorResults: any[] = []
         let professionalResults: any[] = []
@@ -1021,8 +1026,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         console.log(`[MAIN-PAGE-SEARCH] Combining trader results: contractors=${contractorResults.length}, professionals=${professionalResults.length}, companies=${companyResults.length}`)
         results = [...contractorResults, ...professionalResults, ...companyResults]
         console.log(`[MAIN-PAGE-SEARCH] Total trader results: ${results.length}`)
+        setSearchProgress(`Found ${results.length} traders...`)
+        setSearchResultCount(results.length)
       } else if (type === "talents") {
         console.log(`[MAIN-PAGE-SEARCH] Fetching talents/professionals`)
+        setSearchProgress("Searching for talented professionals...")
         console.log(`[MAIN-PAGE-SEARCH] Search query:`, searchQuery, `Location:`, location, `selectedLocation:`, selectedLocation)
         // Fetch all professionals (not just self-employed)
         let query = supabase
@@ -1159,33 +1167,20 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             }
           }))
           console.log(`[MAIN-PAGE-SEARCH] Filtered/transformed talents results:`, results.length, `items`)
+          setSearchProgress(`Found ${results.length} professionals...`)
+          setSearchResultCount(results.length)
         }
       } else if (type === "vacancies" || type === "jobs_tasks") {
         console.log(`[MAIN-PAGE-SEARCH] Fetching jobs/vacancies, is_tradespeople_job=${type === "jobs_tasks"}`)
+        setSearchProgress(type === "jobs_tasks" ? "Searching for trade jobs..." : "Searching for job vacancies...")
         // Fetch jobs - exclude expired ones
         // Vacancies = employee positions (is_tradespeople_job = false)
         // Jobs/Tasks = tradespeople work (is_tradespeople_job = true)
+
+        // Simplified query without heavy joins - fetch profile data separately if needed
         let query = supabase
           .from("jobs")
-          .select(`
-            *,
-            company_profiles (
-              company_name,
-              location,
-              industry,
-              logo_url,
-              user_id
-            ),
-            homeowner_profiles (
-              id,
-              user_id,
-              first_name,
-              last_name,
-              profile_photo_url,
-              average_rating,
-              reviews_count
-            )
-          `)
+          .select("*")
           .eq("status", "open") // Only show open jobs (not accepted, in_progress, completed, or failed)
           .eq("is_active", true)
           .eq("is_tradespeople_job", type === "jobs_tasks") // true for jobs/tasks, false for vacancies
@@ -1319,28 +1314,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (searchQuery.trim()) {
           console.log(`[MAIN-PAGE-SEARCH] Applying search filter: ${searchQuery.trim()}`)
 
-          // Split search query by common delimiters to handle searches like "Builder (Construction)" or "electrician"
-          const searchTerms = searchQuery.trim()
-            .split(/[\/,\s()]+/) // Split by /, comma, space, or parentheses
-            .filter(term => term.length > 0) // Remove empty strings
-            .map(term => term.trim()) // Trim whitespace
+          const searchTerm = searchQuery.trim()
+          console.log(`[MAIN-PAGE-SEARCH] Search term:`, searchTerm)
 
-          console.log(`[MAIN-PAGE-SEARCH] Search terms:`, searchTerms)
-
-          // Use ILIKE for compatibility (full-text search requires search_vector to be populated)
-          if (searchTerms.length > 1) {
-            // For multiple terms, search for ANY of the terms in title or description
-            const orConditions = searchTerms.map(term =>
-              `title.ilike.%${term}%,description.ilike.%${term}%,category.ilike.%${term}%`
-            ).join(',')
-
-            console.log(`[MAIN-PAGE-SEARCH] Using multi-term OR condition`)
-            query = query.or(orConditions)
-          } else {
-            // Single term - search in title, description, and category
-            const term = searchQuery.trim()
-            query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%,category.ilike.%${term}%`)
-          }
+          // Use full-text search with search_vector for better performance
+          // Fallback to ILIKE on category for exact category matching
+          query = query.or(
+            `search_vector.fts.${searchTerm},category.ilike.%${searchTerm}%`
+          )
         }
 
         console.log(`[MAIN-PAGE-SEARCH] ===== EXECUTING VACANCY/JOB QUERY =====`)
@@ -1408,6 +1389,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         if (!error && data) {
           console.log(`[MAIN-PAGE-SEARCH] Raw data received:`, data.length, 'jobs')
+          setSearchProgress(`Processing ${data.length} jobs...`)
 
           // Count jobs with and without coordinates for debugging
           const jobsWithCoords = data.filter((item: any) => item.latitude && item.longitude).length
@@ -1458,8 +1440,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             })
 
           console.log(`[MAIN-PAGE-SEARCH] Enriched ${results.length} jobs with poster data`)
+          setSearchProgress(`Found ${results.length} jobs...`)
+          setSearchResultCount(results.length)
         }
       }
+
+      setSearchProgress("Preparing results...")
 
       // Set center from selected location or first result
       let center: [number, number] = [51.5074, -0.1278]
@@ -2415,6 +2401,47 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             </div>
           )}
         </div>
+
+        {/* Search Progress Modal */}
+        <Dialog open={isSearching} onOpenChange={() => {}}>
+          <DialogContent className="max-w-md" showCloseButton={false}>
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-center">
+                Searching...
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-8 flex flex-col items-center gap-6">
+              {/* Animated spinner */}
+              <div className="relative">
+                <div className="w-16 h-16 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin"></div>
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                  <Search className="h-6 w-6 text-blue-500" />
+                </div>
+              </div>
+
+              {/* Progress message */}
+              <div className="text-center space-y-2">
+                <p className="text-base text-gray-700 font-medium">
+                  {searchProgress}
+                </p>
+                {searchResultCount > 0 && (
+                  <p className="text-sm text-gray-500">
+                    {searchResultCount} {searchResultCount === 1 ? 'result' : 'results'} found
+                  </p>
+                )}
+              </div>
+
+              {/* Loading bar */}
+              <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: '70%' }}></div>
+              </div>
+
+              <p className="text-xs text-gray-400 text-center">
+                Please wait while we search our database...
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Map Picker Modal - High z-index to appear above the search results modal */}
         <div style={{ zIndex: 10000, position: 'relative' }}>
