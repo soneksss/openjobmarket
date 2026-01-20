@@ -1314,14 +1314,59 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (searchQuery.trim()) {
           console.log(`[MAIN-PAGE-SEARCH] Applying search filter: ${searchQuery.trim()}`)
 
-          const searchTerm = searchQuery.trim()
-          console.log(`[MAIN-PAGE-SEARCH] Search term:`, searchTerm)
+          const searchTerm = searchQuery.trim().toLowerCase()
 
-          // Use full-text search with search_vector for better performance
-          // Fallback to ILIKE on category for exact category matching
-          query = query.or(
-            `search_vector.fts.${searchTerm},category.ilike.%${searchTerm}%`
-          )
+          // Expand search terms with synonyms and word stems
+          const searchTerms = [searchTerm]
+
+          // Building/Construction synonyms
+          if (searchTerm.includes('builder') || searchTerm.includes('building')) {
+            searchTerms.push('construction', 'contractor')
+          }
+          if (searchTerm.includes('construction')) {
+            searchTerms.push('builder', 'building', 'contractor')
+          }
+
+          // Plumbing synonyms and stems
+          if (searchTerm.includes('plumb')) {
+            searchTerms.push('plumber', 'plumbing', 'heating', 'boiler')
+          }
+
+          // Electrical synonyms
+          if (searchTerm.includes('electric')) {
+            searchTerms.push('electrician', 'electrical', 'wiring')
+          }
+
+          // Carpentry synonyms
+          if (searchTerm.includes('carpen')) {
+            searchTerms.push('carpenter', 'carpentry', 'joinery', 'joiner')
+          }
+
+          // Painting synonyms
+          if (searchTerm.includes('paint')) {
+            searchTerms.push('painter', 'painting', 'decorating', 'decorator')
+          }
+
+          // Roofing synonyms
+          if (searchTerm.includes('roof')) {
+            searchTerms.push('roofing', 'roofer')
+          }
+
+          // Gardening/Landscaping synonyms
+          if (searchTerm.includes('garden') || searchTerm.includes('landscape')) {
+            searchTerms.push('gardening', 'gardener', 'landscaping', 'landscaper')
+          }
+
+          console.log(`[MAIN-PAGE-SEARCH] Expanded search terms:`, searchTerms)
+
+          // Build OR conditions for all search terms
+          const orConditions = searchTerms.flatMap(term => [
+            `title.ilike.%${term}%`,
+            `description.ilike.%${term}%`,
+            `category.ilike.%${term}%`
+          ]).join(',')
+
+          query = query.or(orConditions)
         }
 
         console.log(`[MAIN-PAGE-SEARCH] ===== EXECUTING VACANCY/JOB QUERY =====`)
