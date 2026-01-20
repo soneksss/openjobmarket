@@ -752,7 +752,30 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .select("*")
 
         if (searchQuery.trim()) {
-          contractorQuery = contractorQuery.or(`company_name.ilike.%${searchQuery.trim()}%,industry.ilike.%${searchQuery.trim()}%`)
+          const searchTerm = searchQuery.trim().toLowerCase()
+
+          // Expand search terms with synonyms
+          const searchTerms = [searchTerm]
+          if (searchTerm.includes('builder') || searchTerm.includes('building')) {
+            searchTerms.push('construction')
+          }
+          if (searchTerm.includes('plumber')) {
+            searchTerms.push('plumbing', 'heating')
+          }
+          if (searchTerm.includes('electrician')) {
+            searchTerms.push('electrical')
+          }
+          if (searchTerm.includes('carpenter')) {
+            searchTerms.push('carpentry', 'joinery')
+          }
+
+          // Build OR conditions for all search terms
+          const orConditions = searchTerms.flatMap(term => [
+            `company_name.ilike.%${term}%`,
+            `industry.ilike.%${term}%`
+          ]).join(',')
+
+          contractorQuery = contractorQuery.or(orConditions)
         }
 
         // Apply trader filters
@@ -840,11 +863,28 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (searchQuery.trim()) {
           // Get bilingual search terms for cross-language search
           const searchTerms = getBilingualSearchTerms(searchQuery.trim())
+
+          // Expand with synonyms
+          const searchTerm = searchQuery.trim().toLowerCase()
+          if (searchTerm.includes('builder') || searchTerm.includes('building')) {
+            searchTerms.push('construction')
+          }
+          if (searchTerm.includes('plumber')) {
+            searchTerms.push('plumbing', 'heating')
+          }
+          if (searchTerm.includes('electrician')) {
+            searchTerms.push('electrical')
+          }
+          if (searchTerm.includes('carpenter')) {
+            searchTerms.push('carpentry', 'joinery')
+          }
+
           const orConditions = searchTerms.flatMap(term => [
             `first_name.ilike.%${term}%`,
             `last_name.ilike.%${term}%`,
             `title.ilike.%${term}%`
           ]).join(',')
+
           profQuery = profQuery.or(orConditions)
         }
 
@@ -903,7 +943,30 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .eq("open_for_business", true)
 
         if (searchQuery.trim()) {
-          companyQuery = companyQuery.ilike("company_name", `%${searchQuery.trim()}%`)
+          const searchTerm = searchQuery.trim().toLowerCase()
+
+          // Expand search terms with synonyms
+          const searchTerms = [searchTerm]
+          if (searchTerm.includes('builder') || searchTerm.includes('building')) {
+            searchTerms.push('construction')
+          }
+          if (searchTerm.includes('plumber')) {
+            searchTerms.push('plumbing', 'heating')
+          }
+          if (searchTerm.includes('electrician')) {
+            searchTerms.push('electrical')
+          }
+          if (searchTerm.includes('carpenter')) {
+            searchTerms.push('carpentry', 'joinery')
+          }
+
+          // Build OR conditions for all search terms
+          const orConditions = searchTerms.flatMap(term => [
+            `company_name.ilike.%${term}%`,
+            `industry.ilike.%${term}%`
+          ]).join(',')
+
+          companyQuery = companyQuery.or(orConditions)
         }
 
         // Apply location-based radius filtering
