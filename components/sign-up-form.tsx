@@ -41,12 +41,11 @@ export default function SignUpForm({ initialUserType, error }: SignUpFormProps) 
     }
 
     try {
+      // Sign up without emailRedirectTo to enable OTP flow
       const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo:
-            process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
           data: {
             user_type: userType,
           },
@@ -115,13 +114,13 @@ export default function SignUpForm({ initialUserType, error }: SignUpFormProps) 
         throw signUpError
       }
 
-      // New user registration successful
+      // New user registration successful - redirect to OTP verification
       // Preserve locale when redirecting
       const isOnBrRoute = pathname?.startsWith('/br')
-      const successUrl = isOnBrRoute
-        ? '/auth/sign-up-success?locale=pt-BR&returnUrl=/br'
-        : '/auth/sign-up-success'
-      router.push(successUrl)
+      const otpUrl = isOnBrRoute
+        ? `/auth/verify-otp?email=${encodeURIComponent(email)}&locale=pt-BR&returnUrl=/br`
+        : `/auth/verify-otp?email=${encodeURIComponent(email)}`
+      router.push(otpUrl)
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "An error occurred")
     } finally {
