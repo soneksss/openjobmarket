@@ -60,6 +60,8 @@ interface ProfessionalProfile {
   salary_min?: number
   salary_max?: number
   available_for_work: boolean
+  actively_looking?: boolean
+  actively_looking_until?: string
   is_self_employed: boolean
   ready_to_relocate?: boolean
   has_driving_licence?: boolean
@@ -297,10 +299,16 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                       Self-Employed
                     </Badge>
                   )}
-                  {professional.available_for_work && (
-                    <Badge className={premiumStatus.isPremium ? "bg-green-600 hover:bg-green-700 shadow-md" : "bg-green-500 hover:bg-green-600"}>
+                  {professional.actively_looking && (
+                    <Badge className="bg-gradient-to-r from-green-600 to-emerald-700 text-white font-semibold shadow-md">
                       <CheckCircle className="h-3 w-3 mr-1" />
-                      {premiumStatus.isPremium ? "Actively Looking" : "Available"}
+                      Actively Looking
+                    </Badge>
+                  )}
+                  {!professional.actively_looking && professional.available_for_work && (
+                    <Badge className="bg-green-500 hover:bg-green-600">
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      Available
                     </Badge>
                   )}
                 </div>

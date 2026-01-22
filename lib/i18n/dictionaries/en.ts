@@ -1527,7 +1527,7 @@ export const en = {
         ],
       },
       selfEmployed: {
-        title: 'Self-Employed / Tradesperson',
+        title: 'Trades (Self-employed or Company)',
         icon: '🔧',
         headline: 'Turn OpenJobMarket Into Your Live Work Radar',
         description: 'See nearby jobs instantly on the map. Reduce travel time, apply directly, and build trust through verified reviews.',
@@ -1542,7 +1542,7 @@ export const en = {
         ],
       },
       companyOwner: {
-        title: 'Company Owner',
+        title: 'Employer',
         icon: '🏢',
         headline: 'Hire Faster with Map-Based Talent Discovery',
         description: 'Post job vacancies and see candidates on the map. Discover passive talent, hire locally or globally, and reduce time-to-hire.',

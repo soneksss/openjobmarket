@@ -462,6 +462,33 @@ export default function ProfessionalsPageContent({
     return `Up to £${max?.toLocaleString()}`
   }
 
+  const formatAddress = (fullAddress?: string) => {
+    if (!fullAddress) return ''
+
+    // Split by comma
+    const parts = fullAddress.split(',').map(p => p.trim())
+
+    if (parts.length === 0) return fullAddress
+
+    // Extract first part (street)
+    const street = parts[0]
+
+    // Find postcode (UK format: letters, numbers, space, numbers, letters)
+    const postcodeRegex = /\b([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})\b/i
+    const postcodeMatch = fullAddress.match(postcodeRegex)
+    const postcode = postcodeMatch ? postcodeMatch[0] : null
+
+    // Last part is usually the country
+    const country = parts[parts.length - 1]
+
+    // Build short address
+    const addressParts = [street]
+    if (postcode) addressParts.push(postcode)
+    if (country && country.toLowerCase() !== street.toLowerCase()) addressParts.push(country)
+
+    return addressParts.join(', ')
+  }
+
   // Debug logging for coordinate data
   console.log("[PROFESSIONALS-PAGE] Data received:", data)
   console.log("[PROFESSIONALS-PAGE] First item coordinates:", data[0] ? {
@@ -504,15 +531,28 @@ export default function ProfessionalsPageContent({
 
 
   const handleViewProfile = async (profileId: string) => {
-    // Fetch the full professional profile data
-    const { data, error } = await supabase
+    // Try professional_profiles first
+    let { data, error } = await supabase
       .from('professional_profiles')
       .select('*')
       .eq('id', profileId)
       .single()
 
-    if (error) {
-      console.error('Error fetching professional profile:', error)
+    // If not found, try company_profiles
+    if (error || !data) {
+      console.log('[DEBUG] Not found in professional_profiles, trying company_profiles')
+      const companyResult = await supabase
+        .from('company_profiles')
+        .select('*')
+        .eq('id', profileId)
+        .single()
+
+      data = companyResult.data
+      error = companyResult.error
+    }
+
+    if (error || !data) {
+      console.error('Error fetching profile:', error)
       return
     }
 
@@ -533,18 +573,31 @@ export default function ProfessionalsPageContent({
       let recipientUserId = professionalUserId
       if (!recipientUserId) {
         console.log("[DEBUG] Fetching user_id for profile:", professionalProfileId)
-        const { data: profileData } = await supabase
+
+        // Try professional_profiles first
+        let { data: profileData } = await supabase
           .from('professional_profiles')
           .select('user_id')
           .eq('id', professionalProfileId)
           .single()
+
+        // If not found, try company_profiles
+        if (!profileData) {
+          console.log("[DEBUG] Not found in professional_profiles, trying company_profiles")
+          const { data: companyData } = await supabase
+            .from('company_profiles')
+            .select('user_id')
+            .eq('id', professionalProfileId)
+            .single()
+          profileData = companyData
+        }
 
         if (profileData) {
           recipientUserId = profileData.user_id
           console.log("[DEBUG] Found user_id:", recipientUserId)
         } else {
           console.error("[ERROR] Could not find user_id for profile:", professionalProfileId)
-          alert("Error: Could not find professional user. Please try again.")
+          alert("Error: Could not find user. Please try again.")
           return
         }
       }
@@ -2746,34 +2799,37 @@ export default function ProfessionalsPageContent({
 
                               {/* 2. Nickname or Name */}
                               <p className="text-sm text-gray-600 truncate font-medium">
-                                {item.nickname || `${item.first_name} ${item.last_name}`}
+                                {isProfessional
+                                  ? (item.nickname || `${item.first_name} ${item.last_name}`)
+                                  : item.company_name
+                                }
                               </p>
 
-                              {/* Star Rating - Show for professionals */}
-                              {isProfessional && (
-                                <div
-                                  className="mt-1 cursor-pointer hover:opacity-70 transition-opacity w-fit"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    if (item.reviews_count && item.reviews_count > 0) {
-                                      setReviewsModal({
-                                        isOpen: true,
-                                        userId: item.id,
-                                        userType: 'professional',
-                                        userName: `${item.first_name} ${item.last_name}`
-                                      })
-                                    }
-                                  }}
-                                  title={item.reviews_count && item.reviews_count > 0 ? "Click to view reviews" : "No reviews yet"}
-                                >
-                                  <CompactStarRating
-                                    rating={item.average_rating || 0}
-                                    reviewCount={item.reviews_count || 0}
-                                    size="sm"
-                                    showCount={true}
-                                  />
-                                </div>
-                              )}
+                              {/* Star Rating - Show for all profiles with reviews */}
+                              <div
+                                className="mt-1 cursor-pointer hover:opacity-70 transition-opacity w-fit"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (item.reviews_count && item.reviews_count > 0) {
+                                    setReviewsModal({
+                                      isOpen: true,
+                                      userId: item.id,
+                                      userType: isProfessional ? 'professional' : 'company',
+                                      userName: isProfessional
+                                        ? `${item.first_name} ${item.last_name}`
+                                        : item.company_name
+                                    })
+                                  }
+                                }}
+                                title={item.reviews_count && item.reviews_count > 0 ? "Click to view reviews" : "No reviews yet"}
+                              >
+                                <CompactStarRating
+                                  rating={item.average_rating || 0}
+                                  reviewCount={item.reviews_count || 0}
+                                  size="sm"
+                                  showCount={true}
+                                />
+                              </div>
 
                               {/* Expected Salary - Show for professionals in short view */}
                               {isProfessional && !isSelected && (item.salary_min || item.salary_max) && (
@@ -2801,13 +2857,6 @@ export default function ProfessionalsPageContent({
                                     </Badge>
                                   )}
                                 </div>
-                              )}
-
-                              {/* Salary Range with frequency */}
-                              {formatSalary(item.salary_min, item.salary_max) && (
-                                <p className="text-sm font-semibold text-green-600 mt-2">
-                                  {formatSalary(item.salary_min, item.salary_max)} {item.salary_frequency ? `(${item.salary_frequency})` : '(per year)'}
-                                </p>
                               )}
 
                               {/* Bio - Show short preview */}
@@ -2866,7 +2915,7 @@ export default function ProfessionalsPageContent({
                                     <div>
                                       <h4 className="font-semibold text-sm text-gray-900 mb-1">Address</h4>
                                       <p className="text-sm text-gray-600">
-                                        {item.location}
+                                        {formatAddress(item.location)}
                                       </p>
                                     </div>
                                   )}
@@ -3035,7 +3084,10 @@ export default function ProfessionalsPageContent({
                                         className="flex-1"
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          handleSendInquiry(item.id, `${item.first_name} ${item.last_name}`)
+                                          const name = isProfessional
+                                            ? `${item.first_name} ${item.last_name}`
+                                            : item.company_name
+                                          handleSendInquiry(item.id, name)
                                         }}
                                         disabled={sendingMessage === item.id}
                                       >

@@ -1307,7 +1307,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             <div className="space-y-4">
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2 md:gap-3">
                 <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-blue-500 hover:bg-blue-600 text-white">
-                  <Link href={locale === 'pt-BR' ? '/br' : '/'}>
+                  <Link href={locale === 'pt-BR' ? '/br?tab=jobs_tasks' : '/?tab=jobs_tasks'}>
                     <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
                     <span className="font-semibold text-sm sm:text-base leading-tight">{t('dashboard.backToSearch')}</span>
                     <span className="text-sm opacity-90 hidden md:block">{t('dashboard.mainPage')}</span>

@@ -80,6 +80,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [hasOwnTransport, setHasOwnTransport] = useState(false)
   const [willingToRelocate, setWillingToRelocate] = useState(false)
   const [availableForBusiness, setAvailableForBusiness] = useState(false)
+  const [spokenLanguage, setSpokenLanguage] = useState("all")
 
   // Full-screen map modal state for all users
   const [showMapModal, setShowMapModal] = useState(false)
@@ -893,6 +894,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           profQuery = profQuery.or(orConditions)
         }
 
+        // Language filter
+        if (spokenLanguage && spokenLanguage !== "all") {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering traders by spoken language: ${spokenLanguage}`)
+          profQuery = profQuery.contains("spoken_languages", [spokenLanguage])
+        }
+
         // Apply location-based radius filtering
         if (selectedLocation) {
           const lat = selectedLocation.lat
@@ -972,6 +979,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           ]).join(',')
 
           companyQuery = companyQuery.or(orConditions)
+        }
+
+        // Language filter for companies
+        if (spokenLanguage && spokenLanguage !== "all") {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering companies by spoken language: ${spokenLanguage}`)
+          companyQuery = companyQuery.contains("spoken_languages", [spokenLanguage])
         }
 
         // Apply location-based radius filtering
@@ -1098,6 +1111,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (willingToRelocate) {
           console.log(`[MAIN-PAGE-SEARCH] Filtering by ready_to_relocate: true`)
           query = query.eq("ready_to_relocate", true)
+        }
+
+        // Language filter
+        if (spokenLanguage && spokenLanguage !== "all") {
+          console.log(`[MAIN-PAGE-SEARCH] Filtering by spoken language: ${spokenLanguage}`)
+          query = query.contains("spoken_languages", [spokenLanguage])
         }
 
         // Apply location-based radius filtering if coordinates are available
@@ -2084,6 +2103,30 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                     </Select>
                   </div>
 
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Language</label>
+                    <Select value={spokenLanguage} onValueChange={setSpokenLanguage}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Languages</SelectItem>
+                        <SelectItem value="English">English</SelectItem>
+                        <SelectItem value="Spanish">Spanish</SelectItem>
+                        <SelectItem value="French">French</SelectItem>
+                        <SelectItem value="German">German</SelectItem>
+                        <SelectItem value="Portuguese">Portuguese</SelectItem>
+                        <SelectItem value="Polish">Polish</SelectItem>
+                        <SelectItem value="Romanian">Romanian</SelectItem>
+                        <SelectItem value="Italian">Italian</SelectItem>
+                        <SelectItem value="Russian">Russian</SelectItem>
+                        <SelectItem value="Arabic">Arabic</SelectItem>
+                        <SelectItem value="Chinese">Chinese</SelectItem>
+                        <SelectItem value="Hindi">Hindi</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Skills Input */}
                   <div className="sm:col-span-2">
                     <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.requiredSkills')}</label>
@@ -2130,25 +2173,6 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               {selectedSearchType === "jobs_tasks" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.industry')}</label>
-                    <Select value={tradeCategory} onValueChange={setTradeCategory}>
-                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">{t('mainSearch.allIndustries')}</SelectItem>
-                        <SelectItem value="construction">{t('mainSearch.construction')}</SelectItem>
-                        <SelectItem value="plumbing">{t('mainSearch.plumbing')}</SelectItem>
-                        <SelectItem value="electrical">{t('mainSearch.electrical')}</SelectItem>
-                        <SelectItem value="carpentry">{t('mainSearch.carpentry')}</SelectItem>
-                        <SelectItem value="painting">{t('mainSearch.paintingDecorating')}</SelectItem>
-                        <SelectItem value="roofing">{t('mainSearch.roofing')}</SelectItem>
-                        <SelectItem value="landscaping">{t('mainSearch.landscaping')}</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
                     <label className="text-xs text-white/70 mb-1.5 block">{t('mainSearch.urgency')}</label>
                     <Select value={urgency} onValueChange={setUrgency}>
                       <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
@@ -2192,6 +2216,30 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         <SelectItem value="one-off">{t('mainSearch.oneOffJob')}</SelectItem>
                         <SelectItem value="ongoing">{t('mainSearch.ongoingWork')}</SelectItem>
                         <SelectItem value="emergency">{t('mainSearch.emergency')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Language</label>
+                    <Select value={spokenLanguage} onValueChange={setSpokenLanguage}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Languages</SelectItem>
+                        <SelectItem value="English">English</SelectItem>
+                        <SelectItem value="Spanish">Spanish</SelectItem>
+                        <SelectItem value="French">French</SelectItem>
+                        <SelectItem value="German">German</SelectItem>
+                        <SelectItem value="Portuguese">Portuguese</SelectItem>
+                        <SelectItem value="Polish">Polish</SelectItem>
+                        <SelectItem value="Romanian">Romanian</SelectItem>
+                        <SelectItem value="Italian">Italian</SelectItem>
+                        <SelectItem value="Russian">Russian</SelectItem>
+                        <SelectItem value="Arabic">Arabic</SelectItem>
+                        <SelectItem value="Chinese">Chinese</SelectItem>
+                        <SelectItem value="Hindi">Hindi</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2299,6 +2347,30 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                     </Select>
                   </div>
 
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Language</label>
+                    <Select value={spokenLanguage} onValueChange={setSpokenLanguage}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Languages</SelectItem>
+                        <SelectItem value="English">English</SelectItem>
+                        <SelectItem value="Spanish">Spanish</SelectItem>
+                        <SelectItem value="French">French</SelectItem>
+                        <SelectItem value="German">German</SelectItem>
+                        <SelectItem value="Portuguese">Portuguese</SelectItem>
+                        <SelectItem value="Polish">Polish</SelectItem>
+                        <SelectItem value="Romanian">Romanian</SelectItem>
+                        <SelectItem value="Italian">Italian</SelectItem>
+                        <SelectItem value="Russian">Russian</SelectItem>
+                        <SelectItem value="Arabic">Arabic</SelectItem>
+                        <SelectItem value="Chinese">Chinese</SelectItem>
+                        <SelectItem value="Hindi">Hindi</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   {/* Checkbox filters for Tradespeople */}
                   <div className="sm:col-span-2 space-y-2 mt-2">
                     <label className="flex items-center gap-2 text-xs text-white/90 cursor-pointer">
@@ -2361,6 +2433,30 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         <SelectItem value="50">{t('mainSearch.within50Miles')}</SelectItem>
                         <SelectItem value="100">{t('mainSearch.within100Miles')}</SelectItem>
                         <SelectItem value="remote">{t('mainSearch.remoteAnyLocation')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-white/70 mb-1.5 block">Language</label>
+                    <Select value={spokenLanguage} onValueChange={setSpokenLanguage}>
+                      <SelectTrigger className="h-8 sm:h-9 text-xs bg-white/10 border-white/20 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Languages</SelectItem>
+                        <SelectItem value="English">English</SelectItem>
+                        <SelectItem value="Spanish">Spanish</SelectItem>
+                        <SelectItem value="French">French</SelectItem>
+                        <SelectItem value="German">German</SelectItem>
+                        <SelectItem value="Portuguese">Portuguese</SelectItem>
+                        <SelectItem value="Polish">Polish</SelectItem>
+                        <SelectItem value="Romanian">Romanian</SelectItem>
+                        <SelectItem value="Italian">Italian</SelectItem>
+                        <SelectItem value="Russian">Russian</SelectItem>
+                        <SelectItem value="Arabic">Arabic</SelectItem>
+                        <SelectItem value="Chinese">Chinese</SelectItem>
+                        <SelectItem value="Hindi">Hindi</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2430,6 +2526,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                     setHasOwnTransport(false)
                     setWillingToRelocate(false)
                     setAvailableForBusiness(false)
+                    setSpokenLanguage("all")
 
                     // Trigger a new search with cleared filters
                     // Use setTimeout to ensure state updates are processed first
@@ -2448,12 +2545,23 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         </div>
 
         {/* Search Progress Modal */}
-        <Dialog open={isSearching} onOpenChange={() => {}}>
-          <DialogContent className="max-w-md" showCloseButton={false}>
+        <Dialog open={isSearching} onOpenChange={(open) => {
+          // Allow closing if user clicks outside (safety mechanism if search gets stuck)
+          if (!open) {
+            setIsSearching(false)
+            setSearchProgress("")
+            setSearchResultCount(0)
+            console.log('[MAIN-PAGE-SEARCH] Search manually cancelled by user')
+          }
+        }}>
+          <DialogContent className="max-w-md" showCloseButton={true}>
             <DialogHeader>
               <DialogTitle className="text-xl font-semibold text-center">
                 Searching...
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Searching the database for results
+              </DialogDescription>
             </DialogHeader>
             <div className="py-8 flex flex-col items-center gap-6">
               {/* Animated spinner */}
@@ -2630,7 +2738,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               setShowMapModal(false)
               // Ensure isSearching is reset when modal closes
               setIsSearching(false)
-              console.log('[MAIN-PAGE-SEARCH] Modal closed, isSearching set to false')
+              setSearchProgress("")
+              setSearchResultCount(0)
+              console.log('[MAIN-PAGE-SEARCH] Modal closed, search state reset')
               // Dispatch event to show BannerMap again
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new Event('mainPageSearchClose'))

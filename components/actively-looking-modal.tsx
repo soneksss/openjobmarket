@@ -62,7 +62,7 @@ export default function ActivelyLookingModal({ isOpen, onClose, onConfirm, isPre
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center gap-2">
             <div className="p-2 bg-green-100 rounded-full">

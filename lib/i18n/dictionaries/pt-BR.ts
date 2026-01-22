@@ -1500,7 +1500,7 @@ export const ptBR: Dictionary = {
         ],
       },
       selfEmployed: {
-        title: 'Autônomo / Profissional',
+        title: 'Profissionais (Autônomo ou Empresa)',
         icon: '🔧',
         headline: 'Transforme o OpenJobMarket em Seu Radar de Trabalho ao Vivo',
         description: 'Veja trabalhos próximos instantaneamente no mapa. Reduza o tempo de viagem, candidate-se diretamente e construa confiança através de avaliações verificadas.',
@@ -1515,7 +1515,7 @@ export const ptBR: Dictionary = {
         ],
       },
       companyOwner: {
-        title: 'Dono de Empresa',
+        title: 'Empregador',
         icon: '🏢',
         headline: 'Contrate Mais Rápido com Descoberta de Talentos Baseada em Mapa',
         description: 'Publique vagas de emprego e veja candidatos no mapa. Descubra talentos passivos, contrate local ou globalmente e reduza o tempo de contratação.',
