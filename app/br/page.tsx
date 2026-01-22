@@ -56,13 +56,7 @@ export default async function HomePageBR() {
       )}
 
       <section
-        className="relative py-0 sm:py-2 md:py-3 overflow-hidden"
-        style={{
-          backgroundImage: 'url(/London-buildings.png)',
-          backgroundSize: 'contain',
-          backgroundPosition: 'top center',
-          backgroundRepeat: 'no-repeat'
-        }}
+        className="relative py-2 overflow-hidden bg-gray-50"
       >
         {/* Floating elements for visual interest */}
         <div className="absolute top-20 left-10 w-20 h-20 bg-white/10 rounded-full blur-xl animate-pulse"></div>
@@ -70,15 +64,6 @@ export default async function HomePageBR() {
         <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-blue-300/20 rounded-full blur-lg animate-pulse delay-500"></div>
 
         <div className="container mx-auto px-2 sm:px-4 relative z-10">
-          <div className="text-center mb-1 sm:mb-2 md:mb-3">
-            <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-2 sm:mb-4 md:mb-6 text-balance invisible">
-              Encontre o Emprego dos Seus Sonhos
-            </h1>
-            <p className="text-sm sm:text-lg md:text-xl lg:text-2xl text-white/90 mb-4 sm:mb-6 md:mb-8 text-pretty max-w-3xl mx-auto px-2 invisible">
-              O primeiro marketplace de empregos baseado em mapas do mundo conectando talentos a oportunidades em todo o mundo
-            </p>
-          </div>
-
           <UnifiedSearchPage isSignedIn={!!user} />
         </div>
       </section>

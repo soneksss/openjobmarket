@@ -894,10 +894,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           profQuery = profQuery.or(orConditions)
         }
 
-        // Language filter
+        // Language filter - temporarily disabled for debugging
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering traders by spoken language: ${spokenLanguage}`)
-          profQuery = profQuery.contains("spoken_languages", [spokenLanguage])
+          console.log(`[MAIN-PAGE-SEARCH] Language filter selected: ${spokenLanguage}`)
+          console.log(`[MAIN-PAGE-SEARCH] NOTE: Language filter temporarily disabled - will filter results client-side`)
+          // profQuery = profQuery.contains("spoken_languages", [spokenLanguage])
         }
 
         // Apply location-based radius filtering
@@ -926,6 +927,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         if (profData) {
+          // DEBUG: Log first professional's language data
+          if (profData.length > 0) {
+            console.log(`[LANGUAGE-DEBUG] First professional:`, {
+              name: profData[0].first_name,
+              spoken_languages: profData[0].spoken_languages,
+              type: typeof profData[0].spoken_languages,
+              isArray: Array.isArray(profData[0].spoken_languages)
+            })
+          }
+
           // Apply radius filtering to professional results
           let filteredProfessionals = profData.filter(item => item.latitude && item.longitude)
 
@@ -934,6 +945,28 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredProfessionals.length} professionals (${radiusMiles} miles)`)
             filteredProfessionals = filterByRadius(filteredProfessionals, selectedLocation.lat, selectedLocation.lon, radiusMiles)
             console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredProfessionals.length} professionals`)
+          }
+
+          // Client-side language filter with detailed logging
+          if (spokenLanguage && spokenLanguage !== "all") {
+            console.log(`[LANGUAGE-DEBUG] === STARTING LANGUAGE FILTER ===`)
+            console.log(`[LANGUAGE-DEBUG] Selected language: "${spokenLanguage}"`)
+            console.log(`[LANGUAGE-DEBUG] Total before filter: ${filteredProfessionals.length}`)
+
+            // Sample first 5 professionals
+            filteredProfessionals.slice(0, 5).forEach((item, idx) => {
+              console.log(`[LANGUAGE-DEBUG] Professional ${idx + 1}:`, {
+                name: item.first_name,
+                languages: item.spoken_languages
+              })
+            })
+
+            filteredProfessionals = filteredProfessionals.filter(item => {
+              const languages = item.spoken_languages || []
+              return Array.isArray(languages) && languages.includes(spokenLanguage)
+            })
+            console.log(`[LANGUAGE-DEBUG] After filter: ${filteredProfessionals.length} professionals`)
+            console.log(`[LANGUAGE-DEBUG] === END LANGUAGE FILTER ===`)
           }
 
           professionalResults = filteredProfessionals.map(item => ({
@@ -981,10 +1014,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           companyQuery = companyQuery.or(orConditions)
         }
 
-        // Language filter for companies
+        // Language filter for companies - temporarily disabled for debugging
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering companies by spoken language: ${spokenLanguage}`)
-          companyQuery = companyQuery.contains("spoken_languages", [spokenLanguage])
+          console.log(`[MAIN-PAGE-SEARCH] Language filter selected for companies: ${spokenLanguage}`)
+          console.log(`[MAIN-PAGE-SEARCH] NOTE: Language filter temporarily disabled - will filter results client-side`)
+          // companyQuery = companyQuery.contains("spoken_languages", [spokenLanguage])
         }
 
         // Apply location-based radius filtering
@@ -1013,6 +1047,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         if (companyData) {
+          // DEBUG: Log first company's language data
+          if (companyData.length > 0) {
+            console.log(`[LANGUAGE-DEBUG] First company:`, {
+              name: companyData[0].company_name,
+              spoken_languages: companyData[0].spoken_languages,
+              type: typeof companyData[0].spoken_languages,
+              isArray: Array.isArray(companyData[0].spoken_languages)
+            })
+          }
+
           // Apply radius filtering to company results
           let filteredCompanies = companyData.filter(item => item.latitude && item.longitude)
 
@@ -1021,6 +1065,27 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredCompanies.length} companies (${radiusMiles} miles)`)
             filteredCompanies = filterByRadius(filteredCompanies, selectedLocation.lat, selectedLocation.lon, radiusMiles)
             console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredCompanies.length} companies`)
+          }
+
+          // Client-side language filter for companies
+          if (spokenLanguage && spokenLanguage !== "all") {
+            console.log(`[LANGUAGE-DEBUG] === COMPANY LANGUAGE FILTER ===`)
+            console.log(`[LANGUAGE-DEBUG] Selected language: "${spokenLanguage}"`)
+            console.log(`[LANGUAGE-DEBUG] Companies before filter: ${filteredCompanies.length}`)
+
+            filteredCompanies.slice(0, 3).forEach((item, idx) => {
+              console.log(`[LANGUAGE-DEBUG] Company ${idx + 1}:`, {
+                name: item.company_name,
+                languages: item.spoken_languages
+              })
+            })
+
+            filteredCompanies = filteredCompanies.filter(item => {
+              const languages = item.spoken_languages || []
+              return Array.isArray(languages) && languages.includes(spokenLanguage)
+            })
+            console.log(`[LANGUAGE-DEBUG] Companies after filter: ${filteredCompanies.length}`)
+            console.log(`[LANGUAGE-DEBUG] === END COMPANY FILTER ===`)
           }
 
           companyResults = filteredCompanies.map(item => ({
@@ -1113,10 +1178,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           query = query.eq("ready_to_relocate", true)
         }
 
-        // Language filter
+        // Language filter - temporarily disabled for debugging
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering by spoken language: ${spokenLanguage}`)
-          query = query.contains("spoken_languages", [spokenLanguage])
+          console.log(`[MAIN-PAGE-SEARCH] Language filter selected for talents: ${spokenLanguage}`)
+          console.log(`[MAIN-PAGE-SEARCH] NOTE: Language filter temporarily disabled - will filter results client-side`)
+          // query = query.contains("spoken_languages", [spokenLanguage])
         }
 
         // Apply location-based radius filtering if coordinates are available
@@ -1165,6 +1231,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (!error && data) {
           console.log(`[MAIN-PAGE-SEARCH] Raw talents data:`, data)
 
+          // DEBUG: Log first talent's language data
+          if (data.length > 0) {
+            console.log(`[LANGUAGE-DEBUG] First talent:`, {
+              name: data[0].first_name,
+              spoken_languages: data[0].spoken_languages,
+              type: typeof data[0].spoken_languages,
+              isArray: Array.isArray(data[0].spoken_languages)
+            })
+          }
+
           // Apply radius filtering to talents results
           let filteredTalents = data.filter(item => item.latitude && item.longitude)
 
@@ -1173,6 +1249,27 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredTalents.length} talents (${radiusMiles} miles)`)
             filteredTalents = filterByRadius(filteredTalents, selectedLocation.lat, selectedLocation.lon, radiusMiles)
             console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredTalents.length} talents`)
+          }
+
+          // Client-side language filter for talents
+          if (spokenLanguage && spokenLanguage !== "all") {
+            console.log(`[LANGUAGE-DEBUG] === TALENTS LANGUAGE FILTER ===`)
+            console.log(`[LANGUAGE-DEBUG] Selected language: "${spokenLanguage}"`)
+            console.log(`[LANGUAGE-DEBUG] Talents before filter: ${filteredTalents.length}`)
+
+            filteredTalents.slice(0, 5).forEach((item, idx) => {
+              console.log(`[LANGUAGE-DEBUG] Talent ${idx + 1}:`, {
+                name: item.first_name,
+                languages: item.spoken_languages
+              })
+            })
+
+            filteredTalents = filteredTalents.filter(item => {
+              const languages = item.spoken_languages || []
+              return Array.isArray(languages) && languages.includes(spokenLanguage)
+            })
+            console.log(`[LANGUAGE-DEBUG] Talents after filter: ${filteredTalents.length}`)
+            console.log(`[LANGUAGE-DEBUG] === END TALENTS FILTER ===`)
           }
 
           // Transform data to match ProfessionalMap expected format
@@ -2601,7 +2698,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           <Dialog open={showMapPicker} onOpenChange={(open) => {
             if (!open) cancelMapPicker()
           }}>
-            <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[95vh] overflow-y-auto p-3 sm:p-6" showCloseButton={false}>
+            <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[85vh] overflow-y-auto p-3 sm:p-6" showCloseButton={false}>
             <DialogHeader>
               <DialogTitle className="text-base sm:text-lg">{t('mainSearch.mapPickerTitle')}</DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
@@ -2636,7 +2733,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             </div>
 
             {/* Map Area */}
-            <div className="w-full h-[50vh] sm:h-[500px] rounded-lg overflow-hidden border border-gray-200">
+            <div className="w-full h-[45vh] sm:h-[450px] rounded-lg overflow-hidden border border-gray-200">
               <ProfessionalMap
                 key={`map-picker-${mapPickerKey}`}
                 professionals={[]}

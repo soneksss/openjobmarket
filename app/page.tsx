@@ -58,13 +58,7 @@ export default async function HomePage() {
       )}
 
       <section
-        className="relative py-0 sm:py-2 md:py-3 overflow-hidden"
-        style={{
-          backgroundImage: 'url(/London-buildings.png)',
-          backgroundSize: 'contain',
-          backgroundPosition: 'top center',
-          backgroundRepeat: 'no-repeat'
-        }}
+        className="relative py-2 overflow-hidden bg-gray-50"
       >
 
         {/* Floating elements for visual interest */}
@@ -73,15 +67,6 @@ export default async function HomePage() {
         <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-blue-300/20 rounded-full blur-lg animate-pulse delay-500"></div>
 
         <div className="container mx-auto px-2 sm:px-4 relative z-10">
-          <div className="text-center mb-1 sm:mb-2 md:mb-3">
-            <h1 className="text-2xl sm:text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-2 sm:mb-4 md:mb-6 text-balance invisible">
-              Find Your Dream Job
-            </h1>
-            <p className="text-sm sm:text-lg md:text-xl lg:text-2xl text-white/90 mb-4 sm:mb-6 md:mb-8 text-pretty max-w-3xl mx-auto px-2 invisible">
-              The world's first map-based job marketplace connecting talent with opportunity across the globe
-            </p>
-          </div>
-
           <UnifiedSearchPage isSignedIn={!!user} />
         </div>
       </section>
