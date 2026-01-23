@@ -682,12 +682,17 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         variant: "default",
       })
 
+      // Reset loading state before redirect
+      setLoading(false)
+
       // Redirect to dashboard
       const defaultRedirect = userType === "company" ? "/dashboard/company" : "/dashboard/homeowner"
       router.push(redirectPath || defaultRedirect)
     } catch (err: any) {
       console.error("[Job Wizard] Unexpected error:", err)
       setErr(err?.message || "An unexpected error occurred. Please try again.")
+    } finally {
+      // Always reset loading state, regardless of success or failure
       setLoading(false)
     }
   }

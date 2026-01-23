@@ -1682,6 +1682,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       setDistance(mapPickerRadius) // Apply the selected radius to distance filter
       setShowMapPicker(false)
       setLocationError("")
+      setShowFilters(true) // Automatically expand filters after location is set
     }
   }
 

@@ -430,6 +430,8 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
     } catch (err: any) {
       console.error("Unexpected error during vacancy submission:", err)
       setErr(err?.message || "Unexpected error occurred. Please try again.")
+    } finally {
+      // Always ensure loading state is reset
       setLoading(false)
     }
   }

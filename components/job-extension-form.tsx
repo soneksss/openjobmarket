@@ -19,6 +19,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { extendJob } from "@/lib/job-expiration"
 import PaymentModal from "./payment-modal"
+import { useToast } from "@/hooks/use-toast"
 
 interface Job {
   id: string
@@ -54,11 +55,13 @@ const TIMELINE_OPTIONS = [
 
 export default function JobExtensionForm({ job, companyProfile }: JobExtensionFormProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [selectedTimeline, setSelectedTimeline] = useState("")
   const [loading, setLoading] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
   const selectedOption = TIMELINE_OPTIONS.find((option) => option.value === selectedTimeline)
   const isExpired = job.expiration_status === "expired"
@@ -106,15 +109,27 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
   }
 
   const processExtension = async (paymentData?: any) => {
-    if (!selectedOption) return
+    if (!selectedOption) {
+      console.log("[Job Extension] ERROR: No option selected")
+      return
+    }
+
+    console.log("[Job Extension] 1. Starting extension process...")
+    console.log("[Job Extension] Job ID:", job.id)
+    console.log("[Job Extension] Timeline:", selectedOption.value)
 
     setLoading(true)
     setError(null)
+    setSuccess(false)
 
     try {
-      const success = await extendJob(job.id, selectedOption.value, selectedOption.price)
+      console.log("[Job Extension] 2. Calling extendJob RPC...")
 
-      if (success) {
+      const extensionSuccess = await extendJob(job.id, selectedOption.value, selectedOption.price)
+
+      console.log("[Job Extension] 3. RPC completed, result:", extensionSuccess)
+
+      if (extensionSuccess) {
         const newExpirationDate = calculateNewExpirationDate()
         const daysExtended =
           {
@@ -122,22 +137,50 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
             "5_days": 5,
             "7_days": 7,
             "14_days": 14,
+            "21_days": 21,
+            "28_days": 28,
           }[selectedOption.value] || 7
 
-        alert(
-          `Your job has been extended for ${daysExtended} days. New expiration: ${newExpirationDate?.toLocaleDateString()}.`,
-        )
-        router.push("/dashboard/company")
+        console.log("[Job Extension] 4. SUCCESS - Setting success state")
+        setSuccess(true)
+        setLoading(false)
+
+        // Show success toast
+        toast({
+          title: "✅ Job Extended Successfully!",
+          description: `Your job has been extended for ${daysExtended} days. New expiration: ${newExpirationDate?.toLocaleDateString()}.`,
+          variant: "default",
+        })
+
+        console.log("[Job Extension] 5. Toast shown, scheduling redirect in 2 seconds...")
+
+        // Wait 2 seconds so user sees success message, then redirect
+        setTimeout(() => {
+          console.log("[Job Extension] 6. Closing dialog and redirecting...")
+          setShowConfirmDialog(false)
+          setShowPaymentModal(false)
+          router.push("/dashboard/company")
+          router.refresh()
+        }, 2000)
       } else {
-        setError("Failed to extend job. Please try again.")
+        console.error("[Job Extension] FAILURE - extendJob returned false")
+        setError("Failed to extend job. Please check your permissions and try again.")
+        setLoading(false)
+        toast({
+          title: "❌ Extension Failed",
+          description: "Failed to extend job. Please try again or contact support.",
+          variant: "destructive",
+        })
       }
     } catch (err) {
-      console.error("Extension error:", err)
-      setError("An unexpected error occurred. Please try again.")
-    } finally {
+      console.error("[Job Extension] EXCEPTION:", err)
+      setError(`An unexpected error occurred: ${err}`)
       setLoading(false)
-      setShowConfirmDialog(false)
-      setShowPaymentModal(false)
+      toast({
+        title: "❌ Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -348,12 +391,25 @@ export default function JobExtensionForm({ job, companyProfile }: JobExtensionFo
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Job Extension</DialogTitle>
+            <DialogTitle>
+              {success ? "Extension Successful!" : "Confirm Job Extension"}
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to extend "{job.title}" for {selectedOption?.label}?
+              {success
+                ? "Your job has been extended successfully. Redirecting..."
+                : `Are you sure you want to extend "${job.title}" for ${selectedOption?.label}?`}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Success Alert */}
+            {success && (
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  <strong>Success!</strong> Your job posting has been extended. The page will refresh automatically in a moment...
+                </AlertDescription>
+              </Alert>
+            )}
             <div className="p-4 bg-muted rounded-lg">
               <div className="grid grid-cols-1 gap-4 text-sm">
                 <div>

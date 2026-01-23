@@ -290,7 +290,7 @@ export function UnifiedIndustrySection({ onCategorySelect }: UnifiedIndustrySect
           </p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-1 max-w-7xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-2 max-w-7xl mx-auto">
           {industries.map((industry) => {
             const isExpanded = expandedIndustry === industry.id
 
@@ -299,25 +299,25 @@ export function UnifiedIndustrySection({ onCategorySelect }: UnifiedIndustrySect
                 {/* Industry Header - Simple row with icon, text, arrow */}
                 <button
                   onClick={() => handleIndustryClick(industry.id)}
-                  className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-gray-100 transition-colors cursor-pointer group"
+                  className="flex items-center justify-between px-3 py-2.5 rounded hover:bg-gray-100 transition-colors cursor-pointer group"
                 >
-                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    <span className="text-lg flex-shrink-0">{industry.icon}</span>
-                    <span className="text-[10px] md:text-xs font-medium text-gray-700 group-hover:text-gray-900 truncate">
+                  <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                    <span className="text-2xl md:text-3xl flex-shrink-0">{industry.icon}</span>
+                    <span className="text-sm md:text-base font-medium text-gray-700 group-hover:text-gray-900 leading-tight">
                       {industry.title}
                     </span>
                   </div>
                   {isExpanded ? (
-                    <ChevronUp className="h-3 w-3 text-gray-400 group-hover:text-gray-600 flex-shrink-0 ml-1" />
+                    <ChevronUp className="h-4 w-4 text-gray-400 group-hover:text-gray-600 flex-shrink-0 ml-1" />
                   ) : (
-                    <ChevronDown className="h-3 w-3 text-gray-400 group-hover:text-gray-600 flex-shrink-0 ml-1" />
+                    <ChevronDown className="h-4 w-4 text-gray-400 group-hover:text-gray-600 flex-shrink-0 ml-1" />
                   )}
                 </button>
 
-                {/* Subcategories - Expandable dropdown */}
+                {/* Subcategories - Expandable dropdown (pushes content down) */}
                 {isExpanded && (
-                  <div className="pl-6 pr-2 pb-1 max-h-48 overflow-y-auto">
-                    <div className="space-y-0.5">
+                  <div className="bg-white border border-gray-200 rounded-md shadow-lg mt-2 max-h-72 overflow-y-auto">
+                    <div className="p-2 space-y-0.5">
                       {industry.subcategories.map((subcategory) => (
                         <button
                           key={subcategory}
@@ -325,9 +325,9 @@ export function UnifiedIndustrySection({ onCategorySelect }: UnifiedIndustrySect
                             e.stopPropagation()
                             handleSubcategoryClick(subcategory)
                           }}
-                          className="w-full text-left px-2 py-1 rounded text-[10px] md:text-xs font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center justify-between group"
+                          className="w-full text-left px-2 py-1.5 rounded text-sm md:text-base font-medium text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-colors flex items-center justify-between group"
                         >
-                          <span className="truncate pr-1">{subcategory}</span>
+                          <span className="pr-1">{subcategory}</span>
                           <MapPin className="h-3 w-3 text-gray-400 group-hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
                         </button>
                       ))}

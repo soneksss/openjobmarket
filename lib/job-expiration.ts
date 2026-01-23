@@ -72,6 +72,8 @@ export async function extendJob(jobId: string, newTimeline: string, newPrice = 0
   const supabase = await createClient()
 
   try {
+    console.log("[extendJob] Calling RPC with params:", { jobId, newTimeline, newPrice })
+
     const { data, error } = await supabase.rpc("extend_job", {
       job_id_param: jobId,
       new_timeline: newTimeline,
@@ -79,13 +81,19 @@ export async function extendJob(jobId: string, newTimeline: string, newPrice = 0
     })
 
     if (error) {
-      console.error("Error extending job:", error)
+      console.error("[extendJob] RPC error:", {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      })
       return false
     }
 
+    console.log("[extendJob] RPC response:", data)
     return data as boolean
   } catch (error) {
-    console.error("Failed to extend job:", error)
+    console.error("[extendJob] Exception caught:", error)
     return false
   }
 }
