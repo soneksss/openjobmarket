@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { MainPageSearch } from "@/components/main-page-search"
-import { BrowseCategoriesSection } from "@/components/browse-categories-section"
+import { UnifiedIndustrySection } from "@/components/unified-industry-section"
 import { QuickCheckModal } from "@/components/quick-check-modal"
 import { useTranslation } from "@/lib/i18n/context"
 import { Button } from "@/components/ui/button"
@@ -44,8 +44,8 @@ export function UnifiedSearchPage({ isSignedIn }: UnifiedSearchPageProps) {
         <MainPageSearch externalSearchQuery={categorySearch} />
       </div>
 
-      {/* Browse Popular Categories section - for all users */}
-      <BrowseCategoriesSection onCategoryClick={handleCategoryClick} />
+      {/* Unified Industry Discovery Section - replaces old Popular Categories and Popular Industries */}
+      <UnifiedIndustrySection onCategorySelect={handleCategoryClick} />
 
       {/* Quick Check Modal */}
       <QuickCheckModal

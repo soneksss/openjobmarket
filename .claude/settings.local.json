@@ -56,7 +56,9 @@
       "Bash(copy \"c:\\\\Users\\\\sonek\\\\OneDrive\\\\Desktop\\\\MAIN\\\\openjobmarket\\\\app\\\\dashboard\\\\company\\\\subscription\\\\page.tsx\" \"c:\\\\Users\\\\sonek\\\\OneDrive\\\\Desktop\\\\MAIN\\\\openjobmarket\\\\app\\\\br\\\\dashboard\\\\company\\\\subscription\\\\page.tsx\")",
       "Bash(if exist \".next\" rd /s /q .next)",
       "Bash(psql:*)",
-      "Bash(ren:*)"
+      "Bash(ren:*)",
+      "Bash(ls:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []
