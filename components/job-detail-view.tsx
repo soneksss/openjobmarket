@@ -134,7 +134,9 @@ export default function JobDetailView({
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [showApplicationModal, setShowApplicationModal] = useState(false)
   const [showBlockedModal, setShowBlockedModal] = useState(false)
+  const [showProfileRequiredModal, setShowProfileRequiredModal] = useState(false)
   const [userType, setUserType] = useState<string | null>(null)
+  const [applicationSubmitted, setApplicationSubmitted] = useState(hasApplied)
 
   // Debug: Log if job photo exists
   useEffect(() => {
@@ -256,7 +258,20 @@ export default function JobDetailView({
         setShowBlockedModal(true)
         return
       }
+    } else {
+      // Regular jobs (vacancies) - only professionals can apply
+      if (userType === 'company' || userType === 'contractor') {
+        setShowBlockedModal(true)
+        return
+      }
     }
+
+    // Check if user has a profile set up
+    if (!userProfile) {
+      setShowProfileRequiredModal(true)
+      return
+    }
+
     setShowApplicationModal(true)
   }
 
@@ -724,29 +739,29 @@ export default function JobDetailView({
               </Card>
             )}
 
-            {/* Apply Button */}
-            {userProfile && (
+            {/* Apply Button - Show for ALL logged-in users */}
+            {user && (
               <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
                 <CardContent className="p-8 text-center">
                   <h3 className="text-xl font-semibold mb-3 text-gray-900">
-                    {hasApplied ? "Application Submitted" : "Ready to Apply?"}
+                    {applicationSubmitted ? "Application Submitted" : "Ready to Apply?"}
                   </h3>
                   <p className="text-gray-600 mb-6 leading-relaxed">
-                    {hasApplied
+                    {applicationSubmitted
                       ? "You have already applied to this position. Check your applications to see the status."
                       : "Review what information will be shared and submit your application."}
                   </p>
                   <Button
-                    onClick={() => !hasApplied && handleApplyClick()}
-                    className={hasApplied
+                    onClick={() => !applicationSubmitted && handleApplyClick()}
+                    className={applicationSubmitted
                       ? "bg-green-600 text-white px-8 py-3 cursor-not-allowed opacity-90"
                       : "bg-blue-600 hover:bg-blue-700 px-8 py-3"
                     }
-                    disabled={hasApplied}
+                    disabled={applicationSubmitted}
                   >
-                    {hasApplied ? "Applied" : "Apply Now"}
+                    {applicationSubmitted ? "Applied" : "Apply Now"}
                   </Button>
-                  {hasApplied && (
+                  {applicationSubmitted && (
                     <Button asChild variant="outline" className="px-8 py-3 mt-4">
                       <Link href="/dashboard/professional/applications">View Applications</Link>
                     </Button>
@@ -964,9 +979,10 @@ export default function JobDetailView({
             <JobApplicationForm
               job={job}
               userProfile={userProfile as any}
-              hasApplied={hasApplied}
+              hasApplied={applicationSubmitted}
               onApplicationSubmitted={() => {
                 setShowApplicationModal(false)
+                setApplicationSubmitted(true)
                 router.refresh()
               }}
               onClose={() => setShowApplicationModal(false)}
@@ -975,28 +991,82 @@ export default function JobDetailView({
         </Dialog>
       )}
 
-      {/* Blocked Application Modal - Tradespeople Jobs Only */}
-      <Dialog open={showBlockedModal} onOpenChange={setShowBlockedModal}>
+      {/* Profile Required Modal */}
+      <Dialog open={showProfileRequiredModal} onOpenChange={setShowProfileRequiredModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-red-600">
-              {t('jobs.blockedModalTitle')}
+            <DialogTitle className="text-xl font-bold text-amber-600">
+              Complete Your Profile
             </DialogTitle>
             <DialogDescription>
-              {t('jobs.blockedModalDescription')}
+              You need to complete your profile before applying for jobs.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <p className="text-sm text-gray-700">
-              {t('jobs.blockedModalExplanation')} <strong>{t('jobs.blockedModalVacanciesLink')}</strong> {t('jobs.blockedModalSectionInstead')}
+              To apply for this {job.is_tradespeople_job ? "job" : "vacancy"}, please complete your profile setup first.
+              This ensures employers can review your qualifications and contact you.
+            </p>
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+              <h4 className="font-semibold text-amber-900 mb-2">What you need to do:</h4>
+              <ul className="text-sm text-amber-800 space-y-1">
+                <li>• Fill in your basic information</li>
+                <li>• Add your skills and experience</li>
+                <li>• Upload a CV (optional but recommended)</li>
+              </ul>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowProfileRequiredModal(false)}>
+              Cancel
+            </Button>
+            <Button asChild className="bg-amber-600 hover:bg-amber-700">
+              <Link href={job.is_tradespeople_job ? "/onboarding" : "/onboarding"}>
+                Complete Profile
+              </Link>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Blocked Application Modal - Wrong user type */}
+      <Dialog open={showBlockedModal} onOpenChange={setShowBlockedModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-red-600">
+              {job.is_tradespeople_job ? t('jobs.blockedModalTitle') : "Cannot Apply for This Job"}
+            </DialogTitle>
+            <DialogDescription>
+              {job.is_tradespeople_job
+                ? t('jobs.blockedModalDescription')
+                : "This job type is not available for your account."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-gray-700">
+              {job.is_tradespeople_job ? (
+                <>
+                  {t('jobs.blockedModalExplanation')} <strong>{t('jobs.blockedModalVacanciesLink')}</strong> {t('jobs.blockedModalSectionInstead')}
+                </>
+              ) : (
+                <>
+                  Vacancy jobs are employment positions for individual jobseekers. As a business account, you can browse the <strong>Jobs/Tasks</strong> section to find work opportunities, or post jobs to hire professionals.
+                </>
+              )}
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 mb-2">{t('jobs.blockedModalWantToApply')}</h4>
+              <h4 className="font-semibold text-blue-900 mb-2">
+                {job.is_tradespeople_job ? t('jobs.blockedModalWantToApply') : "Looking for work?"}
+              </h4>
               <p className="text-sm text-blue-800 mb-3">
-                {t('jobs.blockedModalAccountRequired')}
+                {job.is_tradespeople_job
+                  ? t('jobs.blockedModalAccountRequired')
+                  : "Browse the Jobs/Tasks section to find opportunities suitable for your business."}
               </p>
               <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
-                <Link href="/auth/sign-up">{t('jobs.blockedModalCreateAccount')}</Link>
+                <Link href={job.is_tradespeople_job ? "/auth/sign-up" : "/?tab=jobs_tasks"}>
+                  {job.is_tradespeople_job ? t('jobs.blockedModalCreateAccount') : "Browse Jobs/Tasks"}
+                </Link>
               </Button>
             </div>
           </div>
@@ -1005,7 +1075,9 @@ export default function JobDetailView({
               {t('common.close')}
             </Button>
             <Button asChild variant="default">
-              <Link href="/?tab=vacancies">{t('jobs.blockedModalBrowseVacancies')}</Link>
+              <Link href={job.is_tradespeople_job ? "/?tab=vacancies" : "/?tab=jobs_tasks"}>
+                {job.is_tradespeople_job ? t('jobs.blockedModalBrowseVacancies') : "Browse Jobs/Tasks"}
+              </Link>
             </Button>
           </div>
         </DialogContent>

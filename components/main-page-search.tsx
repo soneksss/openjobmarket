@@ -94,6 +94,13 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [restoreSearch, setRestoreSearch] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
   const [isRestoringSearch, setIsRestoringSearch] = useState(false)
 
+  // Search error state for better UX than alert()
+  const [searchError, setSearchError] = useState<{ type: 'timeout' | 'network' | 'error' | null; message: string } | null>(null)
+
+  // Cache for signin requirement check (avoid repeated RPC calls)
+  const signinRequiredCacheRef = useRef<{ value: boolean | null; timestamp: number } | null>(null)
+  const SIGNIN_CACHE_TTL = 60000 // 1 minute cache
+
   // Ref to track processed restoration URLs (prevent infinite loop)
   const processedRestorationRef = useRef<string | null>(null)
 
@@ -678,43 +685,66 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const handleSearch = async (type: "vacancies" | "jobs_tasks" | "talents" | "traders") => {
     console.log(`[MAIN-PAGE-SEARCH] handleSearch called with type: ${type}`)
 
-    // CRITICAL: Skip auth checks during search restoration
+    // CRITICAL: Skip auth checks during search restoration or if user is already logged in
     if (isRestoringSearch) {
       console.log('[MAIN-PAGE-SEARCH] 🔓 Skipping auth check - search restoration in progress')
+    } else if (user) {
+      // User is already logged in, skip the RPC check entirely
+      console.log('[MAIN-PAGE-SEARCH] 🔓 Skipping auth check - user already logged in')
     } else {
-      // Check if sign-in is required to search (with timeout to prevent hanging)
+      // Check if sign-in is required to search (with caching and timeout)
       try {
-        console.log('[MAIN-PAGE-SEARCH] Calling is_signin_required_to_search RPC...')
+        // Check cache first
+        const now = Date.now()
+        if (signinRequiredCacheRef.current && (now - signinRequiredCacheRef.current.timestamp) < SIGNIN_CACHE_TTL) {
+          console.log('[MAIN-PAGE-SEARCH] Using cached signin requirement:', signinRequiredCacheRef.current.value)
+          if (signinRequiredCacheRef.current.value && !user) {
+            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
+            const isOnBrRoute = pathname?.startsWith('/br')
+            const signUpUrl = isOnBrRoute
+              ? `/auth/sign-up?locale=pt-BR&redirect=${returnUrl}`
+              : `/auth/sign-up?redirect=${returnUrl}`
+            router.push(signUpUrl)
+            return
+          }
+        } else {
+          console.log('[MAIN-PAGE-SEARCH] Calling is_signin_required_to_search RPC...')
 
-        // Create a timeout promise that resolves after 3 seconds
-        const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
-          setTimeout(() => {
-            console.warn('[MAIN-PAGE-SEARCH] RPC timeout after 3 seconds')
-            resolve({ data: null, error: new Error('RPC timeout') })
-          }, 3000)
-        })
+          // Create a timeout promise that resolves after 2 seconds (reduced from 3s)
+          const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
+            setTimeout(() => {
+              console.warn('[MAIN-PAGE-SEARCH] RPC timeout after 2 seconds - continuing without check')
+              resolve({ data: null, error: new Error('RPC timeout') })
+            }, 2000)
+          })
 
-        // Race between the RPC call and timeout
-        const rpcPromise = supabase.rpc('is_signin_required_to_search')
-        const result = await Promise.race([rpcPromise, timeoutPromise])
-        const { data: signinRequired, error: signinError } = result
+          // Race between the RPC call and timeout
+          const rpcPromise = supabase.rpc('is_signin_required_to_search')
+          const result = await Promise.race([rpcPromise, timeoutPromise])
+          const { data: signinRequired, error: signinError } = result
 
-        console.log('[MAIN-PAGE-SEARCH] RPC returned. signinRequired:', signinRequired, 'error:', signinError, 'user:', user ? 'logged in' : 'not logged in')
+          console.log('[MAIN-PAGE-SEARCH] RPC returned. signinRequired:', signinRequired, 'error:', signinError)
 
-        if (signinError) {
-          console.error('[MAIN-PAGE-SEARCH] Error checking signin requirement:', signinError)
-          // Continue with search on error (fail open for better UX)
-        } else if (signinRequired && !user) {
-          console.log('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
-          // Redirect to sign-up page to encourage new user registration
-          // Preserve locale when redirecting
-          const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
-          const isOnBrRoute = pathname?.startsWith('/br')
-          const signUpUrl = isOnBrRoute
-            ? `/auth/sign-up?locale=pt-BR&redirect=${returnUrl}`
-            : `/auth/sign-up?redirect=${returnUrl}`
-          router.push(signUpUrl)
-          return
+          if (signinError) {
+            // On error/timeout, cache as "not required" to avoid repeated failures
+            console.warn('[MAIN-PAGE-SEARCH] RPC failed, caching as not required:', signinError.message)
+            signinRequiredCacheRef.current = { value: false, timestamp: now }
+            // Continue with search (fail open for better UX)
+          } else {
+            // Cache the result
+            signinRequiredCacheRef.current = { value: signinRequired, timestamp: now }
+
+            if (signinRequired && !user) {
+              console.log('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
+              const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
+              const isOnBrRoute = pathname?.startsWith('/br')
+              const signUpUrl = isOnBrRoute
+                ? `/auth/sign-up?locale=pt-BR&redirect=${returnUrl}`
+                : `/auth/sign-up?redirect=${returnUrl}`
+              router.push(signUpUrl)
+              return
+            }
+          }
         }
         console.log('[MAIN-PAGE-SEARCH] Sign-in check passed, continuing to validation...')
       } catch (err) {
@@ -736,6 +766,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     setSearchProgress("Initializing search...")
     setSearchResultCount(0)
     setResultLimitReached(false) // Reset limit warning
+    setSearchError(null) // Clear any previous error
 
     // Always show modal for all users (registered and unregistered)
     try {
@@ -1211,21 +1242,56 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Add specific ordering to help with query performance
         query = query.order('created_at', { ascending: false })
 
-        // Add timeout to prevent query from hanging indefinitely
+        // Add timeout protection with reduced timeout (10s)
         const queryPromise = query.limit(RESULT_LIMIT + 1)
-        const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
-          setTimeout(() => {
-            console.warn('[MAIN-PAGE-SEARCH] Talents query timeout after 15 seconds')
-            resolve({ data: null, error: new Error('Query timeout') })
-          }, 15000) // Increased to 15 seconds
-        })
+        const TALENTS_TIMEOUT = 10000
 
-        const { data, error } = await Promise.race([queryPromise, timeoutPromise])
+        let data: any = null
+        let error: any = null
+
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('QUERY_TIMEOUT')), TALENTS_TIMEOUT)
+          )
+
+          const result = await Promise.race([queryPromise, timeoutPromise])
+          data = result.data
+          error = result.error
+        } catch (err: any) {
+          if (err.message === 'QUERY_TIMEOUT') {
+            console.error(`[MAIN-PAGE-SEARCH] Talents query timed out after ${TALENTS_TIMEOUT/1000}s`)
+            error = { type: 'timeout', message: 'Query timed out' }
+          } else if (err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('DISCONNECTED')) {
+            console.error(`[MAIN-PAGE-SEARCH] Network error:`, err)
+            error = { type: 'network', message: 'Network connection issue' }
+          } else {
+            console.error(`[MAIN-PAGE-SEARCH] Query failed:`, err)
+            error = { type: 'error', message: err.message || 'Unknown error' }
+          }
+        }
 
         console.log(`[MAIN-PAGE-SEARCH] Query executed. Error:`, error, `Data count:`, data?.length)
 
         if (error) {
           console.error(`[MAIN-PAGE-SEARCH] Error fetching talents:`, error)
+          if (error.type === 'timeout' || error.message?.includes('timeout')) {
+            setSearchError({
+              type: 'timeout',
+              message: t('mainSearch.searchTimeout') || 'Search is taking longer than expected. Please try again.'
+            })
+          } else if (error.type === 'network') {
+            setSearchError({
+              type: 'network',
+              message: 'Connection issue. Please check your internet and try again.'
+            })
+          } else {
+            setSearchError({
+              type: 'error',
+              message: t('mainSearch.searchFailed') || 'Search failed. Please try again.'
+            })
+          }
+          setIsSearching(false)
+          return
         }
 
         if (!error && data) {
@@ -1508,18 +1574,36 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           }
         })
 
-        // Add timeout protection to prevent infinite waiting
+        // Add timeout protection with reduced timeout (10s instead of 20s)
         const queryPromise = query.limit(RESULT_LIMIT + 1)
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Query timeout after 20 seconds')), 20000)
-        )
+        const QUERY_TIMEOUT = 10000 // 10 seconds
 
-        console.log(`[MAIN-PAGE-SEARCH] Executing optimized query with 20s timeout...`)
-        const { data, error } = await Promise.race([queryPromise, timeoutPromise])
-          .catch((err) => {
+        console.log(`[MAIN-PAGE-SEARCH] Executing optimized query with ${QUERY_TIMEOUT/1000}s timeout...`)
+
+        let data: any = null
+        let error: any = null
+
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('QUERY_TIMEOUT')), QUERY_TIMEOUT)
+          )
+
+          const result = await Promise.race([queryPromise, timeoutPromise])
+          data = result.data
+          error = result.error
+        } catch (err: any) {
+          // Differentiate between timeout and network errors
+          if (err.message === 'QUERY_TIMEOUT') {
+            console.error(`[MAIN-PAGE-SEARCH] Query timed out after ${QUERY_TIMEOUT/1000}s`)
+            error = { type: 'timeout', message: 'Query timed out' }
+          } else if (err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('DISCONNECTED')) {
+            console.error(`[MAIN-PAGE-SEARCH] Network error:`, err)
+            error = { type: 'network', message: 'Network connection issue' }
+          } else {
             console.error(`[MAIN-PAGE-SEARCH] Query failed:`, err)
-            return { data: null, error: err }
-          }) as any
+            error = { type: 'error', message: err.message || 'Unknown error' }
+          }
+        }
 
         console.log(`[MAIN-PAGE-SEARCH] Query completed. Error:`, error, `Data count:`, data?.length)
 
@@ -1539,12 +1623,24 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         if (error) {
           console.error(`[MAIN-PAGE-SEARCH] Query error:`, error)
-          // Show error message to user
-          if (error.message?.includes('timeout')) {
-            alert(t('mainSearch.searchTimeout') || 'Search timed out. Please try again or adjust your filters.')
+          // Set error state instead of using alert()
+          if (error.type === 'timeout' || error.message?.includes('timeout')) {
+            setSearchError({
+              type: 'timeout',
+              message: t('mainSearch.searchTimeout') || 'Search is taking longer than expected. Please try again.'
+            })
+          } else if (error.type === 'network') {
+            setSearchError({
+              type: 'network',
+              message: 'Connection issue. Please check your internet and try again.'
+            })
           } else {
-            alert(t('mainSearch.searchFailed') || 'Search failed. Please try again.')
+            setSearchError({
+              type: 'error',
+              message: t('mainSearch.searchFailed') || 'Search failed. Please try again.'
+            })
           }
+          setIsSearching(false)
           return
         }
 
@@ -2690,6 +2786,62 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               <p className="text-xs text-gray-400 text-center">
                 Please wait while we search our database...
               </p>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Search Error Dialog */}
+        <Dialog open={!!searchError} onOpenChange={(open) => {
+          if (!open) setSearchError(null)
+        }}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-center flex items-center justify-center gap-2">
+                {searchError?.type === 'network' && (
+                  <span className="text-orange-500">⚠️</span>
+                )}
+                {searchError?.type === 'timeout' && (
+                  <span className="text-yellow-500">⏱️</span>
+                )}
+                {searchError?.type === 'error' && (
+                  <span className="text-red-500">❌</span>
+                )}
+                {searchError?.type === 'network' ? 'Connection Issue' :
+                 searchError?.type === 'timeout' ? 'Search Taking Too Long' :
+                 'Search Failed'}
+              </DialogTitle>
+              <DialogDescription className="text-center pt-2">
+                {searchError?.message}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4 flex flex-col items-center gap-4">
+              {searchError?.type === 'network' && (
+                <p className="text-sm text-gray-600 text-center">
+                  Please check your internet connection and try again.
+                </p>
+              )}
+              {searchError?.type === 'timeout' && (
+                <p className="text-sm text-gray-600 text-center">
+                  The search is taking longer than usual. This might be due to high traffic. Please try again or narrow your search.
+                </p>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setSearchError(null)}
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    setSearchError(null)
+                    // Retry the search
+                    handleSearch(selectedSearchType)
+                  }}
+                >
+                  Try Again
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>

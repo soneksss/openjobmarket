@@ -211,20 +211,20 @@ export default function MapPickerDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-        <DialogHeader className="p-6 pb-0">
+      <DialogContent className="max-w-4xl max-h-[85vh] p-0 overflow-hidden">
+        <DialogHeader className="p-4 pb-2">
           <DialogTitle>Pick a Location</DialogTitle>
           <DialogDescription>
             Click anywhere on the map to select your location
           </DialogDescription>
         </DialogHeader>
-        <div className="h-[500px] relative p-6 pt-4">
+        <div className="h-[60vh] max-h-[450px] relative px-4 pb-4">
           {/* Map container - always rendered so ref is available */}
           <div ref={mapRef} className="h-full w-full rounded-lg" />
 
           {/* Loading overlay */}
           {isLoading && (
-            <div className="absolute inset-0 m-6 mt-4 flex items-center justify-center bg-white rounded-lg z-[999]">
+            <div className="absolute inset-0 flex items-center justify-center bg-white rounded-lg z-[999]">
               <div className="text-center">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
                 <p className="text-sm text-muted-foreground">Loading map...</p>
@@ -234,7 +234,7 @@ export default function MapPickerDialog({
 
           {/* Location Picker Card Overlay - Compact version at top center */}
           {!isLoading && (
-            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
+            <div className="absolute top-2 left-1/2 transform -translate-x-1/2 z-[1000]">
               <Card className="shadow-xl border-2 border-orange-500">
                   <CardContent className="py-0.5 px-2">
                     {selectedLocation ? (

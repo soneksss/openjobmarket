@@ -268,41 +268,43 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
   return (
     <div className="min-h-screen bg-muted/50">
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Manage Jobs</h1>
-          <p className="text-muted-foreground">View and manage all your job postings for {profile.company_name}</p>
+        <div className="mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">Manage Jobs</h1>
+          <p className="text-sm md:text-base text-muted-foreground">View and manage your job postings</p>
         </div>
 
         {/* Bulk Actions Bar */}
         {selectedJobs.length > 0 && (
           <Card className="mb-4 bg-blue-50 border-blue-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
+            <CardContent className="p-3 md:p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center space-x-3">
                   <Checkbox
                     checked={selectedJobs.length === filteredJobs.length}
                     onCheckedChange={handleSelectAll}
                   />
-                  <span className="font-medium">
+                  <span className="font-medium text-sm">
                     {selectedJobs.length} job{selectedJobs.length === 1 ? "" : "s"} selected
                   </span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setSelectedJobs([])}
+                    className="text-xs h-8"
                   >
-                    Clear Selection
+                    Clear
                   </Button>
                   <Button
                     variant="destructive"
                     size="sm"
                     onClick={handleBulkDelete}
                     disabled={bulkDeleting}
+                    className="text-xs h-8"
                   >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    {bulkDeleting ? "Deleting..." : `Delete ${selectedJobs.length} Job${selectedJobs.length === 1 ? "" : "s"}`}
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    {bulkDeleting ? "..." : "Delete"}
                   </Button>
                 </div>
               </div>
@@ -312,56 +314,63 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
 
         {/* Filters */}
         <Card className="mb-6">
-          <CardHeader>
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
-              <CardTitle>Filters</CardTitle>
+              <CardTitle className="text-lg">Filters</CardTitle>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="select-all-visible"
                   checked={filteredJobs.length > 0 && selectedJobs.length === filteredJobs.length}
                   onCheckedChange={handleSelectAll}
                 />
-                <label htmlFor="select-all-visible" className="text-sm font-medium cursor-pointer">
-                  Select all visible
+                <label htmlFor="select-all-visible" className="text-xs md:text-sm font-medium cursor-pointer">
+                  Select all
                 </label>
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search jobs..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+          <CardContent className="pt-0">
+            <div className="flex flex-col gap-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search jobs..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 h-9"
+                />
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <Button variant={statusFilter === "all" ? "default" : "outline"} onClick={() => setStatusFilter("all")}>
+              <div className="flex gap-1.5 flex-wrap">
+                <Button
+                  variant={statusFilter === "all" ? "default" : "outline"}
+                  onClick={() => setStatusFilter("all")}
+                  size="sm"
+                  className="text-xs h-7 px-2"
+                >
                   All ({jobCounts.all})
                 </Button>
                 <Button
                   variant={statusFilter === "active" ? "default" : "outline"}
                   onClick={() => setStatusFilter("active")}
+                  size="sm"
+                  className="text-xs h-7 px-2"
                 >
                   Active ({jobCounts.active})
                 </Button>
                 <Button
                   variant={statusFilter === "expiring" ? "default" : "outline"}
                   onClick={() => setStatusFilter("expiring")}
-                  className={jobCounts.expiring > 0 ? "bg-orange-100 text-orange-800 hover:bg-orange-200" : ""}
+                  size="sm"
+                  className={`text-xs h-7 px-2 ${jobCounts.expiring > 0 ? "bg-orange-100 text-orange-800 hover:bg-orange-200" : ""}`}
                 >
-                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  <AlertTriangle className="h-3 w-3 mr-1" />
                   Expiring ({jobCounts.expiring})
                 </Button>
                 <Button
                   variant={statusFilter === "expired" ? "default" : "outline"}
                   onClick={() => setStatusFilter("expired")}
-                  className={jobCounts.expired > 0 ? "bg-red-100 text-red-800 hover:bg-red-200" : ""}
+                  size="sm"
+                  className={`text-xs h-7 px-2 ${jobCounts.expired > 0 ? "bg-red-100 text-red-800 hover:bg-red-200" : ""}`}
                 >
                   Expired ({jobCounts.expired})
                 </Button>
@@ -399,75 +408,79 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
               const jobStatus = getJobStatus(job)
               return (
                 <Card key={job.id} className={jobStatus.status === "expired" ? "opacity-75" : ""}>
-                  <CardContent className="p-6">
-                    <div className="flex items-start space-x-4">
+                  <CardContent className="p-4 md:p-6">
+                    <div className="flex items-start space-x-3 md:space-x-4">
                       <div className="pt-1">
                         <Checkbox
                           checked={selectedJobs.includes(job.id)}
                           onCheckedChange={(checked) => handleJobToggle(job.id, checked as boolean)}
                         />
                       </div>
-                      <div className="flex-1 flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="text-lg font-semibold">{job.title}</h3>
-                          {getStatusBadge(job)}
-                          {jobStatus.status === "expiring" && <AlertTriangle className="h-4 w-4 text-orange-500" />}
+                      <div className="flex-1 min-w-0">
+                        {/* Title and status - stack on mobile */}
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
+                          <h3 className="text-base md:text-lg font-semibold truncate">{job.title}</h3>
+                          <div className="flex items-center gap-1">
+                            {getStatusBadge(job)}
+                            {jobStatus.status === "expiring" && <AlertTriangle className="h-4 w-4 text-orange-500" />}
+                          </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-3">
+                        {/* Job details - wrap on mobile */}
+                        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground mb-3">
                           <span className="flex items-center">
-                            <MapPin className="h-4 w-4 mr-1" />
-                            {job.location}
+                            <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                            <span className="truncate max-w-[120px] md:max-w-none">{job.location}</span>
                           </span>
-                          <Badge variant="secondary">{job.job_type}</Badge>
-                          <Badge variant="secondary">{job.work_location}</Badge>
-                          <span>{formatSalary(job.salary_min, job.salary_max)}</span>
-                          <span className="flex items-center">
-                            <Clock className="h-4 w-4 mr-1" />
-                            {job.recruitment_timeline}
-                          </span>
+                          <Badge variant="secondary" className="text-xs">{job.job_type}</Badge>
+                          <Badge variant="secondary" className="text-xs">{job.work_location}</Badge>
+                          <span className="hidden sm:inline">{formatSalary(job.salary_min, job.salary_max)}</span>
                         </div>
 
-                        <div className="flex items-center space-x-6 text-sm text-muted-foreground">
+                        {/* Stats - simplified on mobile */}
+                        <div className="flex flex-wrap items-center gap-3 md:gap-6 text-xs md:text-sm text-muted-foreground mb-3 md:mb-0">
                           <span className="flex items-center">
-                            <Users className="h-4 w-4 mr-1" />
-                            {job.applications_count} applications
+                            <Users className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                            {job.applications_count}
                           </span>
                           <span className="flex items-center">
-                            <Eye className="h-4 w-4 mr-1" />
-                            {job.views_count} views
+                            <Eye className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                            {job.views_count}
                           </span>
-                          <span className="flex items-center">
+                          <span className="hidden md:flex items-center">
                             <Calendar className="h-4 w-4 mr-1" />
                             Posted {formatDate(job.created_at)}
                           </span>
                           {jobStatus.status !== "expired" && (
-                            <span className="flex items-center">
+                            <span className="hidden md:flex items-center">
                               <Clock className="h-4 w-4 mr-1" />
                               Expires {formatDate(jobStatus.expirationDate.toISOString())}
                             </span>
                           )}
                         </div>
-                      </div>
 
-                      <div className="flex items-center space-x-2">
-                        <Button size="sm" variant="outline" asChild>
-                          <Link href={`/jobs/${job.id}/applications`}>Applications ({job.applications_count})</Link>
-                        </Button>
+                        {/* Action buttons - wrap on all screens */}
+                        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t md:border-0 md:pt-0 md:mt-0">
+                          <Button size="sm" variant="outline" asChild className="text-xs md:text-sm h-8">
+                            <Link href={`/jobs/${job.id}/applications`}>
+                              <Users className="h-3 w-3 mr-1 md:hidden" />
+                              <span className="hidden md:inline">Applications ({job.applications_count})</span>
+                              <span className="md:hidden">{job.applications_count}</span>
+                            </Link>
+                          </Button>
 
-                        {(jobStatus.status === "expired" || jobStatus.status === "expiring") && (
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-green-50 text-green-700 hover:bg-green-100"
-                              >
-                                <RefreshCw className="h-4 w-4 mr-1" />
-                                Extend
-                              </Button>
-                            </DialogTrigger>
+                          {(jobStatus.status === "expired" || jobStatus.status === "expiring") && (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="bg-green-50 text-green-700 hover:bg-green-100 text-xs md:text-sm h-8"
+                                >
+                                  <RefreshCw className="h-3 w-3 md:h-4 md:w-4 mr-1" />
+                                  {jobStatus.status === "expired" ? "Reactivate" : "Extend"}
+                                </Button>
+                              </DialogTrigger>
                             <DialogContent>
                               <DialogHeader>
                                 <DialogTitle>Extend Job Posting</DialogTitle>
@@ -511,62 +524,62 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
                           </Dialog>
                         )}
 
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm" variant="outline">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link href={`/jobs/${job.id}`}>
-                                <Eye className="h-4 w-4 mr-2" />
-                                View Job
-                              </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                              <Link href={`/jobs/${job.id}/edit`}>
-                                <Edit className="h-4 w-4 mr-2" />
-                                Edit Job
-                              </Link>
-                            </DropdownMenuItem>
-                            {jobStatus.status !== "expired" && (
-                              <DropdownMenuItem
-                                onClick={() => toggleJobStatus(job.id, job.is_active)}
-                                disabled={loading === job.id}
-                              >
-                                {job.is_active ? "Deactivate" : "Activate"}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="sm" variant="outline" className="h-8 w-8 p-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link href={`/jobs/${job.id}`}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View Job
+                                </Link>
                               </DropdownMenuItem>
-                            )}
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete Job
+                              <DropdownMenuItem asChild>
+                                <Link href={`/jobs/${job.id}/edit`}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit Job
+                                </Link>
+                              </DropdownMenuItem>
+                              {jobStatus.status !== "expired" && (
+                                <DropdownMenuItem
+                                  onClick={() => toggleJobStatus(job.id, job.is_active)}
+                                  disabled={loading === job.id}
+                                >
+                                  {job.is_active ? "Deactivate" : "Activate"}
                                 </DropdownMenuItem>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Job</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete "{job.title}"? This action cannot be undone and will
-                                    remove all associated applications.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => deleteJob(job.id)}
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
+                              )}
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                    <Trash2 className="h-4 w-4 mr-2" />
                                     Delete Job
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Job</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete "{job.title}"? This action cannot be undone and will
+                                      remove all associated applications.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteJob(job.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete Job
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
