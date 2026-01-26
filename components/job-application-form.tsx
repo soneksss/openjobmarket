@@ -231,6 +231,18 @@ export default function JobApplicationForm({
       return
     }
 
+    // CRITICAL: Prevent users from applying to their own jobs
+    const posterUserId = getPosterUserId()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (user && posterUserId === user.id) {
+      console.error("[JOB-APPLICATION] BLOCKED: User attempting to apply to their own job")
+      setSubmissionError(
+        "You cannot apply to your own job posting. This job was posted by you."
+      )
+      return
+    }
+
     setLoading(true)
     try {
       console.log("[v0] Starting job application process")

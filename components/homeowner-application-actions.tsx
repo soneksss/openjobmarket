@@ -58,7 +58,13 @@ export function HomeownerApplicationActions({
         })
         .eq("id", jobId)
 
-      if (jobError) throw jobError
+      if (jobError) {
+        // Handle specific Supabase errors
+        if (jobError.message?.includes('fetch') || jobError.message?.includes('JWT')) {
+          throw new Error("Authentication error. Please refresh the page and try again.")
+        }
+        throw jobError
+      }
 
       // Update this application to accepted
       const { error: acceptError } = await supabase
@@ -66,7 +72,12 @@ export function HomeownerApplicationActions({
         .update({ status: "accepted" })
         .eq("id", applicationId)
 
-      if (acceptError) throw acceptError
+      if (acceptError) {
+        if (acceptError.message?.includes('fetch') || acceptError.message?.includes('JWT')) {
+          throw new Error("Authentication error. Please refresh the page and try again.")
+        }
+        throw acceptError
+      }
 
       // Reject all other applications for this job
       const { error: rejectError } = await supabase
@@ -75,20 +86,45 @@ export function HomeownerApplicationActions({
         .eq("job_id", jobId)
         .neq("id", applicationId)
 
-      if (rejectError) throw rejectError
+      if (rejectError) {
+        console.error("[HOMEOWNER-ACTIONS] Failed to reject other applications:", rejectError)
+        // Don't fail the entire operation if rejecting others fails
+      }
 
       toast({
         title: "✅ Contractor Accepted",
         description: `${contractorName} has been accepted for this job.`,
       })
 
-      router.refresh()
       setShowAcceptDialog(false)
+
+      // Use setTimeout to ensure toast is visible before refresh
+      setTimeout(() => {
+        try {
+          router.refresh()
+        } catch (refreshError) {
+          console.error("[HOMEOWNER-ACTIONS] Router refresh failed:", refreshError)
+          // Fallback to reload if router.refresh() fails
+          window.location.reload()
+        }
+      }, 1000)
     } catch (error: any) {
-      console.error("Error accepting contractor:", error)
+      console.error("[HOMEOWNER-ACTIONS] Error accepting contractor:", error)
+
+      // Provide specific error messages based on error type
+      let errorMessage = "Failed to accept contractor. Please try again."
+
+      if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('DISCONNECTED')) {
+        errorMessage = "Network connection issue. Please check your connection and try again."
+      } else if (error.message?.includes('JWT') || error.message?.includes('auth')) {
+        errorMessage = "Session expired. Please refresh the page and try again."
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
       toast({
         title: "❌ Failed to Accept",
-        description: error.message || "Failed to accept contractor. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -105,19 +141,46 @@ export function HomeownerApplicationActions({
         .update({ status: "rejected" })
         .eq("id", applicationId)
 
-      if (error) throw error
+      if (error) {
+        // Handle specific Supabase errors
+        if (error.message?.includes('fetch') || error.message?.includes('JWT')) {
+          throw new Error("Authentication error. Please refresh the page and try again.")
+        }
+        throw error
+      }
 
       toast({
         title: "Application Rejected",
         description: `${contractorName}'s application has been rejected.`,
       })
 
-      router.refresh()
+      // Use setTimeout to ensure toast is visible before refresh
+      setTimeout(() => {
+        try {
+          router.refresh()
+        } catch (refreshError) {
+          console.error("[HOMEOWNER-ACTIONS] Router refresh failed:", refreshError)
+          // Fallback to reload if router.refresh() fails
+          window.location.reload()
+        }
+      }, 1000)
     } catch (error: any) {
-      console.error("Error rejecting application:", error)
+      console.error("[HOMEOWNER-ACTIONS] Error rejecting application:", error)
+
+      // Provide specific error messages based on error type
+      let errorMessage = "Failed to reject application. Please try again."
+
+      if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('DISCONNECTED')) {
+        errorMessage = "Network connection issue. Please check your connection and try again."
+      } else if (error.message?.includes('JWT') || error.message?.includes('auth')) {
+        errorMessage = "Session expired. Please refresh the page and try again."
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
       toast({
         title: "❌ Failed to Reject",
-        description: error.message || "Failed to reject application. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {

@@ -134,6 +134,7 @@ export default function JobDetailView({
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [showApplicationModal, setShowApplicationModal] = useState(false)
   const [showBlockedModal, setShowBlockedModal] = useState(false)
+  const [blockedReason, setBlockedReason] = useState<'own_job' | 'wrong_type' | null>(null)
   const [showProfileRequiredModal, setShowProfileRequiredModal] = useState(false)
   const [userType, setUserType] = useState<string | null>(null)
   const [applicationSubmitted, setApplicationSubmitted] = useState(hasApplied)
@@ -251,16 +252,30 @@ export default function JobDetailView({
   }
 
   const handleApplyClick = () => {
+    // Check if user is trying to apply to their own job
+    if (user) {
+      const isOwnJob = job.company_profiles?.user_id === user.id ||
+                       job.homeowner_profiles?.user_id === user.id
+
+      if (isOwnJob) {
+        setBlockedReason('own_job')
+        setShowBlockedModal(true)
+        return
+      }
+    }
+
     // Check if this is a trade job and user type
     if (job.is_tradespeople_job) {
       // Only contractors and companies can apply to trade jobs
       if (userType === 'professional' || userType === 'homeowner') {
+        setBlockedReason('wrong_type')
         setShowBlockedModal(true)
         return
       }
     } else {
       // Regular jobs (vacancies) - only professionals can apply
       if (userType === 'company' || userType === 'contractor') {
+        setBlockedReason('wrong_type')
         setShowBlockedModal(true)
         return
       }
@@ -1029,56 +1044,83 @@ export default function JobDetailView({
         </DialogContent>
       </Dialog>
 
-      {/* Blocked Application Modal - Wrong user type */}
+      {/* Blocked Application Modal */}
       <Dialog open={showBlockedModal} onOpenChange={setShowBlockedModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-red-600">
-              {job.is_tradespeople_job ? t('jobs.blockedModalTitle') : "Cannot Apply for This Job"}
+              {blockedReason === 'own_job'
+                ? "Cannot Apply to Your Own Job"
+                : job.is_tradespeople_job ? t('jobs.blockedModalTitle') : "Cannot Apply for This Job"}
             </DialogTitle>
             <DialogDescription>
-              {job.is_tradespeople_job
-                ? t('jobs.blockedModalDescription')
-                : "This job type is not available for your account."}
+              {blockedReason === 'own_job'
+                ? "You cannot apply to jobs or vacancies that you have posted."
+                : job.is_tradespeople_job
+                  ? t('jobs.blockedModalDescription')
+                  : "This job type is not available for your account."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="text-sm text-gray-700">
-              {job.is_tradespeople_job ? (
-                <>
-                  {t('jobs.blockedModalExplanation')} <strong>{t('jobs.blockedModalVacanciesLink')}</strong> {t('jobs.blockedModalSectionInstead')}
-                </>
-              ) : (
-                <>
-                  Vacancy jobs are employment positions for individual jobseekers. As a business account, you can browse the <strong>Jobs/Tasks</strong> section to find work opportunities, or post jobs to hire professionals.
-                </>
-              )}
-            </p>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 mb-2">
-                {job.is_tradespeople_job ? t('jobs.blockedModalWantToApply') : "Looking for work?"}
-              </h4>
-              <p className="text-sm text-blue-800 mb-3">
-                {job.is_tradespeople_job
-                  ? t('jobs.blockedModalAccountRequired')
-                  : "Browse the Jobs/Tasks section to find opportunities suitable for your business."}
-              </p>
-              <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
-                <Link href={job.is_tradespeople_job ? "/auth/sign-up" : "/?tab=jobs_tasks"}>
-                  {job.is_tradespeople_job ? t('jobs.blockedModalCreateAccount') : "Browse Jobs/Tasks"}
-                </Link>
-              </Button>
-            </div>
+            {blockedReason === 'own_job' ? (
+              <>
+                <p className="text-sm text-gray-700">
+                  This is your own job posting. You can manage it from your dashboard, but you cannot submit an application to it.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">Manage This Job</h4>
+                  <p className="text-sm text-blue-800 mb-3">
+                    View applications, edit details, or manage this job from your dashboard.
+                  </p>
+                  <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+                    <Link href={job.is_tradespeople_job ? "/dashboard/homeowner/jobs" : "/dashboard/company/jobs"}>
+                      Go to Dashboard
+                    </Link>
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-gray-700">
+                  {job.is_tradespeople_job ? (
+                    <>
+                      {t('jobs.blockedModalExplanation')} <strong>{t('jobs.blockedModalVacanciesLink')}</strong> {t('jobs.blockedModalSectionInstead')}
+                    </>
+                  ) : (
+                    <>
+                      Vacancy jobs are employment positions for individual jobseekers. As a business account, you can browse the <strong>Jobs/Tasks</strong> section to find work opportunities, or post jobs to hire professionals.
+                    </>
+                  )}
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2">
+                    {job.is_tradespeople_job ? t('jobs.blockedModalWantToApply') : "Looking for work?"}
+                  </h4>
+                  <p className="text-sm text-blue-800 mb-3">
+                    {job.is_tradespeople_job
+                      ? t('jobs.blockedModalAccountRequired')
+                      : "Browse the Jobs/Tasks section to find opportunities suitable for your business."}
+                  </p>
+                  <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+                    <Link href={job.is_tradespeople_job ? "/auth/sign-up" : "/?tab=jobs_tasks"}>
+                      {job.is_tradespeople_job ? t('jobs.blockedModalCreateAccount') : "Browse Jobs/Tasks"}
+                    </Link>
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setShowBlockedModal(false)}>
               {t('common.close')}
             </Button>
-            <Button asChild variant="default">
-              <Link href={job.is_tradespeople_job ? "/?tab=vacancies" : "/?tab=jobs_tasks"}>
-                {job.is_tradespeople_job ? t('jobs.blockedModalBrowseVacancies') : "Browse Jobs/Tasks"}
-              </Link>
-            </Button>
+            {blockedReason !== 'own_job' && (
+              <Button asChild variant="default">
+                <Link href={job.is_tradespeople_job ? "/?tab=vacancies" : "/?tab=jobs_tasks"}>
+                  {job.is_tradespeople_job ? t('jobs.blockedModalBrowseVacancies') : "Browse Jobs/Tasks"}
+                </Link>
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

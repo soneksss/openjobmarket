@@ -293,10 +293,28 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
     checkSaved()
   }, [userProfile, job.id])
 
-  const handleApplyClick = () => {
+  const handleApplyClick = async () => {
     if (!isLoggedIn) {
       setShowSignUpDialog(true)
-    } else if (!userProfile) {
+      return
+    }
+
+    // Check if user is trying to apply to their own job
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (user) {
+      const isOwnJob = job.company_profiles?.user_id === user.id ||
+                       job.homeowner_profiles?.user_id === user.id
+
+      if (isOwnJob) {
+        // Redirect to job detail page to show proper blocked message
+        router.push(`/jobs/${job.id}`)
+        return
+      }
+    }
+
+    if (!userProfile) {
       // If logged in but no profile loaded, redirect to job detail page where profile will be fetched
       router.push(`/jobs/${job.id}`)
     } else if (!hasApplied) {

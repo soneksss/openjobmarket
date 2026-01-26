@@ -32,6 +32,8 @@ export default function ApplicationActions({
 
   const updateStatus = async (newStatus: string) => {
     setLoading(true)
+    let updateSucceeded = false
+
     try {
       // Update application status
       const { error } = await supabase
@@ -39,7 +41,15 @@ export default function ApplicationActions({
         .update({ status: newStatus })
         .eq("id", applicationId)
 
-      if (error) throw error
+      if (error) {
+        // Handle specific Supabase errors
+        if (error.message?.includes('fetch') || error.message?.includes('JWT')) {
+          throw new Error("Authentication error. Please refresh the page and try again.")
+        }
+        throw error
+      }
+
+      updateSucceeded = true
 
       // Show success toast based on action
       const statusMessages: Record<string, { title: string; description: string }> = {
@@ -87,9 +97,12 @@ export default function ApplicationActions({
         console.error("[APPLICATION-ACTIONS] Notification creation failed:", notifError)
       }
 
-      // Send email notification if applicant email is available
+      // Send email notification if applicant email is available (with timeout)
       if (applicantEmail && jobTitle) {
         try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
+
           await fetch("/api/notifications/application-status", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -99,17 +112,25 @@ export default function ApplicationActions({
               jobTitle,
               status: newStatus,
             }),
+            signal: controller.signal,
           })
+          clearTimeout(timeoutId)
           console.log("[APPLICATION-ACTIONS] Email notification sent successfully")
-        } catch (emailError) {
+        } catch (emailError: any) {
           console.error("[APPLICATION-ACTIONS] Email notification failed:", emailError)
+          if (emailError.name === 'AbortError') {
+            console.warn("[APPLICATION-ACTIONS] Email notification timed out")
+          }
           // Don't block the operation if email fails
         }
       }
 
-      // If accepting application, verify interaction for reviews
+      // If accepting application, verify interaction for reviews (with timeout)
       if (newStatus === "accepted") {
         try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
+
           await fetch("/api/reviews/verify-interaction", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -117,27 +138,61 @@ export default function ApplicationActions({
               userBId: professionalUserId,
               interactionType: "job_application_accepted",
             }),
+            signal: controller.signal,
           })
+          clearTimeout(timeoutId)
           console.log("[APPLICATION-ACTIONS] Interaction verified for reviews")
-        } catch (verifyError) {
+        } catch (verifyError: any) {
           console.error("[APPLICATION-ACTIONS] Failed to verify interaction:", verifyError)
+          if (verifyError.name === 'AbortError') {
+            console.warn("[APPLICATION-ACTIONS] Review verification timed out")
+          }
           // Don't fail the entire operation if review verification fails
         }
       }
 
-      // Wait a bit before reloading to ensure toast is visible
+      // Use router.refresh() instead of window.location.reload() for better error handling
+      // Wait a bit before refreshing to ensure toast is visible
       setTimeout(() => {
-        window.location.reload()
+        try {
+          router.refresh()
+        } catch (refreshError) {
+          console.error("[APPLICATION-ACTIONS] Router refresh failed:", refreshError)
+          // Fallback to reload if router.refresh() fails
+          window.location.reload()
+        }
       }, 1500)
-    } catch (error) {
+    } catch (error: any) {
       console.error("[APPLICATION-ACTIONS] Error updating status:", error)
+
+      // Provide specific error messages based on error type
+      let errorMessage = "Failed to update application status. Please try again."
+
+      if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('DISCONNECTED')) {
+        errorMessage = "Network connection issue. Please check your connection and try again."
+      } else if (error.message?.includes('JWT') || error.message?.includes('auth')) {
+        errorMessage = "Session expired. Please refresh the page and try again."
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
       toast({
         title: "Update Failed",
-        description: "Failed to update application status. Please try again.",
+        description: errorMessage,
         variant: "destructive",
         duration: 5000,
       })
-      setLoading(false)
+    } finally {
+      // CRITICAL: Always clear loading state, even if update succeeded
+      // This prevents the button from staying stuck if router.refresh() or window.reload() fails
+      if (!updateSucceeded) {
+        setLoading(false)
+      } else {
+        // If update succeeded, clear loading after a delay to prevent stuck state
+        setTimeout(() => {
+          setLoading(false)
+        }, 3000)
+      }
     }
   }
 
