@@ -197,42 +197,109 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
     }
   }
 
-  const handleExtendJob = async () => {
-    if (!extendingJob || !newTimeline) return
+  const handleExtendJob = async (jobToExtend: Job, timeline: string) => {
+    if (!jobToExtend || !timeline) {
+      console.error("[JOB-EXTEND] Missing job or timeline")
+      return
+    }
 
-    setLoading(extendingJob.id)
+    setLoading(jobToExtend.id)
+    let updateSucceeded = false
+
     try {
-      const priceMap: { [key: string]: number } = {
-        "3 days": 0,
-        "7 days": 10,
-        "2 weeks": 15,
-        "3 weeks": 20,
-        "4 weeks": 25,
+      // Map display timeline to database format
+      const timelineMap: { [key: string]: string } = {
+        "3 days": "3_days",
+        "7 days": "7_days",
+        "2 weeks": "14_days",
+        "3 weeks": "21_days",
+        "4 weeks": "28_days",
       }
 
-      const newPrice = priceMap[newTimeline]
-      const newCreatedAt = new Date().toISOString()
+      const priceMap: { [key: string]: number } = {
+        "3 days": 0,
+        "7 days": 0,
+        "2 weeks": 0,
+        "3 weeks": 0,
+        "4 weeks": 0,
+      }
 
-      const { error } = await supabase
-        .from("jobs")
-        .update({
-          recruitment_timeline: newTimeline,
-          price: newPrice,
-          created_at: newCreatedAt,
-          is_active: true,
-        })
-        .eq("id", extendingJob.id)
+      const dbTimeline = timelineMap[timeline]
+      const newPrice = priceMap[timeline]
 
-      if (error) throw error
+      if (!dbTimeline) {
+        throw new Error("Invalid timeline selected")
+      }
 
+      console.log("[JOB-EXTEND] Extending job:", {
+        jobId: jobToExtend.id,
+        timeline: dbTimeline,
+        price: newPrice,
+      })
+
+      // Use the RPC function for extending jobs
+      const { data, error } = await supabase.rpc("extend_job", {
+        job_id_param: jobToExtend.id,
+        new_timeline: dbTimeline,
+        new_price: newPrice,
+      })
+
+      if (error) {
+        // Handle specific Supabase errors
+        if (error.message?.includes("fetch") || error.message?.includes("JWT")) {
+          throw new Error("Authentication error. Please refresh the page and try again.")
+        }
+        throw error
+      }
+
+      if (!data) {
+        throw new Error("Failed to extend job - job may not exist or you don't have permission")
+      }
+
+      updateSucceeded = true
+      console.log("[JOB-EXTEND] Job extended successfully")
+
+      // Clear dialog state
       setExtendingJob(null)
       setNewTimeline("")
-      router.refresh()
-    } catch (error) {
-      console.error("Error extending job:", error)
-      alert("Failed to extend job")
+
+      // Protected refresh with fallback
+      setTimeout(() => {
+        try {
+          router.refresh()
+        } catch (refreshError) {
+          console.error("[JOB-EXTEND] Router refresh failed:", refreshError)
+          window.location.reload()
+        }
+      }, 1000)
+    } catch (error: any) {
+      console.error("[JOB-EXTEND] Error extending job:", error)
+
+      // Provide specific error messages
+      let errorMessage = "Failed to extend job. Please try again."
+
+      if (error.message?.includes("fetch") || error.message?.includes("network") || error.message?.includes("DISCONNECTED")) {
+        errorMessage = "Network connection issue. Please check your connection and try again."
+      } else if (error.message?.includes("JWT") || error.message?.includes("auth")) {
+        errorMessage = "Session expired. Please refresh the page and try again."
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+
+      alert(errorMessage)
+
+      // Reset dialog state on error
+      setExtendingJob(null)
+      setNewTimeline("")
     } finally {
-      setLoading(null)
+      // Smart loading state management
+      if (!updateSucceeded) {
+        setLoading(null)
+      } else {
+        setTimeout(() => {
+          setLoading(null)
+        }, 3000)
+      }
     }
   }
 
@@ -267,16 +334,16 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
 
   return (
     <div className="min-h-screen bg-muted/50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold mb-1 md:mb-2">Manage Jobs</h1>
-          <p className="text-sm md:text-base text-muted-foreground">View and manage your job postings</p>
+      <div className="container mx-auto px-4 py-3">
+        <div className="mb-3">
+          <h1 className="text-xl md:text-2xl font-bold mb-0.5">Manage Jobs</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">View and manage your job postings</p>
         </div>
 
         {/* Bulk Actions Bar */}
         {selectedJobs.length > 0 && (
-          <Card className="mb-4 bg-blue-50 border-blue-200">
-            <CardContent className="p-3 md:p-4">
+          <Card className="mb-3 bg-blue-50 border-blue-200">
+            <CardContent className="p-2 md:p-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center space-x-3">
                   <Checkbox
@@ -313,10 +380,10 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
         )}
 
         {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
+        <Card className="mb-3">
+          <CardHeader className="pb-2 pt-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">Filters</CardTitle>
+              <CardTitle className="text-base">Filters</CardTitle>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="select-all-visible"
@@ -403,12 +470,12 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {filteredJobs.map((job) => {
               const jobStatus = getJobStatus(job)
               return (
                 <Card key={job.id} className={jobStatus.status === "expired" ? "opacity-75" : ""}>
-                  <CardContent className="p-4 md:p-6">
+                  <CardContent className="p-3 md:p-4">
                     <div className="flex items-start space-x-3 md:space-x-4">
                       <div className="pt-1">
                         <Checkbox
@@ -486,13 +553,19 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
                                 <DialogTitle>Extend Job Posting</DialogTitle>
                                 <DialogDescription>
                                   Select a new recruitment timeline to extend "{job.title}" and make it visible on the
-                                  map again.
+                                  map again. Job extensions are free.
                                 </DialogDescription>
                               </DialogHeader>
                               <div className="space-y-4">
                                 <div>
                                   <label className="text-sm font-medium">New Timeline</label>
-                                  <Select value={newTimeline} onValueChange={setNewTimeline}>
+                                  <Select
+                                    value={extendingJob?.id === job.id ? newTimeline : ""}
+                                    onValueChange={(value) => {
+                                      setExtendingJob(job)
+                                      setNewTimeline(value)
+                                    }}
+                                  >
                                     <SelectTrigger>
                                       <SelectValue placeholder="Select timeline" />
                                     </SelectTrigger>
@@ -507,15 +580,18 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
                                 </div>
                               </div>
                               <DialogFooter>
-                                <Button variant="outline" onClick={() => setExtendingJob(null)}>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => {
+                                    setExtendingJob(null)
+                                    setNewTimeline("")
+                                  }}
+                                >
                                   Cancel
                                 </Button>
                                 <Button
-                                  onClick={() => {
-                                    setExtendingJob(job)
-                                    handleExtendJob()
-                                  }}
-                                  disabled={!newTimeline || loading === job.id}
+                                  onClick={() => handleExtendJob(job, newTimeline)}
+                                  disabled={!newTimeline || loading === job.id || extendingJob?.id !== job.id}
                                 >
                                   {loading === job.id ? "Extending..." : "Extend Job"}
                                 </Button>

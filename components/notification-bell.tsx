@@ -31,29 +31,46 @@ export function NotificationBell() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    loadNotifications()
+    const setupRealtimeSubscription = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
 
-    // Set up real-time subscription for new notifications
-    const supabase = createClient()
-    const channel = supabase
-      .channel('notifications')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-        },
-        () => {
-          loadNotifications()
-        }
-      )
-      .subscribe()
+      if (!user) {
+        console.log('[NOTIFICATION-BELL] No user, skipping realtime subscription')
+        setIsLoading(false)
+        return
+      }
 
-    // Cleanup subscription on unmount
-    return () => {
-      supabase.removeChannel(channel)
+      loadNotifications()
+
+      // Set up real-time subscription for new notifications WITH user filter
+      const channel = supabase
+        .channel('notifications_channel')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`, // CRITICAL: Filter by user_id
+          },
+          (payload) => {
+            console.log('[NOTIFICATION-BELL] New notification received:', payload)
+            loadNotifications()
+          }
+        )
+        .subscribe((status) => {
+          console.log('[NOTIFICATION-BELL] Subscription status:', status)
+        })
+
+      // Cleanup subscription on unmount
+      return () => {
+        console.log('[NOTIFICATION-BELL] Cleaning up subscription')
+        supabase.removeChannel(channel)
+      }
     }
+
+    setupRealtimeSubscription()
   }, [])
 
   const loadNotifications = async () => {

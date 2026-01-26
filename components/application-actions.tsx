@@ -84,7 +84,7 @@ export default function ApplicationActions({
             type: "application_status_change",
             title: "Application Status Update",
             message: notificationMessage,
-            link: `/applications/${applicationId}`,
+            link_url: `/applications/${applicationId}`,
             is_read: false,
           })
 

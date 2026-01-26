@@ -508,20 +508,20 @@ export default function CompanyApplicationsManager({ profile, applications: init
 
   return (
     <div className="min-h-screen bg-muted/50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Applications</h1>
-          <p className="text-muted-foreground">
+      <div className="container mx-auto px-4 py-3">
+        <div className="mb-3">
+          <h1 className="text-xl md:text-2xl font-bold mb-0.5">Applications</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">
             Review and manage applications for {profile.company_name} job postings
           </p>
         </div>
 
         {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>Filters</CardTitle>
+        <Card className="mb-3">
+          <CardHeader className="pb-2 pt-3">
+            <CardTitle className="text-base">Filters</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-2">
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1">
                 <div className="relative">

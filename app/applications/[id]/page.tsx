@@ -383,33 +383,33 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
 
   return (
     <div className="min-h-screen bg-muted/50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Button variant="ghost" asChild>
+      <div className="container mx-auto px-4 py-3">
+        <div className="mb-3">
+          <Button variant="ghost" size="sm" asChild>
             <Link href={isJobPoster ? (isJobPosterCompany ? "/dashboard/company" : "/dashboard") : (isCompanyApplicant ? "/dashboard/company" : "/dashboard/professional")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="h-3 w-3 mr-1" />
               Back to Dashboard
             </Link>
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 space-y-3">
             <Card>
-              <CardHeader>
+              <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-4">
-                    <Avatar className="h-16 w-16">
+                  <div className="flex items-start space-x-3">
+                    <Avatar className="h-12 w-12">
                       <AvatarImage
                         src={displayPhotoUrl || "/placeholder.svg"}
                         alt={displayName}
                       />
-                      <AvatarFallback className="text-lg">{displayInitials}</AvatarFallback>
+                      <AvatarFallback className="text-sm">{displayInitials}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <CardTitle className="text-2xl">{displayName}</CardTitle>
-                      <p className="text-lg text-muted-foreground mb-2">{displayTitle}</p>
-                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                      <CardTitle className="text-xl">{displayName}</CardTitle>
+                      <p className="text-sm text-muted-foreground mb-1">{displayTitle}</p>
+                      <div className="flex items-center space-x-3 text-xs text-muted-foreground">
                         <span className="flex items-center">
                           <MapPin className="h-4 w-4 mr-1" />
                           {displayAddress}
@@ -435,16 +435,16 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle>Applied Position</CardTitle>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Applied Position</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="pt-2">
+                <div className="space-y-2">
                   <div>
-                    <h3 className="text-xl font-semibold">{application.jobs.title}</h3>
-                    <p className="text-muted-foreground">{application.jobs.company_profiles.company_name}</p>
+                    <h3 className="text-lg font-semibold">{application.jobs.title}</h3>
+                    <p className="text-sm text-muted-foreground">{application.jobs.company_profiles.company_name}</p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center">
                       <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
                       <span>{application.jobs.location}</span>
@@ -468,14 +468,14 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
 
             {application.cover_letter && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Cover Letter</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Cover Letter</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-2">
                   <Textarea
                     value={application.cover_letter}
                     readOnly
-                    className="min-h-[200px] resize-none bg-muted/50"
+                    className="min-h-[120px] resize-none bg-muted/50 text-sm"
                   />
                 </CardContent>
               </Card>
@@ -483,10 +483,10 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
 
             {cvData && isProfessionalApplicant && application.professional_profiles ? (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center justify-between">
                     <span className="flex items-center">
-                      <FileText className="h-5 w-5 mr-2" />
+                      <FileText className="h-4 w-4 mr-2" />
                       Candidate CV
                     </span>
                     <CVDialog
@@ -502,18 +502,18 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
                     />
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
+                <CardContent className="pt-2">
+                  <div className="space-y-2">
                     {cvData.summary && (
                       <div>
-                        <h4 className="font-medium mb-2">Professional Summary</h4>
-                        <p className="text-sm text-muted-foreground line-clamp-3">{cvData.summary}</p>
+                        <h4 className="text-sm font-medium mb-1">Professional Summary</h4>
+                        <p className="text-xs text-muted-foreground line-clamp-3">{cvData.summary}</p>
                       </div>
                     )}
                     {cvData.workExperience.length > 0 && (
                       <div>
-                        <h4 className="font-medium mb-2">Recent Experience</h4>
-                        <div className="space-y-2">
+                        <h4 className="text-sm font-medium mb-1">Recent Experience</h4>
+                        <div className="space-y-1">
                           {cvData.workExperience.slice(0, 2).map((exp, index) => (
                             <div key={index} className="text-sm">
                               <p className="font-medium">
@@ -533,24 +533,24 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
               </Card>
             ) : isProfessionalApplicant ? (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <FileText className="h-5 w-5 mr-2" />
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center">
+                    <FileText className="h-4 w-4 mr-2" />
                     Candidate CV
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">This candidate has not created a CV yet.</p>
+                <CardContent className="pt-2">
+                  <p className="text-sm text-muted-foreground">This candidate has not created a CV yet.</p>
                 </CardContent>
               </Card>
             ) : null}
 
             {isProfessionalApplicant && application.professional_profiles?.skills && application.professional_profiles.skills.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Skills</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Skills</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-2">
                   <div className="flex flex-wrap gap-2">
                     {application.professional_profiles.skills.map((skill: string) => (
                       <Badge key={skill} variant="outline">
@@ -564,10 +564,10 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
 
             {isCompanyApplicant && application.company_profiles && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Company Information</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Company Information</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="pt-2 space-y-2 text-sm">
                   {application.company_profiles.company_size && (
                     <div>
                       <span className="font-medium">Company Size: </span>
@@ -587,23 +587,23 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-3">
             {isJobPoster && applicantUserId && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <MessageSquare className="h-5 w-5 mr-2" />
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center">
+                    <MessageSquare className="h-4 w-4 mr-2" />
                     Communication
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <Button className="w-full" asChild>
+                <CardContent className="pt-2">
+                  <Button size="sm" className="w-full" asChild>
                     <Link href={`/messages/${applicantUserId}`}>
-                      <MessageSquare className="h-4 w-4 mr-2" />
+                      <MessageSquare className="h-3 w-3 mr-1" />
                       Message Applicant
                     </Link>
                   </Button>
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-muted-foreground mt-1.5">
                     Start a conversation with this applicant about their application.
                   </p>
                 </CardContent>
@@ -612,10 +612,10 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
 
             {isJobPoster && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Application Status</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Application Status</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-2">
                   <ApplicationActions
                     applicationId={id}
                     currentStatus={application.status}
@@ -631,23 +631,23 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
 
             {isJobPoster && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <User className="h-5 w-5 mr-2" />
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center">
+                    <User className="h-4 w-4 mr-2" />
                     Contact Information
                   </CardTitle>
                   {isProfessionalApplicant && !hasPrivacyPermission && (
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Applicant has not shared personal contact information
                     </p>
                   )}
                   {isCompanyApplicant && (
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-muted-foreground mt-0.5">
                       Company contact information
                     </p>
                   )}
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="pt-2 space-y-2 text-sm">
                   <div className="flex items-center">
                     <Mail className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
                     {canSeeEmail ? (
@@ -672,30 +672,30 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
               application.professional_profiles.github_url
             ) && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Links</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Links</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="pt-2 space-y-1.5">
                   {application.professional_profiles.portfolio_url && (
-                    <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
+                    <Button size="sm" variant="outline" className="w-full justify-start bg-transparent text-xs" asChild>
                       <a href={application.professional_profiles.portfolio_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
+                        <ExternalLink className="h-3 w-3 mr-1.5" />
                         Portfolio
                       </a>
                     </Button>
                   )}
                   {application.professional_profiles.linkedin_url && (
-                    <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
+                    <Button size="sm" variant="outline" className="w-full justify-start bg-transparent text-xs" asChild>
                       <a href={application.professional_profiles.linkedin_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
+                        <ExternalLink className="h-3 w-3 mr-1.5" />
                         LinkedIn
                       </a>
                     </Button>
                   )}
                   {application.professional_profiles.github_url && (
-                    <Button variant="outline" className="w-full justify-start bg-transparent" asChild>
+                    <Button size="sm" variant="outline" className="w-full justify-start bg-transparent text-xs" asChild>
                       <a href={application.professional_profiles.github_url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-4 w-4 mr-2" />
+                        <ExternalLink className="h-3 w-3 mr-1.5" />
                         GitHub
                       </a>
                     </Button>
@@ -705,24 +705,24 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
             )}
 
             <Card>
-              <CardHeader>
-                <CardTitle>Application Timeline</CardTitle>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Application Timeline</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <CardContent className="pt-2">
+                <div className="space-y-1.5">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full flex-shrink-0"></div>
                     <div>
-                      <p className="font-medium">Application Submitted</p>
-                      <p className="text-sm text-muted-foreground">{formatDate(application.applied_at)}</p>
+                      <p className="text-sm font-medium">Application Submitted</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(application.applied_at)}</p>
                     </div>
                   </div>
                   {application.status !== "pending" && (
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <div className="flex items-center space-x-2">
+                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full flex-shrink-0"></div>
                       <div>
-                        <p className="font-medium capitalize">Status: {application.status}</p>
-                        <p className="text-sm text-muted-foreground">Updated recently</p>
+                        <p className="text-sm font-medium capitalize">Status: {application.status}</p>
+                        <p className="text-xs text-muted-foreground">Updated recently</p>
                       </div>
                     </div>
                   )}

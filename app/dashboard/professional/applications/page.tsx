@@ -50,22 +50,22 @@ export default async function ProfessionalApplicationsPage() {
 
   return (
     <div className="min-h-screen bg-muted/50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Button variant="ghost" asChild>
+      <div className="container mx-auto px-4 py-3">
+        <div className="mb-3">
+          <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard/professional">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+              <ArrowLeft className="h-3 w-3 mr-1" />
               Back to Dashboard
             </Link>
           </Button>
         </div>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">My Applications</CardTitle>
-            <CardDescription>View and manage your job applications</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl">My Applications</CardTitle>
+            <CardDescription className="text-xs">View and manage your job applications</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-0">
             <ProfessionalApplicationsList applications={applications || []} professionalId={profile.id} />
           </CardContent>
         </Card>
