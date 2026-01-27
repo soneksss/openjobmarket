@@ -184,14 +184,14 @@ export function LocationPicker({
                     Change
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-5xl h-[85vh] flex flex-col">
+                <DialogContent className="max-w-5xl max-h-[75vh] flex flex-col overflow-hidden">
                   <DialogHeader className="flex-shrink-0">
                     <DialogTitle className="text-xl">Choose your location</DialogTitle>
                     <DialogDescription className="pt-2">
                       Click on the map to select your location, or use the "Locate Me" button
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="flex-1 relative min-h-0">
+                  <div className="flex-1 relative min-h-0 overflow-hidden">
                     <LocationMap
                       ref={mapRef}
                       onLocationSelect={handleLocationSelect}
@@ -221,7 +221,7 @@ export function LocationPicker({
                       </Button>
                     </div>
                   </div>
-                  <div className="flex justify-between items-center pt-4 flex-shrink-0">
+                  <div className="flex justify-between items-center pt-4 pb-2 flex-shrink-0 bg-background border-t">
                     <Button variant="outline" onClick={handleCancel}>
                       Cancel
                     </Button>
@@ -255,14 +255,14 @@ export function LocationPicker({
               Choose location on map
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-5xl h-[85vh] flex flex-col">
+          <DialogContent className="max-w-5xl max-h-[75vh] flex flex-col overflow-hidden">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-xl">Choose your location</DialogTitle>
               <DialogDescription className="pt-2">
                 Click on the map to select your location, or use the "Locate Me" button
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 relative min-h-0">
+            <div className="flex-1 relative min-h-0 overflow-hidden">
               <LocationMap
                 ref={mapRef}
                 onLocationSelect={handleLocationSelect}
@@ -292,7 +292,7 @@ export function LocationPicker({
                 </Button>
               </div>
             </div>
-            <div className="flex justify-between items-center pt-4 flex-shrink-0">
+            <div className="flex justify-between items-center pt-4 pb-2 flex-shrink-0 bg-background border-t">
               <Button variant="outline" onClick={handleCancel}>
                 Cancel
               </Button>
@@ -307,14 +307,14 @@ export function LocationPicker({
       {/* Controlled dialog (no trigger button) */}
       {isControlled && (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="max-w-5xl h-[85vh] flex flex-col">
+          <DialogContent className="max-w-5xl max-h-[75vh] flex flex-col overflow-hidden">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-xl">Choose your location</DialogTitle>
               <DialogDescription className="pt-2">
                 Click on the map to select your location, or use the "Locate Me" button
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 relative min-h-0">
+            <div className="flex-1 relative min-h-0 overflow-hidden">
               <LocationMap
                 ref={mapRef}
                 onLocationSelect={handleLocationSelect}
@@ -344,7 +344,7 @@ export function LocationPicker({
                 </Button>
               </div>
             </div>
-            <div className="flex justify-between items-center pt-4 flex-shrink-0">
+            <div className="flex justify-between items-center pt-4 pb-2 flex-shrink-0 bg-background border-t">
               <Button variant="outline" onClick={handleCancel}>
                 Cancel
               </Button>

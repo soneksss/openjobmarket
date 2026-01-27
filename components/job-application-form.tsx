@@ -257,7 +257,7 @@ export default function JobApplicationForm({
       console.log("[v0] Applicant ID:", userProfile.id)
       console.log("[v0] Cover letter length:", coverLetter?.length || 0)
       console.log("[v0] Share personal info:", sharePersonalInfo)
-      console.log("[v0] Attach CV (UI only):", attachCV)
+      console.log("[v0] Attach CV:", attachCV, "| Has CV:", hasCV)
 
       // Check application limit (only for professionals/homeowners, not companies)
       if (!isCompanyApplicant) {
@@ -318,6 +318,22 @@ export default function JobApplicationForm({
         applicationData.company_id = userProfile.id
       } else {
         applicationData.professional_id = userProfile.id
+
+        // Record CV attachment status for professionals
+        if (attachCV && hasCV) {
+          // Fetch the CV source (builder or upload) from professional_profiles
+          const { data: profileData } = await supabase
+            .from("professional_profiles")
+            .select("cv_source")
+            .eq("id", userProfile.id)
+            .single()
+
+          applicationData.cv_type_used = profileData?.cv_source || 'builder'
+          console.log("[v0] CV will be attached. Type:", applicationData.cv_type_used)
+        } else {
+          applicationData.cv_type_used = 'none'
+          console.log("[v0] CV will NOT be attached")
+        }
       }
 
       console.log("[v0] Application data to insert:", applicationData)
@@ -386,7 +402,7 @@ export default function JobApplicationForm({
       console.log("[v0] Resetting form state")
       setCoverLetter("")
       setSharePersonalInfo(false)
-      setAttachCV(false)
+      setAttachCV(true) // Reset to default (checked)
       onApplicationSubmitted()
       onClose?.()
       console.log("[v0] Job application process completed successfully")
@@ -632,6 +648,45 @@ export default function JobApplicationForm({
                   </div>
                 </CardContent>
               </Card>
+              )}
+
+              {/* CV Attachment Section - Only for professionals with CV */}
+              {!isCompany && hasCV && (
+                <Card className="border-2 border-green-200 bg-green-50/50">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-lg flex items-center">
+                      <FileText className="h-5 w-5 mr-2 text-green-600" />
+                      Attach CV
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className={`flex items-start space-x-4 p-4 rounded-lg border-2 transition-all ${
+                      attachCV
+                        ? 'bg-green-100 border-green-400'
+                        : 'bg-white border-gray-300'
+                    }`}>
+                      <Checkbox
+                        id="attachCV"
+                        checked={attachCV}
+                        onCheckedChange={(checked) => setAttachCV(checked as boolean)}
+                        className="h-6 w-6 mt-1 bg-white border-2 border-gray-400 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="attachCV" className="text-base font-semibold cursor-pointer text-gray-900 flex items-center gap-2">
+                          Attach my CV to this application
+                          {attachCV && (
+                            <Badge variant="default" className="bg-green-600 text-white text-xs">
+                              ✓ CV will be attached
+                            </Badge>
+                          )}
+                        </Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Your CV will be shared with the employer to help them better understand your qualifications and experience.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
               )}
 
               {/* Cover Letter Section */}

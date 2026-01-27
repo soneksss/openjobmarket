@@ -104,6 +104,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   // Ref to track processed restoration URLs (prevent infinite loop)
   const processedRestorationRef = useRef<string | null>(null)
 
+  // AbortController to cancel ongoing searches when a new search is triggered
+  const searchAbortControllerRef = useRef<AbortController | null>(null)
+
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([])
@@ -684,6 +687,23 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
   const handleSearch = async (type: "vacancies" | "jobs_tasks" | "talents" | "traders") => {
     console.log(`[MAIN-PAGE-SEARCH] handleSearch called with type: ${type}`)
+
+    // CRITICAL: Prevent duplicate searches - if search is already running, ignore this call
+    if (isSearching) {
+      console.log('[MAIN-PAGE-SEARCH] ⚠️ Search already in progress, ignoring duplicate search request')
+      return
+    }
+
+    // Cancel any previous ongoing search
+    if (searchAbortControllerRef.current) {
+      console.log('[MAIN-PAGE-SEARCH] 🛑 Cancelling previous search')
+      searchAbortControllerRef.current.abort()
+      searchAbortControllerRef.current = null
+    }
+
+    // Create new AbortController for this search
+    searchAbortControllerRef.current = new AbortController()
+    console.log('[MAIN-PAGE-SEARCH] 🔄 Created new AbortController for search')
 
     // CRITICAL: Skip auth checks during search restoration or if user is already logged in
     if (isRestoringSearch) {
@@ -1749,6 +1769,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       // Ensure loading state is reset even on error
       alert(t('mainSearch.searchFailed'))
     } finally {
+      // Clean up AbortController
+      if (searchAbortControllerRef.current) {
+        console.log('[MAIN-PAGE-SEARCH] 🧹 Cleaning up AbortController')
+        searchAbortControllerRef.current = null
+      }
       setIsSearching(false)
       console.log(`[MAIN-PAGE-SEARCH] Search completed, isSearching set to false`)
     }
@@ -2742,6 +2767,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         <Dialog open={isSearching} onOpenChange={(open) => {
           // Allow closing if user clicks outside (safety mechanism if search gets stuck)
           if (!open) {
+            // Cancel ongoing search
+            if (searchAbortControllerRef.current) {
+              console.log('[MAIN-PAGE-SEARCH] 🛑 User cancelled search, aborting')
+              searchAbortControllerRef.current.abort()
+              searchAbortControllerRef.current = null
+            }
             setIsSearching(false)
             setSearchProgress("")
             setSearchResultCount(0)
@@ -2986,7 +3017,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             onModalClose={() => {
               console.log('[MAIN-PAGE-SEARCH] Modal closing, current isSearching:', isSearching)
               setShowMapModal(false)
-              // Ensure isSearching is reset when modal closes
+              // Cancel ongoing search and ensure isSearching is reset when modal closes
+              if (searchAbortControllerRef.current) {
+                console.log('[MAIN-PAGE-SEARCH] 🛑 Modal closed, aborting search')
+                searchAbortControllerRef.current.abort()
+                searchAbortControllerRef.current = null
+              }
               setIsSearching(false)
               setSearchProgress("")
               setSearchResultCount(0)

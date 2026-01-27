@@ -55,10 +55,20 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
     setIsLoading(true)
     setError(null)
 
+    console.log("[HOMEOWNER-JOB-FORM] Starting job submission...")
+
+    // Timeout protection - automatically reset loading after 30 seconds
+    const timeoutId = setTimeout(() => {
+      console.error("[HOMEOWNER-JOB-FORM] Submission timeout after 30 seconds")
+      setIsLoading(false)
+      setError("Request timed out. Please check your connection and try again.")
+    }, 30000)
+
     const supabase = createClient()
 
     // Validation
     if (!formData.title || !formData.description || !formData.category || !formData.location) {
+      clearTimeout(timeoutId)
       setError("Please fill in all required fields")
       setIsLoading(false)
       return
@@ -88,17 +98,38 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
         .insert(jobData)
 
       if (insertError) {
-        console.error("Insert error:", insertError)
+        clearTimeout(timeoutId)
+        console.error("[HOMEOWNER-JOB-FORM] Insert error:", insertError)
         throw insertError
       }
 
-      // Redirect to homeowner dashboard
-      router.push("/dashboard/homeowner")
-      router.refresh()
+      console.log("[HOMEOWNER-JOB-FORM] Job posted successfully")
+      clearTimeout(timeoutId)
+
+      // Reset loading before redirect
+      setIsLoading(false)
+
+      // Redirect to homeowner dashboard with error handling
+      console.log("[HOMEOWNER-JOB-FORM] Redirecting to dashboard...")
+
+      setTimeout(() => {
+        try {
+          router.push("/dashboard/homeowner")
+        } catch (pushError) {
+          console.error("[HOMEOWNER-JOB-FORM] Router push failed:", pushError)
+          // Fallback to direct navigation
+          window.location.href = "/dashboard/homeowner"
+        }
+      }, 1000)
     } catch (err: any) {
-      console.error("Job posting error:", err)
+      clearTimeout(timeoutId)
+      console.error("[HOMEOWNER-JOB-FORM] Job posting error:", err)
       setError(err.message || "Failed to post job")
+      setIsLoading(false)
     } finally {
+      // Ensure timeout is always cleared
+      clearTimeout(timeoutId)
+      // Always ensure loading state is reset
       setIsLoading(false)
     }
   }

@@ -91,6 +91,13 @@ export function HomeownerApplicationActions({
         // Don't fail the entire operation if rejecting others fails
       }
 
+      // Get contractor's user_id for messaging
+      const { data: contractorData } = await supabase
+        .from("professional_profiles")
+        .select("user_id")
+        .eq("id", contractorId)
+        .single()
+
       toast({
         title: "✅ Contractor Accepted",
         description: `${contractorName} has been accepted for this job.`,
@@ -98,16 +105,28 @@ export function HomeownerApplicationActions({
 
       setShowAcceptDialog(false)
 
-      // Use setTimeout to ensure toast is visible before refresh
+      console.log("[HOMEOWNER-ACTIONS] Acceptance successful, opening messages...")
+
+      // Use setTimeout to ensure toast is visible before navigation
       setTimeout(() => {
         try {
-          router.refresh()
-        } catch (refreshError) {
-          console.error("[HOMEOWNER-ACTIONS] Router refresh failed:", refreshError)
-          // Fallback to reload if router.refresh() fails
-          window.location.reload()
+          if (contractorData?.user_id) {
+            router.push(`/messages/${contractorData.user_id}`)
+          } else {
+            // Fallback to refresh if we can't get user_id
+            console.error("[HOMEOWNER-ACTIONS] No user_id found for contractor")
+            router.refresh()
+          }
+        } catch (pushError) {
+          console.error("[HOMEOWNER-ACTIONS] Router push failed:", pushError)
+          // Fallback to direct navigation
+          if (contractorData?.user_id) {
+            window.location.href = `/messages/${contractorData.user_id}`
+          } else {
+            window.location.reload()
+          }
         }
-      }, 1000)
+      }, 1500)
     } catch (error: any) {
       console.error("[HOMEOWNER-ACTIONS] Error accepting contractor:", error)
 

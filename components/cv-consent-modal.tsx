@@ -136,23 +136,23 @@ export default function CVConsentModal({
           </div>
 
           {/* Consent checkbox */}
-          <div className="flex items-start space-x-2 sm:space-x-3 pt-3 sm:pt-4 border-t">
+          <div className="flex items-start space-x-2 sm:space-x-3 pt-3 sm:pt-4 border-t bg-slate-50 p-3 sm:p-4 rounded-lg border border-slate-200">
             <Checkbox
               id="consent"
               checked={consentGiven}
               onCheckedChange={(checked) => setConsentGiven(checked as boolean)}
-              className="mt-0.5 sm:mt-1"
+              className="mt-0.5 sm:mt-1 border-2 border-blue-600 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 w-5 h-5 sm:w-6 sm:h-6"
             />
             <div className="flex-1">
               <label
                 htmlFor="consent"
-                className="text-xs sm:text-sm font-medium leading-tight cursor-pointer flex items-center gap-1 sm:gap-2"
+                className="text-xs sm:text-sm font-semibold leading-tight cursor-pointer flex items-center gap-1 sm:gap-2 text-gray-900"
               >
                 {t('cv.consent.consentText')}
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <InfoIcon className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                      <InfoIcon className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs text-xs">
                       <p>{t('cv.consent.tooltip')}</p>

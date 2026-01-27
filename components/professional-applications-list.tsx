@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -52,6 +52,37 @@ export default function ProfessionalApplicationsList({
   const router = useRouter()
   const supabase = createClient()
   const [withdrawingId, setWithdrawingId] = useState<string | null>(null)
+
+  // Set up realtime subscription for application status changes
+  useEffect(() => {
+    console.log('[PROF-APPLICATIONS] Setting up realtime subscription for professional:', professionalId)
+
+    const channel = supabase
+      .channel('professional_applications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'job_applications',
+          filter: `professional_id=eq.${professionalId}`,
+        },
+        (payload) => {
+          console.log('[PROF-APPLICATIONS] Application updated via realtime:', payload)
+          // Refresh the page data when an application is updated
+          router.refresh()
+        }
+      )
+      .subscribe((status) => {
+        console.log('[PROF-APPLICATIONS] Subscription status:', status)
+      })
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[PROF-APPLICATIONS] Cleaning up subscription')
+      supabase.removeChannel(channel)
+    }
+  }, [professionalId, router, supabase])
 
   const getStatusColor = (status: string) => {
     switch (status) {

@@ -151,17 +151,30 @@ export default function ApplicationActions({
         }
       }
 
-      // Use router.refresh() instead of window.location.reload() for better error handling
-      // Wait a bit before refreshing to ensure toast is visible
-      setTimeout(() => {
-        try {
-          router.refresh()
-        } catch (refreshError) {
-          console.error("[APPLICATION-ACTIONS] Router refresh failed:", refreshError)
-          // Fallback to reload if router.refresh() fails
-          window.location.reload()
-        }
-      }, 1500)
+      // If accepting, navigate to messages to discuss details
+      if (newStatus === "accepted") {
+        console.log("[APPLICATION-ACTIONS] Acceptance successful, opening messages...")
+        setTimeout(() => {
+          try {
+            // Navigate to messages with the applicant
+            router.push(`/messages/${professionalUserId}`)
+          } catch (pushError) {
+            console.error("[APPLICATION-ACTIONS] Router push failed:", pushError)
+            // Fallback to direct navigation
+            window.location.href = `/messages/${professionalUserId}`
+          }
+        }, 1500)
+      } else {
+        // For other status changes, just refresh
+        setTimeout(() => {
+          try {
+            router.refresh()
+          } catch (refreshError) {
+            console.error("[APPLICATION-ACTIONS] Router refresh failed:", refreshError)
+            window.location.reload()
+          }
+        }, 1500)
+      }
     } catch (error: any) {
       console.error("[APPLICATION-ACTIONS] Error updating status:", error)
 

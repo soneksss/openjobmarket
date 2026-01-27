@@ -102,6 +102,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [locationChoice, setLocationChoice] = useState<"myLocation" | "differentLocation" | null>(null)
 
   // Tag input states
   const [skillInput, setSkillInput] = useState("")
@@ -279,8 +280,17 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         // Salary is optional, no validation needed
         break
       case 5:
+        const hasProfileLocation = companyProfile?.latitude && companyProfile?.longitude
+
+        // If user has profile location but hasn't made a choice yet
+        if (hasProfileLocation && !locationChoice) {
+          setErr("Please choose whether this job is at your location or a different location.")
+          return false
+        }
+
+        // Ensure location coordinates are set
         if (!formData.locationCoords) {
-          setErr("Please select a location on the map. This is mandatory for job postings.")
+          setErr("Please select a location. This is mandatory for job postings.")
           return false
         }
         break
@@ -303,11 +313,20 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
     if (!validateStep(5)) return
 
     setLoading(true)
+    console.log("[VACANCY-FORM] Starting vacancy submission...")
+
+    // Timeout protection - automatically reset loading after 30 seconds
+    const timeoutId = setTimeout(() => {
+      console.error("[VACANCY-FORM] Submission timeout after 30 seconds")
+      setLoading(false)
+      setErr("Request timed out. Please check your connection and try again.")
+    }, 30000)
 
     try {
       // Check subscription limits
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
+        clearTimeout(timeoutId)
         setErr("Authentication required.")
         setLoading(false)
         return
@@ -317,13 +336,15 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         .rpc("can_user_post_job", { user_id_param: user.id })
 
       if (checkError) {
-        console.error("Error checking job posting permission:", checkError)
+        clearTimeout(timeoutId)
+        console.error("[VACANCY-FORM] Error checking job posting permission:", checkError)
         setErr("Failed to verify posting permissions.")
         setLoading(false)
         return
       }
 
       if (!canPost.can_post) {
+        clearTimeout(timeoutId)
         if (canPost.reason === 'no_subscription') {
           setErr("You need an active subscription to post jobs. Please visit the Subscription page.")
           setLoading(false)
@@ -390,12 +411,13 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         created_at: new Date().toISOString(),
       }
 
-      console.log("[Vacancy Form] Submitting vacancy:", payload)
+      console.log("[VACANCY-FORM] Submitting vacancy:", payload)
 
       const { data, error } = await supabase.from("jobs").insert(payload).select().limit(1).single()
 
       if (error) {
-        console.error("Insert vacancy error:", error)
+        clearTimeout(timeoutId)
+        console.error("[VACANCY-FORM] Insert vacancy error:", error)
         setErr(error.message)
         setLoading(false)
         return
@@ -408,10 +430,13 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
       })
 
       if (incrementError) {
-        console.error("Error incrementing subscription usage:", incrementError)
+        console.error("[VACANCY-FORM] Error incrementing subscription usage:", incrementError)
         // Don't fail the whole operation, job is already posted
         // Just log the error
       }
+
+      console.log("[VACANCY-FORM] Vacancy posted successfully:", data)
+      clearTimeout(timeoutId)
 
       // Show success toast and redirect
       toast({
@@ -423,14 +448,25 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
       // Reset loading before redirect
       setLoading(false)
 
+      console.log("[VACANCY-FORM] Redirecting to dashboard...")
+
       setTimeout(() => {
-        router.push("/dashboard/company")
-        router.refresh()
+        try {
+          router.push("/dashboard/company")
+        } catch (pushError) {
+          console.error("[VACANCY-FORM] Router push failed:", pushError)
+          // Fallback to direct navigation
+          window.location.href = "/dashboard/company"
+        }
       }, 1000)
     } catch (err: any) {
-      console.error("Unexpected error during vacancy submission:", err)
+      clearTimeout(timeoutId)
+      console.error("[VACANCY-FORM] Unexpected error during vacancy submission:", err)
       setErr(err?.message || "Unexpected error occurred. Please try again.")
+      setLoading(false)
     } finally {
+      // Ensure timeout is always cleared
+      clearTimeout(timeoutId)
       // Always ensure loading state is reset
       setLoading(false)
     }
@@ -966,37 +1002,120 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         )
 
       case 5:
+        const hasProfileLocation = companyProfile?.latitude && companyProfile?.longitude
+
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Job Location</h3>
             <p className="text-sm text-gray-600">
-              <span className="text-red-500">*</span> Select where the job is located. For remote jobs, you can set your company's location.
+              <span className="text-red-500">*</span> Select where the job is located.
             </p>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Location on Map <span className="text-red-500">*</span>
-              </label>
-              <MapLocationPicker
-                value={formData.locationCoords ? {
-                  latitude: formData.locationCoords.lat,
-                  longitude: formData.locationCoords.lon,
-                  address: formData.fullAddress
-                } : null}
-                onChange={handleMapLocationSelect}
-                height="400px"
-                placeholder="Click on the map to select the job location (mandatory)"
-              />
-              {formData.locationCoords && (
-                <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-800 font-medium">✓ Location selected</p>
-                  <p className="text-sm text-green-700">{formData.fullAddress}</p>
-                  <p className="text-xs text-green-600 mt-1">
-                    Coordinates: {formData.locationCoords.lat.toFixed(4)}, {formData.locationCoords.lon.toFixed(4)}
-                  </p>
+            {/* Location Choice Radio Buttons */}
+            {hasProfileLocation && (
+              <div className="space-y-3 mb-6">
+                <label className="block text-sm font-medium mb-2">Is this job at your location?</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <label
+                    className={`flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      locationChoice === "myLocation"
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                        : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="locationChoice"
+                      checked={locationChoice === "myLocation"}
+                      onChange={() => {
+                        setLocationChoice("myLocation")
+                        // Auto-populate from profile
+                        if (companyProfile?.latitude && companyProfile?.longitude) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            locationCoords: {
+                              lat: companyProfile.latitude,
+                              lon: companyProfile.longitude
+                            },
+                            fullAddress: companyProfile.location || "",
+                            city: companyProfile.location?.split(',')[0]?.trim() || "",
+                            country: "United Kingdom"
+                          }))
+                        }
+                      }}
+                      className="mr-2"
+                    />
+                    <span className="font-medium">Yes, at my location</span>
+                  </label>
+
+                  <label
+                    className={`flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      locationChoice === "differentLocation"
+                        ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
+                        : "border-gray-200 hover:border-orange-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="locationChoice"
+                      checked={locationChoice === "differentLocation"}
+                      onChange={() => {
+                        setLocationChoice("differentLocation")
+                        // Clear location so user must select on map
+                        setFormData((prev) => ({
+                          ...prev,
+                          locationCoords: null,
+                          fullAddress: "",
+                          city: "",
+                          country: ""
+                        }))
+                      }}
+                      className="mr-2"
+                    />
+                    <span className="font-medium">No, different location</span>
+                  </label>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Show location confirmation if "myLocation" selected */}
+            {locationChoice === "myLocation" && hasProfileLocation && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-800 font-medium mb-1">✓ Using your company location:</p>
+                <p className="text-sm text-green-700">{companyProfile.location || "Location set from your profile"}</p>
+                <p className="text-xs text-green-600 mt-1">
+                  Coordinates: {companyProfile.latitude.toFixed(4)}, {companyProfile.longitude.toFixed(4)}
+                </p>
+              </div>
+            )}
+
+            {/* Show map picker if "differentLocation" selected OR no profile location */}
+            {(locationChoice === "differentLocation" || !hasProfileLocation) && (
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Location on Map <span className="text-red-500">*</span>
+                </label>
+                <MapLocationPicker
+                  value={formData.locationCoords ? {
+                    latitude: formData.locationCoords.lat,
+                    longitude: formData.locationCoords.lon,
+                    address: formData.fullAddress
+                  } : null}
+                  onChange={handleMapLocationSelect}
+                  height="400px"
+                  placeholder="Click on the map to select the job location (mandatory)"
+                />
+                {formData.locationCoords && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                    <p className="text-sm text-green-800 font-medium">✓ Location selected</p>
+                    <p className="text-sm text-green-700">{formData.fullAddress}</p>
+                    <p className="text-xs text-green-600 mt-1">
+                      Coordinates: {formData.locationCoords.lat.toFixed(4)}, {formData.locationCoords.lon.toFixed(4)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
 

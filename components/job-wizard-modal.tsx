@@ -291,6 +291,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [locationChoice, setLocationChoice] = useState<"myLocation" | "differentLocation" | null>(null)
 
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -504,8 +505,17 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         }
         break
       case 4:
+        const hasProfileLocation = companyProfile?.latitude && companyProfile?.longitude
+
+        // If user has profile location but hasn't made a choice yet
+        if (hasProfileLocation && !locationChoice) {
+          setErr("Please choose whether this job is at your location or a different location.")
+          return false
+        }
+
+        // Ensure location coordinates are set
         if (!formData.locationCoords) {
-          setErr("Please select a location on the map. This is mandatory.")
+          setErr("Please select a location. This is mandatory.")
           return false
         }
         break
@@ -533,11 +543,20 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
     if (!validateStep(4)) return
 
     setLoading(true)
+    console.log("[JOB-WIZARD] Starting job submission...")
+
+    // Timeout protection - automatically reset loading after 30 seconds
+    const timeoutId = setTimeout(() => {
+      console.error("[JOB-WIZARD] Submission timeout after 30 seconds")
+      setLoading(false)
+      setErr("Request timed out. Please check your connection and try again.")
+    }, 30000)
 
     try {
       // Check subscription limits
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
+        clearTimeout(timeoutId)
         setErr("Authentication required.")
         setLoading(false)
         return
@@ -547,13 +566,15 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         .rpc("can_user_post_job", { user_id_param: user.id })
 
       if (checkError) {
-        console.error("Error checking job posting permission:", checkError)
+        clearTimeout(timeoutId)
+        console.error("[JOB-WIZARD] Error checking job posting permission:", checkError)
         setErr("Failed to verify posting permissions.")
         setLoading(false)
         return
       }
 
       if (!canPost.can_post) {
+        clearTimeout(timeoutId)
         if (canPost.reason === 'no_subscription') {
           setErr("You need an active subscription to post jobs. Please visit the Subscription page.")
           setLoading(false)
@@ -661,8 +682,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
       const { data, error } = await supabase.from("jobs").insert(payload).select().limit(1).single()
 
       if (error) {
-        console.error("[Job Wizard] Insert job error:", error)
-        console.error("[Job Wizard] Error details:", {
+        clearTimeout(timeoutId)
+        console.error("[JOB-WIZARD] Insert job error:", error)
+        console.error("[JOB-WIZARD] Error details:", {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -673,7 +695,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         return
       }
 
-      console.log("[Job Wizard] Job posted successfully:", data)
+      console.log("[JOB-WIZARD] Job posted successfully:", data)
+      clearTimeout(timeoutId)
 
       // Show success toast notification
       toast({
@@ -685,13 +708,29 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
       // Reset loading state before redirect
       setLoading(false)
 
-      // Redirect to dashboard
+      // Redirect to dashboard with error handling
       const defaultRedirect = userType === "company" ? "/dashboard/company" : "/dashboard/homeowner"
-      router.push(redirectPath || defaultRedirect)
+      const redirectUrl = redirectPath || defaultRedirect
+
+      console.log("[JOB-WIZARD] Redirecting to:", redirectUrl)
+
+      setTimeout(() => {
+        try {
+          router.push(redirectUrl)
+        } catch (pushError) {
+          console.error("[JOB-WIZARD] Router push failed:", pushError)
+          // Fallback to direct navigation
+          window.location.href = redirectUrl
+        }
+      }, 1000)
     } catch (err: any) {
-      console.error("[Job Wizard] Unexpected error:", err)
+      clearTimeout(timeoutId)
+      console.error("[JOB-WIZARD] Unexpected error:", err)
       setErr(err?.message || "An unexpected error occurred. Please try again.")
+      setLoading(false)
     } finally {
+      // Ensure timeout is always cleared
+      clearTimeout(timeoutId)
       // Always reset loading state, regardless of success or failure
       setLoading(false)
     }
@@ -1100,44 +1139,125 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         )
 
       case 4:
+        const hasProfileLocation = companyProfile?.latitude && companyProfile?.longitude
+
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">Location</h3>
             <p className="text-sm text-gray-600">
-              <span className="text-red-500">*</span> You must select a location on the map. This is mandatory.
+              <span className="text-red-500">*</span> You must select a location. This is mandatory.
             </p>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">Full Address (optional)</label>
-              <input
-                type="text"
-                value={formData.fullAddress}
-                onChange={(e) => setFormData((prev) => ({ ...prev, fullAddress: e.target.value }))}
-                className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
-                placeholder="Enter full street address (optional)"
-              />
-            </div>
+            {/* Location Choice Radio Buttons */}
+            {hasProfileLocation && (
+              <div className="space-y-3 mb-6">
+                <label className="block text-sm font-medium mb-2">Is this job at your location?</label>
+                <div className="grid grid-cols-2 gap-4">
+                  <label
+                    className={`flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      locationChoice === "myLocation"
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                        : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="locationChoice"
+                      checked={locationChoice === "myLocation"}
+                      onChange={() => {
+                        setLocationChoice("myLocation")
+                        // Auto-populate from profile
+                        if (companyProfile?.latitude && companyProfile?.longitude) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            locationCoords: {
+                              lat: companyProfile.latitude,
+                              lon: companyProfile.longitude
+                            },
+                            fullAddress: companyProfile.location || ""
+                          }))
+                        }
+                      }}
+                      className="mr-2"
+                    />
+                    <span className="font-medium">Yes, at my location</span>
+                  </label>
 
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Location on Map <span className="text-red-500">*</span>
-              </label>
-              <MapLocationPicker
-                value={formData.locationCoords ? {
-                  latitude: formData.locationCoords.lat,
-                  longitude: formData.locationCoords.lon,
-                  address: formData.fullAddress
-                } : null}
-                onChange={handleMapLocationSelect}
-                height="400px"
-                placeholder="Click on the map to select your job location (mandatory)"
-              />
-              {formData.locationCoords && (
-                <p className="text-sm text-green-600 mt-2">
-                  ✓ Location selected: {formData.locationCoords.lat.toFixed(4)}, {formData.locationCoords.lon.toFixed(4)}
+                  <label
+                    className={`flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                      locationChoice === "differentLocation"
+                        ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
+                        : "border-gray-200 hover:border-orange-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="locationChoice"
+                      checked={locationChoice === "differentLocation"}
+                      onChange={() => {
+                        setLocationChoice("differentLocation")
+                        // Clear location so user must select on map
+                        setFormData((prev) => ({
+                          ...prev,
+                          locationCoords: null,
+                          fullAddress: ""
+                        }))
+                      }}
+                      className="mr-2"
+                    />
+                    <span className="font-medium">No, different location</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* Show location confirmation if "myLocation" selected */}
+            {locationChoice === "myLocation" && hasProfileLocation && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-800 font-medium mb-1">✓ Using your business location:</p>
+                <p className="text-sm text-green-700">{companyProfile.location || "Location set from your profile"}</p>
+                <p className="text-xs text-green-600 mt-1">
+                  Coordinates: {companyProfile.latitude.toFixed(4)}, {companyProfile.longitude.toFixed(4)}
                 </p>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Show map picker if "differentLocation" selected OR no profile location */}
+            {(locationChoice === "differentLocation" || !hasProfileLocation) && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Full Address (optional)</label>
+                  <input
+                    type="text"
+                    value={formData.fullAddress}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, fullAddress: e.target.value }))}
+                    className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4"
+                    placeholder="Enter full street address (optional)"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Location on Map <span className="text-red-500">*</span>
+                  </label>
+                  <MapLocationPicker
+                    value={formData.locationCoords ? {
+                      latitude: formData.locationCoords.lat,
+                      longitude: formData.locationCoords.lon,
+                      address: formData.fullAddress
+                    } : null}
+                    onChange={handleMapLocationSelect}
+                    height="400px"
+                    placeholder="Click on the map to select your job location (mandatory)"
+                  />
+                  {formData.locationCoords && (
+                    <p className="text-sm text-green-600 mt-2">
+                      ✓ Location selected: {formData.locationCoords.lat.toFixed(4)}, {formData.locationCoords.lon.toFixed(4)}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Job Summary */}
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
