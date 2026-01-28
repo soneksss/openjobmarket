@@ -1310,8 +1310,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               message: t('mainSearch.searchFailed') || 'Search failed. Please try again.'
             })
           }
-          setIsSearching(false)
-          return
+          // DON'T call setIsSearching(false) here or return - let finally block handle cleanup
+          // This ensures AbortController is always cleaned up properly
         }
 
         if (!error && data) {
@@ -1660,8 +1660,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               message: t('mainSearch.searchFailed') || 'Search failed. Please try again.'
             })
           }
-          setIsSearching(false)
-          return
+          // DON'T call setIsSearching(false) or return here - let finally block handle cleanup
+          // This ensures AbortController is always cleaned up and UI state is always reset
         }
 
         if (!error && data) {

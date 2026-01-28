@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
@@ -221,18 +222,46 @@ export default function FloatingMessageModal({
     }
   }, [isDragging, dragStart.x, dragStart.y])
 
-  if (!isOpen) return null
+  // Debug: Log when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      console.log('[FLOATING-MODAL] ✅ Modal component mounted and isOpen=true')
+      console.log('[FLOATING-MODAL] Props:', { recipientId, recipientName, userId, conversationId })
+    }
+  }, [isOpen])
 
-  return (
-    <div
-      className={`fixed bottom-32 right-4 z-[9999] bg-white rounded-lg shadow-2xl border-2 border-blue-500 ${
-        minimized ? 'w-64 h-14' : 'w-96 h-[500px]'
-      }`}
-      style={{
-        transform: `translate(${position.x}px, ${position.y}px)`,
-        transition: isDragging ? 'none' : 'width 0.2s, height 0.2s'
-      }}
-    >
+  if (!isOpen) {
+    console.log('[FLOATING-MODAL] ❌ Not rendering - isOpen is false')
+    return null
+  }
+
+  console.log('[FLOATING-MODAL] 🎨 Rendering modal...')
+  console.log('[FLOATING-MODAL] 🌐 Using React Portal to render at document.body')
+  console.log('[FLOATING-MODAL] 📱 Responsive positioning: Mobile (10vh top, 95vw width) | Desktop (15vh top, 384px width)')
+
+  // Use portal to render at document root, bypassing z-index stacking issues
+  if (typeof window === 'undefined') return null
+
+  const modalContent = (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[99998]"
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div
+        className={`fixed z-[99999] bg-white rounded-lg shadow-2xl border-2 border-blue-500 flex flex-col
+          ${minimized ? 'w-64 h-14' : 'w-[95vw] sm:w-96 max-h-[85vh]'}
+          top-[10vh] left-1/2 -translate-x-1/2
+          sm:top-[15vh]
+        `}
+        style={{
+          transform: `translate(calc(-50% + ${position.x}px), ${position.y}px)`,
+          transition: isDragging ? 'none' : 'width 0.2s, height 0.2s'
+        }}
+      >
       {/* Header - Draggable */}
       <div
         className="flex items-center justify-between p-3 border-b bg-gradient-to-r from-blue-50 to-blue-100 cursor-move select-none"
@@ -276,7 +305,7 @@ export default function FloatingMessageModal({
       {/* Body - only show when not minimized */}
       {!minimized && (
         <>
-          <div className="p-4 overflow-y-auto bg-gray-50" style={{ height: 'calc(100% - 140px)' }}>
+          <div className="p-4 overflow-y-auto bg-gray-50 flex-1" style={{ minHeight: '150px', maxHeight: 'calc(85vh - 180px)' }}>
             {messageSent ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
@@ -319,6 +348,9 @@ export default function FloatingMessageModal({
           </div>
         </>
       )}
-    </div>
+      </div>
+    </>
   )
+
+  return createPortal(modalContent, document.body)
 }

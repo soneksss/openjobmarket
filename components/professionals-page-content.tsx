@@ -223,6 +223,15 @@ export default function ProfessionalsPageContent({
     conversationId: string
   } | null>(null)
 
+  // Debug: Log message modal state changes
+  useEffect(() => {
+    console.log('[PROFESSIONALS-PAGE] 📬 Message modal state changed:', messageModal)
+    if (messageModal?.isOpen) {
+      console.log('[PROFESSIONALS-PAGE] ✅ Message modal should now be visible')
+      console.log('[PROFESSIONALS-PAGE] User available?', !!user, user?.id)
+    }
+  }, [messageModal])
+
   // Banner state
   const [isBannerDismissed, setIsBannerDismissed] = useState(false)
 
@@ -538,6 +547,8 @@ export default function ProfessionalsPageContent({
       .eq('id', profileId)
       .single()
 
+    let isCompany = false
+
     // If not found, try company_profiles
     if (error || !data) {
       console.log('[DEBUG] Not found in professional_profiles, trying company_profiles')
@@ -549,6 +560,7 @@ export default function ProfessionalsPageContent({
 
       data = companyResult.data
       error = companyResult.error
+      isCompany = true
     }
 
     if (error || !data) {
@@ -556,7 +568,14 @@ export default function ProfessionalsPageContent({
       return
     }
 
-    // Open the modal with the profile data
+    // If it's a company profile, navigate to company page instead of opening modal
+    if (isCompany || ('company_name' in data && data.company_name)) {
+      console.log('[DEBUG] Navigating to company profile page for user_id:', data.user_id)
+      router.push(`/company/${data.user_id}`)
+      return
+    }
+
+    // For professional profiles, open the modal with the profile data
     setViewProfileData(data)
     setViewProfileModalId(profileId)
   }
@@ -1262,6 +1281,13 @@ export default function ProfessionalsPageContent({
                                   />
                                 )
                               }
+                              // Determine item type and contact permission
+                              const isItemProfessional = 'first_name' in item
+                              const isItemCompany = 'company_name' in item
+                              // Anyone can contact companies that are open for business
+                              // Only employers and tradespeople can contact professionals
+                              const canContact = (isItemCompany && item.open_for_business) || userType === "company" || userType === "contractor"
+
                               return (
                               <Card
                                 key={item.id}
@@ -1416,9 +1442,14 @@ export default function ProfessionalsPageContent({
                                             className="h-8 w-8 p-0"
                                             onClick={(e) => {
                                               e.stopPropagation()
-                                              handleSendInquiry(item.id, isEmployer ? `${item.first_name} ${item.last_name}` : item.company_name)
+                                              if (canContact) {
+                                                const name = isItemProfessional
+                                                  ? `${item.first_name} ${item.last_name}`
+                                                  : item.company_name
+                                                handleSendInquiry(item.id, name)
+                                              }
                                             }}
-                                            disabled={sendingMessage === item.id}
+                                            disabled={!canContact || sendingMessage === item.id}
                                           >
                                             <MessageCircle className="h-3 w-3" />
                                           </Button>
@@ -1434,6 +1465,15 @@ export default function ProfessionalsPageContent({
                                           </Button>
                                         </div>
                                       </div>
+
+                                      {/* Permission explanation if contact is disabled (collapsed state) */}
+                                      {user && !canContact && (
+                                        <p className="text-[10px] text-muted-foreground text-center mt-2">
+                                          {isItemCompany
+                                            ? "This company is not currently accepting inquiries"
+                                            : "Only employers and tradespeople can contact professionals"}
+                                        </p>
+                                      )}
 
                                       {/* Extended details - only show when selected */}
                                       {isSelected && (
@@ -1665,9 +1705,14 @@ export default function ProfessionalsPageContent({
                                                 className="flex-1"
                                                 onClick={(e) => {
                                                   e.stopPropagation()
-                                                  handleSendInquiry(item.id, `${item.first_name} ${item.last_name}`)
+                                                  if (canContact) {
+                                                    const name = isItemProfessional
+                                                      ? `${item.first_name} ${item.last_name}`
+                                                      : item.company_name
+                                                    handleSendInquiry(item.id, name)
+                                                  }
                                                 }}
-                                                disabled={sendingMessage === item.id}
+                                                disabled={!canContact || sendingMessage === item.id}
                                               >
                                                 <MessageCircle className="h-4 w-4 mr-2" />
                                                 Contact
@@ -1683,6 +1728,15 @@ export default function ProfessionalsPageContent({
                                                 View Profile
                                               </Button>
                                             </div>
+
+                                            {/* Permission explanation if contact is disabled (expanded state) */}
+                                            {user && !canContact && (
+                                              <p className="text-xs text-muted-foreground text-center mt-2">
+                                                {isItemCompany
+                                                  ? "This company is not currently accepting inquiries"
+                                                  : "Only employers and tradespeople can contact professionals"}
+                                              </p>
+                                            )}
                                           </div>
                                         </div>
                                       )}
@@ -1924,10 +1978,23 @@ export default function ProfessionalsPageContent({
       )}
 
       {/* Floating Message Modal */}
+      {(() => {
+        console.log('[PROFESSIONALS-PAGE] Modal render check:', {
+          messageModalExists: !!messageModal,
+          messageModalIsOpen: messageModal?.isOpen,
+          userExists: !!user,
+          userId: user?.id,
+          shouldRender: messageModal?.isOpen && user
+        })
+        return null
+      })()}
       {messageModal?.isOpen && user && (
         <FloatingMessageModal
           isOpen={messageModal.isOpen}
-          onClose={() => setMessageModal(null)}
+          onClose={() => {
+            console.log('[PROFESSIONALS-PAGE] Closing message modal')
+            setMessageModal(null)
+          }}
           recipientId={messageModal.recipientId}
           recipientName={messageModal.recipientName}
           conversationId={messageModal.conversationId}
@@ -2546,69 +2613,97 @@ export default function ProfessionalsPageContent({
                             </div>
 
                             {/* Show expanded details */}
-                            {isExpanded && (
-                              <div className="space-y-3 pt-2 border-t border-gray-100">
-                                {item.bio && (
-                                  <div>
-                                    <h5 className="font-semibold text-xs mb-1">About</h5>
-                                    <p className="text-xs text-gray-700">{item.bio}</p>
-                                  </div>
-                                )}
+                            {isExpanded && (() => {
+                              const isItemProfessional = 'first_name' in item
+                              const isItemCompany = 'company_name' in item
+                              // Anyone can contact companies that are open for business
+                              // Only employers and tradespeople can contact professionals
+                              const canContact = (isItemCompany && item.open_for_business) || userType === "company" || userType === "contractor"
 
-                                {item.skills && item.skills.length > 0 && (
-                                  <div>
-                                    <h5 className="font-semibold text-xs mb-1.5">Skills</h5>
-                                    <div className="flex flex-wrap gap-1.5">
-                                      {item.skills.map((skill: string, idx: number) => (
-                                        <Badge key={idx} variant="secondary" className="text-xs">
-                                          {skill}
-                                        </Badge>
-                                      ))}
+                              return (
+                                <div className="space-y-3 pt-2 border-t border-gray-100">
+                                  {item.bio && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1">About</h5>
+                                      <p className="text-xs text-gray-700">{item.bio}</p>
                                     </div>
-                                  </div>
-                                )}
+                                  )}
 
-                                {(item.salary_min || item.salary_max) && (
-                                  <div>
-                                    <h5 className="font-semibold text-xs mb-1">Expected Salary</h5>
-                                    <p className="text-xs text-green-600 font-medium">
-                                      {item.salary_min && item.salary_max
-                                        ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
-                                        : item.salary_min
-                                        ? `From £${item.salary_min.toLocaleString()}`
-                                        : `Up to £${item.salary_max?.toLocaleString()}`}
-                                    </p>
-                                  </div>
-                                )}
+                                  {item.skills && item.skills.length > 0 && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1.5">Skills</h5>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {item.skills.map((skill: string, idx: number) => (
+                                          <Badge key={idx} variant="secondary" className="text-xs">
+                                            {skill}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
 
-                                {user && (
-                                  <>
-                                    <Button
-                                      className="w-full bg-blue-600 hover:bg-blue-700 text-xs py-2"
-                                      disabled={userType !== "company" && userType !== "contractor"}
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        if (userType === "company" || userType === "contractor") {
-                                          handleSendInquiry(item.id, isEmployer ? `${item.first_name} ${item.last_name}` : item.company_name)
-                                        }
-                                      }}
-                                    >
-                                      <MessageCircle className="h-3 w-3 mr-2" />
-                                      Send Message
-                                    </Button>
-                                    {userType !== "company" && userType !== "contractor" && (
-                                      <p className="text-xs text-muted-foreground text-center mt-1">
-                                        Only employers and tradespeople can contact professionals
+                                  {(item.salary_min || item.salary_max) && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1">Expected Salary</h5>
+                                      <p className="text-xs text-green-600 font-medium">
+                                        {item.salary_min && item.salary_max
+                                          ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
+                                          : item.salary_min
+                                          ? `From £${item.salary_min.toLocaleString()}`
+                                          : `Up to £${item.salary_max?.toLocaleString()}`}
                                       </p>
-                                    )}
-                                  </>
-                                )}
+                                    </div>
+                                  )}
 
-                                <p className="text-xs text-blue-500 text-center">
-                                  Tap to collapse
-                                </p>
-                              </div>
-                            )}
+                                  {/* Action Buttons */}
+                                  {user && (
+                                    <div className="flex gap-2">
+                                      <Button
+                                        variant="outline"
+                                        className="flex-1 text-xs py-2"
+                                        disabled={!canContact}
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          if (canContact) {
+                                            handleSendInquiry(
+                                              item.id,
+                                              isItemProfessional
+                                                ? `${item.first_name} ${item.last_name}`
+                                                : item.company_name
+                                            )
+                                          }
+                                        }}
+                                      >
+                                        <MessageCircle className="h-3 w-3 mr-2" />
+                                        Message
+                                      </Button>
+                                      <Button
+                                        className="flex-1 text-xs py-2"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleViewProfile(item.id)
+                                        }}
+                                      >
+                                        <UserIcon className="h-3 w-3 mr-2" />
+                                        View Profile
+                                      </Button>
+                                    </div>
+                                  )}
+
+                                  {user && !canContact && (
+                                    <p className="text-xs text-muted-foreground text-center">
+                                      {isItemCompany
+                                        ? "This company is not currently accepting inquiries"
+                                        : "Only employers and tradespeople can contact professionals"}
+                                    </p>
+                                  )}
+
+                                  <p className="text-xs text-blue-500 text-center">
+                                    Tap to collapse
+                                  </p>
+                                </div>
+                              )
+                            })()}
 
                             {!isExpanded && (
                               <p className="text-xs text-blue-500 text-center">
@@ -2898,7 +2993,15 @@ export default function ProfessionalsPageContent({
                               </div>
 
                               {/* Extended details - only show when selected */}
-                              {isSelected && (
+                              {isSelected && (() => {
+                                // Determine item type and contact permission
+                                const isItemProfessional = 'first_name' in item
+                                const isItemCompany = 'company_name' in item
+                                // Anyone can contact companies that are open for business
+                                // Only employers and tradespeople can contact professionals
+                                const canContact = (isItemCompany && item.open_for_business) || userType === "company" || userType === "contractor"
+
+                                return (
                                 <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
                                   {/* Full Bio - Only if longer than preview */}
                                   {item.bio && item.bio.length > 100 && (
@@ -3084,12 +3187,14 @@ export default function ProfessionalsPageContent({
                                         className="flex-1"
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          const name = isProfessional
-                                            ? `${item.first_name} ${item.last_name}`
-                                            : item.company_name
-                                          handleSendInquiry(item.id, name)
+                                          if (canContact) {
+                                            const name = isItemProfessional
+                                              ? `${item.first_name} ${item.last_name}`
+                                              : item.company_name
+                                            handleSendInquiry(item.id, name)
+                                          }
                                         }}
-                                        disabled={sendingMessage === item.id}
+                                        disabled={!canContact || sendingMessage === item.id}
                                       >
                                         <MessageCircle className="h-4 w-4 mr-2" />
                                         Contact
@@ -3105,9 +3210,19 @@ export default function ProfessionalsPageContent({
                                         View Profile
                                       </Button>
                                     </div>
+
+                                    {/* Permission explanation if contact is disabled */}
+                                    {user && !canContact && (
+                                      <p className="text-xs text-muted-foreground text-center mt-2">
+                                        {isItemCompany
+                                          ? "This company is not currently accepting inquiries"
+                                          : "Only employers and tradespeople can contact professionals"}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
-                              )}
+                                )
+                              })()}
                             </div>
                           </div>
                         </div>

@@ -41,8 +41,8 @@ import { ReviewsList } from "./reviews-list"
 interface ProfessionalProfile {
   id: string
   user_id: string
-  first_name: string
-  last_name: string
+  first_name?: string
+  last_name?: string
   nickname?: string
   title: string
   bio: string
@@ -119,7 +119,7 @@ export default function ProfessionalDetailView({ professional, user, userType, i
   useEffect(() => {
     console.log("[PROFESSIONAL-DETAIL-VIEW] Component loaded:", {
       professionalId: professional.id,
-      professionalName: `${professional.first_name} ${professional.last_name}`,
+      professionalName: `${professional.first_name || ''}${professional.last_name ? ' ' + professional.last_name : ''}`,
       userId: user?.id,
       userType,
       isEmployer,
@@ -201,7 +201,7 @@ export default function ProfessionalDetailView({ professional, user, userType, i
     }
   }
 
-  const displayName = professional.nickname || `${professional.first_name} ${professional.last_name.charAt(0)}.`
+  const displayName = professional.nickname || `${professional.first_name || ''}${professional.last_name ? ' ' + professional.last_name.charAt(0) + '.' : ''}`
   const salaryDisplay = formatSalary(professional.salary_min, professional.salary_max)
 
   return (
@@ -233,7 +233,7 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                     <Avatar className="h-20 w-20 ring-2 ring-blue-100">
                       <AvatarImage src={professional.profile_photo_url} alt={displayName} />
                       <AvatarFallback className="bg-blue-50 text-blue-600 font-medium text-2xl">
-                        {professional.first_name.charAt(0)}{professional.last_name.charAt(0)}
+                        {professional.first_name?.charAt(0) || ''}{professional.last_name?.charAt(0) || ''}
                       </AvatarFallback>
                     </Avatar>
                     <div className="space-y-2">
@@ -632,7 +632,7 @@ export default function ProfessionalDetailView({ professional, user, userType, i
           isOpen={showMessageModal}
           onClose={() => setShowMessageModal(false)}
           professionalId={professional.id}
-          professionalName={`${professional.first_name} ${professional.last_name}`}
+          professionalName={`${professional.first_name || ''}${professional.last_name ? ' ' + professional.last_name : ''}`}
           user={user}
         />
       )}

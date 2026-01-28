@@ -166,6 +166,68 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
       .substring(0, 2)
   }
 
+  // Format address to compact format: "Street, City Postcode, Country"
+  const formatAddress = (address: string) => {
+    if (!address) return ''
+
+    // Split by comma and remove empty parts
+    const parts = address.split(',').map(p => p.trim()).filter(Boolean)
+
+    if (parts.length === 0) return address
+
+    // Extract key components
+    const street = parts[0] // First part is usually the street
+    let city = ''
+    let postcode = ''
+    let country = parts[parts.length - 1] // Last part is usually country
+
+    // Find postcode (UK format: letters + numbers)
+    const postcodeRegex = /\b[A-Z]{1,2}\d{1,2}\s?\d[A-Z]{2}\b/i
+    const postcodeMatch = address.match(postcodeRegex)
+    if (postcodeMatch) {
+      postcode = postcodeMatch[0]
+    }
+
+    // Find main city name (look for "London", "Manchester", etc. - not borough names)
+    const cityKeywords = ['London', 'Manchester', 'Birmingham', 'Leeds', 'Liverpool', 'Bristol', 'Sheffield', 'Edinburgh', 'Glasgow', 'Cardiff']
+    for (const part of parts) {
+      for (const keyword of cityKeywords) {
+        if (part.includes(keyword) && !part.includes('Borough') && !part.includes('Greater')) {
+          city = keyword
+          break
+        }
+      }
+      if (city) break
+    }
+
+    // If no city found, use second part (after street)
+    if (!city && parts.length > 1) {
+      city = parts[1]
+    }
+
+    // Shorten country names
+    const countryShort: { [key: string]: string } = {
+      'United Kingdom': 'UK',
+      'United States': 'USA',
+      'United States of America': 'USA'
+    }
+    country = countryShort[country] || country
+
+    // Build compact address
+    let compact = street
+    if (city) {
+      compact += `, ${city}`
+    }
+    if (postcode) {
+      compact += ` ${postcode}`
+    }
+    if (country && country !== city) {
+      compact += `, ${country}`
+    }
+
+    return compact
+  }
+
   return (
     <div className={isModal ? "" : "min-h-screen bg-gradient-to-b from-gray-50 to-white"}>
       {/* Header */}
@@ -184,57 +246,53 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
         </div>
       )}
 
-      <div className={isModal ? "px-4 py-8 max-w-5xl" : "container mx-auto px-4 py-8 max-w-5xl"}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={isModal ? "px-4 py-4 max-w-5xl" : "container mx-auto px-4 py-4 max-w-5xl"}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             {/* Company Header Card */}
             <Card>
-              <CardContent className="p-6">
-                <div className="flex items-start gap-6">
-                  <Avatar className="w-24 h-24 ring-4 ring-gray-100">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-4">
+                  <Avatar className="w-16 h-16 ring-2 ring-gray-100 flex-shrink-0">
                     <AvatarImage src={company.logo_url} alt={company.company_name} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-2xl font-bold">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-xl font-bold">
                       {getCompanyInitials()}
                     </AvatarFallback>
                   </Avatar>
 
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h1 className="text-3xl font-bold text-gray-900 mb-1">
-                          {company.company_name}
-                        </h1>
-                        <p className="text-lg text-gray-600 mb-2">{company.industry}</p>
-                      </div>
-                    </div>
+                  <div className="flex-1 min-w-0">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                      {company.company_name}
+                    </h1>
+                    <p className="text-sm text-gray-600 mb-2">{company.industry}</p>
 
-                    <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        {company.location}
+                    <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                        <span className="truncate">{formatAddress(company.location)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Users className="h-4 w-4" />
+                      <div className="flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5" />
                         {company.company_size}
                       </div>
                       {company.service_24_7 && (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800">
-                          24/7 Service
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs py-0">
+                          24/7
                         </Badge>
                       )}
                       {activeJobs.length > 0 && (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 flex items-center gap-1">
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 flex items-center gap-1 text-xs py-0">
                           <Sparkles className="h-3 w-3" />
-                          We're Hiring
+                          Hiring
                         </Badge>
                       )}
                     </div>
-                    <div className="mt-3">
+                    <div className="mt-2">
                       <RatingDisplay
                         rating={company.average_rating || 0}
                         reviewsCount={company.reviews_count || 0}
-                        size="md"
+                        size="sm"
                       />
                     </div>
                   </div>
@@ -244,14 +302,14 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
 
             {/* About Company */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  About {company.company_name}
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Building2 className="h-4 w-4" />
+                  About
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+              <CardContent className="pt-0">
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
                   {company.description || "No description provided."}
                 </p>
               </CardContent>
@@ -260,16 +318,16 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
             {/* Languages */}
             {company.spoken_languages && company.spoken_languages.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Globe2 className="h-5 w-5" />
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Globe2 className="h-4 w-4" />
                     Languages
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
+                <CardContent className="pt-0">
+                  <div className="flex flex-wrap gap-1.5">
                     {company.spoken_languages.map((lang) => (
-                      <Badge key={lang} variant="secondary">
+                      <Badge key={lang} variant="secondary" className="text-xs">
                         {lang}
                       </Badge>
                     ))}
@@ -281,16 +339,16 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
             {/* Services */}
             {company.services && company.services.length > 0 && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5" />
-                    Services Offered
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Briefcase className="h-4 w-4" />
+                    Services
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2">
+                <CardContent className="pt-0">
+                  <div className="flex flex-wrap gap-1.5">
                     {company.services.map((service) => (
-                      <Badge key={service} variant="secondary" className="text-sm">
+                      <Badge key={service} variant="secondary" className="text-xs">
                         {service}
                       </Badge>
                     ))}
@@ -302,14 +360,14 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
             {/* Price List */}
             {company.price_list && (
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    Price List
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <DollarSign className="h-4 w-4" />
+                    Pricing
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                <CardContent className="pt-0">
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
                     {company.price_list}
                   </div>
                 </CardContent>
@@ -318,72 +376,71 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
 
             {/* Active Job Openings */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Briefcase className="h-5 w-5" />
-                  Active Job Openings
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Briefcase className="h-4 w-4" />
+                  Job Openings
                   {activeJobs.length > 0 && (
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 ml-2">
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 ml-auto text-xs">
                       {activeJobs.length}
                     </Badge>
                   )}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 {loadingJobs ? (
-                  <div className="space-y-4">
-                    {[1, 2, 3].map((i) => (
+                  <div className="space-y-2">
+                    {[1, 2].map((i) => (
                       <div key={i} className="animate-pulse">
-                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                        <div className="h-3 bg-gray-200 rounded w-3/4 mb-1"></div>
+                        <div className="h-2 bg-gray-200 rounded w-1/2"></div>
                       </div>
                     ))}
                   </div>
                 ) : activeJobs.length > 0 ? (
-                  <div className="space-y-4">
+                  <div className="space-y-2">
                     {activeJobs.map((job) => (
                       <Link
                         key={job.id}
                         href={`/jobs/${job.id}`}
-                        className="block p-4 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-md transition-all group"
+                        className="block p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-sm transition-all group"
                       >
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mb-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mb-1 truncate">
                               {job.title}
                             </h3>
-                            <div className="flex flex-wrap gap-3 text-sm text-gray-600">
+                            <div className="flex flex-wrap gap-2 text-xs text-gray-600">
                               <div className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3" />
-                                {job.location}
+                                <MapPin className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{job.location}</span>
                               </div>
                               <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                Posted {new Date(job.created_at).toLocaleDateString('en-GB', {
+                                <Clock className="h-3 w-3 flex-shrink-0" />
+                                {new Date(job.created_at).toLocaleDateString('en-GB', {
                                   day: 'numeric',
-                                  month: 'short',
-                                  year: 'numeric'
+                                  month: 'short'
                                 })}
                               </div>
                             </div>
                           </div>
-                          <ExternalLink className="h-4 w-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0" />
+                          <ExternalLink className="h-3.5 w-3.5 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0" />
                         </div>
                       </Link>
                     ))}
                     {activeJobs.length === 5 && (
                       <Link
                         href="/jobs"
-                        className="block text-center text-blue-600 hover:text-blue-700 font-medium py-2"
+                        className="block text-center text-sm text-blue-600 hover:text-blue-700 font-medium py-1"
                       >
-                        View All Openings →
+                        View All →
                       </Link>
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <Briefcase className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                    <p>No active job openings at this time</p>
+                  <div className="text-center py-6 text-gray-500">
+                    <Briefcase className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                    <p className="text-sm">No active openings</p>
                   </div>
                 )}
               </CardContent>
@@ -400,17 +457,18 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Contact Card */}
             {!isOwnProfile && (
               <Card>
-                <CardHeader>
-                  <CardTitle>Contact</CardTitle>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Contact</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="pt-0">
                   <Button
                     onClick={handleContactClick}
                     className="w-full bg-blue-600 hover:bg-blue-700"
+                    size="sm"
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />
                     Send Message
@@ -421,49 +479,49 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
 
             {/* Company Info */}
             <Card>
-              <CardHeader>
-                <CardTitle>Company Information</CardTitle>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Information</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="pt-0 space-y-3">
                 <div>
-                  <div className="text-sm text-gray-500 mb-1">Industry</div>
-                  <div className="font-medium">{company.industry}</div>
+                  <div className="text-xs text-gray-500 mb-0.5">Industry</div>
+                  <div className="text-sm font-medium">{company.industry}</div>
                 </div>
 
                 <div>
-                  <div className="text-sm text-gray-500 mb-1">Company Size</div>
-                  <div className="font-medium">{company.company_size}</div>
+                  <div className="text-xs text-gray-500 mb-0.5">Size</div>
+                  <div className="text-sm font-medium">{company.company_size}</div>
                 </div>
 
                 <div>
-                  <div className="text-sm text-gray-500 mb-1">Location</div>
-                  <div className="font-medium flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-400" />
-                    {company.location}
+                  <div className="text-xs text-gray-500 mb-0.5">Location</div>
+                  <div className="text-sm font-medium flex items-start gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
+                    <span className="break-words">{formatAddress(company.location)}</span>
                   </div>
                 </div>
 
                 {company.website_url && (
                   <div>
-                    <div className="text-sm text-gray-500 mb-1">Website</div>
+                    <div className="text-xs text-gray-500 mb-0.5">Website</div>
                     <a
                       href={company.website_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium text-blue-600 hover:underline flex items-center gap-2"
+                      className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1.5 break-all"
                     >
-                      <Globe className="h-4 w-4" />
-                      Visit Website
+                      <Globe className="h-3.5 w-3.5 flex-shrink-0" />
+                      <span className="truncate">Visit Website</span>
                     </a>
                   </div>
                 )}
 
                 <div>
-                  <div className="text-sm text-gray-500 mb-1">Member Since</div>
-                  <div className="font-medium flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-400" />
+                  <div className="text-xs text-gray-500 mb-0.5">Member Since</div>
+                  <div className="text-sm font-medium flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-gray-400" />
                     {new Date(company.created_at).toLocaleDateString('en-GB', {
-                      month: 'long',
+                      month: 'short',
                       year: 'numeric'
                     })}
                   </div>
