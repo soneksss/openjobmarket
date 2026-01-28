@@ -101,11 +101,9 @@ export default function MultiStepSignup() {
   const searchParams = useSearchParams()
   const { t, locale } = useTranslation()
 
-  // Locale-aware onboarding URL
+  // Locale-aware dashboard URL
   const isOnBrRoute = locale === 'pt-BR'
-  const onboardingUrl = isOnBrRoute
-    ? '/onboarding?locale=pt-BR&returnUrl=/br'
-    : '/onboarding'
+  const dashboardUrl = '/dashboard'
 
   // Helper to create locale-aware paths
   const getLocalePath = (path: string) => {
@@ -251,9 +249,26 @@ export default function MultiStepSignup() {
       return false
     }
 
-    // Location is required for Jobseekers and Tradespeople
-    const requiresLocation = signupData.roles.jobseeker || signupData.roles.tradespeople
-    if (requiresLocation && (!signupData.latitude || !signupData.longitude)) {
+    // Professional title is required for Jobseekers
+    if (signupData.roles.jobseeker && !signupData.title) {
+      setError(t('signup.enterProfessionalTitle') || 'Please enter your professional title')
+      return false
+    }
+
+    // Industry is required for Employers
+    if (signupData.roles.employer && !signupData.industry) {
+      setError(t('signup.enterIndustry') || 'Please enter your industry')
+      return false
+    }
+
+    // Trade is required for Tradespeople
+    if (signupData.roles.tradespeople && (!signupData.services || signupData.services.length === 0 || !signupData.services[0])) {
+      setError(t('signup.enterTrade') || 'Please enter your trade or service')
+      return false
+    }
+
+    // Location is required for all user types
+    if (!signupData.latitude || !signupData.longitude) {
       setError(t('signup.selectLocationRequired'))
       return false
     }
@@ -312,7 +327,12 @@ export default function MultiStepSignup() {
             nickname: signupData.nickname || null,
             company_name: signupData.companyName,
 
-            // Contact and location (only if provided in Step 3)
+            // Professional fields
+            title: signupData.title || null,
+            industry: signupData.industry || null,
+            trade: signupData.services[0] || null,
+
+            // Contact and location
             phone: signupData.phone || null,
             location: signupData.location || null,
             latitude: signupData.latitude,
@@ -336,8 +356,8 @@ export default function MultiStepSignup() {
           : `/auth/verify-email?email=${encodeURIComponent(signupData.email)}`
         router.push(verifyEmailUrl)
       } else {
-        // Email auto-confirmed (rare case), redirect to onboarding to complete profile
-        router.push(onboardingUrl)
+        // Email auto-confirmed (rare case), redirect to dashboard
+        router.push(dashboardUrl)
       }
     } catch (err: any) {
       console.error("Signup error:", err)
@@ -651,7 +671,7 @@ export default function MultiStepSignup() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="firstName" className="font-semibold">{t('signup.firstNameLabel')}</Label>
+                      <Label htmlFor="firstName" className="font-semibold">{t('signup.firstNameLabel')} <span className="text-red-500">*</span></Label>
                       <Input
                         id="firstName"
                         value={signupData.firstName}
@@ -662,7 +682,7 @@ export default function MultiStepSignup() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="lastName" className="font-semibold">{t('signup.lastNameLabel')}</Label>
+                      <Label htmlFor="lastName" className="font-semibold">{t('signup.lastNameLabel')} <span className="text-red-500">*</span></Label>
                       <Input
                         id="lastName"
                         value={signupData.lastName}
@@ -673,6 +693,26 @@ export default function MultiStepSignup() {
                       />
                     </div>
                   </div>
+
+                  {/* Professional Title - Required for Jobseekers */}
+                  {signupData.roles.jobseeker && (
+                    <div>
+                      <Label htmlFor="title" className="font-semibold">
+                        {t('signup.professionalTitleLabel') || 'Professional Title'} <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="title"
+                        value={signupData.title}
+                        onChange={(e) => updateSignupData({ title: e.target.value })}
+                        placeholder={t('signup.professionalTitlePlaceholder') || 'e.g. Software Engineer, Plumber, Nurse'}
+                        required
+                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('signup.professionalTitleHint') || 'Your job title or profession'}
+                      </p>
+                    </div>
+                  )}
 
                   {/* Nickname field - Optional */}
                   <div>
@@ -692,17 +732,53 @@ export default function MultiStepSignup() {
                   </div>
                 </>
               ) : (
-                <div>
-                  <Label htmlFor="companyName" className="font-semibold">{t('signup.companyNameLabel')}</Label>
-                  <Input
-                    id="companyName"
-                    value={signupData.companyName}
-                    onChange={(e) => updateSignupData({ companyName: e.target.value })}
-                    placeholder={t('signup.companyNamePlaceholder')}
-                    required
-                    className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
-                  />
-                </div>
+                <>
+                  <div>
+                    <Label htmlFor="companyName" className="font-semibold">{t('signup.companyNameLabel')} <span className="text-red-500">*</span></Label>
+                    <Input
+                      id="companyName"
+                      value={signupData.companyName}
+                      onChange={(e) => updateSignupData({ companyName: e.target.value })}
+                      placeholder={t('signup.companyNamePlaceholder')}
+                      required
+                      className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                    />
+                  </div>
+
+                  {/* Industry - Required for Employers */}
+                  {signupData.roles.employer && (
+                    <div>
+                      <Label htmlFor="industry" className="font-semibold">
+                        {t('signup.industryLabel') || 'Industry'} <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="industry"
+                        value={signupData.industry}
+                        onChange={(e) => updateSignupData({ industry: e.target.value })}
+                        placeholder={t('signup.industryPlaceholder') || 'e.g. Technology, Healthcare, Construction'}
+                        required
+                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                      />
+                    </div>
+                  )}
+
+                  {/* Trade - Required for Tradespeople */}
+                  {signupData.roles.tradespeople && (
+                    <div>
+                      <Label htmlFor="trade" className="font-semibold">
+                        {t('signup.tradeLabel') || 'Trade/Service'} <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="trade"
+                        value={signupData.services[0] || ''}
+                        onChange={(e) => updateSignupData({ services: [e.target.value] })}
+                        placeholder={t('signup.tradePlaceholder') || 'e.g. Plumbing, Electrical, Carpentry'}
+                        required
+                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                      />
+                    </div>
+                  )}
+                </>
               )}
 
               <div>
@@ -756,59 +832,39 @@ export default function MultiStepSignup() {
                 />
               </div>
 
-              {/* Location picker - Required for Jobseekers and Tradespeople, Optional for Homeowners and Employers */}
-              <div>
-                {(signupData.roles.jobseeker || signupData.roles.tradespeople) ? (
-                  <div className="space-y-2">
-                    <Label className="font-semibold">
-                      {t('signup.yourLocation')}
-                    </Label>
-                    <MapLocationPicker
-                      value={
-                        signupData.latitude && signupData.longitude
-                          ? {
-                              latitude: signupData.latitude,
-                              longitude: signupData.longitude,
-                              address: signupData.location
-                            }
-                          : null
-                      }
-                      onChange={(location) => {
-                        if (location) {
-                          updateSignupData({
-                            latitude: location.latitude,
-                            longitude: location.longitude,
-                            location: location.address
-                          })
-                        } else {
-                          updateSignupData({
-                            latitude: null,
-                            longitude: null,
-                            location: ""
-                          })
+              {/* Location picker - Required for all user types */}
+              <div className="space-y-2">
+                <Label className="font-semibold">
+                  {t('signup.yourLocation')} <span className="text-red-500">*</span>
+                </Label>
+                <MapLocationPicker
+                  value={
+                    signupData.latitude && signupData.longitude
+                      ? {
+                          latitude: signupData.latitude,
+                          longitude: signupData.longitude,
+                          address: signupData.location
                         }
-                      }}
-                      height="350px"
-                      placeholder={t('signup.mapPlaceholder')}
-                    />
-                  </div>
-                ) : (signupData.roles.homeowner || signupData.roles.employer) ? (
-                  <div className="space-y-2">
-                    <Label className="font-semibold">
-                      {t('signup.locationOptional')}
-                      <span className="text-xs text-muted-foreground ml-2">
-                        {t('signup.locationHint')}
-                      </span>
-                    </Label>
-                    <Input
-                      id="location"
-                      value={signupData.location}
-                      onChange={(e) => updateSignupData({ location: e.target.value })}
-                      placeholder={t('signup.locationPlaceholderOptional')}
-                      className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
-                    />
-                  </div>
-                ) : null}
+                      : null
+                  }
+                  onChange={(location) => {
+                    if (location) {
+                      updateSignupData({
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                        location: location.address
+                      })
+                    } else {
+                      updateSignupData({
+                        latitude: null,
+                        longitude: null,
+                        location: ""
+                      })
+                    }
+                  }}
+                  height="350px"
+                  placeholder={t('signup.mapPlaceholder')}
+                />
               </div>
 
               {/* Age Confirmation - Required for Jobseekers and Homeowners */}

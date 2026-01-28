@@ -30,17 +30,22 @@ export default async function DashboardPage() {
   const { data: userData, error: userError } = await supabase.from("users").select("user_type").eq("id", user.id).single()
 
   if (!userData || userError) {
-    // If user data is not found, clear auth and redirect to home
-    console.log("[v0] User data not found for authenticated user, clearing auth")
-    await supabase.auth.signOut()
-    redirect("/")
+    // User is authenticated but hasn't completed profile - redirect to home where they can browse
+    console.log("[DASHBOARD] User data not found for authenticated user, redirecting to home")
+    redirect("/?complete_profile=true")
   }
 
   if (userData.user_type === "professional") {
     redirect("/dashboard/professional")
   } else if (userData.user_type === "company") {
     redirect("/dashboard/company")
+  } else if (userData.user_type === "homeowner") {
+    redirect("/dashboard/homeowner")
+  } else if (userData.user_type === "contractor") {
+    redirect("/dashboard/contractor")
   } else {
-    redirect("/onboarding")
+    // User is authenticated but hasn't set user type - redirect to home where they can browse
+    console.log("[DASHBOARD] User type not set, redirecting to home")
+    redirect("/?complete_profile=true")
   }
 }

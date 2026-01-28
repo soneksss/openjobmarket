@@ -442,10 +442,10 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
               <AlertTriangle className="h-5 w-5" />
               {t('accountDeletion.finalTitle')}
             </AlertDialogTitle>
-            <AlertDialogDescription>
-              <div className="space-y-4">
-                <div>{t('accountDeletion.finalMessage')}</div>
-                <div className="font-semibold text-foreground">{t('accountDeletion.finalWarning')}</div>
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-muted-foreground">
+                <p className="mb-4">{t('accountDeletion.finalMessage')}</p>
+                <p className="font-semibold text-foreground">{t('accountDeletion.finalWarning')}</p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

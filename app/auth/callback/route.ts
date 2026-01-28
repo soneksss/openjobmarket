@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 
         if (profileError) {
           console.log("[v0] Auth callback - error creating profile:", profileError)
-          // Continue anyway - user can complete profile in onboarding
+          // Continue anyway - user can edit profile later in settings
         } else {
           console.log("[v0] Auth callback - profile creation result:", profileResult)
         }
@@ -43,8 +43,8 @@ export async function GET(request: NextRequest) {
           .single()
 
         if (userError) {
-          console.log("[v0] Auth callback - user not found in users table, redirecting to onboarding")
-          return NextResponse.redirect(`${origin}/onboarding`)
+          console.log("[v0] Auth callback - user not found in users table, redirecting to dashboard")
+          return NextResponse.redirect(`${origin}/dashboard`)
         }
 
         // Role-based redirects using database function for consistent routing
@@ -94,8 +94,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${origin}/dashboard/professional`)
 
           default:
-            console.log("[v0] Auth callback - unknown role, redirecting to onboarding")
-            return NextResponse.redirect(`${origin}/onboarding`)
+            console.log("[v0] Auth callback - unknown role, redirecting to dashboard")
+            return NextResponse.redirect(`${origin}/dashboard`)
         }
       }
     } catch (error) {

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Briefcase, MapPin, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Search, TrendingUp, Info, Filter, Upload, Hammer, Building } from "lucide-react"
+import { Briefcase, MapPin, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Search, TrendingUp, Info, Filter, Upload, Hammer, Building, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect } from "react"
@@ -108,9 +108,11 @@ interface ProfessionalDashboardProps {
   hasCV: boolean
   accountTypeLabel: string
   canPostTradeJobs?: boolean
+  isProfileComplete?: boolean
+  missingFields?: string[]
 }
 
-export default function ProfessionalDashboard({ user, profile, applications, savedJobs, postedTradeJobs = [], hasCV, accountTypeLabel, canPostTradeJobs = false }: ProfessionalDashboardProps) {
+export default function ProfessionalDashboard({ user, profile, applications, savedJobs, postedTradeJobs = [], hasCV, accountTypeLabel, canPostTradeJobs = false, isProfileComplete = true, missingFields = [] }: ProfessionalDashboardProps) {
   const { t, locale } = useTranslation()
 
   console.log("[PROFESSIONAL-DASHBOARD] Component received profile:", {
@@ -724,8 +726,44 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
     }
   }
 
+  // Helper function to get user-friendly field names
+  const getFieldDisplayName = (field: string): string => {
+    const fieldNames: Record<string, string> = {
+      first_name: "First Name",
+      last_name: "Last Name",
+      title: "Professional Title",
+      location: "Location",
+      bio: "Bio",
+    }
+    return fieldNames[field] || field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Incomplete Profile Banner */}
+      {!isProfileComplete && missingFields.length > 0 && (
+        <div className="bg-amber-50 border-b border-amber-200">
+          <div className="container mx-auto px-3 sm:px-4 md:px-6 py-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-medium text-amber-800">
+                    Complete your profile to unlock all features
+                  </p>
+                  <p className="text-sm text-amber-700 mt-0.5">
+                    Missing: {missingFields.map(f => getFieldDisplayName(f)).join(", ")}
+                  </p>
+                </div>
+              </div>
+              <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white" asChild>
+                <Link href="/profile/professional/edit">Complete Profile</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="container mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-4 md:py-6">
         <div className="flex flex-col lg:grid lg:grid-cols-4 gap-1.5 sm:gap-5 md:gap-6 lg:gap-8">
           {/* Profile Section - Order 1 on mobile */}

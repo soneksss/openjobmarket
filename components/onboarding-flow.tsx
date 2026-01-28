@@ -67,20 +67,14 @@ export default function OnboardingFlow({
   }, [initialUserType, step, user.user_metadata])
 
   // Prevent browser back navigation during profile setup (step 2)
+  // Using a ref to prevent multiple pushState calls
+  const hasSetupBackPrevention = useState(false)[0]
   useEffect(() => {
-    if (step === 2) {
-      // Push a dummy state to prevent back navigation
-      window.history.pushState(null, '', window.location.href)
-
+    if (step === 2 && !hasSetupBackPrevention) {
+      // Only set up back prevention once
       const handlePopState = (e: PopStateEvent) => {
-        // Push state again to keep user on the page
-        window.history.pushState(null, '', window.location.href)
-
-        // Optionally show a warning
-        if (window.confirm(t('onboardingFlow.leaveWarning') || 'Are you sure you want to leave? Your progress will be lost and you will need to start over.')) {
-          // If they really want to leave, clear metadata and redirect
-          router.push('/')
-        }
+        // User pressed back - just redirect to home
+        router.push('/')
       }
 
       window.addEventListener('popstate', handlePopState)
@@ -89,7 +83,7 @@ export default function OnboardingFlow({
         window.removeEventListener('popstate', handlePopState)
       }
     }
-  }, [step, router, t])
+  }, [step, router, hasSetupBackPrevention])
 
   // Handle user type selection for existing users without metadata
   const handleUserTypeSelection = async (selectedType: "professional" | "company" | "homeowner") => {
@@ -923,13 +917,14 @@ export default function OnboardingFlow({
         return
       }
 
-      if (!professionalData.latitude || !professionalData.longitude) {
-        setError({
-          title: "Location required",
-          message: "Please select your location on the map. This helps employers find you."
-        })
-        return
-      }
+      // Location is now optional - if not provided during signup, user can add it later
+      // if (!professionalData.latitude || !professionalData.longitude) {
+      //   setError({
+      //     title: "Location required",
+      //     message: "Please select your location on the map. This helps employers find you."
+      //   })
+      //   return
+      // }
 
       // Validate salary range
       if (professionalData.salaryMin && professionalData.salaryMax) {
@@ -961,13 +956,14 @@ export default function OnboardingFlow({
         return
       }
 
-      if (!companyData.latitude || !companyData.longitude) {
-        setError({
-          title: "Location required",
-          message: "Please pin your location on the map."
-        })
-        return
-      }
+      // Location is now optional - if not provided during signup, user can add it later
+      // if (!companyData.latitude || !companyData.longitude) {
+      //   setError({
+      //     title: "Location required",
+      //     message: "Please pin your location on the map."
+      //   })
+      //   return
+      // }
     }
 
     setLoading(true)
@@ -1594,25 +1590,29 @@ export default function OnboardingFlow({
               />
             </div>
 
-            <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
-              <Label className="font-semibold">{t('onboardingFlow.location')} *</Label>
-              <p className="text-sm text-muted-foreground">
-                {t('onboardingFlow.locationDesc')}
-              </p>
-              {professionalData.latitude && professionalData.longitude && (
-                <div className="bg-green-50 border border-green-200 rounded-md p-2 mt-2">
-                  <p className="text-xs text-green-800">
-                    ✓ {t('onboardingFlow.locationSelected')}
-                  </p>
-                </div>
-              )}
-              <LocationPicker
-                latitude={professionalData.latitude || undefined}
-                longitude={professionalData.longitude || undefined}
-                onLocationSelect={handleLocationSelect}
-                onLocationClear={handleLocationClear}
-              />
-            </div>
+            {/* Only show location picker if coordinates not already set during signup */}
+            {(!professionalData.latitude || !professionalData.longitude) && (
+              <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
+                <Label className="font-semibold">{t('onboardingFlow.location')} (Optional)</Label>
+                <p className="text-sm text-muted-foreground">
+                  {t('onboardingFlow.locationDesc')}
+                </p>
+                <LocationPicker
+                  latitude={professionalData.latitude || undefined}
+                  longitude={professionalData.longitude || undefined}
+                  onLocationSelect={handleLocationSelect}
+                  onLocationClear={handleLocationClear}
+                />
+              </div>
+            )}
+            {/* Show confirmation if location already set */}
+            {professionalData.latitude && professionalData.longitude && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-sm text-green-800 font-medium">
+                  ✓ Location already set from signup
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2 p-4 border rounded-lg shadow-sm bg-white">
               <Label className="font-semibold">{t('onboardingFlow.experienceLevel')}</Label>
@@ -2042,7 +2042,14 @@ export default function OnboardingFlow({
               />
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/')}
+                disabled={loading}
+              >
+                Skip for Now
+              </Button>
               <Button
                 onClick={handleSubmit}
                 disabled={loading || !professionalData.firstName || !professionalData.lastName}
@@ -2106,39 +2113,31 @@ export default function OnboardingFlow({
                 />
               </div>
 
-              {/* Map Location Picker - Required */}
-              <div className="space-y-2">
-                <Label className="text-base font-semibold">
-                  {t('onboardingFlow.pinLocation')} <span className="text-red-500">*</span>
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  {t('onboardingFlow.pinLocationDesc')}
-                </p>
-                {companyData.latitude && companyData.longitude ? (
-                  <div className="bg-green-50 border border-green-200 rounded-md p-3">
-                    <p className="text-sm text-green-800">
-                      <strong>✓ {t('onboardingFlow.locationPinned')}</strong>
-                      {companyLocationData?.city && companyLocationData?.country && (
-                        <span className="block mt-1 text-xs">
-                          📍 {companyLocationData.city}, {companyLocationData.country}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                    <p className="text-sm text-yellow-800">
-                      <strong>⚠ {t('onboardingFlow.pleasePin')}</strong>
-                    </p>
-                  </div>
-                )}
-                <LocationPicker
-                  latitude={companyData.latitude || undefined}
-                  longitude={companyData.longitude || undefined}
-                  onLocationSelect={handleCompanyLocationSelect}
-                  onLocationClear={handleCompanyLocationClear}
-                />
-              </div>
+              {/* Map Location Picker - Only show if not already set during signup */}
+              {(!companyData.latitude || !companyData.longitude) && (
+                <div className="space-y-2">
+                  <Label className="text-base font-semibold">
+                    {t('onboardingFlow.pinLocation')} (Optional)
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    {t('onboardingFlow.pinLocationDesc')}
+                  </p>
+                  <LocationPicker
+                    latitude={companyData.latitude || undefined}
+                    longitude={companyData.longitude || undefined}
+                    onLocationSelect={handleCompanyLocationSelect}
+                    onLocationClear={handleCompanyLocationClear}
+                  />
+                </div>
+              )}
+              {/* Show confirmation if location already set */}
+              {companyData.latitude && companyData.longitude && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <p className="text-sm text-green-800 font-medium">
+                    ✓ Location already set from signup
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Industry - Required */}
@@ -2488,7 +2487,14 @@ export default function OnboardingFlow({
               />
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              <Button
+                variant="outline"
+                onClick={() => router.push('/')}
+                disabled={loading}
+              >
+                Skip for Now
+              </Button>
               <Button
                 onClick={handleSubmit}
                 disabled={loading || !companyData.companyName || !companyData.industry || (!companyData.latitude || !companyData.longitude)}

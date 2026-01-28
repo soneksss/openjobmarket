@@ -33,34 +33,24 @@ export default async function ContractorDashboardPage() {
   }
 
   if (!profile) {
-    console.log("[CONTRACTOR] No contractor profile found, redirecting to onboarding")
-    redirect("/onboarding")
+    console.log("[CONTRACTOR] No contractor profile found, redirecting to home with complete_profile prompt")
+    redirect("/?complete_profile=true")
   }
 
   console.log("[CONTRACTOR] Contractor profile found:", profile.company_name)
 
-  // Check if profile is complete and valid
-  const isProfileComplete = profile.company_name && profile.trade && profile.location
+  // Check profile completeness - but DON'T redirect, let dashboard handle it
+  const missingFields: string[] = []
+  if (!profile.company_name) missingFields.push("company_name")
+  if (!profile.trade) missingFields.push("trade")
+  if (!profile.location) missingFields.push("location")
 
-  if (!isProfileComplete) {
-    console.log("[CONTRACTOR] Incomplete contractor profile detected, cleaning up old account")
+  const isProfileComplete = missingFields.length === 0
 
-    // Delete incomplete profile and related data
-    try {
-      // Delete profile
-      await supabase.from("contractor_profiles").delete().eq("user_id", user.id)
-
-      // Sign out and delete auth user
-      await supabase.auth.signOut()
-
-      console.log("[CONTRACTOR] Old contractor account cleaned up, redirecting to home")
-      redirect("/")
-    } catch (error) {
-      console.error("[CONTRACTOR] Error cleaning up contractor account:", error)
-      // If cleanup fails, redirect to onboarding to fix the profile
-      redirect("/onboarding")
-    }
-  }
+  console.log("[CONTRACTOR] Profile validation:", {
+    isProfileComplete,
+    missingFields,
+  })
 
   // Get homeowner jobs/tasks (available work for contractors)
   const { data: homeownerJobs, error: homeownerJobsError } = await supabase
@@ -91,6 +81,8 @@ export default async function ContractorDashboardPage() {
         availableJobs: homeownerJobs?.length || 0,
         totalJobs: totalJobs || 0,
       }}
+      isProfileComplete={isProfileComplete}
+      missingFields={missingFields}
     />
   )
 }

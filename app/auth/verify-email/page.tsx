@@ -79,14 +79,33 @@ export default function VerifyEmailPage() {
 
         if (profileError) {
           console.error('Error creating profile:', profileError)
-          // Continue anyway - user can complete profile in onboarding
         }
 
         setSuccess(true)
 
-        // Redirect to onboarding after 1 second
+        // Get user type to redirect to appropriate dashboard
+        const { data: userData } = await supabase
+          .from("users")
+          .select("user_type")
+          .eq("id", verifyData.user.id)
+          .single()
+
+        // Role-based redirect to dashboard
+        const dashboardMap: Record<string, string> = {
+          admin: "/admin/dashboard",
+          homeowner: "/dashboard/homeowner",
+          jobseeker: "/dashboard/professional",
+          employer: "/dashboard/company",
+          contractor: "/dashboard/contractor",
+          company: "/dashboard/company",
+          professional: "/dashboard/professional",
+        }
+
+        const dashboardRoute = userData?.user_type ? dashboardMap[userData.user_type] || "/dashboard" : "/dashboard"
+
+        // Redirect to dashboard after 1 second
         setTimeout(() => {
-          router.push('/onboarding')
+          router.push(dashboardRoute)
         }, 1000)
       }
     } catch (err: any) {
@@ -132,7 +151,7 @@ export default function VerifyEmailPage() {
             </div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">Email Verified!</h1>
             <p className="text-gray-600">
-              Your email has been successfully verified. Redirecting you to complete your profile...
+              Your email has been successfully verified. Redirecting you to your dashboard...
             </p>
           </div>
         </Card>

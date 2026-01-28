@@ -11,16 +11,18 @@ export default async function SearchPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  if (!user) {
-    redirect("/auth/login")
-  }
+  // Allow unauthenticated browsing - removed auth redirect
 
-  // Fetch user profile for recommendations
-  const { data: profile } = await supabase
-    .from("professional_profiles")
-    .select("skills, location, experience_level")
-    .eq("user_id", user.id)
-    .single()
+  // Fetch user profile for recommendations (only if logged in)
+  let profile = null
+  if (user) {
+    const { data: profileData } = await supabase
+      .from("professional_profiles")
+      .select("skills, location, experience_level")
+      .eq("user_id", user.id)
+      .single()
+    profile = profileData
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -43,16 +45,18 @@ export default async function SearchPage() {
             <div className="lg:col-span-2">
               <SearchPageClient />
             </div>
-            <div>
-              <Suspense fallback={<div>Loading recommendations...</div>}>
-                <JobRecommendations
-                  userId={user.id}
-                  userSkills={profile?.skills || []}
-                  userLocation={profile?.location || ""}
-                  userExperience={profile?.experience_level || ""}
-                />
-              </Suspense>
-            </div>
+            {user && (
+              <div>
+                <Suspense fallback={<div>Loading recommendations...</div>}>
+                  <JobRecommendations
+                    userId={user.id}
+                    userSkills={profile?.skills || []}
+                    userLocation={profile?.location || ""}
+                    userExperience={profile?.experience_level || ""}
+                  />
+                </Suspense>
+              </div>
+            )}
           </div>
         </div>
       </section>

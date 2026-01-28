@@ -32,36 +32,26 @@ export default async function CompanyDashboardPage() {
     console.log("[v0] Profile error:", profileError)
   }
 
+  // If no profile exists at all, redirect to complete profile
   if (!profile) {
-    console.log("[v0] No company profile found, redirecting to onboarding")
-    redirect("/onboarding")
+    console.log("[v0] No company profile found, redirecting to home with complete_profile prompt")
+    redirect("/?complete_profile=true")
   }
 
   console.log("[v0] Company profile found:", profile.company_name)
 
-  // Check if profile is complete and valid - with detailed logging
+  // Check profile completeness - but DON'T redirect, let dashboard handle it
+  const missingFields: string[] = []
+  if (!profile.company_name) missingFields.push("company_name")
+  if (!profile.industry) missingFields.push("industry")
+  if (!profile.location) missingFields.push("location")
+
+  const isProfileComplete = missingFields.length === 0
+
   console.log("[v0] Profile validation check:", {
-    company_name: profile.company_name,
-    company_name_check: !!profile.company_name,
-    industry: profile.industry,
-    industry_check: !!profile.industry,
-    location: profile.location,
-    location_check: !!profile.location,
+    isProfileComplete,
+    missingFields,
   })
-
-  const isProfileComplete = profile.company_name && profile.industry && profile.location
-
-  if (!isProfileComplete) {
-    console.log("[v0] Incomplete company profile detected, redirecting to onboarding to complete setup")
-    console.log("[v0] Missing fields:", {
-      needsCompanyName: !profile.company_name,
-      needsIndustry: !profile.industry,
-      needsLocation: !profile.location,
-    })
-
-    // Redirect to onboarding to complete the profile instead of deleting
-    redirect("/onboarding")
-  }
 
   // Get company rating
   const { data: ratingData } = await supabase
@@ -443,6 +433,8 @@ export default async function CompanyDashboardPage() {
       }}
       rating={companyRating}
       reviews={companyReviews}
+      isProfileComplete={isProfileComplete}
+      missingFields={missingFields}
     />
   )
 }

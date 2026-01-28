@@ -27,7 +27,8 @@ import {
   BookmarkIcon,
   Home,
   Edit,
-  Upload
+  Upload,
+  AlertTriangle
 } from "lucide-react"
 import { useState } from "react"
 import { createClient } from "@/lib/client"
@@ -80,9 +81,11 @@ interface HomeownerDashboardProps {
     activeJobs: number
     completedJobs: number
   }
+  isProfileComplete?: boolean
+  missingFields?: string[]
 }
 
-export function HomeownerDashboard({ profile, jobs, stats, user }: HomeownerDashboardProps) {
+export function HomeownerDashboard({ profile, jobs, stats, user, isProfileComplete = true, missingFields = [] }: HomeownerDashboardProps) {
   const { t, locale } = useTranslation()
   const [onMarket, setOnMarket] = useState(profile.on_market)
   const [isTogglingMarket, setIsTogglingMarket] = useState(false)

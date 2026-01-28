@@ -71,15 +71,14 @@ export default function VerifyOtpPage() {
           .single()
 
         if (userError || !userData) {
-          // If no user data, redirect to onboarding
-          const onboardingUrl = locale === "pt-BR" && returnUrl
-            ? `/onboarding?locale=pt-BR&returnUrl=${returnUrl}`
-            : "/onboarding"
-          router.push(onboardingUrl)
+          // New user - redirect to home page where they can browse freely
+          // They'll be prompted to complete profile when they try protected actions
+          console.log("[OTP] New user verified - redirecting to home with onboarding prompt")
+          router.push("/?welcome=true")
           return
         }
 
-        // Role-based redirect
+        // Role-based redirect for users with existing profiles
         const dashboardMap: Record<string, string> = {
           admin: "/admin/dashboard",
           homeowner: "/dashboard/homeowner",
@@ -90,7 +89,7 @@ export default function VerifyOtpPage() {
           professional: "/dashboard/professional",
         }
 
-        const dashboardRoute = dashboardMap[userData.user_type] || "/onboarding"
+        const dashboardRoute = dashboardMap[userData.user_type] || "/?welcome=true"
         router.push(dashboardRoute)
       }
     } catch (err) {

@@ -24,9 +24,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create Supabase client with cookies
+    // Create Supabase client (uses cookies internally)
+    const supabase = await createClient()
     const cookieStore = await cookies()
-    const supabase = createClient(cookieStore)
 
     // Get current user
     const {
@@ -43,25 +43,31 @@ export async function POST(request: Request) {
 
     console.log("[API] Account deletion requested for user:", user.id, user.email)
 
-    // Step 1: Check for orphaned state before deletion
-    const { data: orphanedCheck, error: orphanedCheckError } = await supabase.rpc(
-      "detect_orphaned_user_state",
-      { p_user_id: user.id }
-    )
+    // Step 1: Check for orphaned state before deletion (optional - function may not exist)
+    try {
+      const { data: orphanedCheck, error: orphanedCheckError } = await supabase.rpc(
+        "detect_orphaned_user_state",
+        { p_user_id: user.id }
+      )
 
-    if (orphanedCheckError) {
-      console.warn("[API] Failed to check orphaned state:", orphanedCheckError)
-    } else if (orphanedCheck && orphanedCheck.is_corrupted) {
-      console.warn("[API] User is in corrupted state:", orphanedCheck.issues)
-      // Attempt recovery before deletion
-      const { error: recoveryError } = await supabase.rpc("recover_orphaned_user", {
-        p_user_id: user.id,
-      })
-      if (recoveryError) {
-        console.warn("[API] Recovery failed, proceeding with deletion anyway:", recoveryError)
-      } else {
-        console.log("[API] Successfully recovered orphaned user state")
+      if (orphanedCheckError) {
+        // Function might not exist - this is OK, it's optional
+        console.log("[API] Orphaned state check skipped (function may not exist):", orphanedCheckError.message)
+      } else if (orphanedCheck && orphanedCheck.is_corrupted) {
+        console.warn("[API] User is in corrupted state:", orphanedCheck.issues)
+        // Attempt recovery before deletion
+        const { error: recoveryError } = await supabase.rpc("recover_orphaned_user", {
+          p_user_id: user.id,
+        })
+        if (recoveryError) {
+          console.warn("[API] Recovery failed, proceeding with deletion anyway:", recoveryError)
+        } else {
+          console.log("[API] Successfully recovered orphaned user state")
+        }
       }
+    } catch (orphanedError) {
+      // Silently continue - orphaned user detection is optional
+      console.log("[API] Orphaned state detection skipped:", orphanedError)
     }
 
     // Step 2: Verify password by attempting to sign in
@@ -92,9 +98,13 @@ export async function POST(request: Request) {
     )
 
     if (deleteError) {
-      console.error("[API] Deletion function error:", deleteError)
+      console.error("[API] Deletion function error:", JSON.stringify(deleteError, null, 2))
       return NextResponse.json(
-        { success: false, error: deleteError.message || "Failed to delete account" },
+        {
+          success: false,
+          error: deleteError.message || "Failed to delete account",
+          details: deleteError.code || deleteError.hint || null
+        },
         { status: 500 }
       )
     }
@@ -121,20 +131,29 @@ export async function POST(request: Request) {
       // Expected to fail since user is deleted, continue anyway
     }
 
-    // Step 5: Clear all auth cookies
-    const cookiesToClear = [
-      'sb-access-token',
-      'sb-refresh-token',
-      'supabase-auth-token',
-      'sb-localhost-auth-token',
-      'sb-localhost-auth-token-code-verifier',
-    ]
+    // Step 5: Clear all auth cookies (non-critical - don't fail if this fails)
+    try {
+      const cookiesToClear = [
+        'sb-access-token',
+        'sb-refresh-token',
+        'supabase-auth-token',
+        'sb-localhost-auth-token',
+        'sb-localhost-auth-token-code-verifier',
+      ]
 
-    cookiesToClear.forEach((cookieName) => {
-      cookieStore.delete(cookieName)
-    })
+      cookiesToClear.forEach((cookieName) => {
+        try {
+          cookieStore.delete(cookieName)
+        } catch {
+          // Individual cookie deletion failure is OK
+        }
+      })
 
-    console.log("[API] Auth cookies cleared")
+      console.log("[API] Auth cookies cleared")
+    } catch (cookieError) {
+      console.log("[API] Cookie clearing failed (non-critical):", cookieError)
+      // Continue anyway - account is already deleted
+    }
 
     // Step 6: Return success with redirect instruction
     return NextResponse.json(

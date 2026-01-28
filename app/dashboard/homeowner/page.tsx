@@ -33,34 +33,24 @@ export default async function HomeownerDashboardPage() {
   }
 
   if (!profile) {
-    console.log("[HOMEOWNER] No homeowner profile found, redirecting to onboarding")
-    redirect("/onboarding")
+    console.log("[HOMEOWNER] No homeowner profile found, redirecting to home with complete_profile prompt")
+    redirect("/?complete_profile=true")
   }
 
   console.log("[HOMEOWNER] Homeowner profile found:", profile.first_name, profile.last_name, "Profile ID:", profile.id, "User ID:", user.id)
 
-  // Check if profile is complete and valid
-  const isProfileComplete = profile.first_name && profile.last_name && profile.location
+  // Check profile completeness - but DON'T redirect, let dashboard handle it
+  const missingFields: string[] = []
+  if (!profile.first_name) missingFields.push("first_name")
+  if (!profile.last_name) missingFields.push("last_name")
+  if (!profile.location) missingFields.push("location")
 
-  if (!isProfileComplete) {
-    console.log("[HOMEOWNER] Incomplete homeowner profile detected, cleaning up old account")
+  const isProfileComplete = missingFields.length === 0
 
-    // Delete incomplete profile and related data
-    try {
-      // Delete profile
-      await supabase.from("homeowner_profiles").delete().eq("user_id", user.id)
-
-      // Sign out and delete auth user
-      await supabase.auth.signOut()
-
-      console.log("[HOMEOWNER] Old homeowner account cleaned up, redirecting to home")
-      redirect("/")
-    } catch (error) {
-      console.error("[HOMEOWNER] Error cleaning up homeowner account:", error)
-      // If cleanup fails, redirect to onboarding to fix the profile
-      redirect("/onboarding")
-    }
-  }
+  console.log("[HOMEOWNER] Profile validation:", {
+    isProfileComplete,
+    missingFields,
+  })
 
   // Get homeowner's posted jobs/tasks from the jobs table
   const { data: jobs, error: jobsError } = await supabase
@@ -122,6 +112,8 @@ export default async function HomeownerDashboardPage() {
         activeJobs: activeJobs || 0,
         completedJobs: completedJobs || 0,
       }}
+      isProfileComplete={isProfileComplete}
+      missingFields={missingFields}
     />
   )
 }

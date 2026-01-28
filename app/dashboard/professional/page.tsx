@@ -24,33 +24,24 @@ export default async function ProfessionalDashboardPage() {
   // Get professional profile
   const { data: profile, error: profileError } = await supabase.from("professional_profiles").select("*").eq("user_id", user.id).single()
 
+  // If no profile exists at all, redirect to complete profile
   if (!profile) {
-    console.log("[PROFESSIONAL-DASHBOARD-PAGE] No profile found, redirecting to onboarding")
-    redirect("/onboarding")
+    console.log("[PROFESSIONAL-DASHBOARD-PAGE] No profile found, redirecting to home with complete_profile prompt")
+    redirect("/?complete_profile=true")
   }
 
-  // Check if profile is complete and valid
-  const isProfileComplete = profile.first_name && profile.last_name && profile.title
+  // Check profile completeness - but DON'T redirect, let dashboard handle it
+  const missingFields: string[] = []
+  if (!profile.first_name) missingFields.push("first_name")
+  if (!profile.last_name) missingFields.push("last_name")
+  if (!profile.title) missingFields.push("title")
 
-  if (!isProfileComplete) {
-    console.log("[PROFESSIONAL-DASHBOARD-PAGE] Incomplete profile detected, cleaning up old account")
+  const isProfileComplete = missingFields.length === 0
 
-    // Delete incomplete profile and related data
-    try {
-      // Delete profile
-      await supabase.from("professional_profiles").delete().eq("user_id", user.id)
-
-      // Sign out and delete auth user
-      await supabase.auth.signOut()
-
-      console.log("[PROFESSIONAL-DASHBOARD-PAGE] Old account cleaned up, redirecting to home")
-      redirect("/")
-    } catch (error) {
-      console.error("[PROFESSIONAL-DASHBOARD-PAGE] Error cleaning up account:", error)
-      // If cleanup fails, redirect to onboarding to fix the profile
-      redirect("/onboarding")
-    }
-  }
+  console.log("[PROFESSIONAL-DASHBOARD-PAGE] Profile validation:", {
+    isProfileComplete,
+    missingFields,
+  })
 
   // Get recent job applications
   const { data: applications } = await supabase
@@ -163,6 +154,8 @@ export default async function ProfessionalDashboardPage() {
       hasCV={!!cvRecord}
       accountTypeLabel={accountTypeLabel}
       canPostTradeJobs={userData?.is_homeowner || false}
+      isProfileComplete={isProfileComplete}
+      missingFields={missingFields}
     />
   )
 }
