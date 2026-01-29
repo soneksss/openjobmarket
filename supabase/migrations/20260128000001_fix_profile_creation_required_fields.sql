@@ -78,7 +78,7 @@ BEGIN
   v_industry := (v_raw_meta_data->>'industry')::TEXT;
   v_trade := (v_raw_meta_data->>'trade')::TEXT;
   v_company_bio := (v_raw_meta_data->>'company_bio')::TEXT;
-  v_phone := (v_raw_meta_data->>'phone')::TEXT;
+  v_phone := COALESCE((v_raw_meta_data->>'phone')::TEXT, (v_raw_meta_data->>'phone_number')::TEXT);
   v_location := (v_raw_meta_data->>'location')::TEXT;
   v_latitude := (v_raw_meta_data->>'latitude')::DOUBLE PRECISION;
   v_longitude := (v_raw_meta_data->>'longitude')::DOUBLE PRECISION;
@@ -156,6 +156,7 @@ BEGIN
       industry,
       description,
       services,
+      phone_number,
       location,
       latitude,
       longitude,
@@ -167,6 +168,7 @@ BEGIN
       COALESCE(v_industry, v_trade, 'General'),
       v_company_bio,
       v_services,
+      v_phone,
       v_location,
       v_latitude,
       v_longitude,

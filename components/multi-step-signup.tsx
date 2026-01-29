@@ -332,9 +332,11 @@ export default function MultiStepSignup() {
             title: signupData.title || null,
             industry: signupData.industry || null,
             trade: signupData.services[0] || null,
+            services: signupData.services.filter(s => s), // Save all services as array
 
             // Contact and location
             phone: signupData.phone || null,
+            phone_number: signupData.phone || null, // Also save as phone_number for company profiles
             location: signupData.location || null,
             latitude: signupData.latitude,
             longitude: signupData.longitude,
