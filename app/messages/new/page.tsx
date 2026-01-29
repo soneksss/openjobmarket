@@ -136,51 +136,39 @@ function NewMessagePage() {
 
     setSending(true)
     try {
-      const { data: existingConversation, error: convFetchError } = await supabase
-        .from("conversations")
-        .select("id")
-        .or(
-          `and(participant_1.eq.${user.id},participant_2.eq.${recipientId}),and(participant_1.eq.${recipientId},participant_2.eq.${user.id})`,
-        )
-        .maybeSingle()
+      // Use the database function to get or create conversation
+      const { data: conversationId, error: convError } = await supabase.rpc(
+        'get_or_create_conversation',
+        { user1_id: user.id, user2_id: recipientId }
+      )
 
-      if (convFetchError) {
-        console.error("[v0] Error checking conversations:", convFetchError)
+      if (convError || !conversationId) {
+        console.error("[NEW-MESSAGE] Error getting/creating conversation:", convError)
+        setErrorMsg("Failed to create conversation.")
+        return
       }
 
-      let conversationId = existingConversation?.id
+      console.log("[NEW-MESSAGE] Conversation ID:", conversationId)
 
-      if (!conversationId) {
-        const { data: newConversation, error: conversationError } = await supabase
-          .from("conversations")
-          .insert({
-            participant_1: user.id,
-            participant_2: recipientId,
-            subject: subject,
-          })
-          .select("id")
-          .single()
-
-        if (conversationError) {
-          console.error("[v0] Conversation insert error:", conversationError)
-          setErrorMsg("Failed to create conversation.")
-          return
-        }
-        conversationId = newConversation.id
-      }
-
+      // Insert the message with the conversation ID
       const { error: messageError } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         sender_id: user.id,
         recipient_id: recipientId,
+        subject: subject,
         content: message,
+        message_type: 'direct',
+        is_read: false,
+        share_personal_info: false
       })
 
       if (messageError) {
-        console.error("[v0] Message insert error:", messageError)
+        console.error("[NEW-MESSAGE] Message insert error:", messageError)
         setErrorMsg("Failed to send message.")
         return
       }
+
+      console.log("[NEW-MESSAGE] Message sent successfully")
 
       // Navigate to conversation page, passing returnUrl if available
       if (returnUrl) {
@@ -189,7 +177,7 @@ function NewMessagePage() {
         router.push(`/messages/${conversationId}`)
       }
     } catch (err) {
-      console.error("[v0] Error sending message:", err)
+      console.error("[NEW-MESSAGE] Error sending message:", err)
       setErrorMsg("Unexpected error while sending message.")
     } finally {
       setSending(false)

@@ -78,22 +78,45 @@ export default function ConversationPage() {
         .from("conversations")
         .select("participant_1, participant_2")
         .eq("id", conversationId)
-        .single()
+        .maybeSingle()
 
       console.log('[CONVERSATION] Step 4.6: Conversation retrieved:', !!conversation, 'error:', convError)
 
-      if (convError || !conversation) {
+      // If conversation doesn't exist in the table, infer from messages
+      let determinedOtherId: string | null = null
+
+      if (convError) {
         console.error('[CONVERSATION] Error fetching conversation:', convError)
+        console.log('[CONVERSATION] Attempting to infer other user from messages...')
+
+        // Try to find messages in this conversation to determine the other user
+        const { data: sampleMessage } = await supabase
+          .from("messages")
+          .select("sender_id, recipient_id")
+          .eq("conversation_id", conversationId)
+          .limit(1)
+          .maybeSingle()
+
+        if (sampleMessage) {
+          determinedOtherId = sampleMessage.sender_id === currentUser.id
+            ? sampleMessage.recipient_id
+            : sampleMessage.sender_id
+          console.log('[CONVERSATION] Step 4.7: Other user inferred from message:', determinedOtherId)
+        }
+      } else if (conversation) {
+        // Determine which participant is the other user
+        determinedOtherId = conversation.participant_1 === currentUser.id
+          ? conversation.participant_2
+          : conversation.participant_1
+        console.log('[CONVERSATION] Step 4.7: Other user determined from conversation:', determinedOtherId)
+      }
+
+      if (!determinedOtherId) {
+        console.error('[CONVERSATION] Could not determine other user')
         setLoading(false)
         return
       }
 
-      // Determine which participant is the other user
-      const determinedOtherId = conversation.participant_1 === currentUser.id
-        ? conversation.participant_2
-        : conversation.participant_1
-
-      console.log('[CONVERSATION] Step 4.7: Other user determined:', determinedOtherId)
       setOtherUserId(determinedOtherId)
 
       // Fetch current user's profile photo
@@ -285,6 +308,20 @@ export default function ConversationPage() {
     try {
       console.log('[CONVERSATION] Sending message with conversation_id:', conversationId, 'to recipient:', otherUserId)
 
+      // Ensure conversation exists using the database function
+      const { data: actualConversationId, error: convError } = await supabase.rpc(
+        'get_or_create_conversation',
+        { user1_id: user.id, user2_id: otherUserId }
+      )
+
+      if (convError || !actualConversationId) {
+        console.error('[CONVERSATION] Error ensuring conversation exists:', convError)
+        throw new Error('Failed to create or get conversation')
+      }
+
+      // Use the actual conversation ID from the database function
+      const finalConversationId = actualConversationId
+
       const { error } = await supabase
         .from("messages")
         .insert({
@@ -292,7 +329,7 @@ export default function ConversationPage() {
           recipient_id: otherUserId,
           subject: messages.length > 0 ? "Reply" : "New Message",
           content: newMessage.trim(),
-          conversation_id: conversationId,
+          conversation_id: finalConversationId,
           message_type: "direct",
           job_id: null,
           is_read: false,
@@ -316,7 +353,7 @@ export default function ConversationPage() {
         sender_id: user.id,
         recipient_id: otherUserId!,
         is_read: false,
-        conversation_id: conversationId
+        conversation_id: finalConversationId
       }
 
       setMessages(prev => [...prev, tempMessage])
