@@ -113,6 +113,7 @@ export default function MultiStepSignup() {
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [serviceInput, setServiceInput] = useState('')
   const skillInputRef = useRef<HTMLInputElement>(null)
 
   const [signupData, setSignupData] = useState<SignupData>({
@@ -671,7 +672,7 @@ export default function MultiStepSignup() {
                 <>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="firstName" className="font-semibold">{t('signup.firstNameLabel')} <span className="text-red-500">*</span></Label>
+                      <Label htmlFor="firstName" className="font-semibold block mb-2">{t('signup.firstNameLabel')} <span className="text-red-500">*</span></Label>
                       <Input
                         id="firstName"
                         value={signupData.firstName}
@@ -682,7 +683,7 @@ export default function MultiStepSignup() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="lastName" className="font-semibold">{t('signup.lastNameLabel')} <span className="text-red-500">*</span></Label>
+                      <Label htmlFor="lastName" className="font-semibold block mb-2">{t('signup.lastNameLabel')} <span className="text-red-500">*</span></Label>
                       <Input
                         id="lastName"
                         value={signupData.lastName}
@@ -697,7 +698,7 @@ export default function MultiStepSignup() {
                   {/* Professional Title - Required for Jobseekers */}
                   {signupData.roles.jobseeker && (
                     <div>
-                      <Label htmlFor="title" className="font-semibold">
+                      <Label htmlFor="title" className="font-semibold block mb-2">
                         {t('signup.professionalTitleLabel') || 'Professional Title'} <span className="text-red-500">*</span>
                       </Label>
                       <Input
@@ -716,7 +717,7 @@ export default function MultiStepSignup() {
 
                   {/* Nickname field - Optional */}
                   <div>
-                    <Label htmlFor="nickname" className="font-semibold">
+                    <Label htmlFor="nickname" className="font-semibold block mb-2">
                       {t('signup.nicknameLabel')} <span className="text-xs text-muted-foreground">({t('common.optional')})</span>
                     </Label>
                     <Input
@@ -734,7 +735,7 @@ export default function MultiStepSignup() {
               ) : (
                 <>
                   <div>
-                    <Label htmlFor="companyName" className="font-semibold">{t('signup.companyNameLabel')} <span className="text-red-500">*</span></Label>
+                    <Label htmlFor="companyName" className="font-semibold block mb-2">{t('signup.companyNameLabel')} <span className="text-red-500">*</span></Label>
                     <Input
                       id="companyName"
                       value={signupData.companyName}
@@ -748,80 +749,204 @@ export default function MultiStepSignup() {
                   {/* Industry - Required for Employers */}
                   {signupData.roles.employer && (
                     <div>
-                      <Label htmlFor="industry" className="font-semibold">
+                      <Label htmlFor="industry" className="font-semibold block mb-2">
                         {t('signup.industryLabel') || 'Industry'} <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="industry"
+                        list="industry-options"
                         value={signupData.industry}
                         onChange={(e) => updateSignupData({ industry: e.target.value })}
                         placeholder={t('signup.industryPlaceholder') || 'e.g. Technology, Healthcare, Construction'}
                         required
                         className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                       />
+                      <datalist id="industry-options">
+                        <option value="Technology & IT" />
+                        <option value="Healthcare & Medical" />
+                        <option value="Construction & Engineering" />
+                        <option value="Finance & Banking" />
+                        <option value="Education & Training" />
+                        <option value="Retail & Sales" />
+                        <option value="Hospitality & Tourism" />
+                        <option value="Manufacturing & Production" />
+                        <option value="Real Estate & Property" />
+                        <option value="Transportation & Logistics" />
+                        <option value="Marketing & Advertising" />
+                        <option value="Legal Services" />
+                        <option value="Consulting & Business Services" />
+                        <option value="Food & Beverage" />
+                        <option value="Arts, Entertainment & Media" />
+                        <option value="Telecommunications" />
+                        <option value="Energy & Utilities" />
+                        <option value="Agriculture & Farming" />
+                        <option value="Automotive" />
+                        <option value="Pharmaceutical & Biotechnology" />
+                        <option value="Insurance" />
+                        <option value="Professional Services" />
+                        <option value="Government & Public Sector" />
+                        <option value="Non-Profit & NGO" />
+                        <option value="Human Resources" />
+                        <option value="Customer Service & Support" />
+                        <option value="Security & Safety" />
+                        <option value="Environmental Services" />
+                        <option value="Research & Development" />
+                        <option value="Sports & Fitness" />
+                      </datalist>
                     </div>
                   )}
 
                   {/* Trade - Required for Tradespeople */}
                   {signupData.roles.tradespeople && (
                     <div>
-                      <Label htmlFor="trade" className="font-semibold">
+                      <Label htmlFor="trade" className="font-semibold block mb-2">
                         {t('signup.tradeLabel') || 'Trade/Service'} <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="trade"
-                        value={signupData.services[0] || ''}
-                        onChange={(e) => updateSignupData({ services: [e.target.value] })}
-                        placeholder={t('signup.tradePlaceholder') || 'e.g. Plumbing, Electrical, Carpentry'}
-                        required
-                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
-                      />
+                      <div className="space-y-2">
+                        {/* Display current services as badges */}
+                        {signupData.services && signupData.services.length > 0 && signupData.services[0] && (
+                          <div className="flex flex-wrap gap-2">
+                            {signupData.services.map((service, index) => (
+                              service && (
+                                <Badge
+                                  key={index}
+                                  variant="secondary"
+                                  className="px-3 py-1 text-sm bg-blue-100 text-blue-800 hover:bg-blue-200"
+                                >
+                                  {service}
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newServices = signupData.services.filter((_, i) => i !== index)
+                                      updateSignupData({ services: newServices.length > 0 ? newServices : [''] })
+                                    }}
+                                    className="ml-2 hover:text-blue-900"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </Badge>
+                              )
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Input to add new service */}
+                        <div className="flex gap-2">
+                          <Input
+                            id="trade"
+                            list="trade-options"
+                            value={serviceInput}
+                            onChange={(e) => setServiceInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault()
+                                const value = serviceInput.trim()
+                                if (value) {
+                                  const currentServices = signupData.services.filter(s => s)
+                                  updateSignupData({ services: [...currentServices, value] })
+                                  setServiceInput('')
+                                }
+                              }
+                            }}
+                            placeholder={t('signup.tradePlaceholder') || 'e.g. Plumbing, Electrical, Carpentry'}
+                            className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                          />
+                          <datalist id="trade-options">
+                            <option value="Plumbing" />
+                            <option value="Electrical Work" />
+                            <option value="Carpentry" />
+                            <option value="Painting & Decorating" />
+                            <option value="Roofing" />
+                            <option value="HVAC (Heating & Cooling)" />
+                            <option value="Tiling" />
+                            <option value="Flooring" />
+                            <option value="Landscaping & Gardening" />
+                            <option value="Masonry & Bricklaying" />
+                            <option value="Plastering & Rendering" />
+                            <option value="Kitchen Installation" />
+                            <option value="Bathroom Installation" />
+                            <option value="Window & Door Installation" />
+                            <option value="Fencing & Gates" />
+                            <option value="Driveway & Paving" />
+                            <option value="Demolition" />
+                            <option value="Insulation" />
+                            <option value="Cleaning Services" />
+                            <option value="Locksmith Services" />
+                            <option value="Pest Control" />
+                            <option value="Security Systems" />
+                            <option value="Solar Panel Installation" />
+                            <option value="Welding & Metalwork" />
+                            <option value="Handyman Services" />
+                          </datalist>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => {
+                              const value = serviceInput.trim()
+                              if (value) {
+                                const currentServices = signupData.services.filter(s => s)
+                                updateSignupData({ services: [...currentServices, value] })
+                                setServiceInput('')
+                              }
+                            }}
+                            className="shrink-0"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Add multiple services by typing and pressing Enter or clicking +
+                        </p>
+                      </div>
                     </div>
                   )}
                 </>
               )}
 
               <div>
-                <Label htmlFor="email" className="font-semibold">{t('signup.emailLabel')}</Label>
+                <Label htmlFor="email" className="font-semibold block mb-2">{t('signup.emailLabel')}</Label>
                 <Input
                   id="email"
                   type="email"
                   value={signupData.email}
                   onChange={(e) => updateSignupData({ email: e.target.value })}
                   placeholder={t('signup.emailPlaceholderProfile')}
+                  autoComplete="email"
                   required
                   className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="password" className="font-semibold">{t('signup.passwordLabel')}</Label>
+                <Label htmlFor="password" className="font-semibold block mb-2">{t('signup.passwordLabel')}</Label>
                 <Input
                   id="password"
                   type="password"
                   value={signupData.password}
                   onChange={(e) => updateSignupData({ password: e.target.value })}
                   placeholder={t('signup.passwordPlaceholder')}
+                  autoComplete="new-password"
                   required
                   className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="confirmPassword" className="font-semibold">{t('signup.confirmPasswordLabel')}</Label>
+                <Label htmlFor="confirmPassword" className="font-semibold block mb-2">{t('signup.confirmPasswordLabel')}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
                   value={signupData.confirmPassword}
                   onChange={(e) => updateSignupData({ confirmPassword: e.target.value })}
                   placeholder={t('signup.confirmPasswordPlaceholder')}
+                  autoComplete="new-password"
                   required
                   className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor="phone" className="font-semibold">{t('signup.phoneLabel')}</Label>
+                <Label htmlFor="phone" className="font-semibold block mb-2">{t('signup.phoneLabel')}</Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -834,7 +959,7 @@ export default function MultiStepSignup() {
 
               {/* Location picker - Required for all user types */}
               <div className="space-y-2">
-                <Label className="font-semibold">
+                <Label className="font-semibold block mb-2">
                   {t('signup.yourLocation')} <span className="text-red-500">*</span>
                 </Label>
                 <MapLocationPicker

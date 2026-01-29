@@ -1,0 +1,110 @@
+
+> my-v0-project@0.1.0 dev
+> next dev --port 3005
+
+   ▲ Next.js 16.0.7 (Turbopack)
+   - Local:         http://localhost:3005
+   - Network:       http://192.168.1.101:3005
+   - Environments: .env
+   - Experiments (use with caution):
+     · cssChunking: "strict"
+
+ ✓ Starting...
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+ ⚠ The "middleware" file convention is deprecated. Please use "proxy" instead. Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+ ✓ Ready in 1325ms
+[MIDDLEWARE] Pathname: /dashboard/company localeParam: null currentLocale: en
+[MIDDLEWARE] Setting NEXT_LOCALE cookie to en based on pathname (existing: en )
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\shared\lib\turbopack\manifest-loader.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\turbopack-utils.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\hot-reloader-turbopack.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\trace\trace.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\dev-bundler-service.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\next-dev-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\route-matcher-managers\dev-route-matcher-manager.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\route-matcher-managers\default-route-matcher-manager.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\next-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\base-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\router-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\start-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ Error: ENOENT: no such file or directory, open 'c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\.next\dev\server\app\dashboard\company\page\build-manifest.json'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'c:\\Users\\sonek\\OneDrive\\Desktop\\MAIN\\openjobmarket\\.next\\dev\\server\\app\\dashboard\\company\\page\\build-manifest.json'
+}
+ GET /dashboard/company 500 in 4.5s (compile: 3.4s, proxy.ts: 861ms, render: 212ms)
+[MIDDLEWARE] Pathname: /.well-known/appspecific/com.chrome.devtools.json localeParam: null currentLocale: en
+[MIDDLEWARE] Setting NEXT_LOCALE cookie to en based on pathname (existing: en )
+[MIDDLEWARE] Pathname: / localeParam: null currentLocale: en
+[MIDDLEWARE] Setting NEXT_LOCALE cookie to en based on pathname (existing: undefined )
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\shared\lib\turbopack\manifest-loader.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\turbopack-utils.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\hot-reloader-turbopack.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\trace\trace.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\dev-bundler-service.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\next-dev-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\route-matcher-managers\dev-route-matcher-manager.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\route-matcher-managers\default-route-matcher-manager.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\next-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\base-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\router-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\start-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ Error: ENOENT: no such file or directory, open 'c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\.next\dev\server\app\page\build-manifest.json'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'c:\\Users\\sonek\\OneDrive\\Desktop\\MAIN\\openjobmarket\\.next\\dev\\server\\app\\page\\build-manifest.json'
+}
+ GET / 500 in 364ms (compile: 338ms, proxy.ts: 9ms, render: 17ms)
+[MIDDLEWARE] Pathname: /dashboard/company localeParam: null currentLocale: en
+[MIDDLEWARE] Setting NEXT_LOCALE cookie to en based on pathname (existing: en )
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\shared\lib\turbopack\manifest-loader.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\turbopack-utils.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\hot-reloader-turbopack.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\trace\trace.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\dev-bundler-service.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\next-dev-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\route-matcher-managers\dev-route-matcher-manager.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\route-matcher-managers\default-route-matcher-manager.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\next-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\base-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\router-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\start-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ Error: ENOENT: no such file or directory, open 'c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\.next\dev\server\app\dashboard\company\page\build-manifest.json'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'c:\\Users\\sonek\\OneDrive\\Desktop\\MAIN\\openjobmarket\\.next\\dev\\server\\app\\dashboard\\company\\page\\build-manifest.json'
+}
+ GET /dashboard/company 500 in 836ms (compile: 62ms, proxy.ts: 754ms, render: 20ms)
+[MIDDLEWARE] Pathname: /.well-known/appspecific/com.chrome.devtools.json localeParam: null currentLocale: en
+[MIDDLEWARE] Setting NEXT_LOCALE cookie to en based on pathname (existing: en )
+[MIDDLEWARE] Pathname: / localeParam: null currentLocale: en
+[MIDDLEWARE] Setting NEXT_LOCALE cookie to en based on pathname (existing: en )
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\shared\lib\turbopack\manifest-loader.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\turbopack-utils.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\hot-reloader-turbopack.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\trace\trace.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\dev-bundler-service.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\dev\next-dev-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\route-matcher-managers\dev-route-matcher-manager.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\route-matcher-managers\default-route-matcher-manager.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\next-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\base-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\router-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\node_modules\next\dist\server\lib\start-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+ ⨯ Error: ENOENT: no such file or directory, open 'c:\Users\sonek\OneDrive\Desktop\MAIN\openjobmarket\.next\dev\server\app\page\build-manifest.json'
+    at ignore-listed frames {
+  errno: -4058,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: 'c:\\Users\\sonek\\OneDrive\\Desktop\\MAIN\\openjobmarket\\.next\\dev\\server\\app\\page\\build-manifest.json'
+}
+ GET / 500 in 52ms (compile: 33ms, proxy.ts: 9ms, render: 10ms)
+[MIDDLEWARE] Pathname: /.well-known/appspecific/com.chrome.devtools.json localeParam: null currentLocale: en
+[MIDDLEWARE] Setting NEXT_LOCALE cookie to en based on pathname (existing: en )
+[?25h
