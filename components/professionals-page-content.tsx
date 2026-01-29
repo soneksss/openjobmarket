@@ -34,6 +34,7 @@ import {
   Zap,
   Globe,
   CheckCircle,
+  Eye,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -348,7 +349,18 @@ export default function ProfessionalsPageContent({
 
   const handleSearch = (customRadius?: string) => {
     const params = new URLSearchParams()
-    if (searchTerm) params.set("search", searchTerm)
+
+    // Allow empty search or "any" if location is provided
+    const normalizedSearch = searchTerm.trim().toLowerCase()
+    const isAnySearch = normalizedSearch === '' || normalizedSearch === 'any'
+
+    if (searchTerm && !isAnySearch) {
+      params.set("search", searchTerm)
+    } else if (isAnySearch && (locationFilter || selectedLocationCoords)) {
+      // Set "any" to indicate location-based search without specific query
+      params.set("search", "any")
+    }
+
     if (locationFilter) params.set("location", locationFilter)
     if (selectedLocationCoords) {
       params.set("lat", selectedLocationCoords.lat.toString())
@@ -1292,7 +1304,7 @@ export default function ProfessionalsPageContent({
                               <Card
                                 key={item.id}
                                 ref={(el) => { professionalCardRefs.current[item.id] = el }}
-                                className={`cursor-pointer transition-all rounded-lg ${
+                                className={`cursor-pointer transition-all rounded-lg touch-manipulation ${
                                   isSelected
                                     ? "shadow-xl border-2 border-blue-500 bg-blue-50"
                                     : "hover:shadow-md border"
@@ -1301,9 +1313,16 @@ export default function ProfessionalsPageContent({
                                   // Toggle selection
                                   setSelectedProfessionalId(isSelected ? null : item.id)
                                 }}
+                                onTouchEnd={(e) => {
+                                  // Better mobile touch handling
+                                  if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.card-content-area')) {
+                                    e.preventDefault()
+                                    setSelectedProfessionalId(isSelected ? null : item.id)
+                                  }
+                                }}
                               >
                                 <CardContent className="p-4">
-                                  <div className="flex gap-3">
+                                  <div className="flex gap-3 card-content-area">
                                     <Avatar className="h-12 w-12 flex-shrink-0">
                                       <AvatarImage src={item.profile_photo_url || item.logo_url} alt={item.first_name || item.company_name} />
                                       <AvatarFallback className="bg-blue-50 text-blue-600 font-semibold">
@@ -1365,15 +1384,34 @@ export default function ProfessionalsPageContent({
                                         </div>
                                       )}
 
-                                      {/* Bio - Show short preview */}
-                                      {item.bio && (
+                                      {/* Bio/Description - Show short preview */}
+                                      {(item.bio || item.description) && (
                                         <p className="text-sm text-gray-600 mb-2 line-clamp-2">
-                                          {item.bio}
+                                          {item.bio || item.description}
                                         </p>
                                       )}
 
-                                      {/* Skills - Show first 3 */}
-                                      {item.skills && item.skills.length > 0 && (
+                                      {/* Services for Companies (show in collapsed state) */}
+                                      {isItemCompany && item.services && item.services.length > 0 && (
+                                        <div className="mb-2">
+                                          <p className="text-xs font-semibold text-gray-700 mb-1">Services:</p>
+                                          <div className="flex flex-wrap gap-1">
+                                            {item.services.slice(0, 3).map((service: string, idx: number) => (
+                                              <Badge key={idx} variant="secondary" className="text-xs">
+                                                {service}
+                                              </Badge>
+                                            ))}
+                                            {item.services.length > 3 && (
+                                              <Badge variant="outline" className="text-xs text-gray-500">
+                                                +{item.services.length - 3} more
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Skills for Professionals - Show first 3 */}
+                                      {isItemProfessional && item.skills && item.skills.length > 0 && (
                                         <div className="flex flex-wrap gap-1 mb-2">
                                           {item.skills.slice(0, 3).map((skill: string, idx: number) => (
                                             <Badge key={idx} variant="secondary" className="text-xs">
@@ -1435,11 +1473,11 @@ export default function ProfessionalsPageContent({
                                         <span className="text-xs text-gray-500">
                                           {formatDate(item.created_at)}
                                         </span>
-                                        <div className="flex gap-1">
+                                        <div className="flex gap-2">
                                           <Button
                                             variant="outline"
                                             size="sm"
-                                            className="h-8 w-8 p-0"
+                                            className="h-9 min-w-[44px] px-2 sm:px-3 touch-manipulation"
                                             onClick={(e) => {
                                               e.stopPropagation()
                                               if (canContact) {
@@ -1450,18 +1488,22 @@ export default function ProfessionalsPageContent({
                                               }
                                             }}
                                             disabled={!canContact || sendingMessage === item.id}
+                                            title="Send Message"
                                           >
-                                            <MessageCircle className="h-3 w-3" />
+                                            <MessageCircle className="h-4 w-4" />
+                                            <span className="ml-1 hidden sm:inline">Message</span>
                                           </Button>
                                           <Button
                                             size="sm"
-                                            className="h-8 px-3"
+                                            className="h-9 px-3 touch-manipulation min-w-[44px]"
                                             onClick={(e) => {
                                               e.stopPropagation()
                                               handleViewProfile(item.id)
                                             }}
+                                            title="View Full Profile"
                                           >
-                                            View
+                                            <Eye className="h-4 w-4 sm:mr-1" />
+                                            <span className="hidden sm:inline">View</span>
                                           </Button>
                                         </div>
                                       </div>
@@ -1477,14 +1519,31 @@ export default function ProfessionalsPageContent({
 
                                       {/* Extended details - only show when selected */}
                                       {isSelected && (
-                                        <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
-                                          {/* Full Bio - Only if longer than 2 lines */}
-                                          {item.bio && item.bio.length > 150 && (
+                                        <div className="mt-3 pt-3 border-t-2 border-blue-500 bg-blue-50/30 -mx-4 px-4 pb-3 space-y-3">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <h3 className="font-bold text-sm text-blue-900">
+                                              {isItemCompany ? '📋 Full Company Details' : '👤 Full Profile'}
+                                            </h3>
+                                          </div>
+                                          {/* Full Bio/Description - Show for companies or long bio */}
+                                          {((item.bio && item.bio.length > 150) || (item.description)) && (
                                             <div>
-                                              <h4 className="font-semibold text-sm text-gray-900 mb-1">Full Bio</h4>
+                                              <h4 className="font-semibold text-sm text-gray-900 mb-1">
+                                                {isItemCompany ? 'Company Description' : 'Full Bio'}
+                                              </h4>
                                               <p className="text-sm text-gray-600 leading-relaxed">
-                                                {item.bio}
+                                                {item.description || item.bio}
                                               </p>
+                                            </div>
+                                          )}
+
+                                          {/* Industry - Show for companies */}
+                                          {isItemCompany && item.industry && (
+                                            <div>
+                                              <h4 className="font-semibold text-sm text-gray-900 mb-1">Industry</h4>
+                                              <Badge variant="secondary" className="text-sm">
+                                                {item.industry}
+                                              </Badge>
                                             </div>
                                           )}
 
@@ -1498,16 +1557,16 @@ export default function ProfessionalsPageContent({
                                             </div>
                                           )}
 
-                                          {/* Phone Number - Only if visible */}
-                                          {item.phone_visible && item.phone && (
+                                          {/* Phone Number - Show for companies or if explicitly visible */}
+                                          {(item.phone || item.phone_number) && (isItemCompany || item.phone_visible) && (
                                             <div>
                                               <h4 className="font-semibold text-sm text-gray-900 mb-1">Phone</h4>
                                               <a
-                                                href={`tel:${item.phone}`}
+                                                href={`tel:${item.phone || item.phone_number}`}
                                                 className="text-sm text-blue-600 hover:underline"
                                                 onClick={(e) => e.stopPropagation()}
                                               >
-                                                {item.phone}
+                                                {item.phone || item.phone_number}
                                               </a>
                                             </div>
                                           )}
@@ -1552,6 +1611,25 @@ export default function ProfessionalsPageContent({
                                                   </Badge>
                                                 ))}
                                               </div>
+                                            </div>
+                                          )}
+
+                                          {/* Company Website */}
+                                          {isItemCompany && item.website_url && (
+                                            <div>
+                                              <h4 className="font-semibold text-sm text-gray-900 mb-1">Website</h4>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="w-full justify-start"
+                                                onClick={(e) => {
+                                                  e.stopPropagation()
+                                                  window.open(item.website_url, '_blank')
+                                                }}
+                                              >
+                                                <ExternalLink className="h-3 w-3 mr-2" />
+                                                {item.website_url}
+                                              </Button>
                                             </div>
                                           )}
 
@@ -2622,14 +2700,40 @@ export default function ProfessionalsPageContent({
 
                               return (
                                 <div className="space-y-3 pt-2 border-t border-gray-100">
-                                  {item.bio && (
+                                  {/* Description/Bio */}
+                                  {(item.description || item.bio) && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1">About</h5>
-                                      <p className="text-xs text-gray-700">{item.bio}</p>
+                                      <h5 className="font-semibold text-xs mb-1">
+                                        {isItemCompany ? 'Company Description' : 'About'}
+                                      </h5>
+                                      <p className="text-xs text-gray-700">{item.description || item.bio}</p>
                                     </div>
                                   )}
 
-                                  {item.skills && item.skills.length > 0 && (
+                                  {/* Industry - For companies */}
+                                  {isItemCompany && item.industry && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1">Industry</h5>
+                                      <Badge variant="secondary" className="text-xs">{item.industry}</Badge>
+                                    </div>
+                                  )}
+
+                                  {/* Services - For companies */}
+                                  {isItemCompany && item.services && item.services.length > 0 && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1.5">Services Offered</h5>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {item.services.map((service: string, idx: number) => (
+                                          <Badge key={idx} variant="secondary" className="text-xs">
+                                            {service}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Skills - For professionals */}
+                                  {isItemProfessional && item.skills && item.skills.length > 0 && (
                                     <div>
                                       <h5 className="font-semibold text-xs mb-1.5">Skills</h5>
                                       <div className="flex flex-wrap gap-1.5">
@@ -2639,6 +2743,72 @@ export default function ProfessionalsPageContent({
                                           </Badge>
                                         ))}
                                       </div>
+                                    </div>
+                                  )}
+
+                                  {/* Phone Number - For companies */}
+                                  {isItemCompany && (item.phone || item.phone_number) && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1">Phone</h5>
+                                      <a
+                                        href={`tel:${item.phone || item.phone_number}`}
+                                        className="text-xs text-blue-600 hover:underline font-medium"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {item.phone || item.phone_number}
+                                      </a>
+                                    </div>
+                                  )}
+
+                                  {/* Website - For companies */}
+                                  {isItemCompany && item.website_url && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1">Website</h5>
+                                      <a
+                                        href={item.website_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 hover:underline break-all"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        {item.website_url}
+                                      </a>
+                                    </div>
+                                  )}
+
+                                  {/* Languages */}
+                                  {item.spoken_languages && item.spoken_languages.length > 0 && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1.5">Languages</h5>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {item.spoken_languages.map((language: string, idx: number) => (
+                                          <Badge key={idx} variant="outline" className="text-xs flex items-center gap-1">
+                                            <span className="text-sm">{getLanguageFlag(language)}</span>
+                                            {language}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Price List - For companies */}
+                                  {isItemCompany && item.price_list && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1 flex items-center gap-1">
+                                        <PoundSterling className="h-3 w-3 text-green-600" />
+                                        Price List
+                                      </h5>
+                                      <div className="bg-green-50 border border-green-200 rounded p-2">
+                                        <p className="text-xs text-gray-700 whitespace-pre-wrap">{item.price_list}</p>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Location/Address */}
+                                  {item.location && (
+                                    <div>
+                                      <h5 className="font-semibold text-xs mb-1">Location</h5>
+                                      <p className="text-xs text-gray-700">{item.location}</p>
                                     </div>
                                   )}
 
