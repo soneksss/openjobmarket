@@ -170,6 +170,22 @@ function NewMessagePage() {
 
       console.log("[NEW-MESSAGE] Message sent successfully")
 
+      // Send email notification (non-blocking)
+      fetch("/api/notifications/send-message-notification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipientId: recipientId,
+          senderId: user.id,
+          conversationId: conversationId,
+          messageSubject: subject,
+          messageContent: message,
+        }),
+      }).catch((err) => {
+        console.error("[NEW-MESSAGE] Failed to send email notification:", err)
+        // Don't block user flow on notification failure
+      })
+
       // Navigate to conversation page, passing returnUrl if available
       if (returnUrl) {
         router.push(`/messages/${conversationId}?returnUrl=${encodeURIComponent(returnUrl)}`)

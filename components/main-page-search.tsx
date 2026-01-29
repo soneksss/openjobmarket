@@ -648,10 +648,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     })
 
     const canSkipSearchQuery =
-      (selectedSearchType === "vacancies" && hasVacancyFilters) ||
-      (selectedSearchType === "jobs_tasks" && hasTradeJobFilters) ||
-      (selectedSearchType === "traders" && hasTraderFilters) ||
-      (selectedSearchType === "talents" && hasTalentFilters)
+      (selectedSearchType === "vacancies" && (hasVacancyFilters || selectedLocation)) ||
+      (selectedSearchType === "jobs_tasks" && (hasTradeJobFilters || selectedLocation)) ||
+      (selectedSearchType === "traders" && (hasTraderFilters || selectedLocation)) ||
+      (selectedSearchType === "talents" && (hasTalentFilters || selectedLocation))
 
     console.log(`[VALIDATE-SEARCH] canSkipSearchQuery:`, canSkipSearchQuery)
 
@@ -877,11 +877,46 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", lon + lngDelta)
         }
 
-        console.log(`[MAIN-PAGE-SEARCH] Executing contractor query...`)
-        const { data: contractorData, error: contractorError } = await contractorQuery.limit(RESULT_LIMIT + 1)
+        // Add timeout protection to contractor query (10 seconds)
+        const CONTRACTOR_TIMEOUT = 10000
+        console.log(`[MAIN-PAGE-SEARCH] Executing contractor query with ${CONTRACTOR_TIMEOUT/1000}s timeout...`)
+
+        let contractorData: any = null
+        let contractorError: any = null
+
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('QUERY_TIMEOUT')), CONTRACTOR_TIMEOUT)
+          )
+
+          const queryPromise = contractorQuery.limit(RESULT_LIMIT + 1)
+          const result = await Promise.race([queryPromise, timeoutPromise])
+          contractorData = result.data
+          contractorError = result.error
+        } catch (err: any) {
+          if (err.message === 'QUERY_TIMEOUT') {
+            console.error(`[MAIN-PAGE-SEARCH] Contractor query timed out after ${CONTRACTOR_TIMEOUT/1000}s`)
+            contractorError = { type: 'timeout', message: 'Query timed out' }
+          } else if (err.message?.includes('fetch') || err.message?.includes('network')) {
+            console.error(`[MAIN-PAGE-SEARCH] Network error:`, err)
+            contractorError = { type: 'network', message: err.message }
+          } else {
+            console.error(`[MAIN-PAGE-SEARCH] Unexpected error:`, err)
+            contractorError = { message: err.message }
+          }
+        }
 
         if (contractorError) {
           console.error(`[MAIN-PAGE-SEARCH] Contractor query error:`, contractorError)
+          if (contractorError.type === 'timeout' || contractorError.message?.includes('timeout')) {
+            setSearchError({
+              type: 'timeout',
+              message: t('mainSearch.searchTimeout') || 'Search is taking longer than expected. Please try narrowing your search or try again.'
+            })
+            setIsSearching(false)
+            setSearchProgress("")
+            return
+          }
         } else {
           console.log(`[MAIN-PAGE-SEARCH] Contractor query returned ${contractorData?.length || 0} results`)
         }
@@ -968,11 +1003,46 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", lon + lngDelta)
         }
 
-        console.log(`[MAIN-PAGE-SEARCH] Executing professional query...`)
-        const { data: profData, error: profError } = await profQuery.limit(RESULT_LIMIT + 1)
+        // Add timeout protection to professional query (10 seconds)
+        const PROFESSIONAL_TIMEOUT = 10000
+        console.log(`[MAIN-PAGE-SEARCH] Executing professional query with ${PROFESSIONAL_TIMEOUT/1000}s timeout...`)
+
+        let profData: any = null
+        let profError: any = null
+
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('QUERY_TIMEOUT')), PROFESSIONAL_TIMEOUT)
+          )
+
+          const queryPromise = profQuery.limit(RESULT_LIMIT + 1)
+          const result = await Promise.race([queryPromise, timeoutPromise])
+          profData = result.data
+          profError = result.error
+        } catch (err: any) {
+          if (err.message === 'QUERY_TIMEOUT') {
+            console.error(`[MAIN-PAGE-SEARCH] Professional query timed out after ${PROFESSIONAL_TIMEOUT/1000}s`)
+            profError = { type: 'timeout', message: 'Query timed out' }
+          } else if (err.message?.includes('fetch') || err.message?.includes('network')) {
+            console.error(`[MAIN-PAGE-SEARCH] Network error:`, err)
+            profError = { type: 'network', message: err.message }
+          } else {
+            console.error(`[MAIN-PAGE-SEARCH] Unexpected error:`, err)
+            profError = { message: err.message }
+          }
+        }
 
         if (profError) {
           console.error(`[MAIN-PAGE-SEARCH] Professional query error:`, profError)
+          if (profError.type === 'timeout' || profError.message?.includes('timeout')) {
+            setSearchError({
+              type: 'timeout',
+              message: t('mainSearch.searchTimeout') || 'Search is taking longer than expected. Please try narrowing your search or try again.'
+            })
+            setIsSearching(false)
+            setSearchProgress("")
+            return
+          }
         } else {
           console.log(`[MAIN-PAGE-SEARCH] Professional query returned ${profData?.length || 0} results`)
         }
@@ -1088,11 +1158,46 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", lon + lngDelta)
         }
 
-        console.log(`[MAIN-PAGE-SEARCH] Executing company query...`)
-        const { data: companyData, error: companyError } = await companyQuery.limit(RESULT_LIMIT + 1)
+        // Add timeout protection to company query (10 seconds)
+        const COMPANY_TIMEOUT = 10000
+        console.log(`[MAIN-PAGE-SEARCH] Executing company query with ${COMPANY_TIMEOUT/1000}s timeout...`)
+
+        let companyData: any = null
+        let companyError: any = null
+
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('QUERY_TIMEOUT')), COMPANY_TIMEOUT)
+          )
+
+          const queryPromise = companyQuery.limit(RESULT_LIMIT + 1)
+          const result = await Promise.race([queryPromise, timeoutPromise])
+          companyData = result.data
+          companyError = result.error
+        } catch (err: any) {
+          if (err.message === 'QUERY_TIMEOUT') {
+            console.error(`[MAIN-PAGE-SEARCH] Company query timed out after ${COMPANY_TIMEOUT/1000}s`)
+            companyError = { type: 'timeout', message: 'Query timed out' }
+          } else if (err.message?.includes('fetch') || err.message?.includes('network')) {
+            console.error(`[MAIN-PAGE-SEARCH] Network error:`, err)
+            companyError = { type: 'network', message: err.message }
+          } else {
+            console.error(`[MAIN-PAGE-SEARCH] Unexpected error:`, err)
+            companyError = { message: err.message }
+          }
+        }
 
         if (companyError) {
           console.error(`[MAIN-PAGE-SEARCH] Company query error:`, companyError)
+          if (companyError.type === 'timeout' || companyError.message?.includes('timeout')) {
+            setSearchError({
+              type: 'timeout',
+              message: t('mainSearch.searchTimeout') || 'Search is taking longer than expected. Please try narrowing your search or try again.'
+            })
+            setIsSearching(false)
+            setSearchProgress("")
+            return
+          }
         } else {
           console.log(`[MAIN-PAGE-SEARCH] Company query returned ${companyData?.length || 0} results`)
         }

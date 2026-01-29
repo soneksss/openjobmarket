@@ -339,7 +339,11 @@ export default function JobApplicationForm({
       console.log("[v0] Application data to insert:", applicationData)
 
       // Submit the application
-      const { error: applicationError } = await supabase.from("job_applications").insert(applicationData)
+      const { data: applicationResult, error: applicationError } = await supabase
+        .from("job_applications")
+        .insert(applicationData)
+        .select("id")
+        .single()
 
       if (applicationError) {
         console.error("[v0] Application error:", applicationError)
@@ -347,6 +351,26 @@ export default function JobApplicationForm({
       }
 
       console.log("[v0] Application submitted successfully")
+
+      // Send email notification to job poster (non-blocking)
+      const posterUserId = getPosterUserId()
+      if (posterUserId && applicationResult) {
+        fetch("/api/notifications/send-application-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobPosterId: posterUserId,
+            applicantId: user!.id,
+            jobId: job.id,
+            jobTitle: job.title,
+            applicationId: applicationResult.id,
+            applicationMessage: coverLetter || undefined,
+          }),
+        }).catch((err) => {
+          console.error("[v0] Failed to send application email notification:", err)
+          // Don't block user flow on notification failure
+        })
+      }
 
       // Increment application counter (only for professionals/homeowners, not companies)
       if (!isCompanyApplicant) {

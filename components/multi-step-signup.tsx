@@ -767,6 +767,7 @@ export default function MultiStepSignup() {
                         <option value="Technology & IT" />
                         <option value="Healthcare & Medical" />
                         <option value="Construction & Engineering" />
+                        <option value="Plumbing & Heating" />
                         <option value="Finance & Banking" />
                         <option value="Education & Training" />
                         <option value="Retail & Sales" />

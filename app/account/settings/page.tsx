@@ -4,6 +4,7 @@ import { Settings, Bell, User, Lock, CreditCard, ArrowLeft, Mail, Eye } from "lu
 import NotificationPreferences from "@/components/notification-preferences"
 import EmailPreferences from "@/components/email-preferences"
 import ProfileVisibilitySettings from "@/components/profile-visibility-settings"
+import { NotificationSettings } from "@/components/notification-settings"
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
@@ -110,6 +111,11 @@ export default async function AccountSettingsPage() {
           <h2 className="text-2xl font-bold">Email Preferences</h2>
         </div>
         <EmailPreferences userId={user.id} />
+      </div>
+
+      {/* Email Notification Settings Section */}
+      <div className="mb-8">
+        <NotificationSettings />
       </div>
 
       {/* Profile Visibility Settings Section */}
