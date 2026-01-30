@@ -301,50 +301,61 @@ export default function MultiStepSignup() {
         userType = "company"
       }
 
+      // Validate required data before signup
+      console.log("[SIGNUP] Validating signup data...")
+      if (!signupData.email || !signupData.password) {
+        throw new Error("Email and password are required")
+      }
+
+      // Prepare metadata - only include defined values
+      const metadata: Record<string, any> = {
+        user_type: userType,
+        account_type: signupData.accountType,
+        is_jobseeker: signupData.roles.jobseeker || false,
+        is_homeowner: signupData.roles.homeowner || false,
+        is_employer: signupData.roles.employer || false,
+        is_tradespeople: signupData.roles.tradespeople || false,
+      }
+
+      // Add optional fields only if they exist
+      if (signupData.firstName) metadata.first_name = signupData.firstName
+      if (signupData.lastName) metadata.last_name = signupData.lastName
+      if (signupData.nickname) metadata.nickname = signupData.nickname
+      if (signupData.companyName) metadata.company_name = signupData.companyName
+      if (signupData.title) metadata.title = signupData.title
+      if (signupData.industry) metadata.industry = signupData.industry
+      if (signupData.services && signupData.services.length > 0) {
+        metadata.trade = signupData.services[0]
+        metadata.services = signupData.services.filter(s => s)
+      }
+      if (signupData.phone) {
+        metadata.phone = signupData.phone
+        metadata.phone_number = signupData.phone
+      }
+      if (signupData.location) metadata.location = signupData.location
+      if (signupData.latitude !== undefined) metadata.latitude = signupData.latitude
+      if (signupData.longitude !== undefined) metadata.longitude = signupData.longitude
+
+      console.log("[SIGNUP] Metadata prepared:", { email: signupData.email, metadata })
+
       // Create auth user with basic metadata only
       // Profile will be created AFTER email verification
-      // Database trigger creates minimal user record (no profile yet)
+      console.log("[SIGNUP] Calling supabase.auth.signUp...")
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: signupData.email,
+        email: signupData.email.trim().toLowerCase(),
         password: signupData.password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
-          // Enable OTP-based email verification
-          shouldCreateUser: true,
-          data: {
-            // User type and account type
-            user_type: userType,
-            account_type: signupData.accountType,
-
-            // Role flags
-            is_jobseeker: signupData.roles.jobseeker,
-            is_homeowner: signupData.roles.homeowner,
-            is_employer: signupData.roles.employer,
-            is_tradespeople: signupData.roles.tradespeople,
-
-            // Basic personal info
-            first_name: signupData.firstName,
-            last_name: signupData.lastName,
-            nickname: signupData.nickname || null,
-            company_name: signupData.companyName,
-
-            // Professional fields
-            title: signupData.title || null,
-            industry: signupData.industry || null,
-            trade: signupData.services[0] || null,
-            services: signupData.services.filter(s => s), // Save all services as array
-
-            // Contact and location
-            phone: signupData.phone || null,
-            phone_number: signupData.phone || null, // Also save as phone_number for company profiles
-            location: signupData.location || null,
-            latitude: signupData.latitude,
-            longitude: signupData.longitude,
-          },
+          data: metadata,
         },
       })
 
-      if (signUpError) throw signUpError
+      console.log("[SIGNUP] Response:", { user: authData?.user?.id, error: signUpError })
+
+      if (signUpError) {
+        console.error("[SIGNUP] Signup error:", signUpError)
+        throw signUpError
+      }
       if (!authData.user) throw new Error("Failed to create user")
 
       // Save email to localStorage for resend functionality
@@ -363,17 +374,33 @@ export default function MultiStepSignup() {
         router.push(dashboardUrl)
       }
     } catch (err: any) {
-      console.error("Signup error:", err)
+      console.error("[SIGNUP] ❌ Signup error:", err)
+      console.error("[SIGNUP] Error details:", {
+        message: err.message,
+        name: err.name,
+        status: err.status,
+        code: err.code,
+      })
 
       // Handle specific error cases
-      if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
-        setError('This email is already registered. Please use a different email or sign in.')
+      let errorMessage = ""
+
+      if (err.message?.includes('already registered') || err.message?.includes('already exists') || err.message?.includes('User already registered')) {
+        errorMessage = 'This email is already registered. Please use a different email or sign in.'
+      } else if (err.message?.includes('Password')) {
+        errorMessage = 'Password must be at least 6 characters long.'
+      } else if (err.message?.includes('Email')) {
+        errorMessage = 'Please enter a valid email address.'
       } else if (err.message?.includes('Database error')) {
-        setError('There was a problem creating your account. Please try again.')
+        errorMessage = 'There was a problem creating your account. Please try again.'
+      } else if (err.message) {
+        // Show actual error message for debugging
+        errorMessage = `Signup failed: ${err.message}`
       } else {
-        setError(err.message || "An error occurred during signup")
+        errorMessage = "An error occurred during signup. Please try again."
       }
 
+      setError(errorMessage)
       setIsLoading(false)
     }
   }

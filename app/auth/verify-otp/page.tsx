@@ -50,47 +50,12 @@ export default function VerifyOtpPage() {
       }
 
       if (data.user) {
-        console.log("[OTP] User verified successfully:", data.user.id)
+        console.log("[OTP] ✅ User verified successfully:", data.user.id)
 
-        // Create user profile after verification
-        const { data: profileResult, error: profileError } = await supabase
-          .rpc("complete_user_profile_after_verification", { p_user_id: data.user.id })
-
-        if (profileError) {
-          console.error("[OTP] Error creating profile:", profileError)
-          // Continue anyway - user can complete profile in onboarding
-        } else {
-          console.log("[OTP] Profile creation result:", profileResult)
-        }
-
-        // Get user role to redirect appropriately
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("user_type")
-          .eq("id", data.user.id)
-          .single()
-
-        if (userError || !userData) {
-          // New user - redirect to home page where they can browse freely
-          // They'll be prompted to complete profile when they try protected actions
-          console.log("[OTP] New user verified - redirecting to home with onboarding prompt")
-          router.push("/?welcome=true")
-          return
-        }
-
-        // Role-based redirect for users with existing profiles
-        const dashboardMap: Record<string, string> = {
-          admin: "/admin/dashboard",
-          homeowner: "/dashboard/homeowner",
-          jobseeker: "/dashboard/professional",
-          employer: "/dashboard/company",
-          contractor: "/dashboard/contractor",
-          company: "/dashboard/company",
-          professional: "/dashboard/professional",
-        }
-
-        const dashboardRoute = dashboardMap[userData.user_type] || "/?welcome=true"
-        router.push(dashboardRoute)
+        // ✅ CRITICAL FIX: Don't create profile here - just redirect to dashboard
+        // Dashboard will handle onboarding check and profile creation
+        console.log("[OTP] Redirecting to dashboard...")
+        router.push("/dashboard")
       }
     } catch (err) {
       console.error("[OTP] Verification error:", err)
