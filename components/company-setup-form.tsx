@@ -34,12 +34,21 @@ export default function CompanySetupForm({ userId }: Props) {
     setError(null)
 
     try {
+      console.log("[COMPANY-SETUP] Starting form submission...")
+      console.log("[COMPANY-SETUP] Form data:", {
+        company_name: formData.company_name,
+        industry: formData.industry,
+        location: formData.location,
+        has_website: !!formData.website_url,
+        has_services: !!formData.services_text,
+      })
+
       // Convert services_text to array if provided
       const services = formData.services_text
         ? formData.services_text.split(',').map(s => s.trim()).filter(s => s)
         : null
 
-      const { error } = await supabase.from("company_profiles").insert({
+      const profileData = {
         user_id: userId,
         company_name: formData.company_name,
         description: formData.description,
@@ -47,18 +56,32 @@ export default function CompanySetupForm({ userId }: Props) {
         location: formData.location,
         website_url: formData.website_url || null,
         services: services,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+        onboarding_completed: true, // Mark as completed since user filled the form
+        // Don't set created_at/updated_at - let database defaults handle it
+      }
+
+      console.log("[COMPANY-SETUP] Inserting profile:", profileData)
+
+      const { data, error } = await supabase.from("company_profiles").insert(profileData).select().single()
 
       if (error) {
+        console.error("[COMPANY-SETUP] Database error:", error)
+        console.error("[COMPANY-SETUP] Error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        })
         setError(error.message)
         setLoading(false)
         return
       }
 
+      console.log("[COMPANY-SETUP] ✅ Profile created successfully:", data?.id)
+      console.log("[COMPANY-SETUP] Redirecting to company dashboard...")
       router.push("/dashboard/company")
     } catch (err: any) {
+      console.error("[COMPANY-SETUP] ❌ Unexpected error:", err)
       setError(err.message || "An error occurred")
       setLoading(false)
     }
