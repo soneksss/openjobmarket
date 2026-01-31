@@ -859,6 +859,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           contractorQuery = contractorQuery.eq("available_247", true)
         }
 
+        // Language filter for contractors (uses 'languages' column, not 'spoken_languages')
+        if (spokenLanguage && spokenLanguage !== "all") {
+          console.log(`[MAIN-PAGE-SEARCH] Applying language filter for contractors: ${spokenLanguage}`)
+          contractorQuery = contractorQuery.contains("languages", [spokenLanguage])
+        }
+
         // Apply location-based radius filtering
         if (selectedLocation) {
           const lat = selectedLocation.lat
@@ -932,6 +938,56 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredContractors.length} contractors`)
           }
 
+          // Client-side services filter for contractors
+          if (searchQuery.trim() && filteredContractors.length > 0) {
+            const searchTerm = searchQuery.trim().toLowerCase()
+            const searchTerms = [searchTerm]
+
+            // Add synonyms for services search
+            if (searchTerm.includes('plumber')) {
+              searchTerms.push('plumbing', 'heating')
+            }
+            if (searchTerm.includes('gas')) {
+              searchTerms.push('heating', 'boiler')
+            }
+            if (searchTerm.includes('electrician') || searchTerm.includes('electric')) {
+              searchTerms.push('electrical', 'electric')
+            }
+            if (searchTerm.includes('carpenter')) {
+              searchTerms.push('carpentry', 'joinery')
+            }
+
+            console.log(`[SERVICES-DEBUG] === CONTRACTOR SERVICES FILTER ===`)
+            console.log(`[SERVICES-DEBUG] Search terms:`, searchTerms)
+            console.log(`[SERVICES-DEBUG] Contractors before services filter: ${filteredContractors.length}`)
+
+            // Filter contractors by services
+            const contractorsWithMatchingServices = filteredContractors.filter(contractor => {
+              // If contractor has no services, rely on previous company_name/industry match
+              if (!contractor.services || !Array.isArray(contractor.services) || contractor.services.length === 0) {
+                return true
+              }
+
+              // Check if ANY service contains ANY search term (case-insensitive)
+              const hasMatchingService = searchTerms.some(term =>
+                contractor.services.some((service: string) =>
+                  service.toLowerCase().includes(term)
+                )
+              )
+
+              if (hasMatchingService) {
+                console.log(`[SERVICES-DEBUG] Match: ${contractor.company_name} - services:`, contractor.services)
+              }
+
+              return hasMatchingService
+            })
+
+            console.log(`[SERVICES-DEBUG] Contractors after services filter: ${contractorsWithMatchingServices.length}`)
+            console.log(`[SERVICES-DEBUG] === END CONTRACTOR SERVICES FILTER ===`)
+
+            filteredContractors = contractorsWithMatchingServices
+          }
+
           contractorResults = filteredContractors.map(item => ({
             ...item,
             id: item.id,
@@ -980,11 +1036,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           profQuery = profQuery.or(orConditions)
         }
 
-        // Language filter - temporarily disabled for debugging
+        // Language filter
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Language filter selected: ${spokenLanguage}`)
-          console.log(`[MAIN-PAGE-SEARCH] NOTE: Language filter temporarily disabled - will filter results client-side`)
-          // profQuery = profQuery.contains("spoken_languages", [spokenLanguage])
+          console.log(`[MAIN-PAGE-SEARCH] Applying language filter: ${spokenLanguage}`)
+          profQuery = profQuery.contains("spoken_languages", [spokenLanguage])
         }
 
         // Apply location-based radius filtering
@@ -1135,11 +1190,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           companyQuery = companyQuery.or(orConditions)
         }
 
-        // Language filter for companies - temporarily disabled for debugging
+        // Language filter for companies
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Language filter selected for companies: ${spokenLanguage}`)
-          console.log(`[MAIN-PAGE-SEARCH] NOTE: Language filter temporarily disabled - will filter results client-side`)
-          // companyQuery = companyQuery.contains("spoken_languages", [spokenLanguage])
+          console.log(`[MAIN-PAGE-SEARCH] Applying language filter for companies: ${spokenLanguage}`)
+          companyQuery = companyQuery.contains("spoken_languages", [spokenLanguage])
         }
 
         // Apply location-based radius filtering
@@ -1244,6 +1298,57 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             console.log(`[LANGUAGE-DEBUG] === END COMPANY FILTER ===`)
           }
 
+          // Client-side services filter for companies
+          if (searchQuery.trim() && filteredCompanies.length > 0) {
+            const searchTerm = searchQuery.trim().toLowerCase()
+            const searchTerms = [searchTerm]
+
+            // Add synonyms for services search
+            if (searchTerm.includes('plumber')) {
+              searchTerms.push('plumbing', 'heating')
+            }
+            if (searchTerm.includes('gas')) {
+              searchTerms.push('heating', 'boiler')
+            }
+            if (searchTerm.includes('electrician') || searchTerm.includes('electric')) {
+              searchTerms.push('electrical', 'electric')
+            }
+            if (searchTerm.includes('carpenter')) {
+              searchTerms.push('carpentry', 'joinery')
+            }
+
+            console.log(`[SERVICES-DEBUG] === COMPANY SERVICES FILTER ===`)
+            console.log(`[SERVICES-DEBUG] Search terms:`, searchTerms)
+            console.log(`[SERVICES-DEBUG] Companies before services filter: ${filteredCompanies.length}`)
+
+            // Filter companies by services
+            const companiesWithMatchingServices = filteredCompanies.filter(company => {
+              // If company has no services, rely on previous company_name/industry match
+              if (!company.services || !Array.isArray(company.services) || company.services.length === 0) {
+                // Already matched by company_name or industry, keep it
+                return true
+              }
+
+              // Check if ANY service contains ANY search term (case-insensitive)
+              const hasMatchingService = searchTerms.some(term =>
+                company.services.some((service: string) =>
+                  service.toLowerCase().includes(term)
+                )
+              )
+
+              if (hasMatchingService) {
+                console.log(`[SERVICES-DEBUG] Match: ${company.company_name} - services:`, company.services)
+              }
+
+              return hasMatchingService
+            })
+
+            console.log(`[SERVICES-DEBUG] Companies after services filter: ${companiesWithMatchingServices.length}`)
+            console.log(`[SERVICES-DEBUG] === END SERVICES FILTER ===`)
+
+            filteredCompanies = companiesWithMatchingServices
+          }
+
           companyResults = filteredCompanies.map(item => ({
             ...item,
             id: item.id,
@@ -1334,11 +1439,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           query = query.eq("ready_to_relocate", true)
         }
 
-        // Language filter - temporarily disabled for debugging
+        // Language filter
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Language filter selected for talents: ${spokenLanguage}`)
-          console.log(`[MAIN-PAGE-SEARCH] NOTE: Language filter temporarily disabled - will filter results client-side`)
-          // query = query.contains("spoken_languages", [spokenLanguage])
+          console.log(`[MAIN-PAGE-SEARCH] Applying language filter for talents: ${spokenLanguage}`)
+          query = query.contains("spoken_languages", [spokenLanguage])
         }
 
         // Apply location-based radius filtering if coordinates are available
