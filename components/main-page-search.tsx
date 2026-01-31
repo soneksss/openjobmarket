@@ -859,9 +859,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           contractorQuery = contractorQuery.eq("available_247", true)
         }
 
-        // Language filter for contractors (uses 'languages' column, not 'spoken_languages')
+        // Language filter for contractors (uses 'languages' column which is text[] array, not JSONB)
         if (spokenLanguage && spokenLanguage !== "all") {
           console.log(`[MAIN-PAGE-SEARCH] Applying language filter for contractors: ${spokenLanguage}`)
+          // Native text[] array - use contains() method
           contractorQuery = contractorQuery.contains("languages", [spokenLanguage])
         }
 
@@ -1039,6 +1040,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Language filter
         if (spokenLanguage && spokenLanguage !== "all") {
           console.log(`[MAIN-PAGE-SEARCH] Applying language filter: ${spokenLanguage}`)
+          // Native text[] array - use contains() method
           profQuery = profQuery.contains("spoken_languages", [spokenLanguage])
         }
 
@@ -1193,7 +1195,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Language filter for companies
         if (spokenLanguage && spokenLanguage !== "all") {
           console.log(`[MAIN-PAGE-SEARCH] Applying language filter for companies: ${spokenLanguage}`)
-          companyQuery = companyQuery.contains("spoken_languages", [spokenLanguage])
+          // JSONB array - use cs() method with JSON string
+          companyQuery = companyQuery.cs("spoken_languages", JSON.stringify([spokenLanguage]))
         }
 
         // Apply location-based radius filtering
@@ -1442,6 +1445,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Language filter
         if (spokenLanguage && spokenLanguage !== "all") {
           console.log(`[MAIN-PAGE-SEARCH] Applying language filter for talents: ${spokenLanguage}`)
+          // Native text[] array - use contains() method
           query = query.contains("spoken_languages", [spokenLanguage])
         }
 
