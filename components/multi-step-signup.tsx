@@ -262,11 +262,12 @@ export default function MultiStepSignup() {
       return false
     }
 
-    // Trade is required for Tradespeople
-    if (signupData.roles.tradespeople && (!signupData.services || signupData.services.length === 0 || !signupData.services[0])) {
-      setError(t('signup.enterTrade') || 'Please enter your trade or service')
-      return false
-    }
+    // Trade is optional - can be added during onboarding or in profile edit
+    // Services help with matching but aren't required for signup completion
+    // if (signupData.roles.tradespeople && (!signupData.services || signupData.services.length === 0 || !signupData.services[0])) {
+    //   setError(t('signup.enterTrade') || 'Please enter your trade or service')
+    //   return false
+    // }
 
     // Location is required for all user types
     if (!signupData.latitude || !signupData.longitude) {
@@ -826,11 +827,11 @@ export default function MultiStepSignup() {
                     </div>
                   )}
 
-                  {/* Trade - Required for Tradespeople */}
+                  {/* Trade - Optional (can be added later) */}
                   {signupData.roles.tradespeople && (
                     <div>
                       <Label htmlFor="trade" className="font-semibold block mb-2">
-                        {t('signup.tradeLabel') || 'Trade/Service'} <span className="text-red-500">*</span>
+                        {t('signup.tradeLabel') || 'Trade/Service'} <span className="text-muted-foreground text-sm font-normal">(Optional)</span>
                       </Label>
                       <div className="space-y-2">
                         {/* Display current services as badges */}
@@ -878,7 +879,7 @@ export default function MultiStepSignup() {
                                 }
                               }
                             }}
-                            placeholder={t('signup.tradePlaceholder') || 'e.g. Plumbing, Electrical, Carpentry'}
+                            placeholder={t('signup.tradePlaceholder') || 'e.g. Plumbing, Electrical (can add more later)'}
                             className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
                           />
                           <datalist id="trade-options">
@@ -925,7 +926,7 @@ export default function MultiStepSignup() {
                           </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Add multiple services by typing and pressing Enter or clicking +
+                          Add services now or later in your profile. Helps customers find you by trade.
                         </p>
                       </div>
                     </div>

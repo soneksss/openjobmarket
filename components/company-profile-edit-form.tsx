@@ -314,39 +314,77 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     setLoading(true)
 
     try {
-      const { error } = await supabase
-        .from("company_profiles")
-        .update({
-          company_name: companyName,
-          description: description || null,
-          industry: industry || null,
-          services: services.length > 0 ? services : null,
-          website_url: websiteUrl || null,
-          phone_number: phoneNumber || null,
-          location: location || null,
-          full_address: fullAddress || null,
-          hide_address: hideAddress,
-          hide_company_info: hideCompanyInfo,
-          hide_contact_info: hideContactInfo,
-          latitude: latitude,
-          longitude: longitude,
-          logo_url: logoUrl || null,
-          spoken_languages: spokenLanguages,
-          service_24_7: service24_7,
-          price_list: priceList || null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", profile.id)
+      console.log("[COMPANY-EDIT] Starting profile update...")
+      console.log("[COMPANY-EDIT] Profile ID:", profile.id)
+      console.log("[COMPANY-EDIT] User ID:", user.id)
 
-      if (error) throw error
+      const updateData = {
+        company_name: companyName,
+        description: description || null,
+        industry: industry || null,
+        services: services.length > 0 ? services : null,
+        website_url: websiteUrl || null,
+        phone_number: phoneNumber || null,
+        location: location || null,
+        full_address: fullAddress || null,
+        hide_address: hideAddress,
+        hide_company_info: hideCompanyInfo,
+        hide_contact_info: hideContactInfo,
+        latitude: latitude,
+        longitude: longitude,
+        logo_url: logoUrl || null,
+        spoken_languages: spokenLanguages,
+        service_24_7: service24_7,
+        price_list: priceList || null,
+        updated_at: new Date().toISOString(),
+      }
+
+      console.log("[COMPANY-EDIT] Update data:", {
+        company_name: updateData.company_name,
+        industry: updateData.industry,
+        location: updateData.location,
+        services_count: services.length,
+        has_description: !!updateData.description,
+        has_website: !!updateData.website_url,
+        has_phone: !!updateData.phone_number,
+      })
+
+      const { data, error } = await supabase
+        .from("company_profiles")
+        .update(updateData)
+        .eq("id", profile.id)
+        .select()
+
+      if (error) {
+        console.error("[COMPANY-EDIT] ❌ Database error:", error)
+        console.error("[COMPANY-EDIT] Error details:", {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        })
+        throw error
+      }
+
+      console.log("[COMPANY-EDIT] ✅ Profile updated successfully:", data)
+      console.log("[COMPANY-EDIT] Redirecting to dashboard...")
+
+      toast({
+        title: "Profile Updated",
+        description: "Your company profile has been updated successfully.",
+        duration: 3000,
+      })
 
       // Redirect back to dashboard
       router.push(locale === 'pt-BR' ? '/br/dashboard/company' : '/dashboard/company')
-    } catch (error) {
-      console.error("Error updating profile:", error)
+    } catch (error: any) {
+      console.error("[COMPANY-EDIT] ❌ Unexpected error:", error)
+      console.error("[COMPANY-EDIT] Error type:", error?.constructor?.name)
+      console.error("[COMPANY-EDIT] Error stack:", error?.stack)
+
       toast({
         title: "Update Failed",
-        description: "Error updating profile. Please try again.",
+        description: error?.message || "Error updating profile. Please try again.",
         variant: "destructive",
         duration: 5000,
       })

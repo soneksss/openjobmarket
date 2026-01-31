@@ -13,6 +13,7 @@ DECLARE
   v_latitude DOUBLE PRECISION;
   v_longitude DOUBLE PRECISION;
   v_phone TEXT;
+  v_services JSONB;
 BEGIN
   -- Only proceed if this is a company user
   SELECT raw_user_meta_data INTO v_metadata
@@ -30,6 +31,7 @@ BEGIN
     v_latitude := (v_metadata->>'latitude')::DOUBLE PRECISION;
     v_longitude := (v_metadata->>'longitude')::DOUBLE PRECISION;
     v_phone := v_metadata->>'phone';
+    v_services := v_metadata->'services'; -- Extract services as JSONB array
 
     -- Check if company profile already exists
     IF NOT EXISTS (
@@ -44,6 +46,7 @@ BEGIN
         latitude,
         longitude,
         phone_number,
+        services,
         onboarding_completed,
         created_at,
         updated_at
@@ -55,6 +58,11 @@ BEGIN
         v_latitude,
         v_longitude,
         v_phone,
+        CASE
+          WHEN v_services IS NOT NULL AND jsonb_array_length(v_services) > 0
+          THEN (SELECT jsonb_agg(value) FROM jsonb_array_elements_text(v_services) WHERE value != '')
+          ELSE NULL
+        END, -- Convert JSONB array to text array, filtering empty strings
         FALSE, -- User should complete onboarding to fill remaining fields
         NOW(),
         NOW()
@@ -92,6 +100,7 @@ DECLARE
   v_latitude DOUBLE PRECISION;
   v_longitude DOUBLE PRECISION;
   v_phone TEXT;
+  v_services JSONB;
 BEGIN
   RAISE NOTICE 'Backfilling company profiles from metadata...';
 
@@ -111,6 +120,7 @@ BEGIN
     v_latitude := (v_metadata->>'latitude')::DOUBLE PRECISION;
     v_longitude := (v_metadata->>'longitude')::DOUBLE PRECISION;
     v_phone := v_metadata->>'phone';
+    v_services := v_metadata->'services';
 
     -- Create company profile
     INSERT INTO public.company_profiles (
@@ -121,6 +131,7 @@ BEGIN
       latitude,
       longitude,
       phone_number,
+      services,
       onboarding_completed,
       created_at,
       updated_at
@@ -132,6 +143,11 @@ BEGIN
       v_latitude,
       v_longitude,
       v_phone,
+      CASE
+        WHEN v_services IS NOT NULL AND jsonb_array_length(v_services) > 0
+        THEN (SELECT jsonb_agg(value) FROM jsonb_array_elements_text(v_services) WHERE value != '')
+        ELSE NULL
+      END,
       FALSE,
       NOW(),
       NOW()
