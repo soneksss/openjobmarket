@@ -1195,8 +1195,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Language filter for companies
         if (spokenLanguage && spokenLanguage !== "all") {
           console.log(`[MAIN-PAGE-SEARCH] Applying language filter for companies: ${spokenLanguage}`)
-          // JSONB array - use cs() method with JSON string
-          companyQuery = companyQuery.cs("spoken_languages", JSON.stringify([spokenLanguage]))
+          // Supabase .contains() works for both JSONB and text[] arrays
+          companyQuery = companyQuery.contains("spoken_languages", [spokenLanguage])
         }
 
         // Apply location-based radius filtering
