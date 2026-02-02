@@ -698,6 +698,36 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
       console.log("[JOB-WIZARD] Job posted successfully:", data)
       clearTimeout(timeoutId)
 
+      // Send trade job notifications to matching companies
+      if (formData.postingType === "tradespeople" && data && formData.locationCoords) {
+        try {
+          // Get poster name based on user type
+          const posterName = userType === "homeowner"
+            ? `${companyProfile.first_name || ''} ${companyProfile.last_name || ''}`.trim() || "A homeowner"
+            : companyProfile.company_name || "A company"
+
+          console.log("[JOB-WIZARD] Sending trade job notifications...")
+          const notifResponse = await fetch("/api/notifications/send-trade-job-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobId: data.id,
+              jobTitle: formData.profession.trim(),
+              jobLat: formData.locationCoords.lat,
+              jobLon: formData.locationCoords.lon,
+              jobSkills: [formData.profession.trim()], // Use profession as a skill for matching
+              posterName,
+            }),
+          })
+
+          const notifResult = await notifResponse.json()
+          console.log("[JOB-WIZARD] Trade job notification result:", notifResult)
+        } catch (notifError) {
+          // Don't fail the job posting if notifications fail
+          console.error("[JOB-WIZARD] Failed to send trade job notifications:", notifError)
+        }
+      }
+
       // Show success toast notification
       toast({
         title: "✅ Job Posted Successfully!",

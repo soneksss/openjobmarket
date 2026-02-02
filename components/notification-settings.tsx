@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
-import { Bell, Mail, Loader2, Check, AlertCircle } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Bell, Mail, Loader2, Check, AlertCircle, Briefcase } from "lucide-react"
 import { createClient } from "@/lib/client"
 
 interface NotificationPreferences {
@@ -13,7 +14,13 @@ interface NotificationPreferences {
   email_on_job_application: boolean
   email_on_job_offer: boolean
   email_on_application_status_change: boolean
+  email_on_trade_job_match: boolean
   email_digest_frequency: "instant" | "daily" | "weekly" | "never"
+}
+
+interface CompanyTradeSettings {
+  trade_job_notifications: boolean
+  trade_job_notifications_distance: number
 }
 
 export function NotificationSettings() {
@@ -22,8 +29,11 @@ export function NotificationSettings() {
     email_on_job_application: true,
     email_on_job_offer: true,
     email_on_application_status_change: true,
+    email_on_trade_job_match: true,
     email_digest_frequency: "instant",
   })
+  const [companyTradeSettings, setCompanyTradeSettings] = useState<CompanyTradeSettings | null>(null)
+  const [isCompanyUser, setIsCompanyUser] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -51,6 +61,16 @@ export function NotificationSettings() {
         return
       }
 
+      // Check if user is a company
+      const { data: userData } = await supabase
+        .from("users")
+        .select("user_type")
+        .eq("id", user.id)
+        .single()
+
+      const isCompany = userData?.user_type === "company"
+      setIsCompanyUser(isCompany)
+
       // Get or create preferences
       const { data, error: prefsError } = await supabase.rpc("get_or_create_notification_preferences", {
         p_user_id: user.id,
@@ -63,7 +83,30 @@ export function NotificationSettings() {
       }
 
       if (data && data.length > 0) {
-        setPreferences(data[0])
+        setPreferences({
+          ...preferences,
+          ...data[0],
+          // Ensure email_on_trade_job_match has a default value
+          email_on_trade_job_match: data[0].email_on_trade_job_match ?? true,
+        })
+      }
+
+      // If company user, also load company-specific trade settings
+      if (isCompany) {
+        const { data: companyData, error: companyError } = await supabase
+          .from("company_profiles")
+          .select("trade_job_notifications, trade_job_notifications_distance")
+          .eq("user_id", user.id)
+          .single()
+
+        if (companyError) {
+          console.error("[NOTIFICATION-SETTINGS] Error loading company settings:", companyError)
+        } else if (companyData) {
+          setCompanyTradeSettings({
+            trade_job_notifications: companyData.trade_job_notifications ?? false,
+            trade_job_notifications_distance: companyData.trade_job_notifications_distance ?? 10,
+          })
+        }
       }
     } catch (err) {
       console.error("[NOTIFICATION-SETTINGS] Error:", err)
@@ -88,7 +131,7 @@ export function NotificationSettings() {
         return
       }
 
-      // Update preferences
+      // Update user notification preferences
       const { error: updateError } = await supabase
         .from("user_notification_preferences")
         .upsert(
@@ -98,6 +141,7 @@ export function NotificationSettings() {
             email_on_job_application: preferences.email_on_job_application,
             email_on_job_offer: preferences.email_on_job_offer,
             email_on_application_status_change: preferences.email_on_application_status_change,
+            email_on_trade_job_match: preferences.email_on_trade_job_match,
             email_digest_frequency: preferences.email_digest_frequency,
           },
           {
@@ -109,6 +153,23 @@ export function NotificationSettings() {
         console.error("[NOTIFICATION-SETTINGS] Error saving preferences:", updateError)
         setError("Failed to save preferences")
         return
+      }
+
+      // If company user, also update company-specific trade settings
+      if (isCompanyUser && companyTradeSettings) {
+        const { error: companyError } = await supabase
+          .from("company_profiles")
+          .update({
+            trade_job_notifications: companyTradeSettings.trade_job_notifications,
+            trade_job_notifications_distance: companyTradeSettings.trade_job_notifications_distance,
+          })
+          .eq("user_id", user.id)
+
+        if (companyError) {
+          console.error("[NOTIFICATION-SETTINGS] Error saving company settings:", companyError)
+          setError("Failed to save trade job notification settings")
+          return
+        }
       }
 
       console.log("[NOTIFICATION-SETTINGS] Preferences saved successfully")
@@ -253,6 +314,98 @@ export function NotificationSettings() {
               }
             />
           </div>
+
+          {/* Trade Job Match Notifications - Only for company users */}
+          {isCompanyUser && companyTradeSettings && (
+            <div className="rounded-lg border border-purple-200 bg-purple-50/50 p-4 space-y-4">
+              <div className="flex items-center justify-between space-x-4">
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-purple-600" />
+                    <Label htmlFor="trade-notifications" className="text-base font-medium">
+                      Trade Job Notifications
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Get notified when matching trade jobs are posted nearby
+                  </p>
+                </div>
+                <Switch
+                  id="trade-notifications"
+                  checked={companyTradeSettings.trade_job_notifications}
+                  onCheckedChange={(checked) =>
+                    setCompanyTradeSettings((prev) =>
+                      prev ? { ...prev, trade_job_notifications: checked } : null
+                    )
+                  }
+                  className="data-[state=checked]:bg-purple-600"
+                />
+              </div>
+
+              {companyTradeSettings.trade_job_notifications && (
+                <>
+                  <div className="flex items-center justify-between space-x-4 pt-2 border-t border-purple-200">
+                    <div className="flex-1 space-y-1">
+                      <Label htmlFor="trade-distance" className="text-sm font-medium">
+                        Notification Radius
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Only notify for jobs within this distance
+                      </p>
+                    </div>
+                    <Select
+                      value={companyTradeSettings.trade_job_notifications_distance.toString()}
+                      onValueChange={(value) =>
+                        setCompanyTradeSettings((prev) =>
+                          prev ? { ...prev, trade_job_notifications_distance: parseInt(value) } : null
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5 miles</SelectItem>
+                        <SelectItem value="10">10 miles</SelectItem>
+                        <SelectItem value="15">15 miles</SelectItem>
+                        <SelectItem value="20">20 miles</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center justify-between space-x-4 pt-2 border-t border-purple-200">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <Label htmlFor="email-trade" className="text-sm font-medium">
+                          Email Notifications
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Receive email for matching trade jobs
+                      </p>
+                    </div>
+                    <Switch
+                      id="email-trade"
+                      checked={preferences.email_on_trade_job_match}
+                      onCheckedChange={(checked) =>
+                        updatePreference("email_on_trade_job_match", checked)
+                      }
+                    />
+                  </div>
+
+                  <div className="text-xs text-purple-700 bg-purple-100 rounded p-2 mt-2">
+                    <strong>How it works:</strong> You'll receive notifications in your notification bell
+                    {preferences.email_on_trade_job_match ? " and email" : ""} when trade jobs are posted that:
+                    <ul className="list-disc list-inside mt-1">
+                      <li>Match your company's services/skills</li>
+                      <li>Are within {companyTradeSettings.trade_job_notifications_distance} miles of your location</li>
+                    </ul>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 pt-4">

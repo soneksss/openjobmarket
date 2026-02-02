@@ -147,6 +147,8 @@ export function NotificationBell() {
         return '⏰'
       case 'job_expired':
         return '❌'
+      case 'trade_job_match':
+        return '🔧'
       default:
         return '🔔'
     }

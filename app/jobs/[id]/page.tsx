@@ -210,13 +210,13 @@ export default async function JobDetailPage({
             }
             console.log("[JOB-DETAIL] Company profile loaded and transformed for task:", profile?.id)
 
-            // Check if company has already applied (checking professional_id as fallback if no company_id field exists)
+            // Check if company has already applied using company_id
             if (profile) {
               const { data: application, error: applicationError } = await supabase
                 .from("job_applications")
                 .select("id")
                 .eq("job_id", job.id)
-                .eq("professional_id", profile.id) // Using professional_id field for now
+                .eq("company_id", profile.id) // Company applications use company_id
                 .single()
 
               if (applicationError && applicationError.code !== 'PGRST116') {

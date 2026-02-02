@@ -260,40 +260,87 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
   // Check if user has already applied
   useEffect(() => {
     const checkApplication = async () => {
-      if (!userProfile) return
+      if (!isLoggedIn) return
 
       const supabase = createClient()
-      const { data } = await supabase
-        .from("job_applications")
-        .select("id")
-        .eq("job_id", job.id)
-        .eq("professional_id", userProfile.id)
-        .maybeSingle()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-      setHasApplied(!!data)
+      // Get user type to determine which field to check
+      const { data: userData } = await supabase
+        .from("users")
+        .select("user_type")
+        .eq("id", user.id)
+        .single()
+
+      if (!userData) return
+
+      // For trade jobs, companies apply with company_id
+      // For regular jobs, professionals apply with professional_id
+      if (job.is_tradespeople_job && userData.user_type === "company") {
+        // Get company profile
+        const { data: companyProfile } = await supabase
+          .from("company_profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .single()
+
+        if (companyProfile) {
+          const { data } = await supabase
+            .from("job_applications")
+            .select("id")
+            .eq("job_id", job.id)
+            .eq("company_id", companyProfile.id)
+            .maybeSingle()
+
+          setHasApplied(!!data)
+        }
+      } else if (!job.is_tradespeople_job && userData.user_type === "professional") {
+        // Get professional profile
+        const { data: profProfile } = await supabase
+          .from("professional_profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .single()
+
+        if (profProfile) {
+          const { data } = await supabase
+            .from("job_applications")
+            .select("id")
+            .eq("job_id", job.id)
+            .eq("professional_id", profProfile.id)
+            .maybeSingle()
+
+          setHasApplied(!!data)
+        }
+      }
     }
 
     checkApplication()
-  }, [userProfile, job.id])
+  }, [isLoggedIn, job.id, job.is_tradespeople_job])
 
   // Check if job is already saved
   useEffect(() => {
     const checkSaved = async () => {
-      if (!userProfile) return
+      if (!isLoggedIn) return
 
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Check by user_id (works for all user types including companies)
       const { data } = await supabase
         .from("saved_jobs")
         .select("id")
         .eq("job_id", job.id)
-        .eq("professional_id", userProfile.id)
+        .eq("user_id", user.id)
         .maybeSingle()
 
       setIsSaved(!!data)
     }
 
     checkSaved()
-  }, [userProfile, job.id])
+  }, [isLoggedIn, job.id])
 
   const handleApplyClick = async () => {
     if (!isLoggedIn) {
@@ -331,23 +378,24 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
       return
     }
 
-    if (!userProfile) {
-      // Redirect to login if no profile (shouldn't happen if isLoggedIn is true)
-      setShowSignUpDialog(true)
-      return
-    }
-
     setIsSaving(true)
     const supabase = createClient()
 
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setShowSignUpDialog(true)
+        setIsSaving(false)
+        return
+      }
+
       if (isSaved) {
-        // Unsave the job
+        // Unsave the job - use user_id for all user types
         const { error } = await supabase
           .from("saved_jobs")
           .delete()
           .eq("job_id", job.id)
-          .eq("professional_id", userProfile.id)
+          .eq("user_id", user.id)
 
         if (error) {
           console.error("[JOB-CARD] Error unsaving job:", error)
@@ -356,12 +404,12 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
           setIsSaved(false)
         }
       } else {
-        // Save the job
+        // Save the job - use user_id for all user types
         const { error } = await supabase
           .from("saved_jobs")
           .insert({
             job_id: job.id,
-            professional_id: userProfile.id
+            user_id: user.id
           })
 
         if (error) {

@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import Image from "next/image"
 import {
   Briefcase,
@@ -69,6 +70,8 @@ interface CompanyProfile {
   profile_visible?: boolean
   open_for_business?: boolean
   is_hiring?: boolean
+  trade_job_notifications?: boolean
+  trade_job_notifications_distance?: number
 }
 
 interface Job {
@@ -194,7 +197,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [hiring, setHiring] = useState(profile.is_hiring ?? false)
   const [updatingBusinessStatus, setUpdatingBusinessStatus] = useState(false)
   const [updatingHiringStatus, setUpdatingHiringStatus] = useState(false)
-  const [tradeJobNotifications, setTradeJobNotifications] = useState(false)
+  const [tradeJobNotifications, setTradeJobNotifications] = useState(profile.trade_job_notifications ?? false)
+  const [tradeNotificationDistance, setTradeNotificationDistance] = useState<number>(profile.trade_job_notifications_distance ?? 10)
   const [updatingTradeNotifications, setUpdatingTradeNotifications] = useState(false)
   const [showLocationPicker, setShowLocationPicker] = useState(false)
   const [latitude, setLatitude] = useState<number | null>(profile.latitude || null)
@@ -285,10 +289,26 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     }
   }
 
+  // Helper function to add timeout to promises
+  const withTimeout = <T,>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> => {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+      )
+    ])
+  }
+
   // Image resizing helper function
   const resizeImage = async (file: File, maxSize: number = 300): Promise<File> => {
     console.log("[v0] [resizeImage] Starting resize for:", file.name, "Type:", file.type)
     return new Promise((resolve, reject) => {
+      // Add overall timeout to prevent hanging
+      const timeoutId = setTimeout(() => {
+        console.error("[v0] [resizeImage] Overall timeout reached")
+        reject(new Error("IMAGE_PROCESSING_TIMEOUT: Image processing took too long"))
+      }, 30000) // 30 second overall timeout
+
       const img = new window.Image()
       img.onload = async () => {
         console.log("[v0] [resizeImage] Image loaded successfully. Dimensions:", img.width, "x", img.height)
@@ -296,6 +316,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           // Validate image dimensions
           if (img.width === 0 || img.height === 0) {
             console.error("[v0] [resizeImage] Invalid dimensions:", img.width, img.height)
+            clearTimeout(timeoutId)
             reject(new Error("IMAGE_DIMENSIONS_INVALID: Image has invalid dimensions"))
             return
           }
@@ -303,6 +324,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           // Check if image is too large to process
           if (img.width > 10000 || img.height > 10000) {
             console.error("[v0] [resizeImage] Image too large:", img.width, img.height)
+            clearTimeout(timeoutId)
             reject(new Error("IMAGE_TOO_LARGE: Image dimensions exceed 10000x10000 pixels"))
             return
           }
@@ -323,8 +345,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           console.log("[v0] [resizeImage] Cropping from center:", { cropX, cropY, size })
 
           let blob: Blob | null = null
+          let usedNativeFallback = false
 
-          // Try using pica for high-quality resizing first
+          // Try using pica for high-quality resizing first (with timeout)
           try {
             console.log("[v0] [resizeImage] Starting pica resize...")
             const picaInstance = pica()
@@ -342,20 +365,30 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             tempCtx.drawImage(img, cropX, cropY, size, size, 0, 0, size, size)
             console.log("[v0] [resizeImage] Cropped source canvas created")
 
-            // Resize the cropped square to the target size
-            await picaInstance.resize(tempCanvas, canvas)
+            // Resize the cropped square to the target size (with 10 second timeout)
+            await withTimeout(
+              picaInstance.resize(tempCanvas, canvas),
+              10000,
+              "Pica resize timeout"
+            )
             console.log("[v0] [resizeImage] Pica resize completed")
 
-            // Convert to WebP for better compression
+            // Convert to WebP for better compression (with 5 second timeout)
             console.log("[v0] [resizeImage] Converting to WebP...")
-            blob = await picaInstance.toBlob(canvas, "image/webp", 0.85)
+            blob = await withTimeout(
+              picaInstance.toBlob(canvas, "image/webp", 0.85),
+              5000,
+              "Pica toBlob timeout"
+            )
             console.log("[v0] [resizeImage] WebP conversion completed. Blob size:", blob?.size || 0)
           } catch (picaError) {
             console.warn("[v0] [resizeImage] Pica failed, falling back to native canvas:", picaError)
+            usedNativeFallback = true
 
             // Fallback to native canvas resizing
             const ctx = canvas.getContext("2d")
             if (!ctx) {
+              clearTimeout(timeoutId)
               reject(new Error("IMAGE_PROCESSING_FAILED: Failed to get canvas context"))
               return
             }
@@ -374,18 +407,21 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
           if (!blob || blob.size === 0) {
             console.error("[v0] [resizeImage] Blob creation failed")
+            clearTimeout(timeoutId)
             reject(new Error("IMAGE_CONVERSION_FAILED: Failed to convert image to WebP format"))
             return
           }
 
           const resizedFile = new File([blob], "logo.webp", { type: "image/webp" })
-          console.log("[v0] [resizeImage] Resized file created successfully")
+          console.log("[v0] [resizeImage] Resized file created successfully", usedNativeFallback ? "(using native fallback)" : "(using pica)")
 
           URL.revokeObjectURL(img.src)
+          clearTimeout(timeoutId)
           resolve(resizedFile)
         } catch (error) {
           console.error("[v0] [resizeImage] Error during processing:", error)
           URL.revokeObjectURL(img.src)
+          clearTimeout(timeoutId)
           if (error instanceof Error) {
             reject(error)
           } else {
@@ -396,6 +432,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       img.onerror = (event) => {
         console.error("[v0] [resizeImage] Image load failed:", event)
         URL.revokeObjectURL(img.src)
+        clearTimeout(timeoutId)
         reject(new Error("IMAGE_LOAD_FAILED: Unable to load image. The file may be corrupted or in an unsupported format"))
       }
       const objectUrl = URL.createObjectURL(file)
@@ -575,6 +612,13 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           toast({
             title: "Image Conversion Failed",
             description: "Failed to convert your image to WebP format. Try using a different browser (Chrome or Edge recommended) or a different image file.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else if (errorMessage.includes('IMAGE_PROCESSING_TIMEOUT')) {
+          toast({
+            title: "Image Processing Timeout",
+            description: "The image took too long to process. Please try a smaller image file (under 2MB recommended) or try again.",
             variant: "destructive",
             duration: 5000,
           })
@@ -773,7 +817,10 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
       const { error } = await supabase
         .from("company_profiles")
-        .update({ trade_job_notifications: status })
+        .update({
+          trade_job_notifications: status,
+          trade_job_notifications_distance: tradeNotificationDistance
+        })
         .eq("id", profile.id)
 
       if (error) {
@@ -794,7 +841,14 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
         return
       }
 
-      console.log("[v0] Trade job notifications updated successfully:", status)
+      console.log("[v0] Trade job notifications updated successfully:", status, "Distance:", tradeNotificationDistance)
+      if (status) {
+        toast({
+          title: "Trade Notifications Enabled",
+          description: `You'll be notified of matching trade jobs within ${tradeNotificationDistance} miles.`,
+          duration: 3000,
+        })
+      }
     } catch (error) {
       console.error("[v0] Error updating trade job notifications:", error)
       toast({
@@ -806,6 +860,42 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       setTradeJobNotifications(!status) // Revert on error
     } finally {
       setUpdatingTradeNotifications(false)
+    }
+  }
+
+  const handleTradeNotificationDistanceChange = async (distance: number) => {
+    const previousDistance = tradeNotificationDistance
+    setTradeNotificationDistance(distance)
+
+    try {
+      const supabase = createClient()
+
+      const { error } = await supabase
+        .from("company_profiles")
+        .update({ trade_job_notifications_distance: distance })
+        .eq("id", profile.id)
+
+      if (error) {
+        console.error("[v0] Error updating trade notification distance:", error.message)
+        setTradeNotificationDistance(previousDistance) // Revert on error
+        toast({
+          title: "Update Failed",
+          description: `Error updating notification distance: ${error.message}`,
+          variant: "destructive",
+          duration: 5000,
+        })
+        return
+      }
+
+      console.log("[v0] Trade notification distance updated successfully:", distance)
+      toast({
+        title: "Distance Updated",
+        description: `You'll be notified of jobs within ${distance} miles.`,
+        duration: 2000,
+      })
+    } catch (error) {
+      console.error("[v0] Error updating trade notification distance:", error)
+      setTradeNotificationDistance(previousDistance) // Revert on error
     }
   }
 
@@ -1021,8 +1111,20 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                               <Info className="h-3 w-3" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="left" className="w-64">
-                            <p className="text-xs text-muted-foreground">Get notifications if someone post job, matching your services</p>
+                          <PopoverContent side="left" className="w-72">
+                            <div className="space-y-2">
+                              <p className="text-xs font-medium text-foreground">Trade Job Notifications</p>
+                              <p className="text-xs text-muted-foreground">
+                                Get notified when homeowners or companies post trade jobs that match your services and are within your selected radius.
+                              </p>
+                              <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
+                                <p><strong>You'll be notified when:</strong></p>
+                                <ul className="list-disc list-inside mt-1 space-y-0.5">
+                                  <li>Job skills match your services</li>
+                                  <li>Job is within {tradeNotificationDistance} miles</li>
+                                </ul>
+                              </div>
+                            </div>
                           </PopoverContent>
                         </Popover>
                         <span className="text-xs text-muted-foreground w-16 text-right">{tradeJobNotifications ? "On" : "Off"}</span>
@@ -1033,6 +1135,26 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                           className="data-[state=checked]:bg-purple-600"
                         />
                       </div>
+                      {/* Distance Selector - Show when notifications are enabled */}
+                      {tradeJobNotifications && (
+                        <div className="flex items-center gap-1 whitespace-nowrap">
+                          <span className="text-xs text-muted-foreground">Radius:</span>
+                          <Select
+                            value={tradeNotificationDistance.toString()}
+                            onValueChange={(value) => handleTradeNotificationDistanceChange(parseInt(value))}
+                          >
+                            <SelectTrigger className="h-6 w-20 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="5">5 miles</SelectItem>
+                              <SelectItem value="10">10 miles</SelectItem>
+                              <SelectItem value="15">15 miles</SelectItem>
+                              <SelectItem value="20">20 miles</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1242,6 +1364,23 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
                       {tradeJobNotifications ? "Trade Notif. On" : "Trade Notif. Off"}
                     </p>
+                    {/* Distance Selector - Desktop */}
+                    {tradeJobNotifications && (
+                      <Select
+                        value={tradeNotificationDistance.toString()}
+                        onValueChange={(value) => handleTradeNotificationDistanceChange(parseInt(value))}
+                      >
+                        <SelectTrigger className="h-7 w-24 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5 miles</SelectItem>
+                          <SelectItem value="10">10 miles</SelectItem>
+                          <SelectItem value="15">15 miles</SelectItem>
+                          <SelectItem value="20">20 miles</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
                     <Popover>
                       <PopoverTrigger asChild>
                         <button
@@ -1252,9 +1391,22 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                         </button>
                       </PopoverTrigger>
                       <PopoverContent side="right" className="w-80">
-                        <p className="text-sm text-muted-foreground">
-                          Get notifications if someone post job, matching your services
-                        </p>
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm">Trade Job Notifications</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Get notified when homeowners or companies post trade jobs that match your services and are within your selected radius.
+                          </p>
+                          <div className="text-sm text-muted-foreground border-t pt-2 mt-2">
+                            <p className="font-medium text-foreground">You'll be notified when:</p>
+                            <ul className="list-disc list-inside mt-1 space-y-0.5">
+                              <li>Job skills match your services</li>
+                              <li>Job is within {tradeNotificationDistance} miles</li>
+                            </ul>
+                          </div>
+                          <p className="text-xs text-muted-foreground border-t pt-2 mt-2">
+                            Notifications are sent via email and appear in your notification bell.
+                          </p>
+                        </div>
                       </PopoverContent>
                     </Popover>
                   </div>
