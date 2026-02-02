@@ -239,45 +239,41 @@ const getCommonTrades = (isPtBR: boolean) => {
   ]
 }
 
-// Common languages for trade jobs
-const getCommonLanguages = (isPtBR: boolean) => {
-  if (isPtBR) {
-    return [
-      "Inglês",
-      "Espanhol",
-      "Mandarim",
-      "Francês",
-      "Alemão",
-      "Italiano",
-      "Português",
-      "Russo",
-      "Árabe",
-      "Polonês",
-      "Turco",
-      "Urdu",
-      "Bengali",
-      "Punjabi",
-      "Romeno",
-    ]
-  }
+// Language data with flags
+const LANGUAGE_FLAGS: { [key: string]: { flag: string; en: string; ptBR: string } } = {
+  english: { flag: "🇬🇧", en: "English", ptBR: "Inglês" },
+  spanish: { flag: "🇪🇸", en: "Spanish", ptBR: "Espanhol" },
+  mandarin: { flag: "🇨🇳", en: "Mandarin", ptBR: "Mandarim" },
+  french: { flag: "🇫🇷", en: "French", ptBR: "Francês" },
+  german: { flag: "🇩🇪", en: "German", ptBR: "Alemão" },
+  italian: { flag: "🇮🇹", en: "Italian", ptBR: "Italiano" },
+  portuguese: { flag: "🇵🇹", en: "Portuguese", ptBR: "Português" },
+  russian: { flag: "🇷🇺", en: "Russian", ptBR: "Russo" },
+  arabic: { flag: "🇸🇦", en: "Arabic", ptBR: "Árabe" },
+  polish: { flag: "🇵🇱", en: "Polish", ptBR: "Polonês" },
+  turkish: { flag: "🇹🇷", en: "Turkish", ptBR: "Turco" },
+  urdu: { flag: "🇵🇰", en: "Urdu", ptBR: "Urdu" },
+  bengali: { flag: "🇧🇩", en: "Bengali", ptBR: "Bengali" },
+  punjabi: { flag: "🇮🇳", en: "Punjabi", ptBR: "Punjabi" },
+  romanian: { flag: "🇷🇴", en: "Romanian", ptBR: "Romeno" },
+  hindi: { flag: "🇮🇳", en: "Hindi", ptBR: "Hindi" },
+  ukrainian: { flag: "🇺🇦", en: "Ukrainian", ptBR: "Ucraniano" },
+  dutch: { flag: "🇳🇱", en: "Dutch", ptBR: "Holandês" },
+}
 
-  return [
-    "English",
-    "Spanish",
-    "Mandarin",
-    "French",
-    "German",
-    "Italian",
-    "Portuguese",
-    "Russian",
-    "Arabic",
-    "Polish",
-    "Turkish",
-    "Urdu",
-    "Bengali",
-    "Punjabi",
-    "Romanian",
+// Common languages for trade jobs - returns array of { key, flag, name }
+const getCommonLanguages = (isPtBR: boolean) => {
+  const keys = [
+    "english", "spanish", "mandarin", "french", "german",
+    "italian", "portuguese", "russian", "arabic", "polish",
+    "turkish", "urdu", "bengali", "punjabi", "romanian"
   ]
+
+  return keys.map(key => ({
+    key,
+    flag: LANGUAGE_FLAGS[key].flag,
+    name: isPtBR ? LANGUAGE_FLAGS[key].ptBR : LANGUAGE_FLAGS[key].en
+  }))
 }
 
 export default function JobWizardModal({ companyProfile, userType, redirectPath }: Props) {
@@ -475,6 +471,14 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
       ...prev,
       languages: prev.languages.filter((lang) => lang !== language),
     }))
+  }
+
+  const toggleLanguage = (language: string) => {
+    if (formData.languages.includes(language)) {
+      removeLanguage(language)
+    } else {
+      addLanguage(language)
+    }
   }
 
   const validateStep = (step: number): boolean => {
@@ -1125,39 +1129,43 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {getCommonLanguages(isPtBR).map((lang) => (
-                    <button
-                      key={lang}
-                      type="button"
-                      onClick={() => addLanguage(lang)}
-                      disabled={formData.languages.includes(lang)}
-                      className={`px-3 py-1 rounded-full text-sm transition-colors ${
-                        formData.languages.includes(lang)
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                      }`}
-                    >
-                      {lang}
-                    </button>
-                  ))}
+                  {getCommonLanguages(isPtBR).map((langData) => {
+                    const isSelected = formData.languages.includes(langData.name)
+                    return (
+                      <button
+                        key={langData.key}
+                        type="button"
+                        onClick={() => toggleLanguage(langData.name)}
+                        title={`${langData.name} - ${isSelected ? 'Click to remove' : 'Click to add'}`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all ${
+                          isSelected
+                            ? "bg-blue-600 text-white ring-2 ring-blue-300 shadow-md"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        <span className="text-lg">{langData.flag}</span>
+                        <span className="hidden sm:inline">{langData.name}</span>
+                        {isSelected && <span className="text-xs ml-0.5">✓</span>}
+                      </button>
+                    )
+                  })}
                 </div>
+                <p className="text-xs text-gray-500 mb-2">
+                  Click to select, click again to remove
+                </p>
                 {formData.languages.length > 0 && (
-                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xs font-medium text-gray-700 mb-2">Selected Languages:</p>
+                  <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p className="text-xs font-medium text-blue-800 mb-2">Selected ({formData.languages.length}):</p>
                     <div className="flex flex-wrap gap-2">
                       {formData.languages.map((lang) => (
                         <span
                           key={lang}
-                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-full text-sm"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-blue-600 text-white rounded-full text-sm cursor-pointer hover:bg-blue-700 transition-colors"
+                          onClick={() => removeLanguage(lang)}
+                          title="Click to remove"
                         >
                           {lang}
-                          <button
-                            type="button"
-                            onClick={() => removeLanguage(lang)}
-                            className="hover:bg-blue-700 rounded-full p-0.5"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          <X className="w-3 h-3" />
                         </span>
                       ))}
                     </div>

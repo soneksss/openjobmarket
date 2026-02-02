@@ -184,14 +184,14 @@ export function LocationPicker({
                     Change
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-5xl max-h-[75vh] flex flex-col overflow-hidden">
+                <DialogContent className="max-w-5xl w-[95vw] h-[85vh] sm:h-[75vh] flex flex-col overflow-hidden p-4 sm:p-6">
                   <DialogHeader className="flex-shrink-0">
                     <DialogTitle className="text-xl">Choose your location</DialogTitle>
                     <DialogDescription className="pt-2">
                       Click on the map to select your location, or use the "Locate Me" button
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="flex-1 relative min-h-0 overflow-hidden">
+                  <div className="flex-1 relative min-h-[300px] sm:min-h-[400px] overflow-hidden rounded-lg border">
                     <LocationMap
                       ref={mapRef}
                       onLocationSelect={handleLocationSelect}
@@ -221,20 +221,20 @@ export function LocationPicker({
                       </Button>
                     </div>
                   </div>
-                  <div className="flex justify-between items-center pt-4 pb-2 flex-shrink-0 bg-background border-t">
-                    <Button variant="outline" onClick={handleCancel}>
+                  <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4 pb-2 flex-shrink-0 bg-background border-t">
+                    <Button variant="outline" onClick={handleCancel} className="order-2 sm:order-1">
                       Cancel
                     </Button>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 order-1 sm:order-2">
                       <Button
                         variant="outline"
                         onClick={onLocationClear}
-                        className="text-destructive hover:text-destructive"
+                        className="text-destructive hover:text-destructive flex-1 sm:flex-none"
                       >
                         <X className="h-4 w-4 mr-1" />
-                        Clear Location
+                        Clear
                       </Button>
-                      <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress}>
+                      <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress} className="flex-1 sm:flex-none">
                         {isGettingAddress ? 'Getting address...' : 'Save Location'}
                       </Button>
                     </div>
@@ -255,14 +255,14 @@ export function LocationPicker({
               Choose location on map
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-5xl max-h-[75vh] flex flex-col overflow-hidden">
+          <DialogContent className="max-w-5xl w-[95vw] h-[85vh] sm:h-[75vh] flex flex-col overflow-hidden p-4 sm:p-6">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-xl">Choose your location</DialogTitle>
               <DialogDescription className="pt-2">
                 Click on the map to select your location, or use the "Locate Me" button
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 relative min-h-0 overflow-hidden">
+            <div className="flex-1 relative min-h-[300px] sm:min-h-[400px] overflow-hidden rounded-lg border">
               <LocationMap
                 ref={mapRef}
                 onLocationSelect={handleLocationSelect}
@@ -292,11 +292,11 @@ export function LocationPicker({
                 </Button>
               </div>
             </div>
-            <div className="flex justify-between items-center pt-4 pb-2 flex-shrink-0 bg-background border-t">
-              <Button variant="outline" onClick={handleCancel}>
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4 pb-2 flex-shrink-0 bg-background border-t">
+              <Button variant="outline" onClick={handleCancel} className="order-2 sm:order-1">
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress}>
+              <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress} className="flex-1 sm:flex-none order-1 sm:order-2">
                 {isGettingAddress ? 'Getting address...' : 'Save Location'}
               </Button>
             </div>
@@ -307,14 +307,14 @@ export function LocationPicker({
       {/* Controlled dialog (no trigger button) */}
       {isControlled && (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="max-w-5xl max-h-[75vh] flex flex-col overflow-hidden">
+          <DialogContent className="max-w-5xl w-[95vw] h-[85vh] sm:h-[75vh] flex flex-col overflow-hidden p-4 sm:p-6">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle className="text-xl">Choose your location</DialogTitle>
               <DialogDescription className="pt-2">
                 Click on the map to select your location, or use the "Locate Me" button
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 relative min-h-0 overflow-hidden">
+            <div className="flex-1 relative min-h-[300px] sm:min-h-[400px] overflow-hidden rounded-lg border">
               <LocationMap
                 ref={mapRef}
                 onLocationSelect={handleLocationSelect}
@@ -344,22 +344,22 @@ export function LocationPicker({
                 </Button>
               </div>
             </div>
-            <div className="flex justify-between items-center pt-4 pb-2 flex-shrink-0 bg-background border-t">
-              <Button variant="outline" onClick={handleCancel}>
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4 pb-2 flex-shrink-0 bg-background border-t">
+              <Button variant="outline" onClick={handleCancel} className="order-2 sm:order-1">
                 Cancel
               </Button>
-              <div className="flex gap-2">
+              <div className="flex gap-2 order-1 sm:order-2">
                 {hasLocation && (
                   <Button
                     variant="outline"
                     onClick={onLocationClear}
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive hover:text-destructive flex-1 sm:flex-none"
                   >
                     <X className="h-4 w-4 mr-1" />
-                    Clear Location
+                    Clear
                   </Button>
                 )}
-                <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress}>
+                <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress} className="flex-1 sm:flex-none">
                   {isGettingAddress ? 'Getting address...' : 'Save Location'}
                 </Button>
               </div>

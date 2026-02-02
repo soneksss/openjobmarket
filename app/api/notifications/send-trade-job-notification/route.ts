@@ -34,7 +34,17 @@ export async function POST(request: NextRequest) {
       lat: jobLat,
       lon: jobLon,
       skills: jobSkills,
+      posterName,
     })
+
+    // Debug: Check if this is a valid coordinate
+    if (isNaN(jobLat) || isNaN(jobLon) || jobLat < -90 || jobLat > 90 || jobLon < -180 || jobLon > 180) {
+      console.error("[TRADE-JOB-NOTIFICATION] Invalid coordinates:", { jobLat, jobLon })
+      return NextResponse.json({
+        success: false,
+        error: "Invalid coordinates provided",
+      }, { status: 400 })
+    }
 
     // Use admin client for system-level operations
     let adminClient
@@ -68,7 +78,33 @@ export async function POST(request: NextRequest) {
     }
 
     if (!matchingCompanies || matchingCompanies.length === 0) {
-      console.log("[TRADE-JOB-NOTIFICATION] No matching companies found")
+      console.log("[TRADE-JOB-NOTIFICATION] No matching companies found. Debug info:", {
+        jobId,
+        jobTitle,
+        jobLat,
+        jobLon,
+        jobSkills,
+        hint: "Check: 1) Companies have trade_job_notifications=true, 2) Companies have valid coordinates, 3) Companies are within distance radius, 4) Services/skills match (case-insensitive)"
+      })
+
+      // Debug: Query to see what companies have trade notifications enabled
+      const { data: tradeEnabledCompanies } = await adminClient
+        .from("company_profiles")
+        .select("id, company_name, trade_job_notifications, trade_job_notifications_distance, latitude, longitude, services")
+        .eq("trade_job_notifications", true)
+        .limit(10)
+
+      if (tradeEnabledCompanies && tradeEnabledCompanies.length > 0) {
+        console.log("[TRADE-JOB-NOTIFICATION] Companies with trade notifications enabled:", tradeEnabledCompanies.map(c => ({
+          name: c.company_name,
+          hasCoords: !!(c.latitude && c.longitude),
+          distance: c.trade_job_notifications_distance,
+          services: c.services,
+        })))
+      } else {
+        console.log("[TRADE-JOB-NOTIFICATION] No companies have trade_job_notifications=true")
+      }
+
       return NextResponse.json({
         success: true,
         notificationsSent: 0,

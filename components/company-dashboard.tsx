@@ -1073,7 +1073,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                               <Info className="h-3 w-3" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="left" className="w-64">
+                          <PopoverContent side="bottom" align="end" className="w-64 max-w-[calc(100vw-2rem)]">
                             <p className="text-xs text-muted-foreground">When active, people can see you on the map</p>
                           </PopoverContent>
                         </Popover>
@@ -1092,7 +1092,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                               <Info className="h-3 w-3" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="left" className="w-64">
+                          <PopoverContent side="bottom" align="end" className="w-64 max-w-[calc(100vw-2rem)]">
                             <p className="text-xs text-muted-foreground">When active, you are open to business and people can contact you directly</p>
                           </PopoverContent>
                         </Popover>
@@ -1111,7 +1111,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                               <Info className="h-3 w-3" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="left" className="w-72">
+                          <PopoverContent side="bottom" align="end" className="w-72 max-w-[calc(100vw-2rem)]">
                             <div className="space-y-2">
                               <p className="text-xs font-medium text-foreground">Trade Job Notifications</p>
                               <p className="text-xs text-muted-foreground">
