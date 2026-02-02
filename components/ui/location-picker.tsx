@@ -69,33 +69,35 @@ export function LocationPicker({
 
       const data = await response.json()
 
-      // Build a nice address from the response
+      // Build a SHORT address: street, postcode, country
       const address = data.address
-      let formattedAddress = ''
+      const parts: string[] = []
 
-      if (address.house_number && address.road) {
-        formattedAddress = `${address.house_number} ${address.road}`
-      } else if (address.road) {
-        formattedAddress = address.road
+      // Street name (road or suburb/neighbourhood as fallback)
+      if (address.road) {
+        parts.push(address.road)
+      } else if (address.suburb) {
+        parts.push(address.suburb)
+      } else if (address.neighbourhood) {
+        parts.push(address.neighbourhood)
       } else if (address.hamlet || address.village || address.town || address.city) {
-        formattedAddress = address.hamlet || address.village || address.town || address.city
+        parts.push(address.hamlet || address.village || address.town || address.city)
       }
 
-      if (address.city && !formattedAddress.includes(address.city)) {
-        formattedAddress += formattedAddress ? `, ${address.city}` : address.city
-      } else if (address.town && !formattedAddress.includes(address.town)) {
-        formattedAddress += formattedAddress ? `, ${address.town}` : address.town
+      // Postcode
+      if (address.postcode) {
+        parts.push(address.postcode)
       }
 
-      if (address.county && !formattedAddress.includes(address.county)) {
-        formattedAddress += formattedAddress ? `, ${address.county}` : address.county
+      // Country (short form preferred)
+      if (address.country_code) {
+        // Use country code in uppercase for brevity (UK, US, DE, etc.)
+        parts.push(address.country_code.toUpperCase())
+      } else if (address.country) {
+        parts.push(address.country)
       }
 
-      if (address.country && !formattedAddress.includes(address.country)) {
-        formattedAddress += formattedAddress ? `, ${address.country}` : address.country
-      }
-
-      return formattedAddress || data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`
+      return parts.length > 0 ? parts.join(', ') : `${lat.toFixed(4)}, ${lng.toFixed(4)}`
     } catch (error) {
       console.error('Error getting address:', error)
       return `${lat.toFixed(4)}, ${lng.toFixed(4)}`

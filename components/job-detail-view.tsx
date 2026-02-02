@@ -25,6 +25,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import JobApplicationForm from "./job-application-form"
 import { useTranslation } from "@/lib/i18n/context"
+import { formatDisplayAddress } from "@/lib/utils"
 
 interface Job {
   id: string
@@ -580,7 +581,7 @@ export default function JobDetailView({
                     <div className="flex flex-wrap items-center gap-3 text-sm">
                       <span className="flex items-center text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
                         <MapPin className="h-4 w-4 mr-1" />
-                        {job.location}
+                        {formatDisplayAddress(job.location)}
                       </span>
                       <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-200">
                         {job.job_type}
@@ -851,7 +852,7 @@ export default function JobDetailView({
                       </div>
                       <div className="flex items-center justify-between py-2">
                         <span className="text-gray-600 font-medium">Location</span>
-                        <span className="text-gray-900 font-semibold">{job.company_profiles.location}</span>
+                        <span className="text-gray-900 font-semibold">{formatDisplayAddress(job.company_profiles.location)}</span>
                       </div>
                     </>
                   )}
