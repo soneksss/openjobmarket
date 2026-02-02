@@ -207,6 +207,8 @@ export default async function JobDetailPage({
               nickname: profile.nickname || profile.company_name,
               hide_email: false,
               hide_personal_name: false,
+              // IMPORTANT: Preserve company_name for company applicant detection in JobApplicationForm
+              company_name: profile.company_name,
             }
             console.log("[JOB-DETAIL] Company profile loaded and transformed for task:", profile?.id)
 

@@ -122,11 +122,11 @@ export default function JobDetailView({
   const supabase = createClient()
   const { t } = useTranslation()
 
-  // Locale-aware sign-up URL
+  // Locale-aware sign-in URL (users viewing jobs likely already have accounts)
   const isOnBrRoute = pathname?.startsWith('/br')
-  const signUpUrl = isOnBrRoute
-    ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
-    : '/auth/sign-up'
+  const signInUrl = isOnBrRoute
+    ? `/auth/sign-in?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : `/auth/sign-in?returnUrl=${encodeURIComponent(pathname || '/')}`
 
   const [loading, setLoading] = useState(false)
   const [coverLetter, setCoverLetter] = useState("")
@@ -637,7 +637,7 @@ export default function JobDetailView({
                   )}
                   {!user && (
                     <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                      <Link href={signUpUrl}>Sign Up to Apply</Link>
+                      <Link href={signInUrl}>Sign In to Apply</Link>
                     </Button>
                   )}
                 </div>
@@ -794,7 +794,7 @@ export default function JobDetailView({
                     Sign up to apply for this position and manage your privacy settings.
                   </p>
                   <Button asChild className="bg-blue-600 hover:bg-blue-700 px-8 py-3">
-                    <Link href={signUpUrl}>Sign Up to Apply</Link>
+                    <Link href={signInUrl}>Sign In to Apply</Link>
                   </Button>
                 </CardContent>
               </Card>
