@@ -919,6 +919,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                       const posterName =
                                         (job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
                                         job.company_profiles?.company_name ||
+                                        job.poster_company_name ||
                                         "Anonymous"
 
                                       if (logoUrl) {
@@ -955,11 +956,12 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                           <p className="text-sm text-gray-600 font-medium">
                                             {(job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
                                               job.company_profiles?.company_name ||
+                                              job.poster_company_name ||
                                               "Anonymous"}
                                           </p>
                                         </div>
                                         {/* Only show company name separately if poster is a homeowner (not the company itself) */}
-                                        {job.company_profiles?.company_name && job.poster_first_name && job.poster_last_name && (
+                                        {(job.company_profiles?.company_name || job.poster_company_name) && job.poster_first_name && job.poster_last_name && (
                                           <>
                                             <span className="text-gray-400">•</span>
                                             <div className="flex items-center gap-1">
@@ -1754,6 +1756,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                               const posterName =
                                 (job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
                                 job.company_profiles?.company_name ||
+                                job.poster_company_name ||
                                 "Anonymous"
 
                               const profileUrl = job.company_profiles?.id
@@ -1813,6 +1816,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                 <p className="text-sm text-gray-600">
                                   {(job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
                                     job.company_profiles?.company_name ||
+                                    job.poster_company_name ||
                                     "Anonymous"}
                                 </p>
                                 {job.company_rating && (
@@ -2186,6 +2190,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                               const posterName =
                                 (job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
                                 job.company_profiles?.company_name ||
+                                job.poster_company_name ||
                                 "Anonymous"
 
                               const profileUrl = job.company_profiles?.id
@@ -2245,6 +2250,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                 <p className="text-sm text-gray-600 truncate">
                                   {(job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
                                     job.company_profiles?.company_name ||
+                                    job.poster_company_name ||
                                     "Anonymous"}
                                 </p>
                                 {job.company_rating && (
@@ -2285,6 +2291,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                   const posterName =
                                     (job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
                                     job.company_profiles?.company_name ||
+                                    job.poster_company_name ||
                                     "Anonymous"
 
                                   const profileUrl = job.company_profiles?.id

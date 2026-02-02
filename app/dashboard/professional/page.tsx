@@ -119,14 +119,14 @@ export default async function ProfessionalDashboardPage() {
     .eq("professional_id", profile.id)
     .single()
 
-  // Get user roles for account type display
+  // Get user account type for display
   const { data: userData } = await supabase
     .from("users")
-    .select("account_type, is_jobseeker, is_homeowner, is_employer, is_tradespeople, user_type")
+    .select("account_type, user_type")
     .eq("id", user.id)
     .single()
 
-  const accountTypeLabel = userData ? formatAccountTypeLabel(userData) : 'Individual - User'
+  const accountTypeLabel = userData ? formatAccountTypeLabel(userData) : 'Individual Account'
 
   console.log("[PROFESSIONAL-DASHBOARD-PAGE] Passing user to component:", {
     hasUser: !!user,

@@ -9,59 +9,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { User, Building2, Briefcase, Home, Wrench, Users, ArrowRight, ArrowLeft, Loader2, Check, X, Plus } from "lucide-react"
+import { User, Building2, ArrowRight, ArrowLeft, Loader2, Check, X, Plus } from "lucide-react"
 import Link from "next/link"
 import { MapLocationPicker } from "@/components/map-location-picker"
 import { useTranslation } from "@/lib/i18n/context"
 
-// Common job titles for autocomplete suggestions (locale-aware)
-const getJobTitles = (locale: string) => {
-  if (locale === 'pt-BR') {
-    return [
-      "Engenheiro de Software", "Desenvolvedor Web", "Analista de Dados", "Gerente de Projetos",
-      "Gerente de Marketing", "Representante de Vendas", "Contador", "Gerente de RH",
-      "Encanador", "Eletricista", "Carpinteiro", "Construtor", "Pintor",
-      "Faxineiro", "Motorista", "Auxiliar de Armazém", "Segurança",
-      "Enfermeiro", "Cuidador", "Professor", "Chef", "Mecânico"
-    ]
-  }
-  return [
-    "Software Engineer", "Web Developer", "Data Analyst", "Project Manager",
-    "Marketing Manager", "Sales Representative", "Accountant", "HR Manager",
-    "Plumber", "Electrician", "Carpenter", "Builder", "Painter",
-    "Cleaner", "Driver", "Warehouse Worker", "Security Guard",
-    "Nurse", "Care Worker", "Teacher", "Chef", "Mechanic"
-  ]
-}
-
-// Common skills for autocomplete suggestions (locale-aware)
-const getSkills = (locale: string) => {
-  if (locale === 'pt-BR') {
-    return [
-      "Comunicação", "Liderança", "Resolução de Problemas", "Trabalho em Equipe",
-      "Gestão de Projetos", "Agile", "Gestão de Tempo", "Atendimento ao Cliente",
-      "JavaScript", "Python", "React", "Node.js", "SQL", "AWS",
-      "Excel", "Contabilidade", "Marketing", "Vendas", "Microsoft Office",
-      "Encanamento", "Trabalho Elétrico", "Carpintaria", "Pintura", "Azulejista"
-    ]
-  }
-  return [
-    "Communication", "Leadership", "Problem Solving", "Teamwork",
-    "Project Management", "Agile", "Time Management", "Customer Service",
-    "JavaScript", "Python", "React", "Node.js", "SQL", "AWS",
-    "Excel", "Accounting", "Marketing", "Sales", "Microsoft Office",
-    "Plumbing", "Electrical Work", "Carpentry", "Painting", "Tiling"
-  ]
-}
-
 interface SignupData {
   accountType: "individual" | "company" | null
-  roles: {
-    jobseeker: boolean
-    homeowner: boolean
-    employer: boolean
-    tradespeople: boolean
-  }
   email: string
   password: string
   confirmPassword: string
@@ -69,30 +23,18 @@ interface SignupData {
   firstName: string
   lastName: string
   nickname: string
+  title: string
   // Company fields
   companyName: string
+  industry: string
+  services: string[]
+  // Common fields
   phone: string
   location: string
   latitude: number | null
   longitude: number | null
   // Legal requirements
   ageConfirmation: boolean
-  // Step 5: Detailed Profile Fields
-  // Professional/Jobseeker fields
-  title: string
-  bio: string
-  experienceLevel: "entry" | "mid" | "senior" | "lead" | "executive"
-  skills: string[]
-  salaryMin: string
-  salaryMax: string
-  salaryFrequency: "per_year" | "per_month" | "per_hour"
-  drivingLicense: boolean
-  ownTransport: boolean
-  willingToRelocate: boolean
-  // Company fields
-  industry: string
-  companyBio: string
-  services: string[]
 }
 
 export default function MultiStepSignup() {
@@ -105,108 +47,51 @@ export default function MultiStepSignup() {
   const isOnBrRoute = locale === 'pt-BR'
   const dashboardUrl = '/dashboard'
 
-  // Helper to create locale-aware paths
-  const getLocalePath = (path: string) => {
-    return isOnBrRoute ? `/br${path}` : path
-  }
-
   const [currentStep, setCurrentStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [serviceInput, setServiceInput] = useState('')
-  const skillInputRef = useRef<HTMLInputElement>(null)
 
   const [signupData, setSignupData] = useState<SignupData>({
     accountType: null,
-    roles: {
-      jobseeker: false,
-      homeowner: false,
-      employer: false,
-      tradespeople: false,
-    },
     email: "",
     password: "",
     confirmPassword: "",
     firstName: "",
     lastName: "",
     nickname: "",
+    title: "",
     companyName: "",
+    industry: "",
+    services: [],
     phone: "",
     location: "",
     latitude: null,
     longitude: null,
     ageConfirmation: false,
-    // Step 5 fields
-    title: "",
-    bio: "",
-    experienceLevel: "mid",
-    skills: [],
-    salaryMin: "",
-    salaryMax: "",
-    salaryFrequency: "per_month",
-    drivingLicense: false,
-    ownTransport: false,
-    willingToRelocate: false,
-    industry: "",
-    companyBio: "",
-    services: [],
   })
 
   const updateSignupData = (updates: Partial<SignupData>) => {
     setSignupData(prev => ({ ...prev, ...updates }))
   }
 
-  const toggleRole = (role: keyof SignupData["roles"]) => {
-    setSignupData(prev => ({
-      ...prev,
-      roles: {
-        ...prev.roles,
-        [role]: !prev.roles[role]
-      }
-    }))
-  }
-
   // Read URL parameters from Quick Check modal and pre-populate form
   useEffect(() => {
     const accountTypeParam = searchParams?.get('accountType')
-    const rolesParam = searchParams?.get('roles')
     const sourceParam = searchParams?.get('source')
 
-    if (sourceParam === 'quickcheck' && accountTypeParam && rolesParam) {
-      console.log('[SIGNUP] Pre-populating from Quick Check:', { accountTypeParam, rolesParam })
-
-      // Set account type
+    if (sourceParam === 'quickcheck' && accountTypeParam) {
+      console.log('[SIGNUP] Pre-populating from Quick Check:', { accountTypeParam })
       const accountType = accountTypeParam as 'individual' | 'company'
-
-      // Parse roles
-      const selectedRoles = rolesParam.split(',')
-      const rolesObject = {
-        jobseeker: selectedRoles.includes('jobseeker'),
-        homeowner: selectedRoles.includes('homeowner'),
-        employer: selectedRoles.includes('employer'),
-        tradespeople: selectedRoles.includes('tradespeople'),
-      }
-
-      // Update signup data
-      setSignupData(prev => ({
-        ...prev,
-        accountType,
-        roles: rolesObject
-      }))
-
-      // Skip to step 4 (basic profile info) since account type and roles are already selected
-      setCurrentStep(4)
+      setSignupData(prev => ({ ...prev, accountType }))
+      // Skip to step 2 (profile info) since account type is already selected
+      setCurrentStep(2)
     }
   }, [searchParams])
 
   const canProceedFromStep1 = signupData.accountType !== null
-  const canProceedFromStep2 = () => {
-    const { jobseeker, homeowner, employer, tradespeople } = signupData.roles
-    return jobseeker || homeowner || employer || tradespeople
-  }
 
-  const validateStep3 = async () => {
-    // Clear previous errors
+  const validateStep2 = async () => {
     setError(null)
 
     // Check required fields
@@ -234,8 +119,8 @@ export default function MultiStepSignup() {
       return false
     }
 
-    // Check age confirmation for jobseekers and homeowners
-    if ((signupData.roles.jobseeker || signupData.roles.homeowner) && !signupData.ageConfirmation) {
+    // Check age confirmation for individual accounts
+    if (signupData.accountType === "individual" && !signupData.ageConfirmation) {
       setError(t('signup.mustConfirmAge'))
       return false
     }
@@ -250,33 +135,17 @@ export default function MultiStepSignup() {
       return false
     }
 
-    // Professional title is required for Jobseekers
-    if (signupData.roles.jobseeker && !signupData.title) {
+    // Professional title is required for individuals
+    if (signupData.accountType === "individual" && !signupData.title) {
       setError(t('signup.enterProfessionalTitle') || 'Please enter your professional title')
       return false
     }
-
-    // Industry is required for Employers
-    if (signupData.roles.employer && !signupData.industry) {
-      setError(t('signup.enterIndustry') || 'Please enter your industry')
-      return false
-    }
-
-    // Trade is optional - can be added during onboarding or in profile edit
-    // Services help with matching but aren't required for signup completion
-    // if (signupData.roles.tradespeople && (!signupData.services || signupData.services.length === 0 || !signupData.services[0])) {
-    //   setError(t('signup.enterTrade') || 'Please enter your trade or service')
-    //   return false
-    // }
 
     // Location is required for all user types
     if (!signupData.latitude || !signupData.longitude) {
       setError(t('signup.selectLocationRequired'))
       return false
     }
-
-    // Note: Email uniqueness is checked by Supabase Auth during signUp()
-    // No need for pre-check which causes CORS issues
 
     return true
   }
@@ -288,34 +157,27 @@ export default function MultiStepSignup() {
     try {
       const supabase = createClient()
 
-      // Determine user_type based on account type and roles
-      let userType: string
-      if (signupData.accountType === "individual") {
-        if (signupData.roles.jobseeker) {
-          userType = "professional"
-        } else if (signupData.roles.homeowner) {
-          userType = "homeowner"
-        } else {
-          userType = "professional"
-        }
-      } else {
-        userType = "company"
-      }
+      // Determine user_type based on account type
+      // Individual → professional, Business → company
+      const userType = signupData.accountType === "individual" ? "professional" : "company"
 
-      // Validate required data before signup
-      console.log("[SIGNUP] Validating signup data...")
-      if (!signupData.email || !signupData.password) {
-        throw new Error("Email and password are required")
-      }
+      // Map accountType to database values: 'individual' stays as is, 'company' becomes 'business'
+      const dbAccountType = signupData.accountType === 'company' ? 'business' : 'individual'
 
-      // Prepare metadata - only include defined values
+      // Auto-set roles based on account type
+      // Individual: jobseeker + homeowner capabilities (can look for jobs AND hire tradespeople)
+      // Business: employer + tradespeople capabilities (can hire AND offer services)
+      const isIndividual = signupData.accountType === "individual"
+
       const metadata: Record<string, any> = {
         user_type: userType,
-        account_type: signupData.accountType,
-        is_jobseeker: signupData.roles.jobseeker || false,
-        is_homeowner: signupData.roles.homeowner || false,
-        is_employer: signupData.roles.employer || false,
-        is_tradespeople: signupData.roles.tradespeople || false,
+        account_type: dbAccountType,
+        // Individual accounts are jobseekers who can also hire (homeowner capabilities built-in)
+        is_jobseeker: isIndividual,
+        is_homeowner: isIndividual, // Individuals can hire tradespeople
+        // Business accounts can both hire and offer services
+        is_employer: !isIndividual,
+        is_tradespeople: !isIndividual,
       }
 
       // Add optional fields only if they exist
@@ -339,9 +201,6 @@ export default function MultiStepSignup() {
 
       console.log("[SIGNUP] Metadata prepared:", { email: signupData.email, metadata })
 
-      // Create auth user with basic metadata only
-      // Profile will be created AFTER email verification
-      console.log("[SIGNUP] Calling supabase.auth.signUp...")
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email: signupData.email.trim().toLowerCase(),
         password: signupData.password,
@@ -362,30 +221,19 @@ export default function MultiStepSignup() {
       // Save email to localStorage for resend functionality
       localStorage.setItem('signup_email', signupData.email)
 
-      // Check if email confirmation is required
-      // If email_confirmed_at is null, user needs to verify with OTP code
+      // Redirect to email verification page
       if (!authData.user.email_confirmed_at) {
-        // Redirect to email verification page with OTP input
         const verifyEmailUrl = isOnBrRoute
           ? `/auth/verify-email?locale=pt-BR&email=${encodeURIComponent(signupData.email)}`
           : `/auth/verify-email?email=${encodeURIComponent(signupData.email)}`
         router.push(verifyEmailUrl)
       } else {
-        // Email auto-confirmed (rare case), redirect to dashboard
         router.push(dashboardUrl)
       }
     } catch (err: any) {
       console.error("[SIGNUP] ❌ Signup error:", err)
-      console.error("[SIGNUP] Error details:", {
-        message: err.message,
-        name: err.name,
-        status: err.status,
-        code: err.code,
-      })
 
-      // Handle specific error cases
       let errorMessage = ""
-
       if (err.message?.includes('already registered') || err.message?.includes('already exists') || err.message?.includes('User already registered')) {
         errorMessage = 'This email is already registered. Please use a different email or sign in.'
       } else if (err.message?.includes('Password')) {
@@ -395,7 +243,6 @@ export default function MultiStepSignup() {
       } else if (err.message?.includes('Database error')) {
         errorMessage = 'There was a problem creating your account. Please try again.'
       } else if (err.message) {
-        // Show actual error message for debugging
         errorMessage = `Signup failed: ${err.message}`
       } else {
         errorMessage = "An error occurred during signup. Please try again."
@@ -409,25 +256,12 @@ export default function MultiStepSignup() {
   const nextStep = async () => {
     setError(null)
     if (currentStep === 1 && canProceedFromStep1) {
-      // Determine which step 2 to show
-      if (signupData.accountType === "individual") {
-        setCurrentStep(2) // Step 2A
-      } else {
-        setCurrentStep(3) // Step 2B (we'll use step 3 for company roles)
-      }
-    } else if (currentStep === 2 || currentStep === 3) {
-      if (canProceedFromStep2()) {
-        setCurrentStep(4) // Basic profile setup (final step)
-      } else {
-        setError(t('signup.selectAtLeastOneRole'))
-      }
-    } else if (currentStep === 4) {
-      // Validate Step 4 and complete signup
+      setCurrentStep(2)
+    } else if (currentStep === 2) {
       setIsLoading(true)
-      const isValid = await validateStep3()
+      const isValid = await validateStep2()
       setIsLoading(false)
       if (isValid) {
-        // Call handleSignup directly instead of moving to Step 5
         await handleSignup()
       }
     }
@@ -435,10 +269,7 @@ export default function MultiStepSignup() {
 
   const prevStep = () => {
     setError(null)
-    if (currentStep === 4) {
-      // Go back to appropriate role selection
-      setCurrentStep(signupData.accountType === "individual" ? 2 : 3)
-    } else if (currentStep === 2 || currentStep === 3) {
+    if (currentStep === 2) {
       setCurrentStep(1)
     }
   }
@@ -448,7 +279,7 @@ export default function MultiStepSignup() {
       <CardHeader>
         <CardTitle className="text-2xl">{t('signup.title')}</CardTitle>
         <CardDescription>
-          {t('signup.step')} {currentStep === 1 ? "1" : currentStep === 2 || currentStep === 3 ? "2" : "3"} {t('signup.of')} 3
+          {t('signup.step')} {currentStep} {t('signup.of')} 2
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -482,6 +313,9 @@ export default function MultiStepSignup() {
                 <p className="text-sm text-muted-foreground">
                   {t('signup.individualDesc')}
                 </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  ✓ Find jobs ✓ Hire tradespeople
+                </p>
                 {signupData.accountType === "individual" && (
                   <div className="mt-3 flex items-center text-blue-600 text-sm font-medium">
                     <Check className="h-4 w-4 mr-1" />
@@ -502,6 +336,9 @@ export default function MultiStepSignup() {
                 <h4 className="font-semibold text-lg mb-2">{t('signup.company')}</h4>
                 <p className="text-sm text-muted-foreground">
                   {t('signup.companyDesc')}
+                </p>
+                <p className="text-xs text-muted-foreground mt-2">
+                  ✓ Post jobs ✓ Offer services ✓ Hire staff
                 </p>
                 {signupData.accountType === "company" && (
                   <div className="mt-3 flex items-center text-orange-600 text-sm font-medium">
@@ -525,170 +362,8 @@ export default function MultiStepSignup() {
           </div>
         )}
 
-        {/* Step 2A: Individual Roles */}
-        {currentStep === 2 && signupData.accountType === "individual" && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">{t('signup.whatToDo')}</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {t('signup.selectOneOrBoth')}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div
-                onClick={() => toggleRole("jobseeker")}
-                className={`w-full p-4 border-2 rounded-lg text-left transition-all hover:border-blue-500 cursor-pointer ${
-                  signupData.roles.jobseeker
-                    ? "border-blue-500 bg-blue-50"
-                    : "border-gray-200"
-                }`}
-              >
-                <div className="flex items-start">
-                  <Checkbox
-                    checked={signupData.roles.jobseeker}
-                    onCheckedChange={() => toggleRole("jobseeker")}
-                    className="mt-1 mr-3"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <Briefcase className="h-5 w-5 mr-2 text-blue-600" />
-                      <h4 className="font-semibold">{t('signup.jobseeker')}</h4>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('signup.jobseekerDesc')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                onClick={() => toggleRole("homeowner")}
-                className={`w-full p-4 border-2 rounded-lg text-left transition-all hover:border-green-500 cursor-pointer ${
-                  signupData.roles.homeowner
-                    ? "border-green-500 bg-green-50"
-                    : "border-gray-200"
-                }`}
-              >
-                <div className="flex items-start">
-                  <Checkbox
-                    checked={signupData.roles.homeowner}
-                    onCheckedChange={() => toggleRole("homeowner")}
-                    className="mt-1 mr-3"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <Home className="h-5 w-5 mr-2 text-green-600" />
-                      <h4 className="font-semibold">{t('signup.homeowner')}</h4>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('signup.homeownerDesc')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={prevStep}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {t('common.back')}
-              </Button>
-              <Button
-                onClick={nextStep}
-                disabled={!canProceedFromStep2()}
-                className="min-w-32"
-              >
-                {t('common.next')}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2B: Company Roles */}
-        {currentStep === 3 && signupData.accountType === "company" && (
-          <div className="space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">{t('signup.whatDescribesCompany')}</h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                {t('signup.selectOptions')}
-              </p>
-            </div>
-
-            <div className="space-y-4">
-              <div
-                onClick={() => toggleRole("employer")}
-                className={`w-full p-4 border-2 rounded-lg text-left transition-all hover:border-purple-500 cursor-pointer ${
-                  signupData.roles.employer
-                    ? "border-purple-500 bg-purple-50"
-                    : "border-gray-200"
-                }`}
-              >
-                <div className="flex items-start">
-                  <Checkbox
-                    checked={signupData.roles.employer}
-                    onCheckedChange={() => toggleRole("employer")}
-                    className="mt-1 mr-3"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <Users className="h-5 w-5 mr-2 text-purple-600" />
-                      <h4 className="font-semibold">{t('signup.employer')}</h4>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('signup.employerDesc')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div
-                onClick={() => toggleRole("tradespeople")}
-                className={`w-full p-4 border-2 rounded-lg text-left transition-all hover:border-orange-500 cursor-pointer ${
-                  signupData.roles.tradespeople
-                    ? "border-orange-500 bg-orange-50"
-                    : "border-gray-200"
-                }`}
-              >
-                <div className="flex items-start">
-                  <Checkbox
-                    checked={signupData.roles.tradespeople}
-                    onCheckedChange={() => toggleRole("tradespeople")}
-                    className="mt-1 mr-3"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center mb-2">
-                      <Wrench className="h-5 w-5 mr-2 text-orange-600" />
-                      <h4 className="font-semibold">{t('signup.tradespeople')}</h4>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {t('signup.tradespeopleDesc')}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button variant="outline" onClick={prevStep}>
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                {t('common.back')}
-              </Button>
-              <Button
-                onClick={nextStep}
-                disabled={!canProceedFromStep2()}
-                className="min-w-32"
-              >
-                {t('common.next')}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3: Profile Setup */}
-        {currentStep === 4 && (
+        {/* Step 2: Profile Setup */}
+        {currentStep === 2 && (
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold mb-2">{t('signup.profileSetup')}</h3>
@@ -725,25 +400,23 @@ export default function MultiStepSignup() {
                     </div>
                   </div>
 
-                  {/* Professional Title - Required for Jobseekers */}
-                  {signupData.roles.jobseeker && (
-                    <div>
-                      <Label htmlFor="title" className="font-semibold block mb-2">
-                        {t('signup.professionalTitleLabel') || 'Professional Title'} <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="title"
-                        value={signupData.title}
-                        onChange={(e) => updateSignupData({ title: e.target.value })}
-                        placeholder={t('signup.professionalTitlePlaceholder') || 'e.g. Software Engineer, Plumber, Nurse'}
-                        required
-                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {t('signup.professionalTitleHint') || 'Your job title or profession'}
-                      </p>
-                    </div>
-                  )}
+                  {/* Professional Title - Required */}
+                  <div>
+                    <Label htmlFor="title" className="font-semibold block mb-2">
+                      {t('signup.professionalTitleLabel') || 'Professional Title'} <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      id="title"
+                      value={signupData.title}
+                      onChange={(e) => updateSignupData({ title: e.target.value })}
+                      placeholder={t('signup.professionalTitlePlaceholder') || 'e.g. Software Engineer, Plumber, Nurse'}
+                      required
+                      className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('signup.professionalTitleHint') || 'Your job title or profession'}
+                    </p>
+                  </div>
 
                   {/* Nickname field - Optional */}
                   <div>
@@ -776,166 +449,129 @@ export default function MultiStepSignup() {
                     />
                   </div>
 
-                  {/* Industry - Required for Employers */}
-                  {signupData.roles.employer && (
-                    <div>
-                      <Label htmlFor="industry" className="font-semibold block mb-2">
-                        {t('signup.industryLabel') || 'Industry'} <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="industry"
-                        list="industry-options"
-                        value={signupData.industry}
-                        onChange={(e) => updateSignupData({ industry: e.target.value })}
-                        placeholder={t('signup.industryPlaceholder') || 'e.g. Technology, Healthcare, Construction'}
-                        required
-                        className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
-                      />
-                      <datalist id="industry-options">
-                        <option value="Technology & IT" />
-                        <option value="Healthcare & Medical" />
-                        <option value="Construction & Engineering" />
-                        <option value="Plumbing & Heating" />
-                        <option value="Finance & Banking" />
-                        <option value="Education & Training" />
-                        <option value="Retail & Sales" />
-                        <option value="Hospitality & Tourism" />
-                        <option value="Manufacturing & Production" />
-                        <option value="Real Estate & Property" />
-                        <option value="Transportation & Logistics" />
-                        <option value="Marketing & Advertising" />
-                        <option value="Legal Services" />
-                        <option value="Consulting & Business Services" />
-                        <option value="Food & Beverage" />
-                        <option value="Arts, Entertainment & Media" />
-                        <option value="Telecommunications" />
-                        <option value="Energy & Utilities" />
-                        <option value="Agriculture & Farming" />
-                        <option value="Automotive" />
-                        <option value="Pharmaceutical & Biotechnology" />
-                        <option value="Insurance" />
-                        <option value="Professional Services" />
-                        <option value="Government & Public Sector" />
-                        <option value="Non-Profit & NGO" />
-                        <option value="Human Resources" />
-                        <option value="Customer Service & Support" />
-                        <option value="Security & Safety" />
-                        <option value="Environmental Services" />
-                        <option value="Research & Development" />
-                        <option value="Sports & Fitness" />
-                      </datalist>
-                    </div>
-                  )}
+                  {/* Industry - Optional */}
+                  <div>
+                    <Label htmlFor="industry" className="font-semibold block mb-2">
+                      {t('signup.industryLabel') || 'Industry'} <span className="text-xs text-muted-foreground">({t('common.optional')})</span>
+                    </Label>
+                    <Input
+                      id="industry"
+                      list="industry-options"
+                      value={signupData.industry}
+                      onChange={(e) => updateSignupData({ industry: e.target.value })}
+                      placeholder={t('signup.industryPlaceholder') || 'e.g. Technology, Healthcare, Construction'}
+                      className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                    />
+                    <datalist id="industry-options">
+                      <option value="Technology & IT" />
+                      <option value="Healthcare & Medical" />
+                      <option value="Construction & Engineering" />
+                      <option value="Plumbing & Heating" />
+                      <option value="Finance & Banking" />
+                      <option value="Education & Training" />
+                      <option value="Retail & Sales" />
+                      <option value="Hospitality & Tourism" />
+                      <option value="Manufacturing & Production" />
+                      <option value="Real Estate & Property" />
+                      <option value="Transportation & Logistics" />
+                      <option value="Marketing & Advertising" />
+                      <option value="Legal Services" />
+                      <option value="Consulting & Business Services" />
+                      <option value="Trades & Home Services" />
+                    </datalist>
+                  </div>
 
-                  {/* Trade - Optional (can be added later) */}
-                  {signupData.roles.tradespeople && (
-                    <div>
-                      <Label htmlFor="trade" className="font-semibold block mb-2">
-                        {t('signup.tradeLabel') || 'Trade/Service'} <span className="text-muted-foreground text-sm font-normal">(Optional)</span>
-                      </Label>
-                      <div className="space-y-2">
-                        {/* Display current services as badges */}
-                        {signupData.services && signupData.services.length > 0 && signupData.services[0] && (
-                          <div className="flex flex-wrap gap-2">
-                            {signupData.services.map((service, index) => (
-                              service && (
-                                <Badge
-                                  key={index}
-                                  variant="secondary"
-                                  className="px-3 py-1 text-sm bg-blue-100 text-blue-800 hover:bg-blue-200"
+                  {/* Services - Optional */}
+                  <div>
+                    <Label htmlFor="trade" className="font-semibold block mb-2">
+                      {t('signup.tradeLabel') || 'Services Offered'} <span className="text-xs text-muted-foreground">({t('common.optional')})</span>
+                    </Label>
+                    <div className="space-y-2">
+                      {signupData.services && signupData.services.length > 0 && signupData.services[0] && (
+                        <div className="flex flex-wrap gap-2">
+                          {signupData.services.map((service, index) => (
+                            service && (
+                              <Badge
+                                key={index}
+                                variant="secondary"
+                                className="px-3 py-1 text-sm bg-blue-100 text-blue-800 hover:bg-blue-200"
+                              >
+                                {service}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newServices = signupData.services.filter((_, i) => i !== index)
+                                    updateSignupData({ services: newServices })
+                                  }}
+                                  className="ml-2 hover:text-blue-900"
                                 >
-                                  {service}
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newServices = signupData.services.filter((_, i) => i !== index)
-                                      updateSignupData({ services: newServices.length > 0 ? newServices : [''] })
-                                    }}
-                                    className="ml-2 hover:text-blue-900"
-                                  >
-                                    <X className="h-3 w-3" />
-                                  </button>
-                                </Badge>
-                              )
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Input to add new service */}
-                        <div className="flex gap-2">
-                          <Input
-                            id="trade"
-                            list="trade-options"
-                            value={serviceInput}
-                            onChange={(e) => setServiceInput(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault()
-                                const value = serviceInput.trim()
-                                if (value) {
-                                  const currentServices = signupData.services.filter(s => s)
-                                  updateSignupData({ services: [...currentServices, value] })
-                                  setServiceInput('')
-                                }
-                              }
-                            }}
-                            placeholder={t('signup.tradePlaceholder') || 'e.g. Plumbing, Electrical (can add more later)'}
-                            className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
-                          />
-                          <datalist id="trade-options">
-                            <option value="Plumbing" />
-                            <option value="Electrical Work" />
-                            <option value="Carpentry" />
-                            <option value="Painting & Decorating" />
-                            <option value="Roofing" />
-                            <option value="HVAC (Heating & Cooling)" />
-                            <option value="Tiling" />
-                            <option value="Flooring" />
-                            <option value="Landscaping & Gardening" />
-                            <option value="Masonry & Bricklaying" />
-                            <option value="Plastering & Rendering" />
-                            <option value="Kitchen Installation" />
-                            <option value="Bathroom Installation" />
-                            <option value="Window & Door Installation" />
-                            <option value="Fencing & Gates" />
-                            <option value="Driveway & Paving" />
-                            <option value="Demolition" />
-                            <option value="Insulation" />
-                            <option value="Cleaning Services" />
-                            <option value="Locksmith Services" />
-                            <option value="Pest Control" />
-                            <option value="Security Systems" />
-                            <option value="Solar Panel Installation" />
-                            <option value="Welding & Metalwork" />
-                            <option value="Handyman Services" />
-                          </datalist>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => {
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            )
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <Input
+                          id="trade"
+                          list="trade-options"
+                          value={serviceInput}
+                          onChange={(e) => setServiceInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
                               const value = serviceInput.trim()
                               if (value) {
                                 const currentServices = signupData.services.filter(s => s)
                                 updateSignupData({ services: [...currentServices, value] })
                                 setServiceInput('')
                               }
-                            }}
-                            className="shrink-0"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          Add services now or later in your profile. Helps customers find you by trade.
-                        </p>
+                            }
+                          }}
+                          placeholder={t('signup.tradePlaceholder') || 'e.g. Plumbing, Electrical, IT Support'}
+                          className="bg-white border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-colors shadow-sm"
+                        />
+                        <datalist id="trade-options">
+                          <option value="Plumbing" />
+                          <option value="Electrical Work" />
+                          <option value="Carpentry" />
+                          <option value="Painting & Decorating" />
+                          <option value="Roofing" />
+                          <option value="HVAC (Heating & Cooling)" />
+                          <option value="Landscaping & Gardening" />
+                          <option value="Cleaning Services" />
+                          <option value="IT Support" />
+                          <option value="Web Development" />
+                          <option value="Consulting" />
+                          <option value="Accounting" />
+                        </datalist>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            const value = serviceInput.trim()
+                            if (value) {
+                              const currentServices = signupData.services.filter(s => s)
+                              updateSignupData({ services: [...currentServices, value] })
+                              setServiceInput('')
+                            }
+                          }}
+                          className="shrink-0"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Add services you offer. Helps customers find you.
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </>
               )}
 
               <div>
-                <Label htmlFor="email" className="font-semibold block mb-2">{t('signup.emailLabel')}</Label>
+                <Label htmlFor="email" className="font-semibold block mb-2">{t('signup.emailLabel')} <span className="text-red-500">*</span></Label>
                 <Input
                   id="email"
                   type="email"
@@ -949,7 +585,7 @@ export default function MultiStepSignup() {
               </div>
 
               <div>
-                <Label htmlFor="password" className="font-semibold block mb-2">{t('signup.passwordLabel')}</Label>
+                <Label htmlFor="password" className="font-semibold block mb-2">{t('signup.passwordLabel')} <span className="text-red-500">*</span></Label>
                 <Input
                   id="password"
                   type="password"
@@ -963,7 +599,7 @@ export default function MultiStepSignup() {
               </div>
 
               <div>
-                <Label htmlFor="confirmPassword" className="font-semibold block mb-2">{t('signup.confirmPasswordLabel')}</Label>
+                <Label htmlFor="confirmPassword" className="font-semibold block mb-2">{t('signup.confirmPasswordLabel')} <span className="text-red-500">*</span></Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -977,7 +613,7 @@ export default function MultiStepSignup() {
               </div>
 
               <div>
-                <Label htmlFor="phone" className="font-semibold block mb-2">{t('signup.phoneLabel')}</Label>
+                <Label htmlFor="phone" className="font-semibold block mb-2">{t('signup.phoneLabel')} <span className="text-xs text-muted-foreground">({t('common.optional')})</span></Label>
                 <Input
                   id="phone"
                   type="tel"
@@ -1023,8 +659,8 @@ export default function MultiStepSignup() {
                 />
               </div>
 
-              {/* Age Confirmation - Required for Jobseekers and Homeowners */}
-              {(signupData.roles.jobseeker || signupData.roles.homeowner) && (
+              {/* Age Confirmation - Required for individual accounts */}
+              {signupData.accountType === "individual" && (
                 <div className="flex items-start space-x-3 rounded-lg border-2 border-gray-300 bg-white p-4 shadow-sm">
                   <Checkbox
                     id="ageConfirmation"
@@ -1062,7 +698,6 @@ export default function MultiStepSignup() {
             </div>
           </div>
         )}
-
 
         <div className="mt-6 text-center text-sm">
           <span className="text-muted-foreground">{t('auth.alreadyHaveAccount')} </span>

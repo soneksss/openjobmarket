@@ -1193,10 +1193,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         // Language filter for companies
+        // NOTE: company_profiles.spoken_languages is JSONB, not text[]
+        // Skip server-side filter for JSONB - will filter client-side instead for reliability
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Applying language filter for companies: ${spokenLanguage}`)
-          // Supabase .contains() works for both JSONB and text[] arrays
-          companyQuery = companyQuery.contains("spoken_languages", [spokenLanguage])
+          console.log(`[MAIN-PAGE-SEARCH] Language filter for companies will be applied client-side (JSONB column)`)
         }
 
         // Apply location-based radius filtering
@@ -1246,6 +1246,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         if (companyError) {
           console.error(`[MAIN-PAGE-SEARCH] Company query error:`, companyError)
+          console.error(`[MAIN-PAGE-SEARCH] Company error details:`, {
+            code: companyError.code,
+            message: companyError.message,
+            details: companyError.details,
+            hint: companyError.hint
+          })
           if (companyError.type === 'timeout' || companyError.message?.includes('timeout')) {
             setSearchError({
               type: 'timeout',
@@ -1255,6 +1261,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             setSearchProgress("")
             return
           }
+          // Don't return on non-timeout errors - continue with empty company results
+          companyData = []
         } else {
           console.log(`[MAIN-PAGE-SEARCH] Company query returned ${companyData?.length || 0} results`)
         }
@@ -1281,20 +1289,33 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           }
 
           // Client-side language filter for companies
+          // NOTE: company_profiles.spoken_languages is JSONB, may come as array or need parsing
           if (spokenLanguage && spokenLanguage !== "all") {
-            console.log(`[LANGUAGE-DEBUG] === COMPANY LANGUAGE FILTER ===`)
+            console.log(`[LANGUAGE-DEBUG] === COMPANY LANGUAGE FILTER (JSONB) ===`)
             console.log(`[LANGUAGE-DEBUG] Selected language: "${spokenLanguage}"`)
             console.log(`[LANGUAGE-DEBUG] Companies before filter: ${filteredCompanies.length}`)
 
             filteredCompanies.slice(0, 3).forEach((item, idx) => {
               console.log(`[LANGUAGE-DEBUG] Company ${idx + 1}:`, {
                 name: item.company_name,
-                languages: item.spoken_languages
+                languages: item.spoken_languages,
+                type: typeof item.spoken_languages
               })
             })
 
             filteredCompanies = filteredCompanies.filter(item => {
-              const languages = item.spoken_languages || []
+              let languages = item.spoken_languages
+
+              // Handle JSONB - might come as string, array, or null
+              if (!languages) return false
+              if (typeof languages === 'string') {
+                try {
+                  languages = JSON.parse(languages)
+                } catch {
+                  return false
+                }
+              }
+
               return Array.isArray(languages) && languages.includes(spokenLanguage)
             })
             console.log(`[LANGUAGE-DEBUG] Companies after filter: ${filteredCompanies.length}`)
@@ -1475,9 +1496,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Add specific ordering to help with query performance
         query = query.order('created_at', { ascending: false })
 
-        // Add timeout protection with reduced timeout (10s)
+        // Add timeout protection (15s for talents query)
         const queryPromise = query.limit(RESULT_LIMIT + 1)
-        const TALENTS_TIMEOUT = 10000
+        const TALENTS_TIMEOUT = 15000
 
         let data: any = null
         let error: any = null
@@ -1492,13 +1513,13 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           error = result.error
         } catch (err: any) {
           if (err.message === 'QUERY_TIMEOUT') {
-            console.error(`[MAIN-PAGE-SEARCH] Talents query timed out after ${TALENTS_TIMEOUT/1000}s`)
+            console.warn(`[MAIN-PAGE-SEARCH] Talents query timed out after ${TALENTS_TIMEOUT/1000}s`)
             error = { type: 'timeout', message: 'Query timed out' }
           } else if (err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('DISCONNECTED')) {
-            console.error(`[MAIN-PAGE-SEARCH] Network error:`, err)
+            console.warn(`[MAIN-PAGE-SEARCH] Network error:`, err)
             error = { type: 'network', message: 'Network connection issue' }
           } else {
-            console.error(`[MAIN-PAGE-SEARCH] Query failed:`, err)
+            console.warn(`[MAIN-PAGE-SEARCH] Query failed:`, err)
             error = { type: 'error', message: err.message || 'Unknown error' }
           }
         }
@@ -1506,7 +1527,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         console.log(`[MAIN-PAGE-SEARCH] Query executed. Error:`, error, `Data count:`, data?.length)
 
         if (error) {
-          console.error(`[MAIN-PAGE-SEARCH] Error fetching talents:`, error)
+          console.warn(`[MAIN-PAGE-SEARCH] Error fetching talents:`, error)
           if (error.type === 'timeout' || error.message?.includes('timeout')) {
             setSearchError({
               type: 'timeout',
@@ -1592,10 +1613,29 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Vacancies = employee positions (is_tradespeople_job = false)
         // Jobs/Tasks = tradespeople work (is_tradespeople_job = true)
 
-        // Simplified query without heavy joins - fetch profile data separately if needed
+        // Query with profile joins to show poster names
         let query = supabase
           .from("jobs")
-          .select("*")
+          .select(`
+            *,
+            company_profiles (
+              id,
+              company_name,
+              location,
+              industry,
+              logo_url,
+              user_id
+            ),
+            homeowner_profiles (
+              id,
+              user_id,
+              first_name,
+              last_name,
+              profile_photo_url,
+              average_rating,
+              reviews_count
+            )
+          `)
           .eq("status", "open") // Only show open jobs (not accepted, in_progress, completed, or failed)
           .eq("is_active", true)
           .eq("is_tradespeople_job", type === "jobs_tasks") // true for jobs/tasks, false for vacancies
@@ -1827,13 +1867,13 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         } catch (err: any) {
           // Differentiate between timeout and network errors
           if (err.message === 'QUERY_TIMEOUT') {
-            console.error(`[MAIN-PAGE-SEARCH] Query timed out after ${QUERY_TIMEOUT/1000}s`)
+            console.warn(`[MAIN-PAGE-SEARCH] Query timed out after ${QUERY_TIMEOUT/1000}s`)
             error = { type: 'timeout', message: 'Query timed out' }
           } else if (err.message?.includes('fetch') || err.message?.includes('network') || err.message?.includes('DISCONNECTED')) {
-            console.error(`[MAIN-PAGE-SEARCH] Network error:`, err)
+            console.warn(`[MAIN-PAGE-SEARCH] Network error:`, err)
             error = { type: 'network', message: 'Network connection issue' }
           } else {
-            console.error(`[MAIN-PAGE-SEARCH] Query failed:`, err)
+            console.warn(`[MAIN-PAGE-SEARCH] Query failed:`, err)
             error = { type: 'error', message: err.message || 'Unknown error' }
           }
         }
@@ -1850,12 +1890,25 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             latitude: data[0].latitude,
             longitude: data[0].longitude,
             location: data[0].location,
-            expires_at: data[0].expires_at
+            expires_at: data[0].expires_at,
+            company_id: data[0].company_id,
+            homeowner_id: data[0].homeowner_id,
+            company_profiles: data[0].company_profiles,
+            homeowner_profiles: data[0].homeowner_profiles
           })
+          // Log all jobs' poster info for debugging "Anonymous" issue
+          console.log(`[MAIN-PAGE-SEARCH] All jobs poster info:`, data.map((j: any) => ({
+            id: j.id,
+            title: j.title,
+            company_id: j.company_id,
+            homeowner_id: j.homeowner_id,
+            company_name: j.company_profiles?.company_name,
+            homeowner_name: j.homeowner_profiles ? `${j.homeowner_profiles.first_name} ${j.homeowner_profiles.last_name}` : null
+          })))
         }
 
         if (error) {
-          console.error(`[MAIN-PAGE-SEARCH] Query error:`, error)
+          console.warn(`[MAIN-PAGE-SEARCH] Query error:`, error)
           // Set error state instead of using alert()
           if (error.type === 'timeout' || error.message?.includes('timeout')) {
             setSearchError({

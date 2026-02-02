@@ -116,28 +116,79 @@ export default function JobApplicationForm({
         if (userData) {
           setUserType(userData.user_type)
           console.log("[JOB-APPLICATION] User type fetched:", userData.user_type)
-        }
 
-        // Fetch fresh profile data
-        const { data: profile } = await supabase
-          .from("professional_profiles")
-          .select("*")
-          .eq("user_id", user.id)
-          .single()
+          // Fetch fresh profile data based on user type
+          let profile: any = null
 
-        if (profile) {
-          setFreshProfile({
-            ...profile,
-            email: user.email || profile.email || "",
-            phone: profile.phone
-          })
-          console.log("[JOB-APPLICATION] Fresh profile data loaded:", {
-            location: profile.location,
-            title: profile.title,
-            full_address: profile.full_address,
-            skills: profile.skills,
-            spoken_languages: profile.spoken_languages
-          })
+          if (userData.user_type === 'professional') {
+            const { data } = await supabase
+              .from("professional_profiles")
+              .select("*")
+              .eq("user_id", user.id)
+              .single()
+            profile = data
+          } else if (userData.user_type === 'company') {
+            const { data } = await supabase
+              .from("company_profiles")
+              .select("*")
+              .eq("user_id", user.id)
+              .single()
+            if (data) {
+              // Map company fields to common profile structure
+              profile = {
+                first_name: data.company_name,
+                last_name: '',
+                nickname: data.company_name,
+                title: data.industry || 'Company',
+                location: data.location,
+                full_address: data.full_address,
+                email: user.email,
+                phone: data.phone,
+                bio: data.description,
+                skills: data.services || [],
+                spoken_languages: data.spoken_languages || [],
+                hide_email: false
+              }
+            }
+          } else if (userData.user_type === 'contractor') {
+            const { data } = await supabase
+              .from("contractor_profiles")
+              .select("*")
+              .eq("user_id", user.id)
+              .single()
+            if (data) {
+              // Map contractor fields to common profile structure
+              profile = {
+                first_name: data.company_name,
+                last_name: '',
+                nickname: data.company_name,
+                title: data.industry || 'Contractor',
+                location: data.location,
+                full_address: data.full_address,
+                email: user.email,
+                phone: data.phone,
+                bio: data.bio,
+                skills: data.services || [],
+                spoken_languages: data.languages || [],
+                hide_email: false
+              }
+            }
+          }
+
+          if (profile) {
+            setFreshProfile({
+              ...profile,
+              email: user.email || profile.email || "",
+              phone: profile.phone
+            })
+            console.log("[JOB-APPLICATION] Fresh profile data loaded:", {
+              location: profile.location,
+              title: profile.title,
+              full_address: profile.full_address,
+              skills: profile.skills,
+              spoken_languages: profile.spoken_languages
+            })
+          }
         }
       } catch (error) {
         console.error("[JOB-APPLICATION] Error fetching fresh profile:", error)
@@ -444,27 +495,46 @@ export default function JobApplicationForm({
   }
 
   const getVisibleInfo = () => {
+    // Handle cases where profile might not be fully loaded
+    const firstName = freshProfile?.first_name || ''
+    const lastName = freshProfile?.last_name || ''
+    const nickname = freshProfile?.nickname
+
+    // Build display name safely
+    const buildName = () => {
+      if (sharePersonalInfo) {
+        return `${firstName} ${lastName}`.trim() || 'Name not available'
+      }
+      // Nickname mode
+      if (nickname) return nickname
+      if (firstName && lastName) {
+        return `${firstName} ${lastName[0]}.`
+      }
+      if (firstName) return firstName
+      return 'Anonymous'
+    }
+
     if (sharePersonalInfo) {
       return {
-        name: `${freshProfile.first_name} ${freshProfile.last_name}`,
-        email: freshProfile.hide_email ? "Hidden (privacy setting)" : (freshProfile.email || "Email not in profile"),
-        phone: freshProfile.phone || "Phone not in profile",
-        address: freshProfile.full_address || freshProfile.location || "Location not in profile",
-        title: freshProfile.title || "Professional title not in profile",
-        bio: freshProfile.bio,
-        skills: freshProfile.skills,
-        spoken_languages: freshProfile.spoken_languages,
+        name: buildName(),
+        email: freshProfile?.hide_email ? "Hidden (privacy setting)" : (freshProfile?.email || "Email not in profile"),
+        phone: freshProfile?.phone || "Phone not in profile",
+        address: freshProfile?.full_address || freshProfile?.location || "Location not in profile",
+        title: freshProfile?.title || "Title not in profile",
+        bio: freshProfile?.bio,
+        skills: freshProfile?.skills,
+        spoken_languages: freshProfile?.spoken_languages,
       }
     } else {
       return {
-        name: freshProfile.nickname || `${freshProfile.first_name} ${freshProfile.last_name[0]}.`,
+        name: buildName(),
         email: "Hidden (nickname mode)",
         phone: "Hidden (nickname mode)",
-        address: freshProfile.location || "Location not in profile", // General location is always visible
-        title: freshProfile.title || "Professional title not in profile",
-        bio: freshProfile.bio,
-        skills: freshProfile.skills,
-        spoken_languages: freshProfile.spoken_languages,
+        address: freshProfile?.location || "Location not in profile",
+        title: freshProfile?.title || "Title not in profile",
+        bio: freshProfile?.bio,
+        skills: freshProfile?.skills,
+        spoken_languages: freshProfile?.spoken_languages,
       }
     }
   }

@@ -86,10 +86,11 @@ export default function HomeownerDetailView({
   const fetchPostedJobs = async () => {
     try {
       const { data, error } = await supabase
-        .from("tasks")
+        .from("jobs")
         .select("id, title, location, budget_min, budget_max, status, created_at")
-        .eq("homeowner_id", homeowner.user_id)
-        .eq("status", "active")
+        .eq("homeowner_id", homeowner.id)
+        .eq("is_tradespeople_job", true)
+        .in("status", ["open", "in_progress"])
         .order("created_at", { ascending: false })
         .limit(5)
 

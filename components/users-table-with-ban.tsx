@@ -39,12 +39,8 @@ interface AdminUser {
   ban_reason?: string
   banned_at?: string
   ban_expires_at?: string
-  // Multi-role system
-  account_type?: "individual" | "company"
-  is_jobseeker?: boolean
-  is_homeowner?: boolean
-  is_employer?: boolean
-  is_tradespeople?: boolean
+  // Account type (simplified)
+  account_type?: "individual" | "business"
   // Professional specific fields
   first_name?: string
   last_name?: string
@@ -130,7 +126,7 @@ export function UsersTableWithBan({ userType, adminRole }: UsersTableProps) {
         const userIds = profilesData.map(profile => profile.user_id)
         const { data: usersData, error: usersError } = await supabase
           .from("users")
-          .select("id, email, user_type, is_banned, ban_reason, banned_at, ban_expires_at, account_type, is_jobseeker, is_homeowner, is_employer, is_tradespeople")
+          .select("id, email, user_type, is_banned, ban_reason, banned_at, ban_expires_at, account_type")
           .in("id", userIds)
 
         if (usersError) {
@@ -161,22 +157,15 @@ export function UsersTableWithBan({ userType, adminRole }: UsersTableProps) {
             ban_reason: userData.ban_reason,
             banned_at: userData.banned_at,
             ban_expires_at: userData.ban_expires_at,
-            account_type: userData.account_type,
-            is_jobseeker: userData.is_jobseeker || false,
-            is_homeowner: userData.is_homeowner || false,
-            is_employer: userData.is_employer || false,
-            is_tradespeople: userData.is_tradespeople || false
+            account_type: userData.account_type
           }
         })
 
         console.log("Processed professional users:", processedUsers)
         console.log("Banned users count:", processedUsers.filter(u => u.is_banned).length)
-        console.log("ROLES DEBUG - First user roles:", processedUsers[0] ? {
-          is_jobseeker: processedUsers[0].is_jobseeker,
-          is_homeowner: processedUsers[0].is_homeowner,
-          is_employer: processedUsers[0].is_employer,
-          is_tradespeople: processedUsers[0].is_tradespeople,
-          account_type: processedUsers[0].account_type
+        console.log("Account type DEBUG - First user:", processedUsers[0] ? {
+          account_type: processedUsers[0].account_type,
+          user_type: processedUsers[0].user_type
         } : 'No users')
 
         setUsers(processedUsers)
@@ -204,7 +193,7 @@ export function UsersTableWithBan({ userType, adminRole }: UsersTableProps) {
         const userIds = profilesData.map(profile => profile.user_id)
         const { data: usersData, error: usersError } = await supabase
           .from("users")
-          .select("id, email, user_type, is_banned, ban_reason, banned_at, ban_expires_at, account_type, is_jobseeker, is_homeowner, is_employer, is_tradespeople")
+          .select("id, email, user_type, is_banned, ban_reason, banned_at, ban_expires_at, account_type")
           .in("id", userIds)
 
         if (usersError) {
@@ -235,11 +224,7 @@ export function UsersTableWithBan({ userType, adminRole }: UsersTableProps) {
             ban_reason: userData.ban_reason,
             banned_at: userData.banned_at,
             ban_expires_at: userData.ban_expires_at,
-            account_type: userData.account_type,
-            is_jobseeker: userData.is_jobseeker || false,
-            is_homeowner: userData.is_homeowner || false,
-            is_employer: userData.is_employer || false,
-            is_tradespeople: userData.is_tradespeople || false
+            account_type: userData.account_type
           }
         })
 
@@ -486,20 +471,10 @@ export function UsersTableWithBan({ userType, adminRole }: UsersTableProps) {
                           {user.user_type === "admin" && (
                             <Badge variant="default" className="text-xs bg-purple-600">Admin</Badge>
                           )}
-                          {user.is_jobseeker && (
-                            <Badge variant="secondary" className="text-xs">Jobseeker</Badge>
-                          )}
-                          {user.is_homeowner && (
-                            <Badge variant="outline" className="text-xs">Homeowner</Badge>
-                          )}
-                          {user.is_employer && (
-                            <Badge variant="default" className="text-xs bg-blue-600">Employer</Badge>
-                          )}
-                          {user.is_tradespeople && (
-                            <Badge variant="default" className="text-xs bg-orange-600">Tradespeople</Badge>
-                          )}
-                          {!user.is_jobseeker && !user.is_homeowner && !user.is_employer && !user.is_tradespeople && user.user_type !== "admin" && (
-                            <Badge variant="secondary" className="text-xs text-gray-500">No roles</Badge>
+                          {user.account_type === "business" ? (
+                            <Badge variant="default" className="text-xs bg-orange-600">Business</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">Individual</Badge>
                           )}
                         </div>
                       </TableCell>

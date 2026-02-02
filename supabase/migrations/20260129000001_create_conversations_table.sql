@@ -11,6 +11,19 @@ CREATE TABLE IF NOT EXISTS conversations (
     CONSTRAINT ordered_participants CHECK (participant_1 < participant_2)
 );
 
+-- Add updated_at column if it doesn't exist (for existing tables)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'conversations' AND column_name = 'updated_at'
+  ) THEN
+    ALTER TABLE conversations
+      ADD COLUMN updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL;
+    RAISE NOTICE 'Added updated_at column to conversations table';
+  END IF;
+END $$;
+
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_conversations_participant_1 ON conversations(participant_1);
 CREATE INDEX IF NOT EXISTS idx_conversations_participant_2 ON conversations(participant_2);

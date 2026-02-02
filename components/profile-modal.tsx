@@ -1,6 +1,7 @@
 "use client"
 
-import { Dialog, DialogContent, DialogHeader } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { VisuallyHidden } from "@radix-ui/react-visually-hidden"
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/client"
 import ProfessionalDetailView from "./professional-detail-view"
@@ -45,6 +46,7 @@ export default function ProfileModal({ isOpen, onClose, profileType, profileId }
 
   const fetchProfile = async () => {
     setLoading(true)
+    console.log("[PROFILE-MODAL] Fetching profile:", { profileType, profileId })
     try {
       let data, error
 
@@ -79,6 +81,7 @@ export default function ProfileModal({ isOpen, onClose, profileType, profileId }
           break
       }
 
+      console.log("[PROFILE-MODAL] Fetch result:", { data, error })
       if (error) throw error
       setProfile(data)
     } catch (error) {
@@ -88,9 +91,30 @@ export default function ProfileModal({ isOpen, onClose, profileType, profileId }
     }
   }
 
+  // Get title for accessibility
+  const getDialogTitle = () => {
+    if (loading) return "Loading profile..."
+    if (!profile) return "Profile not found"
+    switch (profileType) {
+      case "professional":
+        return `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Professional Profile"
+      case "company":
+        return profile.company_name || "Company Profile"
+      case "contractor":
+        return profile.company_name || "Contractor Profile"
+      case "homeowner":
+        return `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Homeowner Profile"
+      default:
+        return "Profile"
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto p-0" aria-describedby={undefined}>
+        <VisuallyHidden>
+          <DialogTitle>{getDialogTitle()}</DialogTitle>
+        </VisuallyHidden>
         {loading ? (
           <div className="flex items-center justify-center p-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />

@@ -188,12 +188,14 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
   const topSkills = job.skills_required?.slice(0, 3) || []
 
   // Determine poster information
+  // Check: homeowner name (from enrichment) -> company_profiles join -> poster_company_name (enrichment fallback) -> Anonymous
   const posterName =
     (job.poster_first_name && job.poster_last_name ? `${job.poster_first_name} ${job.poster_last_name}` : null) ||
     job.company_profiles?.company_name ||
+    job.poster_company_name ||
     "Anonymous"
 
-  const companyName = job.company_profiles?.company_name
+  const companyName = job.company_profiles?.company_name || job.poster_company_name
   const logoUrl = job.poster_logo_url || job.company_profiles?.logo_url
 
   // Get profile URL (company or homeowner)

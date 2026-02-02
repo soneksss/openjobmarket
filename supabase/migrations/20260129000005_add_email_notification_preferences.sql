@@ -24,10 +24,15 @@ CREATE TABLE IF NOT EXISTS public.user_notification_preferences (
 );
 
 -- Create index for fast user lookups
-CREATE INDEX idx_notification_prefs_user_id ON public.user_notification_preferences(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_prefs_user_id ON public.user_notification_preferences(user_id);
 
 -- Enable RLS
 ALTER TABLE public.user_notification_preferences ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policies if any
+DROP POLICY IF EXISTS "Users can view own notification preferences" ON public.user_notification_preferences;
+DROP POLICY IF EXISTS "Users can update own notification preferences" ON public.user_notification_preferences;
+DROP POLICY IF EXISTS "Users can insert own notification preferences" ON public.user_notification_preferences;
 
 -- RLS Policy: Users can view their own preferences
 CREATE POLICY "Users can view own notification preferences"
@@ -100,6 +105,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Trigger to automatically update updated_at
+DROP TRIGGER IF EXISTS update_notification_prefs_timestamp ON public.user_notification_preferences;
 CREATE TRIGGER update_notification_prefs_timestamp
 BEFORE UPDATE ON public.user_notification_preferences
 FOR EACH ROW
@@ -120,12 +126,15 @@ CREATE TABLE IF NOT EXISTS public.notification_log (
 );
 
 -- Index for notification log queries
-CREATE INDEX idx_notification_log_user_id ON public.notification_log(user_id);
-CREATE INDEX idx_notification_log_created_at ON public.notification_log(created_at);
-CREATE INDEX idx_notification_log_type ON public.notification_log(notification_type);
+CREATE INDEX IF NOT EXISTS idx_notification_log_user_id ON public.notification_log(user_id);
+CREATE INDEX IF NOT EXISTS idx_notification_log_created_at ON public.notification_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_notification_log_type ON public.notification_log(notification_type);
 
 -- Enable RLS on notification log
 ALTER TABLE public.notification_log ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing policy if any
+DROP POLICY IF EXISTS "Users can view own notification logs" ON public.notification_log;
 
 -- RLS Policy: Users can view their own notification logs
 CREATE POLICY "Users can view own notification logs"
