@@ -1,12 +1,8 @@
 -- ============================================================================
--- Migration: Fix trade job notification matching logic
--- Date: 2026-02-02
--- Purpose:
---   1. Remove email_on_trade_job_match filter - this should only affect email delivery, not finding matches
---   2. Improve skill matching to be case-insensitive and more flexible
+-- Fix: Improved skill matching with word stem support
+-- Handles cases like "plumber" matching "plumbing" (common stem: "plumb")
 -- ============================================================================
 
--- Drop and recreate the function with fixed logic
 DROP FUNCTION IF EXISTS find_companies_for_trade_job_notification(UUID, DOUBLE PRECISION, DOUBLE PRECISION, TEXT[]);
 
 CREATE OR REPLACE FUNCTION find_companies_for_trade_job_notification(
@@ -58,7 +54,7 @@ BEGIN
         sin(radians(p_job_lat)) * sin(radians(cp.latitude))
       ))
     )) <= COALESCE(cp.trade_job_notifications_distance, 10)
-    -- Matches skills/services - IMPROVED matching logic with stem support
+    -- Matches skills/services - IMPROVED matching logic
     -- Match if:
     --   a) Company has no services defined (matches all jobs), OR
     --   b) Any skill matches using multiple strategies
@@ -82,9 +78,15 @@ BEGIN
           OR (
             length(job_skill) >= 4
             AND length(lower(company_service)) >= 4
-            AND left(job_skill, 4) = left(lower(company_service), 4)
+            AND (
+              -- Job skill starts with company service prefix (4+ chars)
+              left(job_skill, 4) = left(lower(company_service), 4)
+              -- Or they share same normalized prefix
+              OR left(regexp_replace(job_skill, '[^a-z]', '', 'g'), 5) =
+                 left(regexp_replace(lower(company_service), '[^a-z]', '', 'g'), 5)
+            )
           )
-          -- Strategy 4: Common trade variations - remove suffixes and compare
+          -- Strategy 4: Common trade variations
           -- plumber <-> plumbing, electrician <-> electrical, etc.
           OR (
             regexp_replace(lower(company_service), '(ing|er|ian|tion|al|ist)$', '', 'g') =
@@ -111,16 +113,41 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION find_companies_for_trade_job_notification(UUID, DOUBLE PRECISION, DOUBLE PRECISION, TEXT[]) TO authenticated;
 GRANT EXECUTE ON FUNCTION find_companies_for_trade_job_notification(UUID, DOUBLE PRECISION, DOUBLE PRECISION, TEXT[]) TO service_role;
 
--- Log migration success
-DO $$
-BEGIN
-  RAISE NOTICE '========================================';
-  RAISE NOTICE 'Trade Job Notification Matching Fix v2';
-  RAISE NOTICE '  - Removed email_on_trade_job_match filter (now only affects email, not in-app)';
-  RAISE NOTICE '  - Added case-insensitive skill matching';
-  RAISE NOTICE '  - Added partial string matching for skills';
-  RAISE NOTICE '  - Added stem matching (plumber <-> plumbing)';
-  RAISE NOTICE '  - Added suffix removal (electrician <-> electrical)';
-  RAISE NOTICE '  - Fixed potential acos domain error with LEAST/GREATEST';
-  RAISE NOTICE '========================================';
-END $$;
+SELECT '✅ Function updated with improved stem matching!' as status;
+
+-- Test the stem matching logic
+SELECT '=== TESTING STEM MATCHING ===' as section;
+
+SELECT
+  'plumber' as job_skill,
+  'Plumbing' as company_service,
+  -- Strategy 3: First 4 chars
+  left('plumber', 4) = left(lower('Plumbing'), 4) as "first_4_match",
+  -- Strategy 4: Remove suffixes
+  regexp_replace('plumber', '(ing|er|ian|tion|al|ist)$', '', 'g') as "job_stem",
+  regexp_replace(lower('Plumbing'), '(ing|er|ian|tion|al|ist)$', '', 'g') as "service_stem",
+  regexp_replace('plumber', '(ing|er|ian|tion|al|ist)$', '', 'g') =
+  regexp_replace(lower('Plumbing'), '(ing|er|ian|tion|al|ist)$', '', 'g') as "stems_match";
+
+-- Test with actual data
+SELECT '=== TESTING WITH ACTUAL DATA ===' as section;
+
+WITH recent_job AS (
+  SELECT
+    j.id,
+    j.title,
+    j.latitude,
+    j.longitude
+  FROM jobs j
+  LEFT JOIN company_profiles cp ON cp.id = j.company_id
+  WHERE (cp.company_name ILIKE '%remus%' OR j.location ILIKE '%weybridge%')
+    AND j.is_tradespeople_job = true
+  ORDER BY j.created_at DESC
+  LIMIT 1
+)
+SELECT * FROM find_companies_for_trade_job_notification(
+  (SELECT id FROM recent_job),
+  (SELECT latitude FROM recent_job),
+  (SELECT longitude FROM recent_job),
+  ARRAY[(SELECT lower(title) FROM recent_job)]
+);

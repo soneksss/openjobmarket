@@ -911,6 +911,34 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
               <label className="block text-sm font-medium mb-2">
                 {formData.postingType === "tradespeople" ? "Trade / Service" : "Profession / Field"} <span className="text-red-500">*</span>
               </label>
+
+              {/* Quick select buttons for tradespeople - most common trades */}
+              {formData.postingType === "tradespeople" && (
+                <div className="mb-3">
+                  <p className="text-xs text-gray-500 mb-2">Quick select (recommended for better matching):</p>
+                  <div className="flex flex-wrap gap-2">
+                    {professionsList.slice(0, 12).map((trade) => {
+                      const isSelected = formData.profession === trade
+                      return (
+                        <button
+                          key={trade}
+                          type="button"
+                          onClick={() => handleSuggestionClick(trade)}
+                          className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                            isSelected
+                              ? "bg-blue-600 text-white ring-2 ring-blue-300 shadow-md"
+                              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          }`}
+                        >
+                          {trade}
+                          {isSelected && <span className="text-xs ml-1">✓</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               <input
                 type="text"
                 value={formData.profession}
@@ -928,8 +956,12 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                   // Delay hiding suggestions to allow click events to fire
                   setTimeout(() => setShowSuggestions(false), 200)
                 }}
-                placeholder={formData.postingType === "tradespeople" ? "Type a trade (e.g., Plumber, Electrician)" : "Type a profession (e.g., Software Engineer, Designer)"}
-                className="w-full border rounded-lg p-3 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder={formData.postingType === "tradespeople" ? "Or type a trade (e.g., Plumber, Electrician)" : "Type a profession (e.g., Software Engineer, Designer)"}
+                className={`w-full border rounded-lg p-3 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  formData.postingType === "tradespeople" && formData.profession && professionsList.includes(formData.profession)
+                    ? "border-green-500 bg-green-50"
+                    : ""
+                }`}
               />
               {showSuggestions && filteredSuggestions.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
@@ -945,7 +977,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                 </div>
               )}
               <p className="text-xs text-gray-500 mt-1">
-                Start typing to see suggestions, or enter your own
+                {formData.postingType === "tradespeople"
+                  ? "Selecting from suggestions helps match with relevant tradespeople"
+                  : "Start typing to see suggestions, or enter your own"}
               </p>
             </div>
 

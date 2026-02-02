@@ -1,12 +1,9 @@
 -- ============================================================================
--- Migration: Fix trade job notification matching logic
--- Date: 2026-02-02
--- Purpose:
---   1. Remove email_on_trade_job_match filter - this should only affect email delivery, not finding matches
---   2. Improve skill matching to be case-insensitive and more flexible
+-- Apply fix and test trade job notification matching
+-- Run this in Supabase SQL Editor
 -- ============================================================================
 
--- Drop and recreate the function with fixed logic
+-- Step 1: Apply the fix - Drop and recreate the function
 DROP FUNCTION IF EXISTS find_companies_for_trade_job_notification(UUID, DOUBLE PRECISION, DOUBLE PRECISION, TEXT[]);
 
 CREATE OR REPLACE FUNCTION find_companies_for_trade_job_notification(
@@ -58,7 +55,7 @@ BEGIN
         sin(radians(p_job_lat)) * sin(radians(cp.latitude))
       ))
     )) <= COALESCE(cp.trade_job_notifications_distance, 10)
-    -- Matches skills/services - IMPROVED matching logic with stem support
+    -- Matches skills/services - IMPROVED matching with stem support
     -- Match if:
     --   a) Company has no services defined (matches all jobs), OR
     --   b) Any skill matches using multiple strategies
@@ -77,15 +74,15 @@ BEGIN
           -- Strategy 2: Exact match after removing non-alphanumeric
           OR lower(regexp_replace(company_service, '[^a-zA-Z0-9]', '', 'g')) =
              lower(regexp_replace(job_skill, '[^a-zA-Z0-9]', '', 'g'))
-          -- Strategy 3: Stem matching - share first 4+ characters
-          -- Handles: plumber/plumbing, electrician/electrical, heating/heater
+          -- Strategy 3: Stem matching - share first 4+ chars
+          -- Handles: plumber/plumbing, electrician/electrical
           OR (
             length(job_skill) >= 4
             AND length(lower(company_service)) >= 4
             AND left(job_skill, 4) = left(lower(company_service), 4)
           )
-          -- Strategy 4: Common trade variations - remove suffixes and compare
-          -- plumber <-> plumbing, electrician <-> electrical, etc.
+          -- Strategy 4: Remove suffixes and compare
+          -- plumber <-> plumbing, electrician <-> electrical
           OR (
             regexp_replace(lower(company_service), '(ing|er|ian|tion|al|ist)$', '', 'g') =
             regexp_replace(job_skill, '(ing|er|ian|tion|al|ist)$', '', 'g')
@@ -111,16 +108,55 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 GRANT EXECUTE ON FUNCTION find_companies_for_trade_job_notification(UUID, DOUBLE PRECISION, DOUBLE PRECISION, TEXT[]) TO authenticated;
 GRANT EXECUTE ON FUNCTION find_companies_for_trade_job_notification(UUID, DOUBLE PRECISION, DOUBLE PRECISION, TEXT[]) TO service_role;
 
--- Log migration success
-DO $$
-BEGIN
-  RAISE NOTICE '========================================';
-  RAISE NOTICE 'Trade Job Notification Matching Fix v2';
-  RAISE NOTICE '  - Removed email_on_trade_job_match filter (now only affects email, not in-app)';
-  RAISE NOTICE '  - Added case-insensitive skill matching';
-  RAISE NOTICE '  - Added partial string matching for skills';
-  RAISE NOTICE '  - Added stem matching (plumber <-> plumbing)';
-  RAISE NOTICE '  - Added suffix removal (electrician <-> electrical)';
-  RAISE NOTICE '  - Fixed potential acos domain error with LEAST/GREATEST';
-  RAISE NOTICE '========================================';
-END $$;
+SELECT '✅ Function updated successfully!' as status;
+
+-- Step 2: Test the function with the most recent Remus/Weybridge job
+SELECT '=== TESTING FUNCTION ===' as section;
+
+WITH recent_job AS (
+  SELECT
+    j.id,
+    j.title,
+    j.latitude,
+    j.longitude
+  FROM jobs j
+  LEFT JOIN company_profiles cp ON cp.id = j.company_id
+  WHERE (cp.company_name ILIKE '%remus%' OR j.location ILIKE '%weybridge%')
+    AND j.is_tradespeople_job = true
+  ORDER BY j.created_at DESC
+  LIMIT 1
+)
+SELECT
+  'Job ID: ' || id::text as job_info,
+  'Title: ' || title as job_title,
+  'Lat: ' || latitude::text || ', Lon: ' || longitude::text as coords
+FROM recent_job;
+
+SELECT '=== MATCHING COMPANIES ===' as section;
+
+WITH recent_job AS (
+  SELECT
+    j.id,
+    j.title,
+    j.latitude,
+    j.longitude
+  FROM jobs j
+  LEFT JOIN company_profiles cp ON cp.id = j.company_id
+  WHERE (cp.company_name ILIKE '%remus%' OR j.location ILIKE '%weybridge%')
+    AND j.is_tradespeople_job = true
+  ORDER BY j.created_at DESC
+  LIMIT 1
+)
+SELECT * FROM find_companies_for_trade_job_notification(
+  (SELECT id FROM recent_job),
+  (SELECT latitude FROM recent_job),
+  (SELECT longitude FROM recent_job),
+  ARRAY[(SELECT lower(title) FROM recent_job)]
+);
+
+-- Step 3: Show what will happen when PRIMEFLOW is found
+SELECT '=== IF PRIMEFLOW IS FOUND, NOTIFICATION WILL BE CREATED ===' as section;
+
+SELECT
+  'If PRIMEFLOW appears above, the next job posting will trigger notifications.' as info,
+  'To test: Post a new trade job (Plumber, Heating Engineer, etc.) from Remus company.' as action;
