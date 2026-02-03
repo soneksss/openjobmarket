@@ -335,28 +335,34 @@ export default function JobDetailView({
   }
 
   const checkIfJobSaved = async () => {
-    if (!userProfile) return
+    if (!userProfile || !user) return
 
     try {
-      // Detect if this is a company or professional profile
-      const isCompanyProfile = !userProfile.last_name || (userProfile as any).company_name
+      // Detect profile type: contractor, company, or professional
+      const isContractorProfile = (userProfile as any).is_contractor || (userProfile as any).business_name
+      const isCompanyProfile = !isContractorProfile && (!userProfile.last_name || (userProfile as any).company_name)
+      const isProfessionalProfile = !isContractorProfile && !isCompanyProfile
 
       console.log("[JOB-DETAIL] Checking if job is saved:", {
         jobId: job.id,
         profileId: userProfile.id,
+        userId: user.id,
+        isContractorProfile,
         isCompanyProfile,
+        isProfessionalProfile,
       })
 
+      // For contractors and companies, use user_id; for professionals, use professional_id
       const query = supabase
         .from("saved_jobs")
         .select("id")
         .eq("job_id", job.id)
 
-      // Use the appropriate ID field
-      if (isCompanyProfile) {
-        query.eq("company_id", userProfile.id)
-      } else {
+      if (isProfessionalProfile) {
         query.eq("professional_id", userProfile.id)
+      } else {
+        // Companies and contractors use user_id
+        query.eq("user_id", user.id)
       }
 
       const { data, error } = await query.maybeSingle()
@@ -375,12 +381,14 @@ export default function JobDetailView({
   }
 
   const handleSaveJob = async () => {
-    if (!userProfile) return
+    if (!userProfile || !user) return
 
     setLoading(true)
     try {
-      // Detect if this is a company or professional profile
-      const isCompanyProfile = !userProfile.last_name || (userProfile as any).company_name
+      // Detect profile type: contractor, company, or professional
+      const isContractorProfile = (userProfile as any).is_contractor || (userProfile as any).business_name
+      const isCompanyProfile = !isContractorProfile && (!userProfile.last_name || (userProfile as any).company_name)
+      const isProfessionalProfile = !isContractorProfile && !isCompanyProfile
 
       if (isSaved) {
         console.log("[JOB-DETAIL] Removing job from saved:", job.id)
@@ -389,11 +397,11 @@ export default function JobDetailView({
           .delete()
           .eq("job_id", job.id)
 
-        // Use the appropriate ID field
-        if (isCompanyProfile) {
-          deleteQuery.eq("company_id", userProfile.id)
-        } else {
+        if (isProfessionalProfile) {
           deleteQuery.eq("professional_id", userProfile.id)
+        } else {
+          // Companies and contractors use user_id
+          deleteQuery.eq("user_id", user.id)
         }
 
         const { error } = await deleteQuery
@@ -402,17 +410,17 @@ export default function JobDetailView({
         setIsSaved(false)
         console.log("[JOB-DETAIL] Job removed from saved successfully")
       } else {
-        console.log("[JOB-DETAIL] Saving job:", job.id, "isCompanyProfile:", isCompanyProfile)
+        console.log("[JOB-DETAIL] Saving job:", job.id, "isProfessionalProfile:", isProfessionalProfile)
 
         const insertData: any = {
           job_id: job.id,
         }
 
-        // Use the appropriate ID field
-        if (isCompanyProfile) {
-          insertData.company_id = userProfile.id
-        } else {
+        if (isProfessionalProfile) {
           insertData.professional_id = userProfile.id
+        } else {
+          // Companies and contractors use user_id
+          insertData.user_id = user.id
         }
 
         const { error } = await supabase.from("saved_jobs").insert(insertData)

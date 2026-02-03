@@ -138,7 +138,7 @@ export default function MessagingDropdown({ userId, userType }: MessagingDropdow
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0">
+      <DropdownMenuContent align="end" className="w-80 p-0 z-[10001]">
         <div className="p-4 border-b">
           <div className="flex items-center justify-between">
             <h3 className="font-semibold">Messages</h3>

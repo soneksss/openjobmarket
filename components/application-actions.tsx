@@ -14,6 +14,8 @@ interface ApplicationActionsProps {
   applicantEmail?: string
   applicantName?: string
   jobTitle?: string
+  jobBudget?: string // Optional budget/salary display string
+  jobId?: string // Job ID for linking
 }
 
 export default function ApplicationActions({
@@ -24,6 +26,8 @@ export default function ApplicationActions({
   applicantEmail,
   applicantName,
   jobTitle,
+  jobBudget,
+  jobId,
 }: ApplicationActionsProps) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -148,6 +152,33 @@ export default function ApplicationActions({
             console.warn("[APPLICATION-ACTIONS] Review verification timed out")
           }
           // Don't fail the entire operation if review verification fails
+        }
+
+        // Send automatic system message to start the conversation
+        try {
+          const budgetText = jobBudget ? ` (${jobBudget})` : ''
+          const messageContent = `🎉 Congratulations! Your application for the job "${jobTitle || 'the position'}"${budgetText} has been accepted!\n\nPlease reply to discuss further details and arrange the next steps.`
+
+          const { error: messageError } = await supabase
+            .from('messages')
+            .insert({
+              sender_id: companyUserId,
+              recipient_id: professionalUserId,
+              subject: `Application Accepted: ${jobTitle || 'Job Position'}`,
+              content: messageContent,
+              message_type: 'direct',
+              job_id: jobId || null,
+              is_read: false
+            })
+
+          if (messageError) {
+            console.error("[APPLICATION-ACTIONS] Failed to send acceptance message:", messageError)
+          } else {
+            console.log("[APPLICATION-ACTIONS] Acceptance message sent successfully")
+          }
+        } catch (msgError) {
+          console.error("[APPLICATION-ACTIONS] Error sending acceptance message:", msgError)
+          // Don't fail the operation if message sending fails
         }
       }
 

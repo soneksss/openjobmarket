@@ -3148,7 +3148,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           <Dialog open={showMapPicker} onOpenChange={(open) => {
             if (!open) cancelMapPicker()
           }}>
-            <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[85vh] overflow-y-auto p-3 sm:p-6" showCloseButton={false}>
+            <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[80vh] sm:max-h-[85vh] overflow-y-auto p-3 sm:p-6" showCloseButton={false}>
             <DialogHeader>
               <DialogTitle className="text-base sm:text-lg">{t('mainSearch.mapPickerTitle')}</DialogTitle>
               <DialogDescription className="text-xs sm:text-sm">
@@ -3182,8 +3182,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               )}
             </div>
 
-            {/* Map Area */}
-            <div className="w-full h-[45vh] sm:h-[450px] rounded-lg overflow-hidden border border-gray-200">
+            {/* Map Area - smaller on mobile to ensure footer is visible */}
+            <div className="w-full h-[35vh] sm:h-[400px] rounded-lg overflow-hidden border border-gray-200 min-h-[200px]">
               <ProfessionalMap
                 key={`map-picker-${mapPickerKey}`}
                 professionals={[]}
@@ -3198,7 +3198,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               />
             </div>
 
-            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2 sm:pt-3">
               <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left mb-2 sm:mb-0 sm:flex-1">
                 {mapPickerLocation ? (
                   <span className="font-medium text-gray-900">
@@ -3212,14 +3212,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               </div>
 
               <div className="flex gap-2 justify-center sm:justify-end">
-                <Button onClick={cancelMapPicker} variant="outline" size="sm" className="flex-1 sm:flex-none">
+                <Button onClick={cancelMapPicker} variant="outline" size="sm" className="flex-1 sm:flex-none h-10">
                   {t('common.cancel')}
                 </Button>
                 <Button
                   onClick={confirmMapPickerLocation}
                   disabled={!mapPickerLocation}
                   size="sm"
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none"
+                  className="bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none h-10"
                 >
                   {t('mainSearch.useThisLocation')}
                 </Button>

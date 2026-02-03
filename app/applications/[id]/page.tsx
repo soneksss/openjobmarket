@@ -624,6 +624,8 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
                     applicantEmail={displayEmail !== "Hidden (privacy settings)" ? displayEmail : undefined}
                     applicantName={displayName}
                     jobTitle={application.jobs.title}
+                    jobBudget={formatSalary(application.jobs.salary_min, application.jobs.salary_max)}
+                    jobId={application.jobs.id}
                   />
                 </CardContent>
               </Card>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Bell } from "lucide-react"
+import { Bell, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Popover,
@@ -137,6 +137,29 @@ export function NotificationBell() {
     }
   }
 
+  const deleteNotification = async (notificationId: string, event: React.MouseEvent) => {
+    event.stopPropagation() // Prevent triggering the markAsRead click
+
+    // Optimistic removal from UI
+    setNotifications(prev => prev.filter(n => n.id !== notificationId))
+
+    // Update unread count if notification was unread
+    const notification = notifications.find(n => n.id === notificationId)
+    if (notification && !notification.is_read) {
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
+
+    try {
+      const supabase = createClient()
+      await supabase.rpc('delete_notification', { p_notification_id: notificationId })
+      console.log('[NOTIFICATION-BELL] Notification deleted:', notificationId)
+    } catch (error) {
+      console.error('Error deleting notification:', error)
+      // Reload notifications to restore state on error
+      await loadNotifications()
+    }
+  }
+
   const getNotificationIcon = (type: string) => {
     switch (type) {
       case 'new_message':
@@ -181,7 +204,7 @@ export function NotificationBell() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="end">
+      <PopoverContent className="w-80 p-0 z-[10001]" align="end">
         <div className="flex items-center justify-between p-4 border-b">
           <h3 className="font-semibold">Notifications</h3>
           {unreadCount > 0 && (
@@ -212,7 +235,7 @@ export function NotificationBell() {
               {notifications.map((notification) => (
                 <button
                   key={notification.id}
-                  className={`w-full text-left p-4 hover:bg-muted transition-colors ${
+                  className={`w-full text-left p-4 hover:bg-muted transition-colors group ${
                     !notification.is_read ? 'bg-blue-50' : ''
                   }`}
                   onClick={() => markAsRead(notification.id, notification.link_url)}
@@ -234,9 +257,20 @@ export function NotificationBell() {
                         {formatTimeAgo(notification.created_at)}
                       </p>
                     </div>
-                    {!notification.is_read && (
-                      <div className="w-2 h-2 rounded-full bg-blue-600 flex-shrink-0 mt-1"></div>
-                    )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Unread indicator */}
+                      {!notification.is_read && (
+                        <div className="w-2 h-2 rounded-full bg-blue-600"></div>
+                      )}
+                      {/* Delete button - always visible */}
+                      <div
+                        className="p-1.5 rounded-full bg-gray-100 hover:bg-red-100 transition-colors cursor-pointer"
+                        onClick={(e) => deleteNotification(notification.id, e)}
+                        title="Delete notification"
+                      >
+                        <Trash2 className="h-4 w-4 text-gray-400 hover:text-red-500 transition-colors" />
+                      </div>
+                    </div>
                   </div>
                 </button>
               ))}

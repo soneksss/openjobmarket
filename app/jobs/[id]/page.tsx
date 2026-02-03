@@ -177,7 +177,7 @@ export default async function JobDetailPage({
       } else {
         console.log("[JOB-DETAIL] User type:", userData?.user_type, "Job is task:", job.is_tradespeople_job)
 
-        // For tasks (is_tradespeople_job = true), companies apply
+        // For tasks (is_tradespeople_job = true), companies AND contractors apply
         // For regular jobs (is_tradespeople_job = false), professionals apply
         if (job.is_tradespeople_job && userData?.user_type === "company") {
           // Fetch company profile for task applications
@@ -226,6 +226,56 @@ export default async function JobDetailPage({
               } else {
                 hasApplied = !!application
                 console.log("[JOB-DETAIL] Company application status:", { hasApplied, applicationId: application?.id })
+              }
+            }
+          }
+        } else if (job.is_tradespeople_job && userData?.user_type === "contractor") {
+          // Fetch contractor profile for trade job applications
+          const { data: profile, error: profileError } = await supabase
+            .from("contractor_profiles")
+            .select("*")
+            .eq("user_id", user.id)
+            .single()
+
+          if (profileError) {
+            console.error("[JOB-DETAIL] Error fetching contractor profile:", profileError)
+          } else if (profile) {
+            // Transform contractor profile to match UserProfile interface expected by JobApplicationForm
+            userProfile = {
+              ...profile,
+              email: user.email || "",
+              phone: profile.phone || null,
+              // Map contractor fields to professional fields for compatibility
+              first_name: profile.business_name || "Contractor",
+              last_name: "", // Contractors use business_name
+              title: profile.trade_specialties?.join(", ") || "Contractor",
+              bio: profile.bio || "",
+              skills: profile.trade_specialties || [],
+              location: profile.location || "",
+              full_address: profile.location || "",
+              nickname: profile.business_name,
+              hide_email: false,
+              hide_personal_name: false,
+              // Mark as contractor for detection
+              business_name: profile.business_name,
+              is_contractor: true,
+            }
+            console.log("[JOB-DETAIL] Contractor profile loaded and transformed for trade job:", profile?.id)
+
+            // Check if contractor has already applied using contractor_id
+            if (profile) {
+              const { data: application, error: applicationError } = await supabase
+                .from("job_applications")
+                .select("id")
+                .eq("job_id", job.id)
+                .eq("contractor_id", profile.id) // Contractor applications use contractor_id
+                .single()
+
+              if (applicationError && applicationError.code !== 'PGRST116') {
+                console.error("[JOB-DETAIL] Error checking contractor application status:", applicationError)
+              } else {
+                hasApplied = !!application
+                console.log("[JOB-DETAIL] Contractor application status:", { hasApplied, applicationId: application?.id })
               }
             }
           }

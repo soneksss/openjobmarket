@@ -51,6 +51,8 @@ import { getLanguageFlag } from "@/components/language-selector"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ReviewsList } from "@/components/reviews-list"
 import ProfessionalDetailView from "@/components/professional-detail-view"
+import { MobileMapBottomSheet, BottomSheetState } from "@/components/mobile-map-bottom-sheet"
+import { MobilePreviewCard, PreviewData } from "@/components/mobile-preview-card"
 
 interface Professional {
   id: string
@@ -319,6 +321,10 @@ export default function ProfessionalsPageContent({
 
   // Mobile list view state - controls if list is full screen or split view
   const [isListFullScreen, setIsListFullScreen] = useState(false)
+
+  // Mobile bottom sheet state (Airbnb-style)
+  const [bottomSheetState, setBottomSheetState] = useState<BottomSheetState>("split")
+  const [mobilePreviewData, setMobilePreviewData] = useState<PreviewData | null>(null)
 
   // Sign-up prompt modal state
   const [signUpPrompt, setSignUpPrompt] = useState<{
@@ -591,6 +597,51 @@ export default function ProfessionalsPageContent({
     return addressParts.join(', ')
   }
 
+  // Format short address for display - City + Postcode only (for compact views)
+  const formatShortAddress = (location?: string) => {
+    if (!location) return 'Location not specified'
+
+    // Split by comma
+    const parts = location.split(',').map(p => p.trim()).filter(p => p.length > 0)
+
+    if (parts.length === 0) return location
+
+    // Find postcode (UK format)
+    const postcodeRegex = /\b([A-Z]{1,2}\d{1,2}[A-Z]?\s?\d[A-Z]{2})\b/i
+    const postcodeMatch = location.match(postcodeRegex)
+    const postcode = postcodeMatch ? postcodeMatch[0] : null
+
+    // Words to skip (countries, regions)
+    const skipWords = ['united kingdom', 'uk', 'england', 'scotland', 'wales', 'ireland', 'great britain']
+
+    // Find city/town - look for a part that's not a street number and not a country
+    let city = ''
+    for (const part of parts) {
+      const partLower = part.toLowerCase()
+      // Skip if it's a country
+      if (skipWords.includes(partLower)) continue
+      // Skip if it's the postcode
+      if (postcode && part.includes(postcode)) continue
+      // Skip if it starts with a number (likely street address)
+      if (/^\d/.test(part)) continue
+      // This is likely the city
+      city = part.replace(postcodeRegex, '').trim()
+      if (city) break
+    }
+
+    // Build short address: City, Postcode
+    if (city && postcode) {
+      return `${city}, ${postcode}`
+    } else if (city) {
+      return city
+    } else if (postcode) {
+      return postcode
+    }
+
+    // Fallback: return first part
+    return parts[0] || location
+  }
+
   // Debug logging for coordinate data
   console.log("[PROFESSIONALS-PAGE] Data received:", data)
   console.log("[PROFESSIONALS-PAGE] First item coordinates:", data[0] ? {
@@ -770,6 +821,129 @@ export default function ProfessionalsPageContent({
     }
     // Implementation for saving job
     console.log("Saving job:", jobId)
+  }
+
+  // Helper function to convert data item to PreviewData for mobile preview card
+  const getPreviewDataForItem = (item: any): PreviewData | null => {
+    if (!item) return null
+
+    // Check if it's a job
+    if (isShowingJobs) {
+      return {
+        type: "job" as const,
+        id: item.id,
+        title: item.title,
+        companyName: item.company_profiles?.company_name,
+        posterName: item.poster_first_name && item.poster_last_name
+          ? `${item.poster_first_name} ${item.poster_last_name}`
+          : undefined,
+        location: item.location || "Location not specified",
+        salaryMin: item.salary_min,
+        salaryMax: item.salary_max,
+        budgetMin: item.budget_min,
+        budgetMax: item.budget_max,
+        description: item.description,
+        jobType: item.job_type,
+        workLocation: item.work_location,
+        createdAt: item.created_at,
+      }
+    }
+
+    // Check if it's a company
+    if ('company_name' in item) {
+      return {
+        type: "company" as const,
+        id: item.id,
+        companyName: item.company_name,
+        industry: item.industry,
+        description: item.description,
+        location: item.location || "Location not specified",
+        logoUrl: item.logo_url,
+        services: item.services,
+        openForBusiness: item.open_for_business,
+        isHiring: item.is_hiring,
+        phone: item.phone || item.phone_number,
+        websiteUrl: item.website_url,
+        spokenLanguages: item.spoken_languages,
+      }
+    }
+
+    // Otherwise it's a professional
+    return {
+      type: "professional" as const,
+      id: item.id,
+      firstName: item.first_name,
+      lastName: item.last_name,
+      title: item.title,
+      bio: item.bio,
+      location: item.location || "Location not specified",
+      avatarUrl: item.profile_photo_url,
+      salaryMin: item.salary_min,
+      salaryMax: item.salary_max,
+      salaryFrequency: item.salary_frequency,
+      skills: item.skills,
+      averageRating: item.average_rating,
+      reviewsCount: item.reviews_count,
+      experienceLevel: item.experience_level,
+      isAvailable: item.available_for_work || item.actively_looking,
+      isSelfEmployed: item.is_self_employed,
+      spokenLanguages: item.spoken_languages,
+    }
+  }
+
+  // Handle pin selection on mobile - show preview card
+  const handleMobilePinSelect = (itemId: string | null) => {
+    setSelectedProfessionalId(itemId)
+
+    if (!itemId) {
+      setMobilePreviewData(null)
+      if (bottomSheetState === "previewCard") {
+        setBottomSheetState("split")
+      }
+      return
+    }
+
+    // Find the item and create preview data
+    const item = data.find((d: any) => d.id === itemId)
+    if (item) {
+      const previewData = getPreviewDataForItem(item)
+      setMobilePreviewData(previewData)
+      setBottomSheetState("previewCard")
+    }
+  }
+
+  // Handle preview card close
+  const handlePreviewClose = () => {
+    setMobilePreviewData(null)
+    setSelectedProfessionalId(null)
+    setBottomSheetState("split")
+  }
+
+  // Handle preview card view details
+  const handlePreviewViewDetails = (id: string) => {
+    if (isShowingJobs) {
+      // Navigate to job details page
+      const params = new URLSearchParams()
+      if (searchParams.search) params.set('returnQuery', searchParams.search)
+      if (searchParams.location) params.set('returnLocation', searchParams.location)
+      if (searchParams.lat) params.set('returnLat', searchParams.lat)
+      if (searchParams.lng) params.set('returnLon', searchParams.lng)
+      if (searchParams.radius) params.set('returnRadius', searchParams.radius)
+      params.set('returnToSearch', 'true')
+      const queryString = params.toString()
+      router.push(`/jobs/${id}${queryString ? `?${queryString}` : ''}`)
+    } else {
+      handleViewProfile(id)
+    }
+  }
+
+  // Handle preview card action (Apply/Message)
+  const handlePreviewAction = (id: string, name: string) => {
+    if (isShowingJobs) {
+      handleApplyToJob(id)
+    } else {
+      handleSendInquiry(id, name)
+    }
   }
 
   // Check if search has been performed
@@ -2220,7 +2394,7 @@ export default function ProfessionalsPageContent({
               <ProfessionalDetailView
                 professional={viewProfileData}
                 user={currentUser}
-                userType={currentUser ? currentUserType : null}
+                userType={currentUser ? currentUserType as "professional" | "company" | "contractor" | "homeowner" | null : null}
                 isModal={true}
               />
             </div>
@@ -2518,95 +2692,85 @@ export default function ProfessionalsPageContent({
 
           {/* Mobile & Desktop Layouts */}
           <>
-          {/* Mobile: Stacked Layout - Map on top, List on bottom */}
+          {/* Mobile: Airbnb-style Bottom Sheet Layout */}
           <div className="flex md:!hidden flex-col flex-1 overflow-hidden">
-            {/* Map Section - Top Half (hidden when list is full screen) */}
-            <div className={`relative transition-all duration-300 ${isListFullScreen ? 'h-0' : 'flex-1'}`}>
-              {shouldShowMap && (
-                isShowingJobs ? (
-                  <JobMap
-                    jobs={dataWithCoordinates as any}
-                    center={[center[0], center[1]]}
-                    zoom={10}
-                    height="100%"
-                    showRadius={!!selectedLocationCoords}
-                    radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
-                    radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
-                    selectedJobId={selectedProfessionalId}
-                    onJobSelect={(job) => {
-                      setSelectedProfessionalId(job?.id || null)
-                    }}
-                  />
-                ) : (
-                  <ProfessionalMap
-                    professionals={dataWithCoordinates.map((item: any) => ({
-                      id: item.id,
-                      name: isEmployer ? `${item.first_name || 'Professional'} ${item.last_name || 'User'}` : item.title || item.company_name || 'Unknown',
-                      title: item.title || item.industry || 'Professional',
-                      location: item.location || 'Location not specified',
-                      coordinates: { lat: item.latitude, lon: item.longitude },
-                      skills: item.skills || [],
-                      experience: item.experience_level || 'Not specified',
-                      avatar: item.profile_photo_url || item.logo_url || '/placeholder.svg',
-                      isAvailable: item.available_for_work || item.open_for_business || item.is_hiring || true,
-                      first_name: item.first_name,
-                      last_name: item.last_name,
-                      salary_min: item.salary_min,
-                      salary_max: item.salary_max,
-                      profile_photo_url: item.profile_photo_url || item.logo_url,
-                      experience_level: item.experience_level
-                    }))}
-                    center={{ lat: center[0], lon: center[1] }}
-                    zoom={10}
-                    height="100%"
-                    user={user}
-                    showRadius={!!selectedLocationCoords}
-                    radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
-                    radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
-                    selectedProfessionalId={selectedProfessionalId}
-                    onProfileSelect={(profile) => {
-                      setSelectedProfessionalId(profile?.id || null)
-                    }}
-                    onSendInquiry={(id, name) => handleSendInquiry(id, name)}
+            <MobileMapBottomSheet
+              state={bottomSheetState}
+              onStateChange={setBottomSheetState}
+              resultsCount={data.length}
+              resultsLabel={isShowingJobs ? "Jobs" : isEmployer ? "Professionals" : isShowingTraders ? "Traders" : "Results"}
+              mapContent={
+                shouldShowMap && (
+                  isShowingJobs ? (
+                    <JobMap
+                      jobs={dataWithCoordinates as any}
+                      center={[center[0], center[1]]}
+                      zoom={10}
+                      height="100%"
+                      showRadius={!!selectedLocationCoords}
+                      radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                      radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
+                      selectedJobId={selectedProfessionalId}
+                      onJobSelect={(job) => {
+                        handleMobilePinSelect(job?.id || null)
+                      }}
+                    />
+                  ) : (
+                    <ProfessionalMap
+                      professionals={dataWithCoordinates.map((item: any) => ({
+                        id: item.id,
+                        name: isEmployer ? `${item.first_name || 'Professional'} ${item.last_name || 'User'}` : item.title || item.company_name || 'Unknown',
+                        title: item.title || item.industry || 'Professional',
+                        location: item.location || 'Location not specified',
+                        coordinates: { lat: item.latitude, lon: item.longitude },
+                        skills: item.skills || [],
+                        experience: item.experience_level || 'Not specified',
+                        avatar: item.profile_photo_url || item.logo_url || '/placeholder.svg',
+                        isAvailable: item.available_for_work || item.open_for_business || item.is_hiring || true,
+                        first_name: item.first_name,
+                        last_name: item.last_name,
+                        salary_min: item.salary_min,
+                        salary_max: item.salary_max,
+                        profile_photo_url: item.profile_photo_url || item.logo_url,
+                        experience_level: item.experience_level
+                      }))}
+                      center={{ lat: center[0], lon: center[1] }}
+                      zoom={10}
+                      height="100%"
+                      user={user}
+                      showRadius={!!selectedLocationCoords}
+                      radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                      radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
+                      selectedProfessionalId={selectedProfessionalId}
+                      onProfileSelect={(profile) => {
+                        handleMobilePinSelect(profile?.id || null)
+                      }}
+                      onSendInquiry={(id, name) => handleSendInquiry(id, name)}
+                    />
+                  )
+                )
+              }
+              previewCardContent={
+                mobilePreviewData && (
+                  <MobilePreviewCard
+                    data={mobilePreviewData}
+                    onClose={handlePreviewClose}
+                    onViewDetails={handlePreviewViewDetails}
+                    onAction={handlePreviewAction}
+                    actionLabel={isShowingJobs ? "Apply Now" : "Message"}
+                    showAction={true}
+                    isAuthenticated={!!currentUser}
+                    onAuthRequired={() => setSignUpPrompt({ isOpen: true, action: "message" })}
                   />
                 )
-              )}
+              }
+              listContent={
+                <div className="p-3">
+                  <h3 className="font-semibold text-base mb-3">
+                    {isEmployer ? "Professionals" : isShowingCompanies ? "Companies" : isShowingTraders ? "Traders" : isShowingJobs ? "Jobs" : "Results"}
+                  </h3>
 
-              {/* Results Counter */}
-              <div className="absolute top-2 right-2 z-10">
-                <div className="bg-white rounded-lg shadow-lg px-2 py-1.5 border">
-                  <div className="flex items-center gap-1.5">
-                    <UserIcon className="h-4 w-4 text-blue-600" />
-                    <span className="font-semibold text-sm">
-                      {data.length} Found
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Draggable Divider - Show/Hide Map */}
-            <div className="relative h-0 z-20">
-              <button
-                onClick={() => setIsListFullScreen(!isListFullScreen)}
-                className="absolute -top-4 left-1/2 -translate-x-1/2 bg-white rounded-full shadow-lg p-2 border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all"
-              >
-                {isListFullScreen ? (
-                  <ChevronDown className="h-4 w-4 text-gray-600" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-gray-600 rotate-180" />
-                )}
-              </button>
-            </div>
-
-            {/* List Section - Bottom Half */}
-            <div className={`bg-white border-t shadow-xl overflow-y-auto transition-all duration-300 ${isListFullScreen ? 'flex-1' : 'flex-1'}`}>
-              <div className="p-3">
-                <h3 className="font-semibold text-base mb-3">
-                  {isEmployer ? "Professionals" : isShowingCompanies ? "Companies" : isShowingTraders ? "Traders" : "Professionals"}
-                </h3>
-
-                <div className="space-y-2">
+                  <div className="space-y-2">
                   {data.map((item: any) => {
                     const isExpanded = selectedProfessionalId === item.id
 
@@ -2643,7 +2807,7 @@ export default function ProfessionalsPageContent({
 
                                 <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
                                   <MapPin className="h-3 w-3" />
-                                  <span className="truncate">{item.location}</span>
+                                  <span className="truncate">{formatShortAddress(item.location)}</span>
                                 </div>
                                 {(item.salary_min || item.salary_max || item.budget_min || item.budget_max) && (
                                   <div className="flex items-center gap-1 text-xs text-green-600 font-medium mt-1">
@@ -2704,7 +2868,7 @@ export default function ProfessionalsPageContent({
                                       if (currentUser) {
                                         handleApplyToJob(item.id)
                                       } else {
-                                        setSignUpPrompt({ isOpen: true, action: "apply" })
+                                        setSignUpPrompt({ isOpen: true, action: "message" })
                                       }
                                     }}
                                   >
@@ -2889,7 +3053,7 @@ export default function ProfessionalsPageContent({
                                   {item.location && (
                                     <div>
                                       <h5 className="font-semibold text-xs mb-1">Location</h5>
-                                      <p className="text-xs text-gray-700">{item.location}</p>
+                                      <p className="text-xs text-gray-700">{formatShortAddress(item.location)}</p>
                                     </div>
                                   )}
 
@@ -2906,40 +3070,42 @@ export default function ProfessionalsPageContent({
                                     </div>
                                   )}
 
-                                  {/* Action Buttons */}
-                                  {currentUser && (
-                                    <div className="flex gap-2">
-                                      <Button
-                                        variant="outline"
-                                        className="flex-1 text-xs py-2"
-                                        disabled={!canContact}
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          if (canContact) {
-                                            handleSendInquiry(
-                                              item.id,
-                                              isItemProfessional
-                                                ? `${item.first_name} ${item.last_name}`
-                                                : item.company_name
-                                            )
-                                          }
-                                        }}
-                                      >
-                                        <MessageCircle className="h-3 w-3 mr-2" />
-                                        Message
-                                      </Button>
-                                      <Button
-                                        className="flex-1 text-xs py-2"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          handleViewProfile(item.id)
-                                        }}
-                                      >
-                                        <UserIcon className="h-3 w-3 mr-2" />
-                                        View Profile
-                                      </Button>
-                                    </div>
-                                  )}
+                                  {/* Action Buttons - Always visible */}
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      className="flex-1 text-xs py-2 h-10"
+                                      disabled={currentUser ? !canContact : false}
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        if (!currentUser) {
+                                          setSignUpPrompt({ isOpen: true, action: "message" })
+                                          return
+                                        }
+                                        if (canContact) {
+                                          handleSendInquiry(
+                                            item.id,
+                                            isItemProfessional
+                                              ? `${item.first_name} ${item.last_name}`
+                                              : item.company_name
+                                          )
+                                        }
+                                      }}
+                                    >
+                                      <MessageCircle className="h-3 w-3 mr-2" />
+                                      Message
+                                    </Button>
+                                    <Button
+                                      className="flex-1 text-xs py-2 h-10"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleViewProfile(item.id)
+                                      }}
+                                    >
+                                      <UserIcon className="h-3 w-3 mr-2" />
+                                      View Profile
+                                    </Button>
+                                  </div>
 
                                   {currentUser && !canContact && (
                                     <p className="text-xs text-muted-foreground text-center">
@@ -2966,9 +3132,10 @@ export default function ProfessionalsPageContent({
                       </div>
                     )
                   })}
+                  </div>
                 </div>
-              </div>
-            </div>
+              }
+            />
           </div>
 
           {/* Desktop: Resizable Panels - Map on left, List on right */}

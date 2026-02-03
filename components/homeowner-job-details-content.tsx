@@ -30,9 +30,10 @@ interface Application {
 interface JobDetailsContentProps {
   job: any
   applications: Application[]
+  homeownerUserId?: string // The homeowner's user_id for messaging
 }
 
-export function HomeownerJobDetailsContent({ job, applications }: JobDetailsContentProps) {
+export function HomeownerJobDetailsContent({ job, applications, homeownerUserId }: JobDetailsContentProps) {
   const [showCompletionModal, setShowCompletionModal] = useState(false)
   const [selectedContractor, setSelectedContractor] = useState<{
     id: string
@@ -63,6 +64,14 @@ export function HomeownerJobDetailsContent({ job, applications }: JobDetailsCont
       month: "long",
       day: "numeric",
     })
+  }
+
+  const formatBudget = (min?: number, max?: number) => {
+    if (!min && !max) return undefined
+    if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()}`
+    if (min) return `From £${min.toLocaleString()}`
+    if (max) return `Up to £${max.toLocaleString()}`
+    return undefined
   }
 
   const isJobAccepted = job.completion_status === 'accepted'
@@ -249,6 +258,9 @@ export function HomeownerJobDetailsContent({ job, applications }: JobDetailsCont
                           currentStatus={application.status}
                           isJobAlreadyAccepted={!!acceptedContractorId}
                           acceptedContractorId={acceptedContractorId}
+                          jobTitle={job.title}
+                          jobBudget={formatBudget(job.budget_min, job.budget_max)}
+                          homeownerUserId={homeownerUserId}
                         />
                       )}
                       <Button size="sm" variant="outline" asChild>

@@ -25,6 +25,9 @@ interface HomeownerApplicationActionsProps {
   currentStatus: string
   isJobAlreadyAccepted: boolean
   acceptedContractorId: string | null
+  jobTitle?: string
+  jobBudget?: string // Budget display string (e.g., "£500 - £1000")
+  homeownerUserId?: string // The homeowner's user_id for sending messages
 }
 
 export function HomeownerApplicationActions({
@@ -35,6 +38,9 @@ export function HomeownerApplicationActions({
   currentStatus,
   isJobAlreadyAccepted,
   acceptedContractorId,
+  jobTitle,
+  jobBudget,
+  homeownerUserId,
 }: HomeownerApplicationActionsProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -104,6 +110,60 @@ export function HomeownerApplicationActions({
       })
 
       setShowAcceptDialog(false)
+
+      // Create notification for the contractor
+      if (contractorData?.user_id) {
+        try {
+          const notificationMessage = `🎉 Congratulations! Your application for "${jobTitle || 'the trade job'}"${jobBudget ? ` (budget: ${jobBudget})` : ''} has been accepted!`
+
+          const { error: notificationError } = await supabase
+            .from("notifications")
+            .insert({
+              user_id: contractorData.user_id,
+              type: "application_status_change",
+              title: "Application Accepted!",
+              message: notificationMessage,
+              link_url: `/applications/${applicationId}`,
+              is_read: false,
+            })
+
+          if (notificationError) {
+            console.error("[HOMEOWNER-ACTIONS] Failed to create notification:", notificationError)
+          } else {
+            console.log("[HOMEOWNER-ACTIONS] Dashboard notification created successfully")
+          }
+        } catch (notifError) {
+          console.error("[HOMEOWNER-ACTIONS] Notification creation failed:", notifError)
+        }
+
+        // Send automatic system message to start the conversation
+        if (homeownerUserId) {
+          try {
+            const budgetText = jobBudget ? ` (budget: ${jobBudget})` : ''
+            const messageContent = `🎉 Congratulations! Your application for the job "${jobTitle || 'the trade job'}"${budgetText} has been accepted!\n\nPlease reply to discuss further details and arrange the next steps.`
+
+            const { error: messageError } = await supabase
+              .from('messages')
+              .insert({
+                sender_id: homeownerUserId,
+                recipient_id: contractorData.user_id,
+                subject: `Application Accepted: ${jobTitle || 'Trade Job'}`,
+                content: messageContent,
+                message_type: 'direct',
+                job_id: jobId,
+                is_read: false
+              })
+
+            if (messageError) {
+              console.error("[HOMEOWNER-ACTIONS] Failed to send acceptance message:", messageError)
+            } else {
+              console.log("[HOMEOWNER-ACTIONS] Acceptance message sent successfully")
+            }
+          } catch (msgError) {
+            console.error("[HOMEOWNER-ACTIONS] Error sending acceptance message:", msgError)
+          }
+        }
+      }
 
       console.log("[HOMEOWNER-ACTIONS] Acceptance successful, opening messages...")
 

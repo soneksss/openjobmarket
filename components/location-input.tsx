@@ -198,7 +198,7 @@ export function LocationInput({
       {/* Suggestions dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <div
-          className="absolute z-[100001] w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-60 overflow-auto"
+          className="absolute z-[100001] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl max-h-80 overflow-auto"
           style={{
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
             border: '2px solid #10b981'
@@ -208,12 +208,12 @@ export function LocationInput({
             <button
               key={suggestion.place_id}
               type="button"
-              className="w-full px-4 py-3 text-left hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none border-b border-gray-100 last:border-b-0 transition-colors"
+              className="w-full px-3 py-2.5 text-left hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none border-b border-gray-100 last:border-b-0 transition-colors"
               onClick={() => handleSuggestionSelect(suggestion)}
             >
               <div className="flex items-start">
-                <MapPin className="h-4 w-4 text-emerald-500 mt-1 mr-3 flex-shrink-0" />
-                <span className="text-sm text-gray-900 truncate font-medium">{formatShortAddress(suggestion)}</span>
+                <MapPin className="h-3.5 w-3.5 text-emerald-500 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-xs sm:text-sm text-gray-900 font-medium leading-tight break-words">{formatShortAddress(suggestion)}</span>
               </div>
             </button>
           ))}

@@ -323,7 +323,7 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
         </Card>
 
         {/* Applications Section with Accept/Complete functionality */}
-        <HomeownerJobDetailsContent job={job} applications={applications || []} />
+        <HomeownerJobDetailsContent job={job} applications={applications || []} homeownerUserId={user.id} />
 
         {/* Expiry Warning */}
         {!isActive && (
