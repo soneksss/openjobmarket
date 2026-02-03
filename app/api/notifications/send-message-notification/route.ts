@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/server"
+import { createClient, createAdminClient } from "@/lib/server"
 import { sendEmail, shouldSendEmailNotification, logNotification } from "@/lib/email/service"
 import { newMessageEmail } from "@/lib/email/templates"
 import { NextRequest, NextResponse } from "next/server"
@@ -28,14 +28,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
-    // Check if recipient wants email notifications for messages
-    const shouldSend = await shouldSendEmailNotification(supabase, recipientId, "new_message")
-
-    if (!shouldSend) {
-      console.log("[NOTIFICATION] User has disabled message notifications:", recipientId)
-      return NextResponse.json({ success: true, sent: false, reason: "User preferences" })
+    // Use admin client for system-level operations (inserting notifications for other users)
+    let adminClient
+    try {
+      adminClient = createAdminClient()
+    } catch (e) {
+      console.warn("[NOTIFICATION] Admin client not available, using regular client for notifications")
+      adminClient = supabase
     }
 
     // Get recipient user data
@@ -65,6 +66,26 @@ export async function POST(request: NextRequest) {
     } else if (recipientUser.user_type === "company") {
       const { data: profile } = await supabase
         .from("company_profiles")
+        .select("company_name")
+        .eq("user_id", recipientId)
+        .maybeSingle()
+
+      if (profile) {
+        recipientName = profile.company_name
+      }
+    } else if (recipientUser.user_type === "homeowner") {
+      const { data: profile } = await supabase
+        .from("homeowner_profiles")
+        .select("first_name, last_name")
+        .eq("user_id", recipientId)
+        .maybeSingle()
+
+      if (profile) {
+        recipientName = `${profile.first_name} ${profile.last_name}`.trim()
+      }
+    } else if (recipientUser.user_type === "contractor") {
+      const { data: profile } = await supabase
+        .from("contractor_profiles")
         .select("company_name")
         .eq("user_id", recipientId)
         .maybeSingle()
@@ -103,6 +124,26 @@ export async function POST(request: NextRequest) {
         if (profile) {
           senderName = profile.company_name
         }
+      } else if (senderUser.user_type === "homeowner") {
+        const { data: profile } = await supabase
+          .from("homeowner_profiles")
+          .select("first_name, last_name")
+          .eq("user_id", senderId)
+          .maybeSingle()
+
+        if (profile) {
+          senderName = `${profile.first_name} ${profile.last_name}`.trim()
+        }
+      } else if (senderUser.user_type === "contractor") {
+        const { data: profile } = await supabase
+          .from("contractor_profiles")
+          .select("company_name")
+          .eq("user_id", senderId)
+          .maybeSingle()
+
+        if (profile) {
+          senderName = profile.company_name
+        }
       }
     }
 
@@ -115,6 +156,38 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://openjobmarket.com"
     const conversationUrl = `${baseUrl}/messages/${conversationId}`
     const settingsUrl = `${baseUrl}/dashboard/settings#notifications`
+
+    // ALWAYS create in-app notification for the bell icon (regardless of email preferences)
+    // Use admin client to bypass RLS since we're inserting for another user
+    const { error: inAppNotifError } = await adminClient
+      .from("notifications")
+      .insert({
+        user_id: recipientId,
+        type: "new_message",
+        title: `New message from ${senderName}`,
+        message: messagePreview,
+        link_url: conversationUrl,
+        is_read: false,
+      })
+
+    if (inAppNotifError) {
+      console.error("[NOTIFICATION] Failed to create in-app notification:", inAppNotifError)
+    } else {
+      console.log("[NOTIFICATION] In-app notification created for user:", recipientId)
+    }
+
+    // Check if recipient wants email notifications for messages
+    const shouldSend = await shouldSendEmailNotification(supabase, recipientId, "new_message")
+
+    if (!shouldSend) {
+      console.log("[NOTIFICATION] User has disabled email notifications for messages:", recipientId)
+      return NextResponse.json({
+        success: true,
+        sent: false,
+        reason: "Email disabled by user preferences",
+        inAppNotificationCreated: !inAppNotifError
+      })
+    }
 
     // Generate email content
     const { html, text } = newMessageEmail({
@@ -134,9 +207,9 @@ export async function POST(request: NextRequest) {
       text,
     })
 
-    // Log the notification
+    // Log the notification (use admin client to bypass RLS)
     await logNotification(
-      supabase,
+      adminClient,
       recipientId,
       "new_message",
       recipientUser.email,
@@ -153,13 +226,18 @@ export async function POST(request: NextRequest) {
     if (!result.success) {
       console.error("[NOTIFICATION] Failed to send email:", result.error)
       return NextResponse.json(
-        { success: false, error: result.error },
+        { success: false, error: result.error, inAppNotificationCreated: !inAppNotifError },
         { status: 500 }
       )
     }
 
     console.log("[NOTIFICATION] Email sent successfully to:", recipientUser.email)
-    return NextResponse.json({ success: true, sent: true, messageId: result.messageId })
+    return NextResponse.json({
+      success: true,
+      sent: true,
+      messageId: result.messageId,
+      inAppNotificationCreated: !inAppNotifError
+    })
 
   } catch (error) {
     console.error("[NOTIFICATION] Error in send-message-notification:", error)

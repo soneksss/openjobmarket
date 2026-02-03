@@ -169,6 +169,87 @@ export default function ProfessionalsPageContent({
 
   // Debug: Log user prop
   console.log("[PROFESSIONALS-PAGE-CONTENT] User prop:", user, "UserType:", userType)
+
+  // Local user state - falls back to fetching if prop is null
+  const [currentUser, setCurrentUser] = useState<any>(user)
+  const [currentUserType, setCurrentUserType] = useState<string | null>(userType)
+  const [currentUserProfile, setCurrentUserProfile] = useState<any>(userProfile)
+
+  // Fetch user data if props are null (timing issue fix)
+  useEffect(() => {
+    const fetchUserData = async () => {
+      // If user prop is already set, use it
+      if (user) {
+        setCurrentUser(user)
+        setCurrentUserType(userType)
+        setCurrentUserProfile(userProfile)
+        return
+      }
+
+      // Otherwise, fetch user data ourselves
+      console.log("[PROFESSIONALS-PAGE-CONTENT] User prop is null, fetching auth state...")
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+
+      if (authUser) {
+        console.log("[PROFESSIONALS-PAGE-CONTENT] Found authenticated user:", authUser.id)
+        setCurrentUser(authUser)
+
+        // Fetch user type
+        const { data: userData } = await supabase
+          .from("users")
+          .select("user_type")
+          .eq("id", authUser.id)
+          .single()
+
+        const fetchedUserType = userData?.user_type || null
+        setCurrentUserType(fetchedUserType)
+
+        // Fetch appropriate profile
+        let profileData = null
+        if (fetchedUserType === 'professional') {
+          const { data } = await supabase
+            .from("professional_profiles")
+            .select("id, first_name, last_name")
+            .eq("user_id", authUser.id)
+            .maybeSingle()
+          profileData = data
+        } else if (fetchedUserType === 'company') {
+          const { data } = await supabase
+            .from("company_profiles")
+            .select("id, company_name")
+            .eq("user_id", authUser.id)
+            .maybeSingle()
+          profileData = data
+        } else if (fetchedUserType === 'homeowner') {
+          const { data } = await supabase
+            .from("homeowner_profiles")
+            .select("id, first_name, last_name")
+            .eq("user_id", authUser.id)
+            .maybeSingle()
+          profileData = data
+        } else if (fetchedUserType === 'contractor') {
+          const { data } = await supabase
+            .from("contractor_profiles")
+            .select("id, company_name")
+            .eq("user_id", authUser.id)
+            .maybeSingle()
+          profileData = data
+        }
+
+        setCurrentUserProfile(profileData)
+        console.log("[PROFESSIONALS-PAGE-CONTENT] User data loaded:", { userId: authUser.id, userType: fetchedUserType })
+      } else {
+        console.log("[PROFESSIONALS-PAGE-CONTENT] No authenticated user found")
+      }
+    }
+
+    fetchUserData()
+  }, [user, userType, userProfile])
   const [locationFilter, setLocationFilter] = useState(searchParams.location || "")
   const [selectedLocationCoords, setSelectedLocationCoords] = useState<{ lat: number; lon: number } | null>(
     searchParams.lat && searchParams.lng
@@ -229,9 +310,9 @@ export default function ProfessionalsPageContent({
     console.log('[PROFESSIONALS-PAGE] 📬 Message modal state changed:', messageModal)
     if (messageModal?.isOpen) {
       console.log('[PROFESSIONALS-PAGE] ✅ Message modal should now be visible')
-      console.log('[PROFESSIONALS-PAGE] User available?', !!user, user?.id)
+      console.log('[PROFESSIONALS-PAGE] User available?', !!currentUser, currentUser?.id)
     }
-  }, [messageModal])
+  }, [messageModal, currentUser])
 
   // Banner state
   const [isBannerDismissed, setIsBannerDismissed] = useState(false)
@@ -277,8 +358,8 @@ export default function ProfessionalsPageContent({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
-  const isEmployer = userType === "company"
-  const isEmployee = userType === "professional"
+  const isEmployer = currentUserType === "company"
+  const isEmployee = currentUserType === "professional"
 
   // Determine if we're showing companies (when professionals search with company filters)
   const hasCompanyFilters = searchParams.open_for_business || searchParams.hiring
@@ -311,7 +392,7 @@ export default function ProfessionalsPageContent({
 
   // Clear filter parameters for unregistered users
   useEffect(() => {
-    if (!user) {
+    if (!currentUser) {
       const params = new URLSearchParams(currentSearchParams.toString())
       const filterParams = ['type', 'level', 'salaryMin', 'salaryMax', 'radius']
       let hasFilters = false
@@ -329,7 +410,7 @@ export default function ProfessionalsPageContent({
         router.replace(`/professionals?${params.toString()}`)
       }
     }
-  }, [user, currentSearchParams, router])
+  }, [currentUser, currentSearchParams, router])
 
   const updateSearchParams = (key: string, value: string) => {
     const params = new URLSearchParams(currentSearchParams.toString())
@@ -593,7 +674,7 @@ export default function ProfessionalsPageContent({
   }
 
   const handleSendInquiry = async (professionalProfileId: string, professionalName: string, professionalUserId?: string) => {
-    if (!user) {
+    if (!currentUser) {
       setSignUpPrompt({ isOpen: true, action: "message" })
       return
     }
@@ -634,7 +715,7 @@ export default function ProfessionalsPageContent({
       }
 
       // Skip subscription check - allow all messaging for now
-      console.log("[DEBUG] Skipping subscription check, allowing all messaging for user:", user.id)
+      console.log("[DEBUG] Skipping subscription check, allowing all messaging for user:", currentUser.id)
 
       // Skip block check - allow all messaging for now
       console.log("[DEBUG] Skipping block check, proceeding to open conversation")
@@ -665,7 +746,7 @@ export default function ProfessionalsPageContent({
   }
 
   const handleApplyToJob = async (jobId: string) => {
-    if (!user) {
+    if (!currentUser) {
       setSignUpPrompt({ isOpen: true, action: "message" })
       return
     }
@@ -683,7 +764,7 @@ export default function ProfessionalsPageContent({
   }
 
   const handleSaveJob = async (jobId: string) => {
-    if (!user) {
+    if (!currentUser) {
       setSignUpPrompt({ isOpen: true, action: "message" })
       return
     }
@@ -700,7 +781,7 @@ export default function ProfessionalsPageContent({
       {!isModal && (
         <div>
           {/* Info banner for unauthenticated users - hide after search or if dismissed */}
-          {!user && !isBannerDismissed && !hasSearchParams && (
+          {!currentUser && !isBannerDismissed && !hasSearchParams && (
         <div className="bg-blue-600 text-white py-2 px-4 text-center text-sm relative">
           <span className="font-medium">Browsing as a guest.</span>
           {" "}
@@ -810,7 +891,7 @@ export default function ProfessionalsPageContent({
               {/* Advanced Filters - Rounded Section */}
               <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 relative">
                 {/* Overlay for unauthenticated users */}
-                {!user && (
+                {!currentUser && (
                   <div className="absolute inset-0 bg-gray-900/30 backdrop-blur-[2px] rounded-lg z-10 flex items-center justify-center">
                     <div className="bg-white rounded-lg shadow-xl p-4 max-w-sm mx-4 text-center">
                       <Filter className="h-8 w-8 text-blue-600 mx-auto mb-2" />
@@ -828,7 +909,7 @@ export default function ProfessionalsPageContent({
 
                 <div
                   className="flex items-center cursor-pointer mb-3"
-                  onClick={() => !user ? setSignUpPrompt({ isOpen: true, action: "filter" }) : setShowAdvancedFilters(!showAdvancedFilters)}
+                  onClick={() => !currentUser ? setSignUpPrompt({ isOpen: true, action: "filter" }) : setShowAdvancedFilters(!showAdvancedFilters)}
                 >
                   <Filter className="h-4 w-4 text-white" />
                   <span className="text-white font-medium hidden sm:inline sm:ml-2">Advanced Filters - Show only:</span>
@@ -836,7 +917,7 @@ export default function ProfessionalsPageContent({
                 </div>
 
                 {showAdvancedFilters && (
-                  <div className={`space-y-4 ${!user ? 'opacity-50 pointer-events-none' : ''}`}>
+                  <div className={`space-y-4 ${!currentUser ? 'opacity-50 pointer-events-none' : ''}`}>
                     {/* First Row - Experience Level, Job Type, Skills/Salary, Language */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       {/* Experience Level */}
@@ -845,7 +926,7 @@ export default function ProfessionalsPageContent({
                         <Select
                           value={searchParams.level || "all"}
                           onValueChange={(value) => updateSearchParams("level", value)}
-                          disabled={!user}
+                          disabled={!currentUser}
                         >
                           <SelectTrigger className="w-full h-10 text-sm bg-white border-0 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
                             <SelectValue />
@@ -868,7 +949,7 @@ export default function ProfessionalsPageContent({
                           <Select
                             value={searchParams.type || "all"}
                             onValueChange={(value) => updateSearchParams("type", value)}
-                            disabled={!user}
+                            disabled={!currentUser}
                           >
                             <SelectTrigger className="w-full h-10 text-sm bg-white border-0 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
                               <SelectValue />
@@ -898,7 +979,7 @@ export default function ProfessionalsPageContent({
                               ? setSkillsFilter(e.target.value)
                               : updateSearchParams("salaryMin", e.target.value)
                           }
-                          disabled={!user}
+                          disabled={!currentUser}
                           className="h-10 text-sm bg-white border-0 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                       </div>
@@ -911,7 +992,7 @@ export default function ProfessionalsPageContent({
                             placeholder="English, Spanish"
                             value={languageFilter}
                             onChange={(e) => setLanguageFilter(e.target.value)}
-                            disabled={!user}
+                            disabled={!currentUser}
                             className="h-10 text-sm bg-white border-0 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                           />
                         </div>
@@ -923,7 +1004,7 @@ export default function ProfessionalsPageContent({
                         <Select
                           value={searchParams.radius || "20"}
                           onValueChange={(value) => updateSearchParams("radius", value)}
-                          disabled={!user}
+                          disabled={!currentUser}
                         >
                           <SelectTrigger className="w-full h-10 text-sm bg-white border-0 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">
                             <SelectValue />
@@ -947,10 +1028,10 @@ export default function ProfessionalsPageContent({
                             id="unemployed"
                             checked={unemployedFilter}
                             onCheckedChange={(checked) => setUnemployedFilter(!!checked)}
-                            disabled={!user}
+                            disabled={!currentUser}
                             className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
-                          <label htmlFor="unemployed" className={`text-sm text-white ${!user ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <label htmlFor="unemployed" className={`text-sm text-white ${!currentUser ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                             Unemployed
                           </label>
                         </div>
@@ -959,10 +1040,10 @@ export default function ProfessionalsPageContent({
                             id="employed"
                             checked={employedFilter}
                             onCheckedChange={(checked) => setEmployedFilter(!!checked)}
-                            disabled={!user}
+                            disabled={!currentUser}
                             className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
-                          <label htmlFor="employed" className={`text-sm text-white ${!user ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <label htmlFor="employed" className={`text-sm text-white ${!currentUser ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                             Employed
                           </label>
                         </div>
@@ -971,10 +1052,10 @@ export default function ProfessionalsPageContent({
                             id="relocate"
                             checked={relocateFilter}
                             onCheckedChange={(checked) => setRelocateFilter(!!checked)}
-                            disabled={!user}
+                            disabled={!currentUser}
                             className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
-                          <label htmlFor="relocate" className={`text-sm text-white ${!user ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <label htmlFor="relocate" className={`text-sm text-white ${!currentUser ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                             Ready to relocate
                           </label>
                         </div>
@@ -983,10 +1064,10 @@ export default function ProfessionalsPageContent({
                             id="cv"
                             checked={cvFilter}
                             onCheckedChange={(checked) => setCvFilter(!!checked)}
-                            disabled={!user}
+                            disabled={!currentUser}
                             className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
-                          <label htmlFor="cv" className={`text-sm text-white ${!user ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <label htmlFor="cv" className={`text-sm text-white ${!currentUser ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                             With CV
                           </label>
                         </div>
@@ -995,10 +1076,10 @@ export default function ProfessionalsPageContent({
                             id="driving-license"
                             checked={drivingLicenseFilter}
                             onCheckedChange={(checked) => setDrivingLicenseFilter(!!checked)}
-                            disabled={!user}
+                            disabled={!currentUser}
                             className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
-                          <label htmlFor="driving-license" className={`text-sm text-white ${!user ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <label htmlFor="driving-license" className={`text-sm text-white ${!currentUser ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                             Valid Driving License
                           </label>
                         </div>
@@ -1007,10 +1088,10 @@ export default function ProfessionalsPageContent({
                             id="own-transport"
                             checked={ownTransportFilter}
                             onCheckedChange={(checked) => setOwnTransportFilter(!!checked)}
-                            disabled={!user}
+                            disabled={!currentUser}
                             className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
-                          <label htmlFor="own-transport" className={`text-sm text-white ${!user ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <label htmlFor="own-transport" className={`text-sm text-white ${!currentUser ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                             Own transport
                           </label>
                         </div>
@@ -1019,10 +1100,10 @@ export default function ProfessionalsPageContent({
                             id="self-employed"
                             checked={selfEmployedFilter}
                             onCheckedChange={(checked) => setSelfEmployedFilter(!!checked)}
-                            disabled={!user}
+                            disabled={!currentUser}
                             className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
-                          <label htmlFor="self-employed" className={`text-sm text-white ${!user ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <label htmlFor="self-employed" className={`text-sm text-white ${!currentUser ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                             Self-employed
                           </label>
                         </div>
@@ -1031,10 +1112,10 @@ export default function ProfessionalsPageContent({
                             id="available"
                             checked={availableFilter}
                             onCheckedChange={(checked) => setAvailableFilter(!!checked)}
-                            disabled={!user}
+                            disabled={!currentUser}
                             className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                           />
-                          <label htmlFor="available" className={`text-sm text-white ${!user ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+                          <label htmlFor="available" className={`text-sm text-white ${!currentUser ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                             Available (Companies)
                           </label>
                         </div>
@@ -1282,9 +1363,9 @@ export default function ProfessionalsPageContent({
                                     key={item.id}
                                     ref={(el) => { professionalCardRefs.current[item.id] = el }}
                                     job={item}
-                                    isLoggedIn={!!user}
+                                    isLoggedIn={!!currentUser}
                                     isSelected={isSelected}
-                                    userProfile={userProfile}
+                                    userProfile={currentUserProfile}
                                     onSelect={() => {
                                       // Toggle selection
                                       setSelectedProfessionalId(isSelected ? null : item.id)
@@ -1298,7 +1379,7 @@ export default function ProfessionalsPageContent({
                               const isItemCompany = 'company_name' in item
                               // Anyone can contact companies that are open for business
                               // Only employers and tradespeople can contact professionals
-                              const canContact = (isItemCompany && item.open_for_business) || userType === "company" || userType === "contractor"
+                              const canContact = (isItemCompany && item.open_for_business) || currentUserType === "company" || currentUserType === "contractor"
 
                               return (
                               <Card
@@ -1509,7 +1590,7 @@ export default function ProfessionalsPageContent({
                                       </div>
 
                                       {/* Permission explanation if contact is disabled (collapsed state) */}
-                                      {user && !canContact && (
+                                      {currentUser && !canContact && (
                                         <p className="text-[10px] text-muted-foreground text-center mt-2">
                                           {isItemCompany
                                             ? "This company is not currently accepting inquiries"
@@ -1808,7 +1889,7 @@ export default function ProfessionalsPageContent({
                                             </div>
 
                                             {/* Permission explanation if contact is disabled (expanded state) */}
-                                            {user && !canContact && (
+                                            {currentUser && !canContact && (
                                               <p className="text-xs text-muted-foreground text-center mt-2">
                                                 {isItemCompany
                                                   ? "This company is not currently accepting inquiries"
@@ -2060,13 +2141,13 @@ export default function ProfessionalsPageContent({
         console.log('[PROFESSIONALS-PAGE] Modal render check:', {
           messageModalExists: !!messageModal,
           messageModalIsOpen: messageModal?.isOpen,
-          userExists: !!user,
-          userId: user?.id,
-          shouldRender: messageModal?.isOpen && user
+          userExists: !!currentUser,
+          userId: currentUser?.id,
+          shouldRender: messageModal?.isOpen && currentUser
         })
         return null
       })()}
-      {messageModal?.isOpen && user && (
+      {messageModal?.isOpen && currentUser && (
         <FloatingMessageModal
           isOpen={messageModal.isOpen}
           onClose={() => {
@@ -2076,7 +2157,7 @@ export default function ProfessionalsPageContent({
           recipientId={messageModal.recipientId}
           recipientName={messageModal.recipientName}
           conversationId={messageModal.conversationId}
-          userId={user.id}
+          userId={currentUser.id}
         />
       )}
 
@@ -2104,7 +2185,7 @@ export default function ProfessionalsPageContent({
       )}
 
       {/* Job Application Modal - Mobile-friendly */}
-      {selectedJobForApplication && userProfile && (
+      {selectedJobForApplication && currentUserProfile && (
         <Dialog open={showApplicationModal} onOpenChange={setShowApplicationModal}>
           <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto p-4 sm:p-6">
             <DialogHeader>
@@ -2114,7 +2195,7 @@ export default function ProfessionalsPageContent({
             </DialogHeader>
             <JobApplicationForm
               job={selectedJobForApplication as any}
-              userProfile={userProfile as any}
+              userProfile={currentUserProfile as any}
               hasApplied={false}
               onApplicationSubmitted={() => {
                 setShowApplicationModal(false)
@@ -2134,12 +2215,12 @@ export default function ProfessionalsPageContent({
       {/* Professional Profile Modal */}
       {viewProfileModalId && viewProfileData && (
         <Dialog open={!!viewProfileModalId} onOpenChange={(open) => !open && setViewProfileModalId(null)}>
-          <DialogContent className="max-w-4xl w-full max-h-[90vh] overflow-hidden p-0">
-            <div className="overflow-y-auto max-h-[90vh] p-6">
+          <DialogContent className="max-w-5xl w-[95vw] max-h-[85vh] overflow-hidden p-0">
+            <div className="overflow-y-auto max-h-[85vh] p-4">
               <ProfessionalDetailView
                 professional={viewProfileData}
-                user={user}
-                userType={user ? userType : null}
+                user={currentUser}
+                userType={currentUser ? currentUserType : null}
                 isModal={true}
               />
             </div>
@@ -2151,7 +2232,7 @@ export default function ProfessionalsPageContent({
       {(isFullScreenMode || isModal) && (
         <div className="fixed inset-0 z-[9999] bg-white flex flex-col overflow-hidden h-screen max-h-screen">
           {/* Site Header - show in both full-screen and modal mode */}
-          <Header user={user} isModal={isModal} onModalClose={onModalClose} />
+          <Header user={currentUser} isModal={isModal} onModalClose={onModalClose} />
 
           {/* Top Search Bar (Fixed) - show in both full-screen and modal, but smaller in modal */}
           {(isFullScreenMode || isModal) && <div className="sticky top-0 z-20 bg-white shadow-lg border-b overflow-visible">
@@ -2620,7 +2701,7 @@ export default function ProfessionalsPageContent({
                                     className="h-10 px-4 flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium touch-manipulation"
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      if (user) {
+                                      if (currentUser) {
                                         handleApplyToJob(item.id)
                                       } else {
                                         setSignUpPrompt({ isOpen: true, action: "apply" })
@@ -2696,7 +2777,7 @@ export default function ProfessionalsPageContent({
                               const isItemCompany = 'company_name' in item
                               // Anyone can contact companies that are open for business
                               // Only employers and tradespeople can contact professionals
-                              const canContact = (isItemCompany && item.open_for_business) || userType === "company" || userType === "contractor"
+                              const canContact = (isItemCompany && item.open_for_business) || currentUserType === "company" || currentUserType === "contractor"
 
                               return (
                                 <div className="space-y-3 pt-2 border-t border-gray-100">
@@ -2826,7 +2907,7 @@ export default function ProfessionalsPageContent({
                                   )}
 
                                   {/* Action Buttons */}
-                                  {user && (
+                                  {currentUser && (
                                     <div className="flex gap-2">
                                       <Button
                                         variant="outline"
@@ -2860,7 +2941,7 @@ export default function ProfessionalsPageContent({
                                     </div>
                                   )}
 
-                                  {user && !canContact && (
+                                  {currentUser && !canContact && (
                                     <p className="text-xs text-muted-foreground text-center">
                                       {isItemCompany
                                         ? "This company is not currently accepting inquiries"
@@ -3014,9 +3095,9 @@ export default function ProfessionalsPageContent({
                             key={item.id}
                             ref={(el) => { professionalCardRefs.current[item.id] = el }}
                             job={item}
-                            isLoggedIn={!!user}
+                            isLoggedIn={!!currentUser}
                             isSelected={isSelected}
-                            userProfile={userProfile}
+                            userProfile={currentUserProfile}
                             onSelect={() => {
                               // Toggle selection
                               setSelectedProfessionalId(isSelected ? null : item.id)
@@ -3169,7 +3250,7 @@ export default function ProfessionalsPageContent({
                                 const isItemCompany = 'company_name' in item
                                 // Anyone can contact companies that are open for business
                                 // Only employers and tradespeople can contact professionals
-                                const canContact = (isItemCompany && item.open_for_business) || userType === "company" || userType === "contractor"
+                                const canContact = (isItemCompany && item.open_for_business) || currentUserType === "company" || currentUserType === "contractor"
 
                                 return (
                                 <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
@@ -3382,7 +3463,7 @@ export default function ProfessionalsPageContent({
                                     </div>
 
                                     {/* Permission explanation if contact is disabled */}
-                                    {user && !canContact && (
+                                    {currentUser && !canContact && (
                                       <p className="text-xs text-muted-foreground text-center mt-2">
                                         {isItemCompany
                                           ? "This company is not currently accepting inquiries"

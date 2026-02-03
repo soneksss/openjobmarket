@@ -438,6 +438,31 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
       console.log("[VACANCY-FORM] Vacancy posted successfully:", data)
       clearTimeout(timeoutId)
 
+      // Send vacancy job notifications to matching professionals
+      if (data && formData.locationCoords) {
+        try {
+          console.log("[VACANCY-FORM] Sending vacancy job notifications...")
+          const notifResponse = await fetch("/api/notifications/send-vacancy-job-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobId: data.id,
+              jobTitle: formData.title.trim(),
+              jobLat: formData.locationCoords.lat,
+              jobLon: formData.locationCoords.lon,
+              jobSkills: formData.skills || [],
+              companyName: companyProfile.company_name || "A company",
+            }),
+          })
+
+          const notifResult = await notifResponse.json()
+          console.log("[VACANCY-FORM] Vacancy job notification result:", notifResult)
+        } catch (notifError) {
+          // Don't fail the job posting if notifications fail
+          console.error("[VACANCY-FORM] Failed to send vacancy job notifications:", notifError)
+        }
+      }
+
       // Show success toast and redirect
       toast({
         title: "✓ Vacancy Posted Successfully",

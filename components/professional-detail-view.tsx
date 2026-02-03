@@ -223,30 +223,30 @@ export default function ProfessionalDetailView({ professional, user, userType, i
           </div>
         )}
 
-        <div className={isModal ? "flex flex-col gap-6" : "grid lg:grid-cols-3 gap-8"}>
+        <div className={isModal ? "grid md:grid-cols-3 gap-4" : "grid lg:grid-cols-3 gap-8"}>
           {/* Main Profile Card */}
-          <div className={isModal ? "w-full space-y-6" : "lg:col-span-2 space-y-6"}>
-            <Card>
-              <CardHeader>
+          <div className={isModal ? "md:col-span-2 space-y-4" : "lg:col-span-2 space-y-6"}>
+            <Card className={isModal ? "shadow-sm" : ""}>
+              <CardHeader className={isModal ? "p-4 pb-2" : ""}>
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-4">
-                    <Avatar className="h-20 w-20 ring-2 ring-blue-100">
+                  <div className="flex items-center space-x-3">
+                    <Avatar className={isModal ? "h-14 w-14 ring-2 ring-blue-100" : "h-20 w-20 ring-2 ring-blue-100"}>
                       <AvatarImage src={professional.profile_photo_url} alt={displayName} />
-                      <AvatarFallback className="bg-blue-50 text-blue-600 font-medium text-2xl">
+                      <AvatarFallback className={isModal ? "bg-blue-50 text-blue-600 font-medium text-lg" : "bg-blue-50 text-blue-600 font-medium text-2xl"}>
                         {professional.first_name?.charAt(0) || ''}{professional.last_name?.charAt(0) || ''}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="space-y-2">
+                    <div className={isModal ? "space-y-1" : "space-y-2"}>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h2 className={`text-3xl ${premiumStatus.isPremium ? 'font-extrabold' : 'font-bold'} text-foreground`}>
+                          <h2 className={`${isModal ? 'text-xl' : 'text-3xl'} ${premiumStatus.isPremium ? 'font-extrabold' : 'font-bold'} text-foreground`}>
                             {displayName}
                           </h2>
                           {premiumStatus.isPremium && (
                             <div className="relative group">
-                              <div className="flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-500 text-white px-2 py-1 rounded-full">
-                                <Crown className="h-4 w-4" />
-                                <span className="text-xs font-bold">PREMIUM</span>
+                              <div className="flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-500 text-white px-1.5 py-0.5 rounded-full">
+                                <Crown className="h-3 w-3" />
+                                <span className="text-[10px] font-bold">PREMIUM</span>
                               </div>
                               <div className="absolute left-0 top-full mt-1 hidden group-hover:block z-10 bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
                                 Premium Professional
@@ -254,60 +254,62 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                             </div>
                           )}
                         </div>
-                        <p className="text-xl text-muted-foreground">{professional.title}</p>
+                        <p className={`${isModal ? 'text-sm' : 'text-xl'} text-muted-foreground`}>{professional.title}</p>
                       </div>
-                      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <div className={`flex items-center gap-3 ${isModal ? 'text-xs' : 'text-sm'} text-muted-foreground flex-wrap`}>
                         <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4" />
+                          <MapPin className={isModal ? "h-3 w-3" : "h-4 w-4"} />
                           {professional.location}
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="h-4 w-4" />
-                          Member since {formatDate(professional.created_at)}
-                        </div>
+                        {!isModal && (
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            Member since {formatDate(professional.created_at)}
+                          </div>
+                        )}
                       </div>
-                      <div className="mt-2">
+                      <div className={isModal ? "mt-1" : "mt-2"}>
                         <RatingDisplay
                           rating={professional.average_rating || 0}
                           reviewsCount={professional.reviews_count || 0}
-                          size="md"
+                          size={isModal ? "sm" : "md"}
                         />
                       </div>
                     </div>
                   </div>
                   {isOwnProfile && (
-                    <Button onClick={handleEditProfile} variant="outline">
+                    <Button onClick={handleEditProfile} variant="outline" size={isModal ? "sm" : "default"}>
                       Edit Profile
                     </Button>
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className={isModal ? "p-4 pt-2 space-y-3" : "space-y-6"}>
                 {/* Status Badges */}
-                <div className="flex flex-wrap gap-2">
+                <div className={`flex flex-wrap ${isModal ? 'gap-1.5' : 'gap-2'}`}>
                   {premiumStatus.isPremium && (
-                    <Badge className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md">
-                      <Zap className="h-3 w-3 mr-1" />
+                    <Badge className={`bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md ${isModal ? 'text-xs px-2 py-0.5' : ''}`}>
+                      <Zap className={isModal ? "h-2.5 w-2.5 mr-0.5" : "h-3 w-3 mr-1"} />
                       Priority Visibility
                     </Badge>
                   )}
-                  <Badge variant="secondary" className="capitalize">
+                  <Badge variant="secondary" className={`capitalize ${isModal ? 'text-xs' : ''}`}>
                     {professional.experience_level}
                   </Badge>
                   {professional.is_self_employed && (
-                    <Badge variant="outline">
+                    <Badge variant="outline" className={isModal ? 'text-xs' : ''}>
                       Self-Employed
                     </Badge>
                   )}
                   {professional.actively_looking && (
-                    <Badge className="bg-gradient-to-r from-green-600 to-emerald-700 text-white font-semibold shadow-md">
-                      <CheckCircle className="h-3 w-3 mr-1" />
+                    <Badge className={`bg-gradient-to-r from-green-600 to-emerald-700 text-white font-semibold shadow-md ${isModal ? 'text-xs px-2 py-0.5' : ''}`}>
+                      <CheckCircle className={isModal ? "h-2.5 w-2.5 mr-0.5" : "h-3 w-3 mr-1"} />
                       Actively Looking
                     </Badge>
                   )}
                   {!professional.actively_looking && professional.available_for_work && (
-                    <Badge className="bg-green-500 hover:bg-green-600">
-                      <CheckCircle className="h-3 w-3 mr-1" />
+                    <Badge className={`bg-green-500 hover:bg-green-600 ${isModal ? 'text-xs px-2 py-0.5' : ''}`}>
+                      <CheckCircle className={isModal ? "h-2.5 w-2.5 mr-0.5" : "h-3 w-3 mr-1"} />
                       Available
                     </Badge>
                   )}
@@ -316,11 +318,11 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                 {/* Bio */}
                 {professional.bio && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                      <User className="h-5 w-5" />
+                    <h3 className={`${isModal ? 'text-sm' : 'text-lg'} font-semibold ${isModal ? 'mb-1.5' : 'mb-3'} flex items-center gap-2`}>
+                      <User className={isModal ? "h-4 w-4" : "h-5 w-5"} />
                       About
                     </h3>
-                    <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    <p className={`text-muted-foreground leading-relaxed whitespace-pre-wrap ${isModal ? 'text-xs line-clamp-3' : ''}`}>
                       {professional.bio}
                     </p>
                   </div>
@@ -329,13 +331,13 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                 {/* Skills */}
                 {professional.skills && professional.skills.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                      <Target className="h-5 w-5" />
+                    <h3 className={`${isModal ? 'text-sm' : 'text-lg'} font-semibold ${isModal ? 'mb-1.5' : 'mb-3'} flex items-center gap-2`}>
+                      <Target className={isModal ? "h-4 w-4" : "h-5 w-5"} />
                       Skills & Expertise
                     </h3>
-                    <div className="flex flex-wrap gap-2">
+                    <div className={`flex flex-wrap ${isModal ? 'gap-1' : 'gap-2'}`}>
                       {professional.skills.map((skill, index) => (
-                        <Badge key={index} variant="secondary" className="text-sm">
+                        <Badge key={index} variant="secondary" className={isModal ? "text-xs px-2 py-0" : "text-sm"}>
                           {skill}
                         </Badge>
                       ))}
@@ -346,13 +348,13 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                 {/* Languages */}
                 {professional.languages && professional.languages.length > 0 && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                      <LanguagesIcon className="h-5 w-5" />
+                    <h3 className={`${isModal ? 'text-sm' : 'text-lg'} font-semibold ${isModal ? 'mb-1.5' : 'mb-3'} flex items-center gap-2`}>
+                      <LanguagesIcon className={isModal ? "h-4 w-4" : "h-5 w-5"} />
                       Languages
                     </h3>
-                    <div className="flex flex-wrap gap-2">
+                    <div className={`flex flex-wrap ${isModal ? 'gap-1' : 'gap-2'}`}>
                       {professional.languages.map((language, index) => (
-                        <Badge key={index} variant="outline" className="text-sm">
+                        <Badge key={index} variant="outline" className={isModal ? "text-xs px-2 py-0" : "text-sm"}>
                           {language}
                         </Badge>
                       ))}
@@ -363,26 +365,26 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                 {/* Additional Information */}
                 {(professional.ready_to_relocate || professional.has_driving_licence || professional.has_own_transport) && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
+                    <h3 className={`${isModal ? 'text-sm' : 'text-lg'} font-semibold ${isModal ? 'mb-1.5' : 'mb-3'} flex items-center gap-2`}>
+                      <FileText className={isModal ? "h-4 w-4" : "h-5 w-5"} />
                       Additional Information
                     </h3>
-                    <div className="flex flex-wrap gap-2">
+                    <div className={`flex flex-wrap ${isModal ? 'gap-1' : 'gap-2'}`}>
                       {professional.ready_to_relocate && (
-                        <Badge variant="outline" className="text-sm">
-                          <TrendingUp className="h-3 w-3 mr-1" />
+                        <Badge variant="outline" className={isModal ? "text-xs px-2 py-0" : "text-sm"}>
+                          <TrendingUp className={isModal ? "h-2.5 w-2.5 mr-0.5" : "h-3 w-3 mr-1"} />
                           Ready to Relocate
                         </Badge>
                       )}
                       {professional.has_driving_licence && (
-                        <Badge variant="outline" className="text-sm">
-                          <CheckCircle className="h-3 w-3 mr-1" />
+                        <Badge variant="outline" className={isModal ? "text-xs px-2 py-0" : "text-sm"}>
+                          <CheckCircle className={isModal ? "h-2.5 w-2.5 mr-0.5" : "h-3 w-3 mr-1"} />
                           Driving Licence
                         </Badge>
                       )}
                       {professional.has_own_transport && (
-                        <Badge variant="outline" className="text-sm">
-                          <Car className="h-3 w-3 mr-1" />
+                        <Badge variant="outline" className={isModal ? "text-xs px-2 py-0" : "text-sm"}>
+                          <Car className={isModal ? "h-2.5 w-2.5 mr-0.5" : "h-3 w-3 mr-1"} />
                           Own Transport
                         </Badge>
                       )}
@@ -390,24 +392,24 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                   </div>
                 )}
 
-                {/* Employment Status & Availability */}
+                {/* Employment Status & Availability - Compact in modal */}
                 {(professional.employment_status || professional.availability) && (
                   <div>
-                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                      <Briefcase className="h-5 w-5" />
+                    <h3 className={`${isModal ? 'text-sm' : 'text-lg'} font-semibold ${isModal ? 'mb-1.5' : 'mb-3'} flex items-center gap-2`}>
+                      <Briefcase className={isModal ? "h-4 w-4" : "h-5 w-5"} />
                       Employment Details
                     </h3>
-                    <div className="space-y-2">
+                    <div className={`${isModal ? 'flex flex-wrap gap-3 text-xs' : 'space-y-2'}`}>
                       {professional.employment_status && (
-                        <div className="flex items-center gap-2 text-sm">
+                        <div className={`flex items-center gap-1 ${isModal ? '' : 'text-sm'}`}>
                           <span className="font-medium text-foreground">Status:</span>
                           <span className="text-muted-foreground capitalize">{professional.employment_status.replace('_', ' ')}</span>
                         </div>
                       )}
                       {professional.availability && (
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-green-600" />
-                          <span className="text-sm font-medium text-green-600">
+                        <div className="flex items-center gap-1">
+                          <Clock className={`${isModal ? 'h-3 w-3' : 'h-4 w-4'} text-green-600`} />
+                          <span className={`${isModal ? 'text-xs' : 'text-sm'} font-medium text-green-600`}>
                             {formatAvailability(professional.availability)}
                           </span>
                         </div>
@@ -416,38 +418,42 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                   </div>
                 )}
 
-                {/* Experience Level */}
-                <div>
-                  <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                    <Briefcase className="h-5 w-5" />
-                    Experience
-                  </h3>
-                  <Badge variant="outline" className="text-sm capitalize">
-                    {professional.experience_level} Level
-                  </Badge>
-                </div>
+                {/* Experience Level - Hide in modal since it's shown in badges */}
+                {!isModal && (
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                      <Briefcase className="h-5 w-5" />
+                      Experience
+                    </h3>
+                    <Badge variant="outline" className="text-sm capitalize">
+                      {professional.experience_level} Level
+                    </Badge>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Reviews Section */}
-            <ReviewsList
-              userId={professional.user_id}
-              userType="professional"
-              title="Reviews"
-              limit={5}
-              showViewAll={true}
-            />
+            {/* Reviews Section - Hide in modal to save space */}
+            {!isModal && (
+              <ReviewsList
+                userId={professional.user_id}
+                userType="professional"
+                title="Reviews"
+                limit={5}
+                showViewAll={true}
+              />
+            )}
           </div>
 
           {/* Sidebar */}
-          <div className={isModal ? "w-full space-y-6" : "space-y-6"}>
+          <div className={isModal ? "space-y-3" : "space-y-6"}>
             {/* Contact Card */}
             {!isOwnProfile && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Contact</CardTitle>
+              <Card className={isModal ? "shadow-sm" : ""}>
+                <CardHeader className={isModal ? "p-3 pb-2" : ""}>
+                  <CardTitle className={isModal ? "text-sm" : "text-lg"}>Contact</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className={isModal ? "p-3 pt-0 space-y-2" : "space-y-3"}>
                   {user ? (
                     <>
                       <Button
@@ -484,48 +490,48 @@ export default function ProfessionalDetailView({ professional, user, userType, i
 
             {/* Links Card */}
             {(professional.portfolio_url || professional.linkedin_url || professional.github_url || professional.website_url || professional.cv_url) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Links</CardTitle>
+              <Card className={isModal ? "shadow-sm" : ""}>
+                <CardHeader className={isModal ? "p-3 pb-2" : ""}>
+                  <CardTitle className={isModal ? "text-sm" : "text-lg"}>Links</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className={isModal ? "p-3 pt-0 flex flex-wrap gap-1.5" : "space-y-3"}>
                   {professional.portfolio_url && (
-                    <Button variant="outline" size="sm" asChild className="w-full justify-start">
+                    <Button variant="outline" size="sm" asChild className={isModal ? "h-7 px-2 text-xs" : "w-full justify-start"}>
                       <Link href={professional.portfolio_url} target="_blank">
-                        <ExternalLink className="h-4 w-4 mr-2" />
+                        <ExternalLink className={isModal ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2"} />
                         Portfolio
                       </Link>
                     </Button>
                   )}
                   {professional.linkedin_url && (
-                    <Button variant="outline" size="sm" asChild className="w-full justify-start">
+                    <Button variant="outline" size="sm" asChild className={isModal ? "h-7 px-2 text-xs" : "w-full justify-start"}>
                       <Link href={professional.linkedin_url} target="_blank">
-                        <Linkedin className="h-4 w-4 mr-2" />
+                        <Linkedin className={isModal ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2"} />
                         LinkedIn
                       </Link>
                     </Button>
                   )}
                   {professional.github_url && (
-                    <Button variant="outline" size="sm" asChild className="w-full justify-start">
+                    <Button variant="outline" size="sm" asChild className={isModal ? "h-7 px-2 text-xs" : "w-full justify-start"}>
                       <Link href={professional.github_url} target="_blank">
-                        <Github className="h-4 w-4 mr-2" />
+                        <Github className={isModal ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2"} />
                         GitHub
                       </Link>
                     </Button>
                   )}
                   {professional.website_url && (
-                    <Button variant="outline" size="sm" asChild className="w-full justify-start">
+                    <Button variant="outline" size="sm" asChild className={isModal ? "h-7 px-2 text-xs" : "w-full justify-start"}>
                       <Link href={professional.website_url} target="_blank">
-                        <Globe className="h-4 w-4 mr-2" />
+                        <Globe className={isModal ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2"} />
                         Website
                       </Link>
                     </Button>
                   )}
                   {professional.cv_url && (
-                    <Button variant="outline" size="sm" asChild className="w-full justify-start">
+                    <Button variant="outline" size="sm" asChild className={isModal ? "h-7 px-2 text-xs" : "w-full justify-start"}>
                       <Link href={professional.cv_url} target="_blank">
-                        <FileText className="h-4 w-4 mr-2" />
-                        View CV/Resume
+                        <FileText className={isModal ? "h-3 w-3 mr-1" : "h-4 w-4 mr-2"} />
+                        CV
                       </Link>
                     </Button>
                   )}
@@ -534,12 +540,12 @@ export default function ProfessionalDetailView({ professional, user, userType, i
             )}
 
             {/* Quick Info Card */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Quick Info</CardTitle>
+            <Card className={isModal ? "shadow-sm" : ""}>
+              <CardHeader className={isModal ? "p-3 pb-2" : ""}>
+                <CardTitle className={isModal ? "text-sm" : "text-lg"}>Quick Info</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2 text-sm">
+              <CardContent className={isModal ? "p-3 pt-0 space-y-1.5" : "space-y-3"}>
+                <div className={`space-y-1.5 ${isModal ? 'text-xs' : 'text-sm'}`}>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Experience:</span>
                     <span className="font-medium capitalize">{professional.experience_level}</span>
@@ -564,7 +570,7 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                       <span className="font-medium text-green-600">{salaryDisplay}</span>
                     </div>
                   )}
-                  {premiumStatus.isPremium && (
+                  {premiumStatus.isPremium && !isModal && (
                     <div className="mt-3 pt-3 border-t">
                       <div className="flex items-center gap-2 text-amber-600">
                         <Crown className="h-4 w-4" />
@@ -579,8 +585,8 @@ export default function ProfessionalDetailView({ professional, user, userType, i
               </CardContent>
             </Card>
 
-            {/* Premium Features Card - Only visible for premium professionals */}
-            {premiumStatus.isPremium && (
+            {/* Premium Features Card - Only visible for premium professionals, hide in modal */}
+            {premiumStatus.isPremium && !isModal && (
               <Card className="bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200">
                 <CardHeader>
                   <CardTitle className="text-lg flex items-center gap-2 text-amber-900">

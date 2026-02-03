@@ -15,12 +15,18 @@ interface NotificationPreferences {
   email_on_job_offer: boolean
   email_on_application_status_change: boolean
   email_on_trade_job_match: boolean
+  email_on_vacancy_job_match: boolean
   email_digest_frequency: "instant" | "daily" | "weekly" | "never"
 }
 
 interface CompanyTradeSettings {
   trade_job_notifications: boolean
   trade_job_notifications_distance: number
+}
+
+interface ProfessionalVacancySettings {
+  vacancy_job_notifications: boolean
+  vacancy_job_notifications_distance: number
 }
 
 export function NotificationSettings() {
@@ -30,10 +36,13 @@ export function NotificationSettings() {
     email_on_job_offer: true,
     email_on_application_status_change: true,
     email_on_trade_job_match: true,
+    email_on_vacancy_job_match: true,
     email_digest_frequency: "instant",
   })
   const [companyTradeSettings, setCompanyTradeSettings] = useState<CompanyTradeSettings | null>(null)
+  const [professionalVacancySettings, setProfessionalVacancySettings] = useState<ProfessionalVacancySettings | null>(null)
   const [isCompanyUser, setIsCompanyUser] = useState(false)
+  const [isProfessionalUser, setIsProfessionalUser] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
@@ -61,7 +70,7 @@ export function NotificationSettings() {
         return
       }
 
-      // Check if user is a company
+      // Check user type
       const { data: userData } = await supabase
         .from("users")
         .select("user_type")
@@ -69,7 +78,9 @@ export function NotificationSettings() {
         .single()
 
       const isCompany = userData?.user_type === "company"
+      const isProfessional = userData?.user_type === "professional"
       setIsCompanyUser(isCompany)
+      setIsProfessionalUser(isProfessional)
 
       // Get or create preferences
       const { data, error: prefsError } = await supabase.rpc("get_or_create_notification_preferences", {
@@ -86,8 +97,9 @@ export function NotificationSettings() {
         setPreferences({
           ...preferences,
           ...data[0],
-          // Ensure email_on_trade_job_match has a default value
+          // Ensure email preferences have default values
           email_on_trade_job_match: data[0].email_on_trade_job_match ?? true,
+          email_on_vacancy_job_match: data[0].email_on_vacancy_job_match ?? true,
         })
       }
 
@@ -105,6 +117,24 @@ export function NotificationSettings() {
           setCompanyTradeSettings({
             trade_job_notifications: companyData.trade_job_notifications ?? false,
             trade_job_notifications_distance: companyData.trade_job_notifications_distance ?? 10,
+          })
+        }
+      }
+
+      // If professional user, also load professional-specific vacancy settings
+      if (isProfessional) {
+        const { data: profData, error: profError } = await supabase
+          .from("professional_profiles")
+          .select("vacancy_job_notifications, vacancy_job_notifications_distance")
+          .eq("user_id", user.id)
+          .single()
+
+        if (profError) {
+          console.error("[NOTIFICATION-SETTINGS] Error loading professional settings:", profError)
+        } else if (profData) {
+          setProfessionalVacancySettings({
+            vacancy_job_notifications: profData.vacancy_job_notifications ?? false,
+            vacancy_job_notifications_distance: profData.vacancy_job_notifications_distance ?? 10,
           })
         }
       }
@@ -142,6 +172,7 @@ export function NotificationSettings() {
             email_on_job_offer: preferences.email_on_job_offer,
             email_on_application_status_change: preferences.email_on_application_status_change,
             email_on_trade_job_match: preferences.email_on_trade_job_match,
+            email_on_vacancy_job_match: preferences.email_on_vacancy_job_match,
             email_digest_frequency: preferences.email_digest_frequency,
           },
           {
@@ -168,6 +199,23 @@ export function NotificationSettings() {
         if (companyError) {
           console.error("[NOTIFICATION-SETTINGS] Error saving company settings:", companyError)
           setError("Failed to save trade job notification settings")
+          return
+        }
+      }
+
+      // If professional user, also update professional-specific vacancy settings
+      if (isProfessionalUser && professionalVacancySettings) {
+        const { error: profError } = await supabase
+          .from("professional_profiles")
+          .update({
+            vacancy_job_notifications: professionalVacancySettings.vacancy_job_notifications,
+            vacancy_job_notifications_distance: professionalVacancySettings.vacancy_job_notifications_distance,
+          })
+          .eq("user_id", user.id)
+
+        if (profError) {
+          console.error("[NOTIFICATION-SETTINGS] Error saving professional settings:", profError)
+          setError("Failed to save vacancy job notification settings")
           return
         }
       }
@@ -400,6 +448,100 @@ export function NotificationSettings() {
                     <ul className="list-disc list-inside mt-1">
                       <li>Match your company's services/skills</li>
                       <li>Are within {companyTradeSettings.trade_job_notifications_distance} miles of your location</li>
+                    </ul>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Vacancy Job Match Notifications - Only for professional users */}
+          {isProfessionalUser && professionalVacancySettings && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 space-y-4">
+              <div className="flex items-center justify-between space-x-4">
+                <div className="flex-1 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="h-4 w-4 text-blue-600" />
+                    <Label htmlFor="vacancy-notifications" className="text-base font-medium">
+                      Job Notifications
+                    </Label>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Get notified when matching jobs are posted nearby
+                  </p>
+                </div>
+                <Switch
+                  id="vacancy-notifications"
+                  checked={professionalVacancySettings.vacancy_job_notifications}
+                  onCheckedChange={(checked) =>
+                    setProfessionalVacancySettings((prev) =>
+                      prev ? { ...prev, vacancy_job_notifications: checked } : null
+                    )
+                  }
+                  className="data-[state=checked]:bg-blue-600"
+                />
+              </div>
+
+              {professionalVacancySettings.vacancy_job_notifications && (
+                <>
+                  <div className="flex items-center justify-between space-x-4 pt-2 border-t border-blue-200">
+                    <div className="flex-1 space-y-1">
+                      <Label htmlFor="vacancy-distance" className="text-sm font-medium">
+                        Notification Radius
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Only notify for jobs within this distance
+                      </p>
+                    </div>
+                    <Select
+                      value={professionalVacancySettings.vacancy_job_notifications_distance.toString()}
+                      onValueChange={(value) =>
+                        setProfessionalVacancySettings((prev) =>
+                          prev ? { ...prev, vacancy_job_notifications_distance: parseInt(value) } : null
+                        )
+                      }
+                    >
+                      <SelectTrigger className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="5">5 miles</SelectItem>
+                        <SelectItem value="10">10 miles</SelectItem>
+                        <SelectItem value="15">15 miles</SelectItem>
+                        <SelectItem value="20">20 miles</SelectItem>
+                        <SelectItem value="30">30 miles</SelectItem>
+                        <SelectItem value="50">50 miles</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex items-center justify-between space-x-4 pt-2 border-t border-blue-200">
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <Label htmlFor="email-vacancy" className="text-sm font-medium">
+                          Email Notifications
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Receive email for matching jobs
+                      </p>
+                    </div>
+                    <Switch
+                      id="email-vacancy"
+                      checked={preferences.email_on_vacancy_job_match}
+                      onCheckedChange={(checked) =>
+                        updatePreference("email_on_vacancy_job_match", checked)
+                      }
+                    />
+                  </div>
+
+                  <div className="text-xs text-blue-700 bg-blue-100 rounded p-2 mt-2">
+                    <strong>How it works:</strong> You'll receive notifications in your notification bell
+                    {preferences.email_on_vacancy_job_match ? " and email" : ""} when jobs are posted that:
+                    <ul className="list-disc list-inside mt-1">
+                      <li>Match your skills</li>
+                      <li>Are within {professionalVacancySettings.vacancy_job_notifications_distance} miles of your location</li>
                     </ul>
                   </div>
                 </>

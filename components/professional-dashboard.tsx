@@ -10,7 +10,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Briefcase, MapPin, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Search, TrendingUp, Info, Filter, Upload, Hammer, Building, AlertTriangle } from "lucide-react"
+import { Briefcase, MapPin, BookmarkIcon, FileText, ExternalLink, Clock, Eye, EyeOff, Search, TrendingUp, Info, Filter, Upload, Hammer, Building, AlertTriangle, Bell } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect } from "react"
@@ -55,6 +62,8 @@ interface Profile {
   cv_public?: boolean
   latitude?: number
   longitude?: number
+  vacancy_job_notifications?: boolean
+  vacancy_job_notifications_distance?: number
 }
 
 interface Application {
@@ -149,6 +158,9 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
   const [salaryMin, setSalaryMin] = useState<number | null>(profile.salary_min || null)
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(profile.profile_photo_url || null)
+  const [vacancyJobNotifications, setVacancyJobNotifications] = useState(profile.vacancy_job_notifications ?? false)
+  const [vacancyNotificationDistance, setVacancyNotificationDistance] = useState<number>(profile.vacancy_job_notifications_distance ?? 10)
+  const [updatingVacancyNotifications, setUpdatingVacancyNotifications] = useState(false)
 
   const supabase = createClient()
   const router = useRouter()
@@ -530,6 +542,98 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
     }
   }
 
+  const handleVacancyNotificationsToggle = async (status: boolean) => {
+    // Check if location is set - required for notifications
+    if (status && (!latitude || !longitude)) {
+      toast({
+        title: "Location Required",
+        description: "Please set your location first to enable job notifications.",
+        variant: "destructive",
+        duration: 5000,
+      })
+      return
+    }
+
+    setUpdatingVacancyNotifications(true)
+    setVacancyJobNotifications(status)
+
+    try {
+      const { error } = await supabase
+        .from("professional_profiles")
+        .update({
+          vacancy_job_notifications: status,
+          vacancy_job_notifications_distance: vacancyNotificationDistance
+        })
+        .eq("id", profile.id)
+
+      if (error) {
+        console.error("[PROFESSIONAL-DASHBOARD] Error updating vacancy job notifications:", error.message)
+        if (error.message.includes("column") && error.message.includes("vacancy_job_notifications")) {
+          console.log("[PROFESSIONAL-DASHBOARD] Vacancy job notifications feature not yet available - database migration needed")
+          toast({
+            title: "Feature Not Available",
+            description: "This feature requires a database update. Please contact support.",
+            variant: "destructive",
+            duration: 5000,
+          })
+        } else {
+          toast({
+            title: "Update Failed",
+            description: `Error updating job notifications: ${error.message}`,
+            variant: "destructive",
+            duration: 5000,
+          })
+        }
+        setVacancyJobNotifications(!status)
+        return
+      }
+
+      toast({
+        title: status ? "Job Notifications Enabled" : "Job Notifications Disabled",
+        description: status
+          ? `You'll be notified about new jobs within ${vacancyNotificationDistance} miles.`
+          : "You will no longer receive job notifications.",
+        duration: 3000,
+      })
+
+      console.log("[PROFESSIONAL-DASHBOARD] Vacancy job notifications updated successfully:", status)
+    } catch (error) {
+      console.error("[PROFESSIONAL-DASHBOARD] Error updating vacancy job notifications:", error)
+      setVacancyJobNotifications(!status)
+    } finally {
+      setUpdatingVacancyNotifications(false)
+    }
+  }
+
+  const handleVacancyNotificationDistanceChange = async (distance: number) => {
+    const previousDistance = vacancyNotificationDistance
+    setVacancyNotificationDistance(distance)
+
+    try {
+      const { error } = await supabase
+        .from("professional_profiles")
+        .update({ vacancy_job_notifications_distance: distance })
+        .eq("id", profile.id)
+
+      if (error) {
+        console.error("[PROFESSIONAL-DASHBOARD] Error updating vacancy notification distance:", error.message)
+        setVacancyNotificationDistance(previousDistance)
+        toast({
+          title: "Update Failed",
+          description: `Error updating notification distance: ${error.message}`,
+          variant: "destructive",
+          duration: 5000,
+        })
+        return
+      }
+
+      console.log("[PROFESSIONAL-DASHBOARD] Vacancy notification distance updated successfully:", distance)
+    } catch (error) {
+      console.error("[PROFESSIONAL-DASHBOARD] Error updating vacancy notification distance:", error)
+      setVacancyNotificationDistance(previousDistance)
+    }
+  }
+
   const resizeImage = async (file: File, maxSize: number = 300): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = new window.Image()
@@ -900,6 +1004,71 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                       {expirationWarning}
                     </div>
                   )}
+
+                  {/* Job Notifications Toggle */}
+                  <div className="flex items-center space-x-1.5 sm:space-x-2">
+                    {vacancyJobNotifications ? (
+                      <Bell className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600 flex-shrink-0" />
+                    ) : (
+                      <Bell className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
+                    )}
+                    <Switch
+                      checked={vacancyJobNotifications}
+                      onCheckedChange={handleVacancyNotificationsToggle}
+                      disabled={updatingVacancyNotifications}
+                      className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
+                    />
+                    <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
+                      {vacancyJobNotifications ? "Job Notif. On" : "Job Notif. Off"}
+                    </p>
+                    {/* Distance Selector - Show when notifications are enabled */}
+                    {vacancyJobNotifications && (
+                      <Select
+                        value={vacancyNotificationDistance.toString()}
+                        onValueChange={(value) => handleVacancyNotificationDistanceChange(parseInt(value))}
+                      >
+                        <SelectTrigger className="h-6 w-20 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5 miles</SelectItem>
+                          <SelectItem value="10">10 miles</SelectItem>
+                          <SelectItem value="15">15 miles</SelectItem>
+                          <SelectItem value="20">20 miles</SelectItem>
+                          <SelectItem value="30">30 miles</SelectItem>
+                          <SelectItem value="50">50 miles</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <button
+                          className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
+                          title="Learn more"
+                        >
+                          <Info className="h-3.5 w-3.5" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent side="right" className="w-80">
+                        <div className="space-y-2">
+                          <h4 className="font-semibold text-sm">Job Notifications</h4>
+                          <p className="text-sm text-muted-foreground">
+                            Get notified when companies post jobs that match your skills and are within your selected radius.
+                          </p>
+                          <div className="text-sm text-muted-foreground border-t pt-2 mt-2">
+                            <p className="font-medium text-foreground">You'll be notified when:</p>
+                            <ul className="list-disc list-inside mt-1 space-y-0.5">
+                              <li>Job skills match your skills</li>
+                              <li>Job is within {vacancyNotificationDistance} miles</li>
+                            </ul>
+                          </div>
+                          <p className="text-xs text-muted-foreground border-t pt-2 mt-2">
+                            Requires location to be set. Notifications appear in your notification bell and optionally via email.
+                          </p>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-0.5 sm:space-y-1 p-2 sm:p-6 pt-1">
