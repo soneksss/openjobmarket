@@ -27,7 +27,19 @@ import {
   FileText,
   AlertCircle,
   Loader2,
+  MoreVertical,
+  Trash2,
+  PauseCircle,
+  PlayCircle,
+  CalendarPlus,
 } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -100,7 +112,6 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
   const [expandedJobIds, setExpandedJobIds] = useState<Set<string>>(new Set())
   const [showApplicantsForJob, setShowApplicantsForJob] = useState<Set<string>>(new Set())
   const [expandedApplicantIds, setExpandedApplicantIds] = useState<Set<string>>(new Set())
-  const [showAllJobs, setShowAllJobs] = useState(false)
 
   // State for applicants data (loaded on demand)
   const [jobApplications, setJobApplications] = useState<Record<string, Application[]>>({})
@@ -113,6 +124,15 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
     applicationId: string
     professionalId: string
     applicantName: string
+    jobId: string
+    jobTitle: string
+  } | null>(null)
+
+  // State for job management dialogs
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showExtendDialog, setShowExtendDialog] = useState(false)
+  const [extendDuration, setExtendDuration] = useState<number>(7) // Default 7 days
+  const [pendingJobAction, setPendingJobAction] = useState<{
     jobId: string
     jobTitle: string
   } | null>(null)
@@ -433,8 +453,140 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
     }
   }
 
-  // Display jobs (limited or all)
-  const displayedJobs = showAllJobs ? jobs : jobs.slice(0, 5)
+  // Delete job
+  const handleDeleteJob = async () => {
+    if (!pendingJobAction) return
+
+    const { jobId, jobTitle } = pendingJobAction
+    setActionLoading(jobId)
+
+    try {
+      // First delete all applications for this job
+      await supabase
+        .from("job_applications")
+        .delete()
+        .eq("job_id", jobId)
+
+      // Then delete the job
+      const { error } = await supabase
+        .from("jobs")
+        .delete()
+        .eq("id", jobId)
+
+      if (error) throw error
+
+      toast({
+        title: "Job Deleted",
+        description: `"${jobTitle}" has been deleted.`,
+      })
+
+      router.refresh()
+    } catch (error: any) {
+      console.error("[JOB-CENTRIC] Error deleting job:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete job. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(null)
+      setShowDeleteDialog(false)
+      setPendingJobAction(null)
+    }
+  }
+
+  // Toggle job active status (deactivate/activate)
+  const handleToggleJobStatus = async (jobId: string, jobTitle: string, currentStatus: boolean) => {
+    setActionLoading(jobId)
+
+    try {
+      const { error } = await supabase
+        .from("jobs")
+        .update({ is_active: !currentStatus })
+        .eq("id", jobId)
+
+      if (error) throw error
+
+      toast({
+        title: currentStatus ? "Job Deactivated" : "Job Activated",
+        description: `"${jobTitle}" has been ${currentStatus ? "deactivated" : "activated"}.`,
+      })
+
+      router.refresh()
+    } catch (error: any) {
+      console.error("[JOB-CENTRIC] Error toggling job status:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update job status. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // Extend job expiration by selected duration
+  const handleExtendJob = async () => {
+    if (!pendingJobAction) return
+
+    const { jobId, jobTitle } = pendingJobAction
+    setActionLoading(jobId)
+
+    try {
+      // Get current job to check expiration date
+      const { data: job } = await supabase
+        .from("jobs")
+        .select("expires_at")
+        .eq("id", jobId)
+        .single()
+
+      // Calculate new expiration date (selected days from now or from current expiration, whichever is later)
+      const now = new Date()
+      const currentExpiration = job?.expires_at ? new Date(job.expires_at) : now
+      const baseDate = currentExpiration > now ? currentExpiration : now
+      const newExpiration = new Date(baseDate)
+      newExpiration.setDate(newExpiration.getDate() + extendDuration)
+
+      const { error } = await supabase
+        .from("jobs")
+        .update({
+          expires_at: newExpiration.toISOString(),
+          is_active: true // Also reactivate if it was inactive
+        })
+        .eq("id", jobId)
+
+      if (error) throw error
+
+      // Format duration text for toast
+      const durationText = extendDuration === 7 ? "1 week"
+        : extendDuration === 14 ? "2 weeks"
+        : extendDuration === 21 ? "3 weeks"
+        : extendDuration === 28 ? "4 weeks"
+        : `${extendDuration} days`
+
+      toast({
+        title: "Job Extended",
+        description: `"${jobTitle}" has been extended by ${durationText}.`,
+      })
+
+      router.refresh()
+    } catch (error: any) {
+      console.error("[JOB-CENTRIC] Error extending job:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to extend job. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(null)
+      setShowExtendDialog(false)
+      setPendingJobAction(null)
+      setExtendDuration(7) // Reset to default
+    }
+  }
+
+  // Display all jobs when expanded, otherwise show first 5
+  const displayedJobs = isJobListExpanded ? jobs : jobs.slice(0, 5)
 
   return (
     <Card className="overflow-hidden">
@@ -555,12 +707,59 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
                           <span>{job.applications_count || 0}</span>
                         </button>
 
-                        {/* Edit Button */}
-                        <Link href={`/dashboard/homeowner/jobs/${job.id}`} onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </Link>
+                        {/* Job Actions Dropdown */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenuItem asChild>
+                              <Link href={`/dashboard/homeowner/jobs/${job.id}`} className="flex items-center">
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Job
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleToggleJobStatus(job.id, job.title, job.is_active)}
+                              disabled={actionLoading === job.id}
+                            >
+                              {job.is_active ? (
+                                <>
+                                  <PauseCircle className="h-4 w-4 mr-2" />
+                                  Deactivate
+                                </>
+                              ) : (
+                                <>
+                                  <PlayCircle className="h-4 w-4 mr-2" />
+                                  Activate
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setPendingJobAction({ jobId: job.id, jobTitle: job.title })
+                                setExtendDuration(7) // Reset to default when opening
+                                setShowExtendDialog(true)
+                              }}
+                            >
+                              <CalendarPlus className="h-4 w-4 mr-2" />
+                              Extend Job
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className="text-red-600 focus:text-red-600"
+                              onClick={() => {
+                                setPendingJobAction({ jobId: job.id, jobTitle: job.title })
+                                setShowDeleteDialog(true)
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete Job
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </CollapsibleTrigger>
@@ -867,26 +1066,6 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
           </div>
         )}
 
-            {/* Show More / Show Less */}
-            {jobs.length > 5 && (
-              <div className="p-3 border-t bg-muted/30">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setShowAllJobs(!showAllJobs)
-                  }}
-                >
-                  {showAllJobs ? (
-                    <>Show Less</>
-                  ) : (
-                    <>Show All Jobs ({jobs.length})</>
-                  )}
-                </Button>
-              </div>
-            )}
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
@@ -922,6 +1101,102 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
                 </>
               ) : (
                 "Yes, Accept Applicant"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Job?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <span>Are you sure you want to delete <strong>"{pendingJobAction?.jobTitle}"</strong>?</span>
+                <div className="mt-3 text-red-600 font-medium">This action cannot be undone.</div>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>All applications for this job will be deleted</li>
+                  <li>The job listing will be permanently removed</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteJob}
+              disabled={!!actionLoading}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Deleting...
+                </>
+              ) : (
+                "Yes, Delete Job"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Extend Confirmation Dialog */}
+      <AlertDialog open={showExtendDialog} onOpenChange={setShowExtendDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Extend Job</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <span>Select how long to extend <strong>"{pendingJobAction?.jobTitle}"</strong>:</span>
+
+                {/* Duration Selection */}
+                <div className="grid grid-cols-5 gap-2 mt-4">
+                  {[
+                    { days: 3, label: "3 days" },
+                    { days: 7, label: "1 week" },
+                    { days: 14, label: "2 weeks" },
+                    { days: 21, label: "3 weeks" },
+                    { days: 28, label: "4 weeks" },
+                  ].map((option) => (
+                    <button
+                      key={option.days}
+                      type="button"
+                      onClick={() => setExtendDuration(option.days)}
+                      className={`px-3 py-2 text-sm rounded-md border transition-colors ${
+                        extendDuration === option.days
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:bg-blue-50"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+
+                <ul className="list-disc list-inside mt-4 space-y-1 text-sm">
+                  <li>The job expiration will be extended by the selected duration</li>
+                  <li>If the job was inactive, it will be reactivated</li>
+                </ul>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!actionLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleExtendJob}
+              disabled={!!actionLoading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Extending...
+                </>
+              ) : (
+                "Extend Job"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
