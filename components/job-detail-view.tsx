@@ -205,6 +205,26 @@ export default function JobDetailView({
   const [sessionValidated, setSessionValidated] = useState(false)
   const [sessionError, setSessionError] = useState<string | null>(null)
 
+  // Track job view on mount
+  useEffect(() => {
+    const trackJobView = async () => {
+      try {
+        const response = await fetch(`/api/jobs/${job.id}/views`, {
+          method: 'POST',
+        })
+        if (response.ok) {
+          const data = await response.json()
+          console.log("[JOB-DETAIL-VIEW] View tracked:", data)
+        }
+      } catch (error) {
+        // Silently fail - view tracking is not critical
+        console.error("[JOB-DETAIL-VIEW] Error tracking view:", error)
+      }
+    }
+
+    trackJobView()
+  }, [job.id])
+
   useEffect(() => {
     console.log("[JOB-DETAIL-VIEW] Component loaded:", {
       jobId: job.id,

@@ -50,6 +50,7 @@ import { AdminButton } from "@/components/admin-button"
 import { StarRating } from "@/components/star-rating"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
+import { JobCentricDashboard } from "@/components/job-centric-dashboard"
 
 interface User {
   id: string
@@ -1543,101 +1544,20 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Bottom Section: Cards - Order 3 on mobile */}
             <div className="order-3 lg:order-none space-y-1.5 sm:space-y-4">
-            {/* Recent Jobs */}
-            <Card className="overflow-hidden">
-              <CardHeader className="px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5 text-purple-600" />
-                    <CardTitle className="text-lg font-semibold">{t('dashboard.yourRecentPostedJobs')}</CardTitle>
-                    <Badge variant="secondary" className="text-sm">{jobs.length}</Badge>
-                  </div>
-                  <Button variant="outline" size="sm" asChild className="text-xs">
-                    <Link href="/dashboard/company/jobs">
-                      <Filter className="h-4 w-4 mr-1" />
-                      {t('common.viewAll')}
-                    </Link>
-                  </Button>
-                </div>
-                <CardDescription className="text-sm mt-1">Latest vacancies you've posted (last 5)</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                {jobs.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Briefcase className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">No jobs posted yet</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    {/* Table Header */}
-                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 bg-gradient-to-r from-purple-50 to-violet-50 border-b-2 border-purple-200 text-xs font-semibold text-gray-700">
-                      <div className="col-span-4">JOB TITLE</div>
-                      <div className="col-span-2">LOCATION</div>
-                      <div className="col-span-2">ENGAGEMENT</div>
-                      <div className="col-span-2">STATUS</div>
-                      <div className="col-span-2">ACTIONS</div>
-                    </div>
-                    {/* Table Rows */}
-                    <div className="divide-y divide-gray-100">
-                      {jobs.map((job, index) => (
-                        <div
-                          key={job.id}
-                          className={`grid grid-cols-1 sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-purple-50/50 transition-colors ${
-                            index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                          }`}
-                        >
-                          <div className="col-span-1 sm:col-span-4 flex items-center gap-2">
-                            <Briefcase className="h-4 w-4 text-purple-600 flex-shrink-0 hidden sm:block" />
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium text-gray-900 truncate text-sm block">{job.title}</span>
-                              <div className="flex gap-1 mt-0.5">
-                                {job.is_tradespeople_job ? (
-                                  <Badge variant="outline" className="text-xs px-1.5 py-0">Trade</Badge>
-                                ) : (
-                                  <Badge variant="outline" className="text-xs px-1.5 py-0">Vacancy</Badge>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-sm text-gray-600">
-                            <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
-                            <span className="truncate">{job.location}</span>
-                          </div>
-                          <div className="col-span-1 sm:col-span-2 flex items-center gap-2 text-xs text-gray-600">
-                            <span className="flex items-center gap-1">
-                              <Users className="h-3 w-3 text-blue-600" />
-                              {job.applications_count}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Eye className="h-3 w-3 text-green-600" />
-                              {job.views_count}
-                            </span>
-                          </div>
-                          <div className="col-span-1 sm:col-span-2 flex items-center">
-                            {getJobStatusBadge(job)}
-                          </div>
-                          <div className="col-span-1 sm:col-span-2 flex items-center gap-1">
-                            <Button size="sm" variant="ghost" asChild className="h-7 text-xs px-2 hover:bg-purple-100">
-                              <Link href={`/jobs/${job.id}/applications`}>Apps</Link>
-                            </Button>
-                            <Button size="sm" variant="ghost" asChild className="h-7 text-xs px-2 hover:bg-purple-100">
-                              <Link href={`/jobs/${job.id}/edit`}>Edit</Link>
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                    {jobs.length >= 5 && (
-                      <div className="px-4 py-3 border-t bg-gray-50/50">
-                        <Button variant="outline" asChild className="w-full text-xs hover:bg-purple-50">
-                          <Link href="/dashboard/company/jobs">{t('common.viewAll')} ({jobs.length})</Link>
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Job-Centric Dashboard - Your Posted Jobs with Expandable Applications */}
+            <JobCentricDashboard
+              jobs={jobs.map(job => ({
+                ...job,
+                description: '',
+                is_active: job.is_active ?? job.status === 'active',
+              }))}
+              ownerId={profile.id}
+              ownerUserId={user.id}
+              stats={{
+                totalJobs: stats.totalJobs,
+                activeJobs: stats.activeJobs,
+              }}
+            />
 
             {/* Applications Received */}
             <Card className="overflow-hidden">

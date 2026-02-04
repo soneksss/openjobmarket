@@ -309,16 +309,16 @@ export function HomeownerApplicationActions({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Accept Contractor?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to accept <strong>{contractorName}</strong> for this job?
-              <br />
-              <br />
-              This will:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Mark this contractor as accepted</li>
-                <li>Automatically reject all other applications</li>
-                <li>Allow you to mark the job as completed once work is done</li>
-              </ul>
+            <AlertDialogDescription asChild>
+              <div>
+                <span>Are you sure you want to accept <strong>{contractorName}</strong> for this job?</span>
+                <div className="mt-3">This will:</div>
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Mark this contractor as accepted</li>
+                  <li>Automatically reject all other applications</li>
+                  <li>Allow you to mark the job as completed once work is done</li>
+                </ul>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

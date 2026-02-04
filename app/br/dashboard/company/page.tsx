@@ -373,17 +373,6 @@ export default async function CompanyDashboardPageBR() {
       applications_count: applicationCountsMap.get(job.id) || 0,
     })) || []
 
-  console.log("[COMPANY-BR] Rendering dashboard with data:", {
-    jobsCount: enrichedJobs.length,
-    receivedApplicationsCount: enrichedReceivedApplications.length,
-    submittedApplicationsCount: enrichedSubmittedApplications.length,
-    stats: {
-      totalApplications: totalApplications || 0,
-      activeJobs: activeJobs || 0,
-      totalJobs: jobs?.length || 0,
-    },
-  })
-
   return (
     <CompanyDashboard
       user={user as any}
