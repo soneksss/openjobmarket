@@ -95,7 +95,8 @@ export default function MessagesPage() {
 
       console.log("[MESSAGES] Fetched", messages?.length || 0, "messages")
 
-      // Group messages by conversation_id
+      // Group messages by other_user_id (the person we're chatting with)
+      // This ensures all messages with the same person appear as ONE conversation
       const conversationMap = new Map<string, {
         messages: typeof messages,
         other_user_id: string,
@@ -107,13 +108,14 @@ export default function MessagesPage() {
           ? message.recipient_id
           : message.sender_id
 
-        // Use conversation_id as the key, fallback to other_user_id for legacy messages
-        const conversationKey = message.conversation_id || other_user_id
+        // Group by other_user_id to combine all messages with the same person
+        const conversationKey = other_user_id
 
         if (!conversationMap.has(conversationKey)) {
           conversationMap.set(conversationKey, {
             messages: [],
             other_user_id,
+            // Store the most recent conversation_id for navigation
             conversation_id: message.conversation_id
           })
         }
@@ -215,8 +217,9 @@ export default function MessagesPage() {
           msg => msg.recipient_id === currentUser.id && !msg.is_read
         )
 
-        // Use conversation_id if available, otherwise fallback to conversationKey
-        const conversationId = convData.conversation_id || conversationKey
+        // Use other_user_id as the conversation identifier
+        // This ensures we navigate to /messages/{user_id} to see all messages with that person
+        const conversationId = otherUserId
 
         conversationsData.push({
           id: conversationId,
@@ -270,7 +273,7 @@ export default function MessagesPage() {
     router.push(`/messages/${conversationId}`)
   }
 
-  const handleDeleteConversation = async (conversationId: string, e: React.MouseEvent) => {
+  const handleDeleteConversation = async (otherUserId: string, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent opening conversation
 
     if (!confirm("Delete this conversation? This cannot be undone.")) {
@@ -278,19 +281,32 @@ export default function MessagesPage() {
     }
 
     try {
-      // Delete all messages in this conversation
-      const { error: messagesError } = await supabase
+      // Delete all messages between current user and other user (both directions)
+      const { error: messagesError1 } = await supabase
         .from("messages")
         .delete()
-        .eq("conversation_id", conversationId)
+        .eq("sender_id", user.id)
+        .eq("recipient_id", otherUserId)
 
-      if (messagesError) throw messagesError
+      if (messagesError1) {
+        console.error("[MESSAGES] Error deleting sent messages:", messagesError1)
+      }
 
-      // Delete the conversation itself
+      const { error: messagesError2 } = await supabase
+        .from("messages")
+        .delete()
+        .eq("sender_id", otherUserId)
+        .eq("recipient_id", user.id)
+
+      if (messagesError2) {
+        console.error("[MESSAGES] Error deleting received messages:", messagesError2)
+      }
+
+      // Also try to delete any conversation records involving both users
       const { error: conversationError } = await supabase
         .from("conversations")
         .delete()
-        .eq("id", conversationId)
+        .or(`and(participant_1.eq.${user.id},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${user.id})`)
 
       if (conversationError) {
         console.error("[MESSAGES] Error deleting conversation record:", conversationError)
@@ -298,7 +314,7 @@ export default function MessagesPage() {
       }
 
       // Remove from local state
-      setConversations(prev => prev.filter(conv => conv.id !== conversationId))
+      setConversations(prev => prev.filter(conv => conv.other_user.id !== otherUserId))
     } catch (error) {
       console.error("[MESSAGES] Error deleting conversation:", error)
       alert("Failed to delete conversation")

@@ -580,6 +580,7 @@ export function HomeownerDashboard({ profile, jobs, stats, user, isProfileComple
               jobs={jobs}
               ownerId={profile.id}
               ownerUserId={user?.id || ''}
+              userType="homeowner"
               stats={stats}
             />
           </div>

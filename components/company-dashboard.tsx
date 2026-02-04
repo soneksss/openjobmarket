@@ -8,6 +8,12 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -41,6 +47,9 @@ import {
   X,
   ChevronDown,
   ChevronRight,
+  MoreVertical,
+  XCircle,
+  Pencil,
 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
@@ -210,6 +219,41 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [isApplicationsExpanded, setIsApplicationsExpanded] = useState(false)
   const [isSubmittedAppsExpanded, setIsSubmittedAppsExpanded] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const supabase = createClient()
+
+  // Handle withdraw application
+  const handleWithdrawApplication = async (applicationId: string, jobTitle: string) => {
+    if (!confirm(`Withdraw your application for "${jobTitle}"? This cannot be undone.`)) {
+      return
+    }
+
+    setActionLoading(applicationId)
+    try {
+      const { error } = await supabase
+        .from("job_applications")
+        .delete()
+        .eq("id", applicationId)
+
+      if (error) throw error
+
+      toast({
+        title: "Application Withdrawn",
+        description: `Your application for "${jobTitle}" has been withdrawn.`,
+      })
+
+      router.refresh()
+    } catch (error: any) {
+      console.error("[COMPANY-DASHBOARD] Error withdrawing application:", error)
+      toast({
+        title: "Error",
+        description: error.message || "Failed to withdraw application. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setActionLoading(null)
+    }
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1558,242 +1602,185 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               }))}
               ownerId={profile.id}
               ownerUserId={user.id}
+              userType="company"
               stats={{
                 totalJobs: stats.totalJobs,
                 activeJobs: stats.activeJobs,
               }}
             />
 
-            {/* Applications Received */}
-            <Card className="overflow-hidden">
+            {/* Applications Received - Compact Airbnb Style */}
+            <Card className="overflow-hidden border-0 shadow-sm">
               <Collapsible open={isApplicationsExpanded} onOpenChange={setIsApplicationsExpanded}>
                 <CollapsibleTrigger asChild>
-                  <CardHeader className="px-4 py-3 cursor-pointer hover:bg-teal-50/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-shrink-0 text-muted-foreground">
-                          {isApplicationsExpanded ? (
-                            <ChevronDown className="h-5 w-5" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5" />
-                          )}
-                        </div>
-                        <Users className="h-5 w-5 text-teal-600" />
-                        <CardTitle className="text-lg font-semibold">{t('dashboard.applications')}</CardTitle>
-                        <Badge variant="secondary" className="text-sm">{receivedApplications.length}</Badge>
+                  <CardHeader className="px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors border-b">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-shrink-0 text-gray-400">
+                        {isApplicationsExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
                       </div>
-                      <Button variant="outline" size="sm" asChild className="text-xs" onClick={(e) => e.stopPropagation()}>
-                        <Link href="/dashboard/company/applications">
-                          <Filter className="h-4 w-4 mr-1" />
-                          {t('common.viewAll')}
-                        </Link>
-                      </Button>
+                      <Users className="h-4 w-4 text-teal-500" />
+                      <span className="text-sm font-medium">{t('dashboard.applications')}</span>
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">{receivedApplications.length}</Badge>
                     </div>
-                    <CardDescription className="text-sm mt-1 ml-7">Candidates who applied to your posted jobs</CardDescription>
                   </CardHeader>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="p-0">
-                {receivedApplications.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">No applications received yet</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    {/* Table Header */}
-                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 bg-gradient-to-r from-teal-50 to-cyan-50 border-b-2 border-teal-200 text-xs font-semibold text-gray-700">
-                      <div className="col-span-4">APPLICANT</div>
-                      <div className="col-span-3">JOB</div>
-                      <div className="col-span-2">LOCATION</div>
-                      <div className="col-span-2">STATUS</div>
-                      <div className="col-span-1">ACTION</div>
-                    </div>
-                    {/* Table Rows */}
-                    <div className="divide-y divide-gray-100">
-                      {(isApplicationsExpanded ? receivedApplications : receivedApplications.slice(0, 5)).map((application, index) => {
-                        // Determine display values based on applicant type
-                        const isCompanyApplicant = application.applicant_type === "company"
-                        const isProfessionalApplicant = application.applicant_type === "professional"
+                    {receivedApplications.length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-xs">No applications received yet</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100">
+                        {receivedApplications.map((application) => {
+                          const isCompanyApplicant = application.applicant_type === "company"
+                          const isProfessionalApplicant = application.applicant_type === "professional"
 
-                        const displayName = isCompanyApplicant && application.company_profiles
-                          ? application.company_profiles.company_name
-                          : isProfessionalApplicant && application.professional_profiles
-                          ? `${application.professional_profiles.first_name} ${application.professional_profiles.last_name}`
-                          : "Unknown Applicant"
+                          const displayName = isCompanyApplicant && application.company_profiles
+                            ? application.company_profiles.company_name
+                            : isProfessionalApplicant && application.professional_profiles
+                            ? `${application.professional_profiles.first_name} ${application.professional_profiles.last_name}`
+                            : "Unknown"
 
-                        const displayLocation = isCompanyApplicant && application.company_profiles
-                          ? application.company_profiles.location
-                          : isProfessionalApplicant && application.professional_profiles
-                          ? application.professional_profiles.location
-                          : "N/A"
+                          const displayAvatar = isCompanyApplicant && application.company_profiles
+                            ? application.company_profiles.logo_url
+                            : isProfessionalApplicant && application.professional_profiles
+                            ? application.professional_profiles.profile_photo_url
+                            : undefined
 
-                        const displayAvatar = isCompanyApplicant && application.company_profiles
-                          ? application.company_profiles.logo_url
-                          : isProfessionalApplicant && application.professional_profiles
-                          ? application.professional_profiles.profile_photo_url
-                          : undefined
+                          const displayInitials = isCompanyApplicant && application.company_profiles
+                            ? application.company_profiles.company_name.substring(0, 2).toUpperCase()
+                            : isProfessionalApplicant && application.professional_profiles
+                            ? `${application.professional_profiles.first_name[0]}${application.professional_profiles.last_name[0]}`
+                            : "?"
 
-                        const displayInitials = isCompanyApplicant && application.company_profiles
-                          ? application.company_profiles.company_name.substring(0, 2).toUpperCase()
-                          : isProfessionalApplicant && application.professional_profiles
-                          ? `${application.professional_profiles.first_name[0]}${application.professional_profiles.last_name[0]}`
-                          : "?"
-
-                        return (
-                          <div
-                            key={application.id}
-                            className={`grid grid-cols-1 sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-teal-50/50 transition-colors ${
-                              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                            }`}
-                          >
-                            <div className="col-span-1 sm:col-span-4 flex items-center gap-2">
-                              <Avatar className="h-8 w-8 flex-shrink-0 hidden sm:block">
+                          return (
+                            <div
+                              key={application.id}
+                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
+                            >
+                              <Avatar className="h-8 w-8 flex-shrink-0">
                                 <AvatarImage src={displayAvatar} alt={displayName} />
-                                <AvatarFallback className="text-xs">{displayInitials}</AvatarFallback>
+                                <AvatarFallback className="text-xs bg-teal-100 text-teal-700">{displayInitials}</AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
-                                <span className="font-medium text-gray-900 truncate text-sm block">{displayName}</span>
-                                {isCompanyApplicant && (
-                                  <Badge variant="outline" className="text-xs px-1.5 py-0 mt-0.5">Company</Badge>
-                                )}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium text-xs text-gray-900 truncate">{displayName}</span>
+                                  <Badge className={`${getStatusColor(application.status)} text-[10px] px-1 py-0`}>
+                                    {application.status}
+                                  </Badge>
+                                </div>
+                                <p className="text-[10px] text-gray-500 truncate">{application.jobs.title}</p>
                               </div>
-                            </div>
-                            <div className="col-span-1 sm:col-span-3 flex items-center text-sm text-gray-600">
-                              <span className="truncate">{application.jobs.title}</span>
-                            </div>
-                            <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-xs text-gray-600">
-                              <MapPin className="h-2.5 w-2.5 text-gray-400 flex-shrink-0 sm:hidden" />
-                              <span className="truncate">{displayLocation}</span>
-                            </div>
-                            <div className="col-span-1 sm:col-span-2 flex items-center">
-                              <Badge className={`${getStatusColor(application.status)} text-xs px-2 py-0.5 font-medium`}>
-                                {application.status}
-                              </Badge>
-                            </div>
-                            <div className="col-span-1 sm:col-span-1 flex items-center">
-                              <Button size="sm" variant="ghost" asChild className="h-7 text-xs px-2 hover:bg-teal-100">
+                              <Button size="sm" variant="ghost" asChild className="h-6 px-2 text-[10px] hover:bg-teal-50">
                                 <Link href={`/applications/${application.id}`}>Review</Link>
                               </Button>
                             </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    {receivedApplications.length > 5 && (
-                      <div className="px-4 py-3 border-t bg-gray-50/50">
-                        <Button variant="outline" asChild className="w-full text-xs hover:bg-teal-50">
-                          <Link href="/dashboard/company/applications">{t('common.viewAll')} ({receivedApplications.length})</Link>
-                        </Button>
+                          )
+                        })}
                       </div>
                     )}
-                  </div>
-                )}
                   </CardContent>
                 </CollapsibleContent>
               </Collapsible>
             </Card>
 
-            {/* Your Recent Applications (Submitted) */}
-            <Card className="overflow-hidden">
+            {/* Your Recent Applications - Compact Airbnb Style */}
+            <Card className="overflow-hidden border-0 shadow-sm">
               <Collapsible open={isSubmittedAppsExpanded} onOpenChange={setIsSubmittedAppsExpanded}>
                 <CollapsibleTrigger asChild>
-                  <CardHeader className="px-4 py-3 cursor-pointer hover:bg-indigo-50/50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-shrink-0 text-muted-foreground">
-                          {isSubmittedAppsExpanded ? (
-                            <ChevronDown className="h-5 w-5" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5" />
-                          )}
-                        </div>
-                        <FileText className="h-5 w-5 text-indigo-600" />
-                        <CardTitle className="text-lg font-semibold">Your Recent Applications</CardTitle>
-                        <Badge variant="secondary" className="text-sm">{submittedApplications.length}</Badge>
+                  <CardHeader className="px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors border-b">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-shrink-0 text-gray-400">
+                        {isSubmittedAppsExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
                       </div>
-                      <Button variant="outline" size="sm" asChild className="text-xs" onClick={(e) => e.stopPropagation()}>
-                        <Link href="/dashboard/company/my-applications">
-                          <Filter className="h-4 w-4 mr-1" />
-                          {t('common.viewAll')}
-                        </Link>
-                      </Button>
+                      <FileText className="h-4 w-4 text-indigo-500" />
+                      <span className="text-sm font-medium">Your Applications</span>
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">{submittedApplications.length}</Badge>
                     </div>
-                    <CardDescription className="text-sm mt-1 ml-7">Jobs you've applied to</CardDescription>
                   </CardHeader>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <CardContent className="p-0">
-                {submittedApplications.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">No applications submitted yet</p>
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    {/* Table Header */}
-                    <div className="hidden sm:grid grid-cols-12 gap-2 px-4 py-2 bg-gradient-to-r from-indigo-50 to-blue-50 border-b-2 border-indigo-200 text-xs font-semibold text-gray-700">
-                      <div className="col-span-4">JOB TITLE</div>
-                      <div className="col-span-3">POSTED BY</div>
-                      <div className="col-span-2">LOCATION</div>
-                      <div className="col-span-2">STATUS</div>
-                      <div className="col-span-1">ACTION</div>
-                    </div>
-                    {/* Table Rows */}
-                    <div className="divide-y divide-gray-100">
-                      {(isSubmittedAppsExpanded ? submittedApplications : submittedApplications.slice(0, 5)).map((application, index) => {
-                        const displayInitials = application.job_poster_name.substring(0, 2).toUpperCase()
+                    {submittedApplications.length === 0 ? (
+                      <div className="text-center py-6 text-muted-foreground">
+                        <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-xs">No applications submitted yet</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-gray-100">
+                        {submittedApplications.map((application) => {
+                          const displayInitials = application.job_poster_name.substring(0, 2).toUpperCase()
+                          const canWithdraw = application.status === 'pending' || application.status === 'reviewed'
 
-                        return (
-                          <div
-                            key={application.id}
-                            className={`grid grid-cols-1 sm:grid-cols-12 gap-2 px-4 py-3 hover:bg-indigo-50/50 transition-colors ${
-                              index % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'
-                            }`}
-                          >
-                            <div className="col-span-1 sm:col-span-4 flex items-center gap-2">
-                              <FileText className="h-4 w-4 text-indigo-600 flex-shrink-0 hidden sm:block" />
+                          return (
+                            <div
+                              key={application.id}
+                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
+                            >
                               <div className="flex-1 min-w-0">
-                                <span className="font-medium text-gray-900 truncate text-sm block">{application.jobs.title}</span>
-                                {application.jobs.is_tradespeople_job && (
-                                  <Badge variant="outline" className="text-xs px-1.5 py-0 mt-0.5">Trade</Badge>
-                                )}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium text-xs text-gray-900 truncate">{application.jobs.title}</span>
+                                  <Badge className={`${getStatusColor(application.status)} text-[10px] px-1 py-0`}>
+                                    {application.status}
+                                  </Badge>
+                                  {application.jobs.is_tradespeople_job && (
+                                    <Badge variant="outline" className="text-[10px] px-1 py-0 border-orange-300 text-orange-600">Trade</Badge>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[10px] text-gray-500 truncate">{application.job_poster_name}</span>
+                                  <span className="text-[10px] text-gray-300">•</span>
+                                  <span className="text-[10px] text-gray-400 truncate flex items-center gap-0.5">
+                                    <MapPin className="h-2 w-2" />
+                                    {application.jobs.location}
+                                  </span>
+                                </div>
                               </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={actionLoading === application.id}>
+                                    <MoreVertical className="h-3.5 w-3.5 text-gray-400" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-32">
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/jobs/${application.job_id}`} className="flex items-center text-xs">
+                                      <Eye className="h-3 w-3 mr-2" />
+                                      View Job
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem asChild>
+                                    <Link href={`/applications/${application.id}/edit`} className="flex items-center text-xs">
+                                      <Pencil className="h-3 w-3 mr-2" />
+                                      Edit
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  {canWithdraw && (
+                                    <DropdownMenuItem
+                                      className="flex items-center text-xs text-red-600 focus:text-red-600"
+                                      onClick={() => handleWithdrawApplication(application.id, application.jobs.title)}
+                                    >
+                                      <XCircle className="h-3 w-3 mr-2" />
+                                      Withdraw
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
-                            <div className="col-span-1 sm:col-span-3 flex items-center gap-2">
-                              <Avatar className="h-6 w-6 flex-shrink-0 hidden sm:block">
-                                <AvatarImage src={application.job_poster_avatar || undefined} alt={application.job_poster_name} />
-                                <AvatarFallback className="text-xs">{displayInitials}</AvatarFallback>
-                              </Avatar>
-                              <span className="truncate text-sm text-gray-600">{application.job_poster_name}</span>
-                            </div>
-                            <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-xs text-gray-600">
-                              <MapPin className="h-2.5 w-2.5 text-gray-400 flex-shrink-0 sm:hidden" />
-                              <span className="truncate">{application.jobs.location}</span>
-                            </div>
-                            <div className="col-span-1 sm:col-span-2 flex items-center">
-                              <Badge className={`${getStatusColor(application.status)} text-xs px-2 py-0.5 font-medium`}>
-                                {application.status}
-                              </Badge>
-                            </div>
-                            <div className="col-span-1 sm:col-span-1 flex items-center">
-                              <Button size="sm" variant="ghost" asChild className="h-7 text-xs px-2 hover:bg-indigo-100">
-                                <Link href={`/jobs/${application.job_id}`}>View</Link>
-                              </Button>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                    {submittedApplications.length > 5 && (
-                      <div className="px-4 py-3 border-t bg-gray-50/50">
-                        <Button variant="outline" asChild className="w-full text-xs hover:bg-indigo-50">
-                          <Link href="/dashboard/company/my-applications">{t('common.viewAll')} ({submittedApplications.length})</Link>
-                        </Button>
+                          )
+                        })}
                       </div>
                     )}
-                  </div>
-                )}
                   </CardContent>
                 </CollapsibleContent>
               </Collapsible>

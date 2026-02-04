@@ -95,6 +95,7 @@ interface JobCentricDashboardProps {
   jobs: HomeownerJob[]
   ownerId: string
   ownerUserId: string
+  userType: 'homeowner' | 'company'
   stats: {
     totalJobs: number
     activeJobs: number
@@ -102,7 +103,7 @@ interface JobCentricDashboardProps {
   }
 }
 
-export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCentricDashboardProps) {
+export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stats }: JobCentricDashboardProps) {
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
@@ -635,7 +636,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
                 <p className="text-sm text-muted-foreground mb-4">
                   Post your first job to find contractors and professionals
                 </p>
-                <Link href="/dashboard/homeowner/post-job">
+                <Link href={`/dashboard/${userType}/post-job`}>
                   <Button className="bg-purple-600 hover:bg-purple-700">
                     <Plus className="w-4 h-4 mr-2" />
                     Post Your First Job
@@ -725,7 +726,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                             <DropdownMenuItem asChild>
-                              <Link href={`/dashboard/homeowner/jobs/${job.id}`} className="flex items-center">
+                              <Link href={`/dashboard/${userType}/jobs/${job.id}`} className="flex items-center">
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit Job
                               </Link>

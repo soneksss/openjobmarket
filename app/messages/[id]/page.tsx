@@ -306,12 +306,13 @@ export default function ConversationPage() {
       })
       console.log('[CONVERSATION] Step 14: Other user state set:', displayName)
 
-      // Fetch all messages in this conversation
-      console.log('[CONVERSATION] Step 15: Fetching messages for conversation:', messageConversationId)
+      // Fetch ALL messages between current user and other user (regardless of conversation_id)
+      // This ensures all messages are shown together even if they have different conversation_ids
+      console.log('[CONVERSATION] Step 15: Fetching all messages between users:', currentUser.id, 'and', determinedOtherId)
       const { data: messagesData, error } = await supabase
         .from("messages")
         .select("*")
-        .eq("conversation_id", messageConversationId)
+        .or(`and(sender_id.eq.${currentUser.id},recipient_id.eq.${determinedOtherId}),and(sender_id.eq.${determinedOtherId},recipient_id.eq.${currentUser.id})`)
         .order("created_at", { ascending: true })
 
       console.log('[CONVERSATION] Step 16: Messages retrieved:', messagesData?.length || 0, 'error:', error)
