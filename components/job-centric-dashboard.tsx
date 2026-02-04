@@ -672,6 +672,15 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
                             <h3 className="font-semibold text-sm sm:text-base truncate">{job.title}</h3>
+                            {job.is_tradespeople_job ? (
+                              <Badge className="bg-orange-100 text-orange-700 text-xs">
+                                Trade Job
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-green-100 text-green-700 text-xs">
+                                Vacancy
+                              </Badge>
+                            )}
                             <Badge className={`${statusInfo.color} text-xs`}>
                               <StatusIcon className="h-3 w-3 mr-1" />
                               {statusInfo.text}
@@ -679,8 +688,8 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
                           </div>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
                             <span className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              <span className="truncate max-w-[120px]">{job.location}</span>
+                              <MapPin className="h-2.5 w-2.5" />
+                              <span className="truncate max-w-[100px] text-[0.65rem]">{job.location}</span>
                             </span>
                             {budget && (
                               <span className="text-green-600 font-medium">
@@ -950,8 +959,8 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, stats }: JobCe
                                         <div className="grid grid-cols-2 gap-2 py-3">
                                           <div>
                                             <p className="text-xs text-muted-foreground">Location</p>
-                                            <p className="text-sm flex items-center gap-1">
-                                              <MapPin className="h-3 w-3" />
+                                            <p className="text-xs flex items-center gap-1">
+                                              <MapPin className="h-2.5 w-2.5" />
                                               {professionalProfile.location || 'Not specified'}
                                             </p>
                                           </div>

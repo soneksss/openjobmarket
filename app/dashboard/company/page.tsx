@@ -155,7 +155,6 @@ export default async function CompanyDashboardPage() {
     .select("*")
     .eq("company_id", profile.id)
     .order("created_at", { ascending: false })
-    .limit(5)
 
   if (jobsError) {
     console.log("[v0] Jobs error:", jobsError)

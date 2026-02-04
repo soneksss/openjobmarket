@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -38,6 +39,8 @@ import {
   Star,
   Info,
   X,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
 import { useState } from "react"
@@ -205,6 +208,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [latitude, setLatitude] = useState<number | null>(profile.latitude || null)
   const [longitude, setLongitude] = useState<number | null>(profile.longitude || null)
   const [showReviewsModal, setShowReviewsModal] = useState(false)
+  const [isApplicationsExpanded, setIsApplicationsExpanded] = useState(false)
+  const [isSubmittedAppsExpanded, setIsSubmittedAppsExpanded] = useState(false)
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -1415,8 +1420,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               </CardHeader>
               <CardContent className="hidden lg:block space-y-0.5 sm:space-y-1 p-2 sm:p-6 pt-1">
                 {profile.location && (
-                  <div className="flex items-center text-[10px] sm:text-sm text-muted-foreground">
-                    <MapPin className="h-3 w-3 sm:h-4 sm:w-4 mr-1 flex-shrink-0" />
+                  <div className="flex items-center text-[9px] sm:text-xs text-muted-foreground">
+                    <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 flex-shrink-0" />
                     <span className="truncate">{profile.location}</span>
                   </div>
                 )}
@@ -1561,23 +1566,34 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
             {/* Applications Received */}
             <Card className="overflow-hidden">
-              <CardHeader className="px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-teal-600" />
-                    <CardTitle className="text-lg font-semibold">{t('dashboard.applications')}</CardTitle>
-                    <Badge variant="secondary" className="text-sm">{receivedApplications.length}</Badge>
-                  </div>
-                  <Button variant="outline" size="sm" asChild className="text-xs">
-                    <Link href="/dashboard/company/applications">
-                      <Filter className="h-4 w-4 mr-1" />
-                      {t('common.viewAll')}
-                    </Link>
-                  </Button>
-                </div>
-                <CardDescription className="text-sm mt-1">Candidates who applied to your posted jobs (last 5)</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
+              <Collapsible open={isApplicationsExpanded} onOpenChange={setIsApplicationsExpanded}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="px-4 py-3 cursor-pointer hover:bg-teal-50/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-shrink-0 text-muted-foreground">
+                          {isApplicationsExpanded ? (
+                            <ChevronDown className="h-5 w-5" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5" />
+                          )}
+                        </div>
+                        <Users className="h-5 w-5 text-teal-600" />
+                        <CardTitle className="text-lg font-semibold">{t('dashboard.applications')}</CardTitle>
+                        <Badge variant="secondary" className="text-sm">{receivedApplications.length}</Badge>
+                      </div>
+                      <Button variant="outline" size="sm" asChild className="text-xs" onClick={(e) => e.stopPropagation()}>
+                        <Link href="/dashboard/company/applications">
+                          <Filter className="h-4 w-4 mr-1" />
+                          {t('common.viewAll')}
+                        </Link>
+                      </Button>
+                    </div>
+                    <CardDescription className="text-sm mt-1 ml-7">Candidates who applied to your posted jobs</CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="p-0">
                 {receivedApplications.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -1595,7 +1611,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     </div>
                     {/* Table Rows */}
                     <div className="divide-y divide-gray-100">
-                      {receivedApplications.slice(0, 5).map((application, index) => {
+                      {(isApplicationsExpanded ? receivedApplications : receivedApplications.slice(0, 5)).map((application, index) => {
                         // Determine display values based on applicant type
                         const isCompanyApplicant = application.applicant_type === "company"
                         const isProfessionalApplicant = application.applicant_type === "professional"
@@ -1646,8 +1662,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                             <div className="col-span-1 sm:col-span-3 flex items-center text-sm text-gray-600">
                               <span className="truncate">{application.jobs.title}</span>
                             </div>
-                            <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-sm text-gray-600">
-                              <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
+                            <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-xs text-gray-600">
+                              <MapPin className="h-2.5 w-2.5 text-gray-400 flex-shrink-0 sm:hidden" />
                               <span className="truncate">{displayLocation}</span>
                             </div>
                             <div className="col-span-1 sm:col-span-2 flex items-center">
@@ -1673,28 +1689,41 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     )}
                   </div>
                 )}
-              </CardContent>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
 
             {/* Your Recent Applications (Submitted) */}
             <Card className="overflow-hidden">
-              <CardHeader className="px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-indigo-600" />
-                    <CardTitle className="text-lg font-semibold">Your Recent Applications</CardTitle>
-                    <Badge variant="secondary" className="text-sm">{submittedApplications.length}</Badge>
-                  </div>
-                  <Button variant="outline" size="sm" asChild className="text-xs">
-                    <Link href="/dashboard/company/my-applications">
-                      <Filter className="h-4 w-4 mr-1" />
-                      {t('common.viewAll')}
-                    </Link>
-                  </Button>
-                </div>
-                <CardDescription className="text-sm mt-1">Jobs you've applied to (last 5)</CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
+              <Collapsible open={isSubmittedAppsExpanded} onOpenChange={setIsSubmittedAppsExpanded}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="px-4 py-3 cursor-pointer hover:bg-indigo-50/50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-shrink-0 text-muted-foreground">
+                          {isSubmittedAppsExpanded ? (
+                            <ChevronDown className="h-5 w-5" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5" />
+                          )}
+                        </div>
+                        <FileText className="h-5 w-5 text-indigo-600" />
+                        <CardTitle className="text-lg font-semibold">Your Recent Applications</CardTitle>
+                        <Badge variant="secondary" className="text-sm">{submittedApplications.length}</Badge>
+                      </div>
+                      <Button variant="outline" size="sm" asChild className="text-xs" onClick={(e) => e.stopPropagation()}>
+                        <Link href="/dashboard/company/my-applications">
+                          <Filter className="h-4 w-4 mr-1" />
+                          {t('common.viewAll')}
+                        </Link>
+                      </Button>
+                    </div>
+                    <CardDescription className="text-sm mt-1 ml-7">Jobs you've applied to</CardDescription>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="p-0">
                 {submittedApplications.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <FileText className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -1712,7 +1741,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     </div>
                     {/* Table Rows */}
                     <div className="divide-y divide-gray-100">
-                      {submittedApplications.slice(0, 5).map((application, index) => {
+                      {(isSubmittedAppsExpanded ? submittedApplications : submittedApplications.slice(0, 5)).map((application, index) => {
                         const displayInitials = application.job_poster_name.substring(0, 2).toUpperCase()
 
                         return (
@@ -1738,8 +1767,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                               </Avatar>
                               <span className="truncate text-sm text-gray-600">{application.job_poster_name}</span>
                             </div>
-                            <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-sm text-gray-600">
-                              <MapPin className="h-3 w-3 text-gray-400 flex-shrink-0 sm:hidden" />
+                            <div className="col-span-1 sm:col-span-2 flex items-center gap-1 text-xs text-gray-600">
+                              <MapPin className="h-2.5 w-2.5 text-gray-400 flex-shrink-0 sm:hidden" />
                               <span className="truncate">{application.jobs.location}</span>
                             </div>
                             <div className="col-span-1 sm:col-span-2 flex items-center">
@@ -1765,7 +1794,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     )}
                   </div>
                 )}
-              </CardContent>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
             </div>
           </div>

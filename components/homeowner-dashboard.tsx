@@ -410,8 +410,8 @@ export function HomeownerDashboard({ profile, jobs, stats, user, isProfileComple
                 </div>
 
                 <div className="space-y-2 text-xs">
-                  <div className="flex items-center text-muted-foreground">
-                    <MapPin className="h-3 w-3 mr-1 flex-shrink-0" />
+                  <div className="flex items-center text-muted-foreground text-[0.65rem]">
+                    <MapPin className="h-2.5 w-2.5 mr-1 flex-shrink-0" />
                     <span className="truncate">{profile.location}</span>
                   </div>
 

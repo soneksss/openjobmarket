@@ -77,7 +77,6 @@ export default async function HomeownerDashboardPageBR() {
     `)
     .eq("homeowner_id", profile.id)
     .order("created_at", { ascending: false })
-    .limit(10)
 
   if (jobsError) {
     console.log("[HOMEOWNER-BR] Jobs error:", jobsError)
