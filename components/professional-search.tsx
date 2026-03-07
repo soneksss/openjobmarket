@@ -40,6 +40,7 @@ interface Professional {
   first_name: string
   last_name: string
   nickname?: string
+  hide_personal_name?: boolean
   title: string
   bio: string
   location: string
@@ -347,9 +348,11 @@ export default function ProfessionalSearch({ professionals, user, searchParams, 
                           <div>
                             <h3 className="text-xl font-bold text-foreground mb-1">{professional.title}</h3>
                             <div className="flex items-center gap-2">
-                              {/* 2. Nickname or Name */}
+                              {/* 2. Nickname or Name - respects hide_personal_name privacy setting */}
                               <p className="text-base font-medium text-foreground">
-                                {professional.nickname || `${professional.first_name} ${professional.last_name}`}
+                                {!professional.hide_personal_name && (professional.first_name || professional.last_name)
+                                  ? `${professional.first_name || ''} ${professional.last_name || ''}`.trim()
+                                  : (professional.nickname || 'Anonymous')}
                               </p>
                               {/* Star Rating */}
                               {professional.rating !== undefined && professional.rating !== null && professional.rating > 0 && (
@@ -493,7 +496,9 @@ export default function ProfessionalSearch({ professionals, user, searchParams, 
                               onClick={() =>
                                 handleSendInquiry(
                                   professional.id,
-                                  professional.nickname || `${professional.first_name} ${professional.last_name}`,
+                                  !professional.hide_personal_name && (professional.first_name || professional.last_name)
+                                    ? `${professional.first_name || ''} ${professional.last_name || ''}`.trim()
+                                    : (professional.nickname || 'Anonymous'),
                                 )
                               }
                               disabled={sendingMessage === professional.id}

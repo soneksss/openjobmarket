@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { JobCentricDashboard } from "@/components/job-centric-dashboard"
+import ActivityTickerCard from "@/components/activity-ticker-card"
 import Link from "next/link"
 import Image from "next/image"
 import {
@@ -49,6 +50,7 @@ interface HomeownerJob {
   salary_frequency?: string
   is_active: boolean
   expires_at?: string
+  urgency_type?: "asap" | "today" | "flexible" | null
   created_at: string
   updated_at?: string
   is_tradespeople_job?: boolean
@@ -364,7 +366,9 @@ export function HomeownerDashboard({ profile, jobs, stats, user, isProfileComple
   const displayName = onMarket && profile.nickname ? profile.nickname : `${profile.first_name} ${profile.last_name}`
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      {/* Full Dashboard */}
+      <div className="min-h-screen bg-background">
       <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
           {/* Left Sidebar - Profile Card */}
@@ -478,6 +482,9 @@ export function HomeownerDashboard({ profile, jobs, stats, user, isProfileComple
                 </div>
               </div>
             </Card>
+
+            {/* Recent Activity Ticker */}
+            <ActivityTickerCard className="mt-1" />
           </div>
 
           {/* Main Content Area */}
@@ -586,6 +593,7 @@ export function HomeownerDashboard({ profile, jobs, stats, user, isProfileComple
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }

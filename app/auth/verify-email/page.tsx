@@ -176,6 +176,9 @@ export default function VerifyEmailPage() {
           <p className="text-sm text-gray-500 mt-2">
             The code expires in 10 minutes
           </p>
+          <p className="text-sm text-red-600 font-medium mt-2">
+            Don't forget to check your Spam folder
+          </p>
         </div>
 
         <form onSubmit={handleVerifyOTP} className="space-y-4">

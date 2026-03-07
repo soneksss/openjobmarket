@@ -71,12 +71,12 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-2xl">
-      <Card className="p-8">
+      <Card className="p-8 bg-slate-800/50 border-slate-700">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-white mb-2">
             Edit Homeowner Profile
           </h1>
-          <p className="text-gray-600">
+          <p className="text-slate-400">
             Update your personal information
           </p>
         </div>
@@ -84,72 +84,72 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="firstName">First Name *</Label>
+              <Label htmlFor="firstName" className="text-slate-200">First Name *</Label>
               <Input
                 id="firstName"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                 required
-                className="border-2 border-gray-300 focus:border-blue-500"
+                className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
               />
             </div>
 
             <div>
-              <Label htmlFor="lastName">Last Name *</Label>
+              <Label htmlFor="lastName" className="text-slate-200">Last Name *</Label>
               <Input
                 id="lastName"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                 required
-                className="border-2 border-gray-300 focus:border-blue-500"
+                className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
               />
             </div>
           </div>
 
           <div>
-            <Label htmlFor="phone">Phone Number</Label>
+            <Label htmlFor="phone" className="text-slate-200">Phone Number</Label>
             <Input
               id="phone"
               type="tel"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               placeholder="+44 7700 900000"
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
           </div>
 
           <div>
-            <Label htmlFor="location">Location *</Label>
+            <Label htmlFor="location" className="text-slate-200">Location *</Label>
             <Input
               id="location"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               placeholder="e.g., London, UK"
               required
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
           </div>
 
           <div>
-            <Label htmlFor="bio">Bio</Label>
+            <Label htmlFor="bio" className="text-slate-200">Bio</Label>
             <Textarea
               id="bio"
               value={formData.bio}
               onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
               placeholder="Tell us a bit about yourself..."
               rows={4}
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-lg text-sm">
               Profile updated successfully! Redirecting...
             </div>
           )}
@@ -159,11 +159,11 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
               type="button"
               variant="outline"
               onClick={() => router.back()}
-              className="flex-1"
+              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading} className="flex-1" size="lg">
+            <Button type="submit" disabled={isLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" size="lg">
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />

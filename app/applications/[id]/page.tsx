@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { createClient } from "@/lib/server"
 import { redirect, notFound } from "next/navigation"
+import { requireVacancyEnabled } from "@/lib/vacancy-guard"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -30,6 +31,8 @@ interface ApplicationPageProps {
 }
 
 export default async function ApplicationPage({ params }: ApplicationPageProps) {
+  await requireVacancyEnabled()
+
   const { id } = await params
   const supabase = await createClient()
   const {

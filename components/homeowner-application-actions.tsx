@@ -54,59 +54,35 @@ export function HomeownerApplicationActions({
     setLoading(true)
 
     try {
-      // Update the job to set this contractor as accepted
-      const { error: jobError } = await supabase
-        .from("jobs")
-        .update({
-          accepted_contractor_id: contractorId,
-          completion_status: 'accepted',
-          status: 'accepted' // Hide from map when accepted
-        })
-        .eq("id", jobId)
+      // ── State machine: atomically confirm the tradesperson ──
+      // confirm_tradesperson() is a SECURITY DEFINER RPC that:
+      //   1. Sets jobs.status → CONFIRMED
+      //   2. Sets jobs.confirmed_tradesperson_id
+      //   3. AUTO_CANCELs all other PENDING applications
+      // The tradesperson then has 15 min to call accept_confirmed_job().
+      // We must NOT update jobs.status or job_applications.status directly.
+      const { error: rpcError } = await supabase.rpc("confirm_tradesperson", {
+        p_job_id:          jobId,
+        p_tradesperson_id: contractorId,   // must be company_profiles.id
+      })
 
-      if (jobError) {
-        // Handle specific Supabase errors
-        if (jobError.message?.includes('fetch') || jobError.message?.includes('JWT')) {
+      if (rpcError) {
+        if (rpcError.message?.includes("fetch") || rpcError.message?.includes("JWT")) {
           throw new Error("Authentication error. Please refresh the page and try again.")
         }
-        throw jobError
+        throw rpcError
       }
 
-      // Update this application to accepted
-      const { error: acceptError } = await supabase
-        .from("job_applications")
-        .update({ status: "accepted" })
-        .eq("id", applicationId)
-
-      if (acceptError) {
-        if (acceptError.message?.includes('fetch') || acceptError.message?.includes('JWT')) {
-          throw new Error("Authentication error. Please refresh the page and try again.")
-        }
-        throw acceptError
-      }
-
-      // Reject all other applications for this job
-      const { error: rejectError } = await supabase
-        .from("job_applications")
-        .update({ status: "rejected" })
-        .eq("job_id", jobId)
-        .neq("id", applicationId)
-
-      if (rejectError) {
-        console.error("[HOMEOWNER-ACTIONS] Failed to reject other applications:", rejectError)
-        // Don't fail the entire operation if rejecting others fails
-      }
-
-      // Get contractor's user_id for messaging
+      // Look up contractor's user_id for notification (read-only, safe)
       const { data: contractorData } = await supabase
-        .from("professional_profiles")
+        .from("company_profiles")
         .select("user_id")
         .eq("id", contractorId)
         .single()
 
       toast({
-        title: "✅ Contractor Accepted",
-        description: `${contractorName} has been accepted for this job.`,
+        title: "✅ Tradesperson Confirmed",
+        description: `${contractorName} has been confirmed. They have 15 minutes to accept.`,
       })
 
       setShowAcceptDialog(false)

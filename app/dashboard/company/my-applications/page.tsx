@@ -94,10 +94,10 @@ export default async function CompanyMyApplicationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/50">
+    <div className="min-h-screen bg-slate-900 md:bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
-          <Button variant="ghost" asChild>
+          <Button variant="ghost" asChild className="text-slate-300 hover:text-white md:text-gray-700 md:hover:text-gray-900">
             <Link href="/dashboard/company">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Dashboard
@@ -105,25 +105,25 @@ export default async function CompanyMyApplicationsPage() {
           </Button>
         </div>
 
-        <Card>
+        <Card className="bg-slate-800 md:bg-white border-slate-700 md:border-gray-200">
           <CardHeader>
-            <CardTitle className="text-2xl flex items-center">
+            <CardTitle className="text-2xl flex items-center text-white md:text-gray-900">
               <Briefcase className="h-6 w-6 mr-2" />
               My Applications
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-slate-400 md:text-gray-600">
               View and manage job applications you've submitted ({applications?.length || 0} total)
             </CardDescription>
           </CardHeader>
           <CardContent>
             {!applications || applications.length === 0 ? (
               <div className="text-center py-12">
-                <Briefcase className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                <h3 className="text-lg font-semibold mb-2">No Applications Yet</h3>
-                <p className="text-muted-foreground mb-6">
+                <Briefcase className="h-16 w-16 mx-auto mb-4 text-slate-500 md:text-gray-400" />
+                <h3 className="text-lg font-semibold mb-2 text-white md:text-gray-900">No Applications Yet</h3>
+                <p className="text-slate-400 md:text-gray-600 mb-6">
                   You haven't applied to any jobs yet. Browse available jobs and apply to get started.
                 </p>
-                <Button asChild>
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
                   <Link href="/tasks">
                     <Briefcase className="h-4 w-4 mr-2" />
                     Browse Jobs
@@ -152,14 +152,14 @@ export default async function CompanyMyApplicationsPage() {
                   return (
                     <Card
                       key={application.id}
-                      className="hover:shadow-md transition-shadow"
+                      className="hover:shadow-md transition-shadow bg-slate-800 md:bg-white border-slate-700 md:border-gray-200"
                     >
                       <CardContent className="p-6">
                         <div className="flex gap-4">
                           {/* Logo/Avatar */}
                           <div className="flex-shrink-0">
                             {logoUrl ? (
-                              <div className="h-14 w-14 relative rounded-lg overflow-hidden bg-gray-100">
+                              <div className="h-14 w-14 relative rounded-lg overflow-hidden bg-slate-700 md:bg-gray-100">
                                 <Image
                                   src={logoUrl}
                                   alt={posterName}
@@ -169,7 +169,7 @@ export default async function CompanyMyApplicationsPage() {
                               </div>
                             ) : (
                               <Avatar className="h-14 w-14">
-                                <AvatarFallback className="bg-blue-100 text-blue-600 font-bold">
+                                <AvatarFallback className="bg-emerald-900/50 md:bg-blue-100 text-emerald-400 md:text-blue-600 font-bold">
                                   {posterName.substring(0, 2).toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
@@ -180,16 +180,16 @@ export default async function CompanyMyApplicationsPage() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex-1">
-                                <h3 className="text-lg font-bold text-gray-900 mb-1">
+                                <h3 className="text-lg font-bold text-white md:text-gray-900 mb-1">
                                   {job.title}
                                 </h3>
-                                <p className="text-gray-700 font-medium mb-1">
+                                <p className="text-slate-300 md:text-gray-700 font-medium mb-1">
                                   {posterName}
-                                  <Badge variant="outline" className="ml-2 text-xs">
+                                  <Badge variant="outline" className="ml-2 text-xs border-slate-600 md:border-gray-300 text-slate-300 md:text-gray-700">
                                     {posterType}
                                   </Badge>
                                 </p>
-                                <div className="flex items-center gap-4 text-sm text-gray-600">
+                                <div className="flex items-center gap-4 text-sm text-slate-400 md:text-gray-600">
                                   <div className="flex items-center gap-1">
                                     <MapPin className="h-4 w-4" />
                                     {job.location}
@@ -207,7 +207,7 @@ export default async function CompanyMyApplicationsPage() {
 
                             {/* Salary */}
                             {formatSalary(job.salary_min, job.salary_max) && (
-                              <div className="flex items-center gap-2 text-green-600 font-semibold mb-3">
+                              <div className="flex items-center gap-2 text-emerald-400 md:text-green-600 font-semibold mb-3">
                                 <DollarSign className="h-4 w-4" />
                                 {formatSalary(job.salary_min, job.salary_max)}
                               </div>
@@ -215,11 +215,11 @@ export default async function CompanyMyApplicationsPage() {
 
                             {/* Job Type Badges */}
                             <div className="flex flex-wrap gap-2 mb-3">
-                              <Badge variant="outline" className="bg-blue-50">
+                              <Badge variant="outline" className="bg-slate-700/50 md:bg-blue-50 text-slate-300 md:text-blue-700 border-slate-600 md:border-blue-200">
                                 {job.job_type}
                               </Badge>
                               {job.is_tradespeople_job && (
-                                <Badge variant="outline" className="bg-orange-50">
+                                <Badge variant="outline" className="bg-amber-900/30 md:bg-orange-50 text-amber-400 md:text-orange-700 border-amber-700/50 md:border-orange-200">
                                   Task
                                 </Badge>
                               )}
@@ -227,12 +227,12 @@ export default async function CompanyMyApplicationsPage() {
 
                             {/* Action Buttons */}
                             <div className="flex gap-2">
-                              <Button asChild size="sm">
+                              <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
                                 <Link href={`/applications/${application.id}`}>
                                   View Application
                                 </Link>
                               </Button>
-                              <Button variant="outline" size="sm" asChild>
+                              <Button variant="outline" size="sm" asChild className="border-slate-600 md:border-gray-300 text-slate-300 md:text-gray-700 hover:bg-slate-700 md:hover:bg-gray-100">
                                 <Link href={`/jobs/${job.id}`}>
                                   View Job
                                 </Link>

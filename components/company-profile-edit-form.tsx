@@ -14,6 +14,13 @@ import { Upload, ArrowLeft, Building2, MapPin, Eye, EyeOff, Trash2, Plus, X } fr
 import { createClient } from "@/lib/client"
 import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import pica from "pica"
 import { LocationPicker } from "@/components/ui/location-picker"
 import { deleteCompanyAccount } from "@/lib/actions"
@@ -31,6 +38,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
+import { industryTitles } from "@/lib/data/industries"
 
 interface User {
   id: string
@@ -84,7 +92,15 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
   const [phoneNumber, setPhoneNumber] = useState(profile.phone_number || "")
   const [location, setLocation] = useState(profile.location || "")
   const [fullAddress, setFullAddress] = useState(profile.full_address || "")
-  const [logoUrl, setLogoUrl] = useState(profile.logo_url || "")
+  // Add cache-busting to logo URL to prevent stale cache issues
+  const getLogoUrlWithCacheBust = (url: string | undefined) => {
+    if (!url) return ""
+    // Add timestamp as cache-buster
+    const separator = url.includes("?") ? "&" : "?"
+    return `${url}${separator}t=${Date.now()}`
+  }
+  const [logoUrl, setLogoUrl] = useState(getLogoUrlWithCacheBust(profile.logo_url))
+  const [logoError, setLogoError] = useState(false)
 
   // Privacy toggle states
   const [hideAddress, setHideAddress] = useState(profile.hide_address || false)
@@ -102,28 +118,37 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
   const supabase = createClient()
 
+  // Debug: Log logo URL on mount
+  useEffect(() => {
+    console.log("[COMPANY-EDIT] Component mounted with logo_url:", profile.logo_url)
+    console.log("[COMPANY-EDIT] Current logoUrl state (with cache-bust):", logoUrl)
+    console.log("[COMPANY-EDIT] logoError state:", logoError)
+  }, [])
+
   // Check if industry is a custom value (not in predefined list)
   useEffect(() => {
-    const predefinedIndustries = [
-      "Technology", "Healthcare", "Finance", "Education", "Retail",
-      "Manufacturing", "Construction", "Real Estate", "Marketing", "Consulting"
-    ]
-    if (industry && !predefinedIndustries.includes(industry)) {
+    if (industry && !industryTitles.includes(industry)) {
       setShowCustomIndustry(true)
       setCustomIndustry(industry)
     }
   }, [])
 
-  // Image resizing helper function with timeout
+  // Image resizing helper function with timeout and fallback
   const resizeImage = async (file: File, maxSize: number = 300): Promise<File> => {
     return new Promise((resolve, reject) => {
+      console.log("[v0] resizeImage: Starting image resize process")
+
       // Add timeout to prevent hanging
       const timeoutId = setTimeout(() => {
+        console.error("[v0] resizeImage: Timeout reached after 15 seconds")
         reject(new Error('Image processing timeout'))
-      }, 30000) // 30 second timeout
+      }, 15000) // 15 second timeout (reduced from 30)
 
       const img = new Image()
+
       img.onload = async () => {
+        console.log("[v0] resizeImage: Image loaded, dimensions:", img.width, "x", img.height)
+
         try {
           const canvas = document.createElement("canvas")
 
@@ -143,29 +168,65 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
           canvas.width = width
           canvas.height = height
+          console.log("[v0] resizeImage: Canvas created, target size:", width, "x", height)
 
-          // Use pica for high-quality resizing
-          const picaInstance = pica()
-          await picaInstance.resize(img, canvas)
+          // Try pica first, fall back to native canvas if it fails
+          let blob: Blob | null = null
 
-          // Convert to WebP for better compression
-          const blob = await picaInstance.toBlob(canvas, "image/webp", 0.85)
-          const resizedFile = new File([blob], "logo.webp", { type: "image/webp" })
+          try {
+            console.log("[v0] resizeImage: Attempting pica resize...")
+            const picaInstance = pica()
+            await picaInstance.resize(img, canvas)
+            console.log("[v0] resizeImage: Pica resize successful, converting to blob...")
+            blob = await picaInstance.toBlob(canvas, "image/webp", 0.85)
+            console.log("[v0] resizeImage: Pica blob created, size:", blob.size)
+          } catch (picaError) {
+            console.warn("[v0] resizeImage: Pica failed, using native canvas fallback:", picaError)
+
+            // Fallback to native canvas resize
+            const ctx = canvas.getContext("2d")
+            if (!ctx) {
+              throw new Error("Could not get canvas 2d context")
+            }
+
+            ctx.drawImage(img, 0, 0, width, height)
+            console.log("[v0] resizeImage: Native canvas draw complete")
+
+            // Try to get blob from canvas
+            blob = await new Promise<Blob | null>((resolveBlob) => {
+              canvas.toBlob(resolveBlob, "image/jpeg", 0.85)
+            })
+
+            if (!blob) {
+              throw new Error("Canvas toBlob returned null")
+            }
+            console.log("[v0] resizeImage: Native canvas blob created, size:", blob.size)
+          }
+
+          const fileExtension = blob.type === "image/webp" ? "webp" : "jpg"
+          const resizedFile = new File([blob], `logo.${fileExtension}`, { type: blob.type })
 
           URL.revokeObjectURL(img.src)
           clearTimeout(timeoutId)
+          console.log("[v0] resizeImage: Resize complete, file size:", resizedFile.size)
           resolve(resizedFile)
         } catch (error) {
+          console.error("[v0] resizeImage: Error during resize:", error)
           clearTimeout(timeoutId)
           URL.revokeObjectURL(img.src)
           reject(error)
         }
       }
+
       img.onerror = (error) => {
+        console.error("[v0] resizeImage: Image load error:", error)
         clearTimeout(timeoutId)
-        reject(error)
+        reject(new Error("Failed to load image"))
       }
-      img.src = URL.createObjectURL(file)
+
+      const objectUrl = URL.createObjectURL(file)
+      console.log("[v0] resizeImage: Created object URL, loading image...")
+      img.src = objectUrl
     })
   }
 
@@ -197,14 +258,10 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     }
 
     setUploading(true)
-    try {
-      console.log("[v0] Starting logo upload and resize for file:", file.name, "Size:", (file.size / 1024 / 1024).toFixed(2) + "MB")
 
-      // Resize and optimize the image
-      const resizedFile = await resizeImage(file, 300)
-      console.log("[v0] Image resized:", "New size:", (resizedFile.size / 1024).toFixed(2) + "KB")
-
-      const fileName = `${user.id}/logo.webp`
+    // Helper function to upload a file to storage
+    const uploadToStorage = async (fileToUpload: File, fileExtension: string) => {
+      const fileName = `${user.id}/logo.${fileExtension}`
 
       // Delete old logo if exists
       if (profile.logo_url) {
@@ -218,10 +275,10 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         }
       }
 
-      // Upload resized logo
+      // Upload logo
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from("company-logos")
-        .upload(fileName, resizedFile, {
+        .upload(fileName, fileToUpload, {
           cacheControl: "3600",
           upsert: true, // Allow overwriting if file exists
         })
@@ -252,7 +309,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
             duration: 5000,
           })
         }
-        return
+        return null
       }
 
       console.log("[v0] Upload successful:", uploadData)
@@ -262,46 +319,67 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         data: { publicUrl },
       } = supabase.storage.from("company-logos").getPublicUrl(fileName)
 
-      console.log("[v0] Public URL generated:", publicUrl)
-      setLogoUrl(publicUrl)
-      toast({
-        title: "✓ Logo Uploaded Successfully",
-        description: "Your logo has been uploaded and optimized.",
-        duration: 5000,
-      })
-    } catch (error) {
-      console.error("[v0] Unexpected error:", error)
-      if (error instanceof Error && error.message.includes('timeout')) {
-        toast({
-          title: "Upload Timeout",
-          description: "Image processing took too long. Please try a smaller image or a different file.",
-          variant: "destructive",
-          duration: 5000,
-        })
-      } else if (error instanceof Error && error.message.includes('canvas')) {
-        toast({
-          title: "Image Processing Error",
-          description: "Error processing image. Please try a different image file.",
-          variant: "destructive",
-          duration: 5000,
-        })
+      return publicUrl
+    }
+
+    try {
+      console.log("[v0] Starting logo upload for file:", file.name, "Size:", (file.size / 1024 / 1024).toFixed(2) + "MB")
+
+      let publicUrl: string | null = null
+      const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+
+      // For files under 500KB, try to resize. For larger files, upload directly to avoid timeout
+      const shouldResize = file.size < 500 * 1024
+
+      if (shouldResize) {
+        console.log("[v0] File is small, attempting resize...")
+        try {
+          const resizedFile = await resizeImage(file, 300)
+          console.log("[v0] Image resized:", "New size:", (resizedFile.size / 1024).toFixed(2) + "KB")
+          publicUrl = await uploadToStorage(resizedFile, "webp")
+        } catch (resizeError) {
+          console.warn("[v0] Resize failed, uploading original file instead:", resizeError)
+          publicUrl = await uploadToStorage(file, fileExtension)
+        }
       } else {
+        // Large file - skip resize and upload directly
+        console.log("[v0] File is large, skipping resize and uploading directly...")
+        publicUrl = await uploadToStorage(file, fileExtension)
+      }
+
+      if (publicUrl) {
+        console.log("[v0] Logo uploaded successfully, public URL:", publicUrl)
+        setLogoUrl(getLogoUrlWithCacheBust(publicUrl))
+        setLogoError(false)
         toast({
-          title: "Upload Failed",
-          description: "Unexpected error uploading logo. Please try again.",
-          variant: "destructive",
+          title: "✓ Logo Uploaded",
+          description: shouldResize ? "Your logo has been uploaded and optimized." : "Your logo has been uploaded.",
           duration: 5000,
         })
       }
+    } catch (error) {
+      console.error("[v0] Unexpected error:", error)
+      toast({
+        title: "Upload Failed",
+        description: "Unexpected error uploading logo. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      })
     } finally {
       setUploading(false)
     }
   }
 
   const addService = () => {
-    if (newService.trim() && !services.includes(newService.trim())) {
-      setServices([...services, newService.trim()])
+    console.log("[COMPANY-EDIT] addService called, newService:", newService, "current services:", services)
+    const trimmedService = newService.trim()
+    if (trimmedService && !services.includes(trimmedService)) {
+      const newServices = [...services, trimmedService]
+      console.log("[COMPANY-EDIT] Adding service:", trimmedService, "new services array:", newServices)
+      setServices(newServices)
       setNewService("")
+    } else {
+      console.log("[COMPANY-EDIT] Service not added - empty or duplicate:", trimmedService)
     }
   }
 
@@ -445,7 +523,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     <div className="antialiased space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center space-x-4">
-        <Button variant="ghost" size="sm" asChild>
+        <Button variant="ghost" size="sm" asChild className="text-slate-300 hover:text-white hover:bg-slate-700">
           <Link href={locale === 'pt-BR' ? '/br/dashboard/company' : '/dashboard/company'}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dashboard
@@ -453,13 +531,13 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         </Button>
       </div>
 
-      <Card className="antialiased">
+      <Card className="antialiased bg-slate-800/50 border-slate-700">
         <CardHeader className="pb-4">
-          <CardTitle className="flex items-center text-xl font-semibold">
-            <Building2 className="h-5 w-5 mr-2" />
+          <CardTitle className="flex items-center text-xl font-semibold text-white">
+            <Building2 className="h-5 w-5 mr-2 text-emerald-400" />
             Edit Company Profile
           </CardTitle>
-          <CardDescription className="text-sm text-muted-foreground">
+          <CardDescription className="text-sm text-slate-400">
             Update your company information and privacy settings
           </CardDescription>
         </CardHeader>
@@ -467,29 +545,37 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
             {/* Logo Section */}
             <div className="space-y-3">
-              <Label className="text-sm font-medium">Company Logo</Label>
+              <Label className="text-sm font-medium text-slate-200">Company Logo</Label>
               <div className="flex items-center space-x-4">
                 <Label htmlFor="logo-upload" className="cursor-pointer group relative block">
-                  <div className="relative h-20 w-20 sm:h-24 sm:w-24 bg-muted rounded-lg overflow-hidden border-2 border-gray-300 group-hover:border-blue-500 flex items-center justify-center transition-all">
-                    {logoUrl ? (
+                  <div className="relative h-20 w-20 sm:h-24 sm:w-24 bg-slate-700 rounded-lg overflow-hidden border-2 border-slate-600 group-hover:border-emerald-500 flex items-center justify-center transition-all">
+                    {logoUrl && !logoError ? (
                       <img
                         src={logoUrl}
                         alt="Company logo"
                         className="max-h-full max-w-full object-contain"
+                        onError={(e) => {
+                          console.error("[COMPANY-EDIT] Logo failed to load:", logoUrl)
+                          setLogoError(true)
+                        }}
+                        onLoad={() => {
+                          console.log("[COMPANY-EDIT] Logo loaded successfully:", logoUrl)
+                          setLogoError(false)
+                        }}
                       />
                     ) : (
-                      <div className="text-xs sm:text-sm font-medium text-muted-foreground text-center">
-                        {getInitials()}
+                      <div className="text-xs sm:text-sm font-medium text-slate-400 text-center px-1">
+                        {logoUrl && logoError ? "Load Error" : getInitials()}
                       </div>
                     )}
                   </div>
-                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-0 group-hover:bg-opacity-40 rounded-lg transition-all">
+                  <div className="absolute inset-0 flex items-center justify-center bg-transparent group-hover:bg-black/40 rounded-lg transition-colors">
                     <Upload className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </Label>
                 <div className="space-y-2">
                   <Label htmlFor="logo-upload" className="cursor-pointer">
-                    <div className="flex items-center space-x-2 px-3 py-2 text-sm border-2 border-gray-300 rounded-md hover:bg-accent hover:border-blue-400 transition-colors">
+                    <div className="flex items-center space-x-2 px-3 py-2 text-sm border-2 border-slate-600 rounded-md hover:bg-slate-700 hover:border-emerald-500 text-slate-200 transition-colors">
                       <Upload className="h-4 w-4" />
                       <span>{uploading ? "Uploading..." : "Upload Logo"}</span>
                     </div>
@@ -502,7 +588,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                     disabled={uploading}
                     className="hidden"
                   />
-                  <p className="text-xs text-muted-foreground">JPG, PNG or GIF. Max size 5MB.</p>
+                  <p className="text-xs text-slate-400">JPG, PNG or GIF. Max size 5MB.</p>
                 </div>
               </div>
             </div>
@@ -510,14 +596,14 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
             {/* Company Information */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-base sm:text-lg font-medium">Company Information</h3>
+                <h3 className="text-base sm:text-lg font-medium text-white">Company Information</h3>
                 <div className="flex items-center space-x-2">
                   {!hideCompanyInfo ? (
-                    <Eye className="h-4 w-4 text-green-500" />
+                    <Eye className="h-4 w-4 text-emerald-400" />
                   ) : (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    <EyeOff className="h-4 w-4 text-slate-500" />
                   )}
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-slate-400">
                     {!hideCompanyInfo ? "Visible to users" : "Private"}
                   </span>
                   <Switch
@@ -529,7 +615,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="companyName" className="text-sm font-medium">
+                <Label htmlFor="companyName" className="text-sm font-medium text-slate-200">
                   Company Name *
                 </Label>
                 <Input
@@ -538,20 +624,18 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   onChange={(e) => setCompanyName(e.target.value)}
                   required
                   placeholder="Enter your company name"
-                  className="text-sm border-2 border-gray-300 focus:border-blue-500"
+                  className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="industry" className="text-sm font-medium">
+                <Label htmlFor="industry" className="text-sm font-medium text-slate-200">
                   Industry
                 </Label>
                 {!showCustomIndustry ? (
-                  <select
-                    id="industry"
+                  <Select
                     value={industry}
-                    onChange={(e) => {
-                      const value = e.target.value
+                    onValueChange={(value) => {
                       if (value === "Other") {
                         setShowCustomIndustry(true)
                         setIndustry("")
@@ -559,21 +643,28 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                         setIndustry(value)
                       }
                     }}
-                    className="w-full text-sm border-2 border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-background"
                   >
-                    <option value="">Select an industry</option>
-                    <option value="Technology">Technology</option>
-                    <option value="Healthcare">Healthcare</option>
-                    <option value="Finance">Finance</option>
-                    <option value="Education">Education</option>
-                    <option value="Retail">Retail</option>
-                    <option value="Manufacturing">Manufacturing</option>
-                    <option value="Construction">Construction</option>
-                    <option value="Real Estate">Real Estate</option>
-                    <option value="Marketing">Marketing</option>
-                    <option value="Consulting">Consulting</option>
-                    <option value="Other">Other (Enter manually)</option>
-                  </select>
+                    <SelectTrigger className="w-full text-sm bg-slate-700/50 border-2 border-slate-600 hover:border-slate-500 focus:border-emerald-500 focus:ring-0 text-white data-[placeholder]:text-slate-400">
+                      <SelectValue placeholder="Select an industry" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border border-slate-700 text-white shadow-xl max-h-72">
+                      {industryTitles.map((ind) => (
+                        <SelectItem
+                          key={ind}
+                          value={ind}
+                          className="text-slate-200 focus:bg-emerald-600/20 focus:text-emerald-300 cursor-pointer"
+                        >
+                          {ind}
+                        </SelectItem>
+                      ))}
+                      <SelectItem
+                        value="Other"
+                        className="text-slate-400 italic focus:bg-slate-700 focus:text-slate-200 cursor-pointer border-t border-slate-700 mt-1"
+                      >
+                        Other (Enter manually)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
                 ) : (
                   <div className="flex gap-2">
                     <Input
@@ -584,7 +675,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                         setCustomIndustry(e.target.value)
                         setIndustry(e.target.value)
                       }}
-                      className="text-sm border-2 border-gray-300 focus:border-blue-500"
+                      className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
                     />
                     <Button
                       type="button"
@@ -594,7 +685,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                         setCustomIndustry("")
                         setIndustry("")
                       }}
-                      className="shrink-0"
+                      className="shrink-0 border-slate-600 text-slate-200 hover:bg-slate-700"
                     >
                       Back to List
                     </Button>
@@ -604,28 +695,33 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
               {/* Services */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Services</Label>
+                <Label className="text-sm font-medium text-slate-200">Services</Label>
                 <div className="flex gap-2">
                   <Input
                     placeholder="Add a service (e.g., Lightning design, Electrical installation)"
                     value={newService}
                     onChange={(e) => setNewService(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && (e.preventDefault(), addService())}
-                    className="text-sm border-2 border-gray-300 focus:border-blue-500"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        addService()
+                      }
+                    }}
+                    className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
                   />
-                  <Button type="button" onClick={addService} size="icon" className="shrink-0">
+                  <Button type="button" onClick={addService} size="icon" className="shrink-0 bg-emerald-600 hover:bg-emerald-700">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {services.map((service) => (
-                    <Badge key={service} variant="secondary" className="flex items-center gap-1 text-xs">
+                    <Badge key={service} variant="secondary" className="flex items-center gap-1 text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                       {service}
-                      <X className="h-3 w-3 cursor-pointer" onClick={() => removeService(service)} />
+                      <X className="h-3 w-3 cursor-pointer hover:text-white" onClick={() => removeService(service)} />
                     </Badge>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-400">
                   List the services your company provides (helps customers find you by service type)
                 </p>
               </div>
@@ -633,17 +729,17 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
               <div className="space-y-4">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <Label htmlFor="fullAddress" className="flex items-center text-sm font-medium">
-                      <MapPin className="h-4 w-4 mr-1" />
+                    <Label htmlFor="fullAddress" className="flex items-center text-sm font-medium text-slate-200">
+                      <MapPin className="h-4 w-4 mr-1 text-emerald-400" />
                       Business Address (Optional)
                     </Label>
                     <div className="flex items-center space-x-2">
                       {!hideAddress ? (
-                        <Eye className="h-4 w-4 text-green-500" />
+                        <Eye className="h-4 w-4 text-emerald-400" />
                       ) : (
-                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                        <EyeOff className="h-4 w-4 text-slate-500" />
                       )}
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-slate-400">
                         {!hideAddress ? "Visible to users" : "Private"}
                       </span>
                       <Switch
@@ -659,9 +755,9 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                     onChange={(e) => setFullAddress(e.target.value)}
                     placeholder="e.g. 123 High Street, Apartment 4B, London, Greater London, SW1A 1AA, United Kingdom"
                     rows={3}
-                    className="text-sm resize-none border-2 border-gray-300 focus:border-blue-500"
+                    className="text-sm resize-none bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-400">
                     {!hideAddress
                       ? "Your full business address will be visible to users. Your city/region is automatically detected from your map location."
                       : "Your address will remain private. Only your city/region from the map location will be shown."
@@ -671,11 +767,11 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
                 {/* Map Location Picker Section */}
                 <div className="space-y-4">
-                  <h4 className="font-medium flex items-center">
-                    <MapPin className="h-4 w-4 mr-2" />
+                  <h4 className="font-medium flex items-center text-slate-200">
+                    <MapPin className="h-4 w-4 mr-2 text-emerald-400" />
                     Map Location
                   </h4>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-slate-400">
                     Set your precise location on the map for better job posting visibility. This will be used for location-based searches.
                   </p>
 
@@ -696,16 +792,16 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="websiteUrl" className="text-sm font-medium">
+                  <Label htmlFor="websiteUrl" className="text-sm font-medium text-slate-200">
                     Website URL
                   </Label>
                   <div className="flex items-center space-x-2">
                     {!hideContactInfo ? (
-                      <Eye className="h-4 w-4 text-green-500" />
+                      <Eye className="h-4 w-4 text-emerald-400" />
                     ) : (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="h-4 w-4 text-slate-500" />
                     )}
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-slate-400">
                       {!hideContactInfo ? "Visible to users" : "Private"}
                     </span>
                     <Switch
@@ -727,9 +823,9 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                     }
                   }}
                   placeholder="https://yourcompany.com"
-                  className="text-sm border-2 border-gray-300 focus:border-blue-500"
+                  className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-400">
                   {!hideContactInfo
                     ? "Your website URL will be visible to job seekers."
                     : "Your website URL will remain private."
@@ -739,16 +835,16 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="phoneNumber" className="text-sm font-medium">
+                  <Label htmlFor="phoneNumber" className="text-sm font-medium text-slate-200">
                     Phone Number
                   </Label>
                   <div className="flex items-center space-x-2">
                     {!hideContactInfo ? (
-                      <Eye className="h-4 w-4 text-green-500" />
+                      <Eye className="h-4 w-4 text-emerald-400" />
                     ) : (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="h-4 w-4 text-slate-500" />
                     )}
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-slate-400">
                       {!hideContactInfo ? "Visible to users" : "Private"}
                     </span>
                     <Switch
@@ -764,9 +860,9 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
                   placeholder="+44 20 1234 5678"
-                  className="text-sm border-2 border-gray-300 focus:border-blue-500"
+                  className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-400">
                   {!hideContactInfo
                     ? "Your phone number will be visible to job seekers."
                     : "Your phone number will remain private."
@@ -775,7 +871,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="description" className="text-sm font-medium">
+                <Label htmlFor="description" className="text-sm font-medium text-slate-200">
                   Company Description
                 </Label>
                 <Textarea
@@ -784,23 +880,23 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Tell us about your company..."
                   rows={4}
-                  className="text-sm resize-none border-2 border-gray-300 focus:border-blue-500"
+                  className="text-sm resize-none bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
                 />
               </div>
             </div>
 
             {/* Contractor Services Section */}
             <div className="space-y-4">
-              <h3 className="text-base sm:text-lg font-medium text-foreground">Contractor Services</h3>
+              <h3 className="text-base sm:text-lg font-medium text-white">Contractor Services</h3>
 
               {/* Spoken Languages */}
               <div className="space-y-2">
-                <Label className="text-sm font-medium">Spoken Languages</Label>
+                <Label className="text-sm font-medium text-slate-200">Spoken Languages</Label>
                 <LanguageSelector
                   selectedLanguages={spokenLanguages}
                   onChange={setSpokenLanguages}
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-400">
                   Languages your company can provide services in
                 </p>
               </div>
@@ -808,16 +904,16 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
               {/* 24/7 Service */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="service24_7" className="text-sm font-medium">
+                  <Label htmlFor="service24_7" className="text-sm font-medium text-slate-200">
                     24/7 Service Availability
                   </Label>
                   <div className="flex items-center space-x-2">
                     {service24_7 ? (
-                      <Eye className="h-4 w-4 text-green-500" />
+                      <Eye className="h-4 w-4 text-emerald-400" />
                     ) : (
-                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      <EyeOff className="h-4 w-4 text-slate-500" />
                     )}
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-slate-400">
                       {service24_7 ? "Available 24/7" : "Regular hours"}
                     </span>
                     <Switch
@@ -828,7 +924,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                     />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-400">
                   {service24_7
                     ? "Your company is marked as available for emergency services 24/7."
                     : "Your company operates during regular business hours."
@@ -838,7 +934,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
               {/* Price List */}
               <div className="space-y-2">
-                <Label htmlFor="priceList" className="text-sm font-medium">
+                <Label htmlFor="priceList" className="text-sm font-medium text-slate-200">
                   Price List (Optional)
                 </Label>
                 <Textarea
@@ -847,22 +943,22 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   value={priceList}
                   onChange={(e) => setPriceList(e.target.value)}
                   rows={6}
-                  className="text-sm border-2 border-gray-300 focus:border-blue-500"
+                  className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
                 />
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-400">
                   Add common service prices to help customers understand costs. Companies with clear pricing attract more customers.
                 </p>
               </div>
             </div>
 
             {/* Delete Account Section */}
-            <div className="space-y-4 pt-6 border-t border-destructive/20">
+            <div className="space-y-4 pt-6 border-t border-red-500/20">
               <div className="space-y-2">
-                <h3 className="text-base sm:text-lg font-medium text-destructive flex items-center">
+                <h3 className="text-base sm:text-lg font-medium text-red-400 flex items-center">
                   <Trash2 className="h-5 w-5 mr-2" />
                   Danger Zone
                 </h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-slate-400">
                   Permanently delete your company account and all associated data. This action cannot be undone.
                 </p>
               </div>
@@ -871,7 +967,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                 <AlertDialogTrigger asChild>
                   <button
                     type="button"
-                    className="text-sm text-destructive hover:text-destructive/80 underline font-medium"
+                    className="text-sm text-red-400 hover:text-red-300 underline font-medium"
                     disabled={deleting}
                   >
                     Delete the account
@@ -900,10 +996,10 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
             </div>
 
             <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4">
-              <Button type="button" variant="outline" asChild className="text-sm bg-transparent">
+              <Button type="button" variant="outline" asChild className="text-sm bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white">
                 <Link href={locale === 'pt-BR' ? '/br/dashboard/company' : '/dashboard/company'}>Cancel</Link>
               </Button>
-              <Button type="submit" disabled={loading} className="text-sm">
+              <Button type="submit" disabled={loading} className="text-sm bg-emerald-600 hover:bg-emerald-700 text-white">
                 {loading ? "Saving..." : "Save Changes"}
               </Button>
             </div>

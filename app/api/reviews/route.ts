@@ -197,6 +197,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to submit review" }, { status: 500 })
     }
 
+    // ── Fire-and-forget: notify the tradesperson ─────────────
+    // Fetch job title + reviewer name in parallel (non-blocking)
+    Promise.all([
+      supabase.from("jobs").select("title").eq("id", jobId).single(),
+      supabase.from("homeowner_profiles").select("first_name, last_name").eq("user_id", user.id).maybeSingle(),
+    ]).then(([jobRes, reviewerRes]) => {
+      const jobTitle = jobRes.data?.title ?? "a job"
+      const reviewerName = reviewerRes.data
+        ? `${reviewerRes.data.first_name} ${reviewerRes.data.last_name}`.trim()
+        : "A homeowner"
+
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://openjobmarket.com"
+      fetch(`${baseUrl}/api/notifications/send-review-notification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewedUserId, reviewerName, rating, jobTitle, jobId }),
+      }).catch((err) => console.error("[API] Review notification fire-and-forget failed:", err))
+    }).catch((err) => console.error("[API] Failed to fetch review notification data:", err))
+
     return NextResponse.json(
       {
         message: "Review submitted successfully",

@@ -1,8 +1,11 @@
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import JobDescriptionForm from "@/components/job-description-form"
+import { requireVacancyEnabled } from "@/lib/vacancy-guard"
 
 export default async function JobDescriptionPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireVacancyEnabled()
+
   const { id } = await params
   const supabase = await createClient()
   const {

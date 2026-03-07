@@ -284,6 +284,55 @@ Manage your notification settings: ${params.settingsUrl}
 /**
  * Generic Message Notification (fallback)
  */
+export function newReviewEmail(params: {
+  recipientName: string
+  rating: number
+  jobTitle: string
+  reviewerName: string
+  profileUrl: string
+  settingsUrl: string
+}): { html: string; text: string } {
+  const stars = '⭐'.repeat(params.rating)
+  const ratingLabel = ['', 'Poor', 'Fair', 'Good', 'Very Good', 'Excellent'][params.rating] ?? ''
+
+  const content = `
+    <div class="header" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">
+      <h1>${stars} New Review!</h1>
+    </div>
+    <div class="content">
+      <h2>Hi ${params.recipientName},</h2>
+      <p>You just received a <strong>${params.rating}-star review</strong> from a homeowner for the job <strong>"${params.jobTitle}"</strong>.</p>
+
+      <div class="preview-box" style="text-align: center; padding: 20px; background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; margin: 16px 0;">
+        <p style="font-size: 32px; margin: 0 0 8px;">${stars}</p>
+        <p style="font-size: 18px; font-weight: 600; color: #92400e; margin: 0;">${ratingLabel}</p>
+        <p style="font-size: 13px; color: #78716c; margin: 8px 0 0;">by ${params.reviewerName}</p>
+      </div>
+
+      <p>Great reviews build trust and help you win more jobs. Keep it up!</p>
+      <a href="${params.profileUrl}" class="button" style="background: #d97706;">View Your Profile</a>
+    </div>
+  `
+
+  const html = emailWrapper(content)
+
+  const text = `
+Hi ${params.recipientName},
+
+You received a ${params.rating}-star review (${ratingLabel}) from ${params.reviewerName} for "${params.jobTitle}".
+
+${stars}
+
+View your profile: ${params.profileUrl}
+
+---
+Manage notifications: ${params.settingsUrl}
+© ${new Date().getFullYear()} OpenJobMarket
+  `.trim()
+
+  return { html, text }
+}
+
 export function genericMessageEmail(
   recipientName: string,
   senderName: string,

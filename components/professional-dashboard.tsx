@@ -843,7 +843,9 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
+      {/* Full Dashboard */}
+      <div className="min-h-screen bg-background">
       {/* Incomplete Profile Banner */}
       {!isProfileComplete && missingFields.length > 0 && (
         <div className="bg-amber-50 border-b border-amber-200">
@@ -1511,6 +1513,7 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
         onConfirm={handleActivelyLookingConfirm}
         isPremium={premiumStatus.isPremium}
       />
-    </div>
+      </div>
+    </>
   )
 }

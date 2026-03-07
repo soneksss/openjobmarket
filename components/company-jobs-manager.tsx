@@ -333,16 +333,16 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
   }
 
   return (
-    <div className="min-h-screen bg-muted/50">
+    <div className="min-h-screen bg-slate-900 md:bg-gray-50">
       <div className="container mx-auto px-4 py-3">
         <div className="mb-3">
-          <h1 className="text-xl md:text-2xl font-bold mb-0.5">Manage Jobs</h1>
-          <p className="text-xs md:text-sm text-muted-foreground">View and manage your job postings</p>
+          <h1 className="text-xl md:text-2xl font-bold mb-0.5 text-white md:text-gray-900">Manage Jobs</h1>
+          <p className="text-xs md:text-sm text-slate-400 md:text-gray-600">View and manage your job postings</p>
         </div>
 
         {/* Bulk Actions Bar */}
         {selectedJobs.length > 0 && (
-          <Card className="mb-3 bg-blue-50 border-blue-200">
+          <Card className="mb-3 bg-emerald-900/30 md:bg-blue-50 border-emerald-700/50 md:border-blue-200">
             <CardContent className="p-2 md:p-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center space-x-3">
@@ -350,7 +350,7 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
                     checked={selectedJobs.length === filteredJobs.length}
                     onCheckedChange={handleSelectAll}
                   />
-                  <span className="font-medium text-sm">
+                  <span className="font-medium text-sm text-white md:text-gray-900">
                     {selectedJobs.length} job{selectedJobs.length === 1 ? "" : "s"} selected
                   </span>
                 </div>
@@ -380,17 +380,17 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
         )}
 
         {/* Filters */}
-        <Card className="mb-3">
+        <Card className="mb-3 bg-slate-800 md:bg-white border-slate-700 md:border-gray-200">
           <CardHeader className="pb-2 pt-3">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Filters</CardTitle>
+              <CardTitle className="text-base text-white md:text-gray-900">Filters</CardTitle>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="select-all-visible"
                   checked={filteredJobs.length > 0 && selectedJobs.length === filteredJobs.length}
                   onCheckedChange={handleSelectAll}
                 />
-                <label htmlFor="select-all-visible" className="text-xs md:text-sm font-medium cursor-pointer">
+                <label htmlFor="select-all-visible" className="text-xs md:text-sm font-medium cursor-pointer text-slate-300 md:text-gray-700">
                   Select all
                 </label>
               </div>
@@ -399,12 +399,12 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
           <CardContent className="pt-0">
             <div className="flex flex-col gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400 md:text-gray-400" />
                 <Input
                   placeholder="Search jobs..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-9"
+                  className="pl-10 h-9 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400 md:placeholder:text-gray-400"
                 />
               </div>
               <div className="flex gap-1.5 flex-wrap">
@@ -448,19 +448,19 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
 
         {/* Jobs List */}
         {filteredJobs.length === 0 ? (
-          <Card>
+          <Card className="bg-slate-800 md:bg-white border-slate-700 md:border-gray-200">
             <CardContent className="text-center py-12">
-              <Briefcase className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">
+              <Briefcase className="h-16 w-16 mx-auto mb-4 text-slate-500 md:text-gray-400 opacity-50" />
+              <h3 className="text-lg font-semibold mb-2 text-white md:text-gray-900">
                 {jobs.length === 0 ? "No jobs posted yet" : "No jobs match your filters"}
               </h3>
-              <p className="text-muted-foreground mb-4">
+              <p className="text-slate-400 md:text-gray-600 mb-4">
                 {jobs.length === 0
                   ? "Start by posting your first job to attract talented candidates."
                   : "Try adjusting your search terms or filters."}
               </p>
               {jobs.length === 0 && (
-                <Button asChild>
+                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
                   <Link href="/jobs/new">
                     <Plus className="h-4 w-4 mr-2" />
                     Post Your First Job
@@ -474,7 +474,7 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
             {filteredJobs.map((job) => {
               const jobStatus = getJobStatus(job)
               return (
-                <Card key={job.id} className={jobStatus.status === "expired" ? "opacity-75" : ""}>
+                <Card key={job.id} className={`bg-slate-800 md:bg-white border-slate-700 md:border-gray-200 ${jobStatus.status === "expired" ? "opacity-75" : ""}`}>
                   <CardContent className="p-3 md:p-4">
                     <div className="flex items-start space-x-3 md:space-x-4">
                       <div className="pt-1">
@@ -486,7 +486,7 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
                       <div className="flex-1 min-w-0">
                         {/* Title and status - stack on mobile */}
                         <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-2">
-                          <h3 className="text-base md:text-lg font-semibold truncate">{job.title}</h3>
+                          <h3 className="text-base md:text-lg font-semibold truncate text-white md:text-gray-900">{job.title}</h3>
                           <div className="flex items-center gap-1">
                             {getStatusBadge(job)}
                             {jobStatus.status === "expiring" && <AlertTriangle className="h-4 w-4 text-orange-500" />}
@@ -494,18 +494,18 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
                         </div>
 
                         {/* Job details - wrap on mobile */}
-                        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-muted-foreground mb-3">
+                        <div className="flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm text-slate-400 md:text-gray-600 mb-3">
                           <span className="flex items-center">
                             <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                             <span className="truncate max-w-[120px] md:max-w-none">{job.location}</span>
                           </span>
-                          <Badge variant="secondary" className="text-xs">{job.job_type}</Badge>
-                          <Badge variant="secondary" className="text-xs">{job.work_location}</Badge>
+                          <Badge variant="secondary" className="text-xs bg-slate-700 md:bg-gray-100 text-slate-300 md:text-gray-700">{job.job_type}</Badge>
+                          <Badge variant="secondary" className="text-xs bg-slate-700 md:bg-gray-100 text-slate-300 md:text-gray-700">{job.work_location}</Badge>
                           <span className="hidden sm:inline">{formatSalary(job.salary_min, job.salary_max)}</span>
                         </div>
 
                         {/* Stats - simplified on mobile */}
-                        <div className="flex flex-wrap items-center gap-3 md:gap-6 text-xs md:text-sm text-muted-foreground mb-3 md:mb-0">
+                        <div className="flex flex-wrap items-center gap-3 md:gap-6 text-xs md:text-sm text-slate-400 md:text-gray-600 mb-3 md:mb-0">
                           <span className="flex items-center">
                             <Users className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                             {job.applications_count}
@@ -527,8 +527,8 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
                         </div>
 
                         {/* Action buttons - wrap on all screens */}
-                        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t md:border-0 md:pt-0 md:mt-0">
-                          <Button size="sm" variant="outline" asChild className="text-xs md:text-sm h-8">
+                        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-700 md:border-gray-200 md:border-0 md:pt-0 md:mt-0">
+                          <Button size="sm" variant="outline" asChild className="text-xs md:text-sm h-8 border-slate-600 md:border-gray-300 text-slate-300 md:text-gray-700 hover:bg-slate-700 md:hover:bg-gray-100">
                             <Link href={`/jobs/${job.id}/applications`}>
                               <Users className="h-3 w-3 mr-1 md:hidden" />
                               <span className="hidden md:inline">Applications ({job.applications_count})</span>

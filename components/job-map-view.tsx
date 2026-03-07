@@ -41,7 +41,9 @@ import {
   Maximize,
   BookmarkIcon,
   MessageCircle,
-  AlertCircle
+  AlertCircle,
+  Zap,
+  Clock
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
@@ -67,6 +69,10 @@ interface Job {
   skills_required: string[]
   applications_count: number
   created_at: string
+  expires_at?: string
+  urgency_type?: "asap" | "today" | "flexible" | null
+  is_tradespeople_job?: boolean
+  max_responses?: number | null
   job_photo_url?: string
   company_profiles?: {
     id: string
@@ -202,6 +208,9 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
   // Refs for scrolling to selected jobs
   const jobCardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
+  // Response count for the currently selected flexible job
+  const [selectedJobResponseCount, setSelectedJobResponseCount] = useState<number | null>(null)
+
   // Scroll to selected job when it changes
   useEffect(() => {
     if (selectedJobId && jobCardRefs.current[selectedJobId]) {
@@ -211,6 +220,26 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
       })
     }
   }, [selectedJobId])
+
+  // Fetch response count when a flexible job is selected
+  useEffect(() => {
+    if (!selectedJobId) { setSelectedJobResponseCount(null); return }
+    const job = jobs.find(j => j.id === selectedJobId)
+    if (!job || job.urgency_type !== 'flexible' || !job.max_responses) {
+      setSelectedJobResponseCount(null)
+      return
+    }
+    const supabase = createClient()
+    supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('job_id', selectedJobId)
+      .eq('sender_role', 'tradesperson')
+      .then(({ data }) => {
+        const count = new Set(data?.map((r: any) => r.sender_id) || []).size
+        setSelectedJobResponseCount(count)
+      })
+  }, [selectedJobId, jobs])
 
   // Clear search error when location or job type changes
   useEffect(() => {
@@ -372,6 +401,33 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
     if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()}`
     if (min) return `£${min.toLocaleString()}+`
     return `Up to £${max?.toLocaleString()}`
+  }
+
+  // Calculate time remaining for urgency-based jobs
+  const getTimeRemaining = (expiresAt?: string, urgencyType?: string | null) => {
+    if (!expiresAt || !urgencyType) return null
+
+    const now = new Date().getTime()
+    const expiry = new Date(expiresAt).getTime()
+    const diff = expiry - now
+
+    if (diff <= 0) {
+      return { text: "Expired", isExpired: true }
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+
+    if (days > 0) {
+      return { text: `${days}d ${hours}h left`, isExpired: false }
+    } else if (hours > 0) {
+      return { text: `${hours}h ${minutes}m left`, isExpired: false }
+    } else if (minutes > 0) {
+      return { text: `${minutes}m left`, isExpired: false }
+    } else {
+      return { text: "<1m left", isExpired: false }
+    }
   }
 
   // Build job detail URL with current search params
@@ -1006,6 +1062,29 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                         <Badge variant="outline" className="text-xs">
                                           {job.work_location}
                                         </Badge>
+                                        {/* Urgency Timer for Trade Jobs */}
+                                        {job.is_tradespeople_job && job.urgency_type && (() => {
+                                          const timeInfo = getTimeRemaining(job.expires_at, job.urgency_type)
+                                          if (!timeInfo) return null
+                                          return (
+                                            <Badge
+                                              className={`text-xs ${
+                                                timeInfo.isExpired
+                                                  ? "bg-gray-100 text-gray-500"
+                                                  : job.urgency_type === "asap"
+                                                  ? "bg-red-100 text-red-700 animate-pulse"
+                                                  : job.urgency_type === "today"
+                                                  ? "bg-orange-100 text-orange-700"
+                                                  : "bg-blue-100 text-blue-700"
+                                              }`}
+                                            >
+                                              {job.urgency_type === "asap" && <Zap className="h-2.5 w-2.5 mr-1" />}
+                                              {job.urgency_type === "today" && <Clock className="h-2.5 w-2.5 mr-1" />}
+                                              {job.urgency_type === "flexible" && <Calendar className="h-2.5 w-2.5 mr-1" />}
+                                              {timeInfo.text}
+                                            </Badge>
+                                          )
+                                        })()}
                                       </div>
 
                                       {/* Description - Short or Long */}
@@ -1141,7 +1220,10 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                                 if (!user) {
                                                   setShowSignUpDialog(true)
                                                 } else {
-                                                  router.push(`/messages/new?jobId=${job.id}`)
+                                                  const recipientId = job.company_profiles?.user_id || job.homeowner_profiles?.user_id
+                                                  if (recipientId) {
+                                                    router.push(`/messages/new?recipient=${recipientId}&jobId=${job.id}&subject=Regarding: ${encodeURIComponent(job.title)}`)
+                                                  }
                                                 }
                                               }}
                                             >
@@ -1733,7 +1815,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                   </div>
                 ) : (
                   /* Job List */
-                  <div>
+                  <div className="pb-24">
                     {jobs.map((job) => {
                       const isSelected = selectedJobId === job.id
                       return (
@@ -1830,9 +1912,32 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                               </div>
                             </div>
                           </div>
-                          <div className="flex gap-2 mb-2">
+                          <div className="flex flex-wrap gap-2 mb-2">
                             <Badge variant="outline" className="text-xs">{job.job_type}</Badge>
                             <Badge variant="outline" className="text-xs">{job.work_location}</Badge>
+                            {/* Urgency Timer for Trade Jobs */}
+                            {job.is_tradespeople_job && job.urgency_type && (() => {
+                              const timeInfo = getTimeRemaining(job.expires_at, job.urgency_type)
+                              if (!timeInfo) return null
+                              return (
+                                <Badge
+                                  className={`text-xs ${
+                                    timeInfo.isExpired
+                                      ? "bg-gray-100 text-gray-500"
+                                      : job.urgency_type === "asap"
+                                      ? "bg-red-100 text-red-700 animate-pulse"
+                                      : job.urgency_type === "today"
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {job.urgency_type === "asap" && <Zap className="h-2.5 w-2.5 mr-1" />}
+                                  {job.urgency_type === "today" && <Clock className="h-2.5 w-2.5 mr-1" />}
+                                  {job.urgency_type === "flexible" && <Calendar className="h-2.5 w-2.5 mr-1" />}
+                                  {timeInfo.text}
+                                </Badge>
+                              )
+                            })()}
                           </div>
                           {formatSalary(job.salary_min, job.salary_max) && (
                             <div className="text-sm font-semibold text-green-600 mb-2">
@@ -1850,6 +1955,20 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                           {/* Extended details - only show when selected */}
                           {isSelected && (
                             <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+                              {/* Response cap counter for flexible jobs */}
+                              {job.urgency_type === 'flexible' && job.max_responses && selectedJobResponseCount !== null && (
+                                <div className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-md w-fit ${
+                                  selectedJobResponseCount >= job.max_responses
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {selectedJobResponseCount >= job.max_responses
+                                    ? 'No spots left'
+                                    : `${job.max_responses - selectedJobResponseCount} spot${job.max_responses - selectedJobResponseCount === 1 ? '' : 's'} left`
+                                  }
+                                </div>
+                              )}
+
                               {/* Location/Address */}
                               <div className="flex items-center gap-2 text-xs text-gray-500">
                                 <MapPin className="h-3 w-3" />
@@ -1933,7 +2052,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                       } else {
                                         const recipientId = job.company_profiles?.user_id || job.homeowner_profiles?.user_id
                                         if (recipientId) {
-                                          router.push(`/messages/new?recipient=${recipientId}&subject=Regarding: ${encodeURIComponent(job.title)}`)
+                                          router.push(`/messages/new?recipient=${recipientId}&jobId=${job.id}&subject=Regarding: ${encodeURIComponent(job.title)}`)
                                         }
                                       }
                                     }}
@@ -2164,7 +2283,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                   </div>
                 ) : (
                   /* Job List */
-                  <div>
+                  <div className="pb-24">
                     {jobs.map((job) => {
                       const isSelected = selectedJobId === job.id
                       return (
@@ -2267,6 +2386,29 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                           <div className="flex gap-2 mb-2 flex-wrap">
                             <Badge variant="outline" className="text-xs">{job.job_type}</Badge>
                             <Badge variant="outline" className="text-xs">{job.work_location}</Badge>
+                            {/* Urgency Timer for Trade Jobs */}
+                            {job.is_tradespeople_job && job.urgency_type && (() => {
+                              const timeInfo = getTimeRemaining(job.expires_at, job.urgency_type)
+                              if (!timeInfo) return null
+                              return (
+                                <Badge
+                                  className={`text-xs ${
+                                    timeInfo.isExpired
+                                      ? "bg-gray-100 text-gray-500"
+                                      : job.urgency_type === "asap"
+                                      ? "bg-red-100 text-red-700 animate-pulse"
+                                      : job.urgency_type === "today"
+                                      ? "bg-orange-100 text-orange-700"
+                                      : "bg-blue-100 text-blue-700"
+                                  }`}
+                                >
+                                  {job.urgency_type === "asap" && <Zap className="h-2.5 w-2.5 mr-1" />}
+                                  {job.urgency_type === "today" && <Clock className="h-2.5 w-2.5 mr-1" />}
+                                  {job.urgency_type === "flexible" && <Calendar className="h-2.5 w-2.5 mr-1" />}
+                                  {timeInfo.text}
+                                </Badge>
+                              )
+                            })()}
                           </div>
                           {formatSalary(job.salary_min, job.salary_max) && (
                             <div className="text-sm font-semibold text-green-600 mb-2">
@@ -2284,6 +2426,20 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                           {/* Extended details - only show when selected */}
                           {isSelected && (
                             <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
+                              {/* Response cap counter for flexible jobs */}
+                              {job.urgency_type === 'flexible' && job.max_responses && selectedJobResponseCount !== null && (
+                                <div className={`flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-md w-fit ${
+                                  selectedJobResponseCount >= job.max_responses
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                  {selectedJobResponseCount >= job.max_responses
+                                    ? 'No spots left'
+                                    : `${job.max_responses - selectedJobResponseCount} spot${job.max_responses - selectedJobResponseCount === 1 ? '' : 's'} left`
+                                  }
+                                </div>
+                              )}
+
                               {/* Profile Section with Photo and Reviews */}
                               <div className="flex items-center gap-3 pb-3 border-b border-gray-200">
                                 {(() => {
@@ -2378,6 +2534,29 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                     {job.experience_level}
                                   </Badge>
                                 )}
+                                {/* Urgency Timer for Trade Jobs */}
+                                {job.is_tradespeople_job && job.urgency_type && (() => {
+                                  const timeInfo = getTimeRemaining(job.expires_at, job.urgency_type)
+                                  if (!timeInfo) return null
+                                  return (
+                                    <Badge
+                                      className={`text-xs ${
+                                        timeInfo.isExpired
+                                          ? "bg-gray-100 text-gray-500"
+                                          : job.urgency_type === "asap"
+                                          ? "bg-red-100 text-red-700 animate-pulse"
+                                          : job.urgency_type === "today"
+                                          ? "bg-orange-100 text-orange-700"
+                                          : "bg-blue-100 text-blue-700"
+                                      }`}
+                                    >
+                                      {job.urgency_type === "asap" && <Zap className="h-2.5 w-2.5 mr-1" />}
+                                      {job.urgency_type === "today" && <Clock className="h-2.5 w-2.5 mr-1" />}
+                                      {job.urgency_type === "flexible" && <Calendar className="h-2.5 w-2.5 mr-1" />}
+                                      {timeInfo.text}
+                                    </Badge>
+                                  )
+                                })()}
                               </div>
 
                               {/* Job Description */}
@@ -2457,7 +2636,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                       } else {
                                         const recipientId = job.company_profiles?.user_id || job.homeowner_profiles?.user_id
                                         if (recipientId) {
-                                          router.push(`/messages/new?recipient=${recipientId}&subject=Regarding: ${encodeURIComponent(job.title)}`)
+                                          router.push(`/messages/new?recipient=${recipientId}&jobId=${job.id}&subject=Regarding: ${encodeURIComponent(job.title)}`)
                                         }
                                       }
                                     }}

@@ -13,13 +13,14 @@ import { NextRequest, NextResponse } from "next/server"
  *   jobLat: number,
  *   jobLon: number,
  *   jobSkills: string[],
- *   posterName: string
+ *   posterName: string,
+ *   urgencyType?: string // "asap" | "today" | "flexible" | null
  * }
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { jobId, jobTitle, jobLat, jobLon, jobSkills, posterName } = body
+    const { jobId, jobTitle, jobLat, jobLon, jobSkills, posterName, urgencyType } = body
 
     if (!jobId || !jobTitle || jobLat === undefined || jobLon === undefined) {
       return NextResponse.json(
@@ -154,6 +155,13 @@ export async function POST(request: NextRequest) {
           )
         }
 
+        // Skip email notifications for ASAP jobs (they expire quickly and create spam)
+        const isAsapJob = urgencyType === "asap"
+
+        if (isAsapJob) {
+          console.log("[TRADE-JOB-NOTIFICATION] Skipping email for ASAP job (quick expiry)")
+        }
+
         // Check if company wants email notifications
         const { data: emailPrefs } = await adminClient
           .from("user_notification_preferences")
@@ -161,7 +169,7 @@ export async function POST(request: NextRequest) {
           .eq("user_id", company.user_id)
           .single()
 
-        const shouldSendEmail = emailPrefs?.email_on_trade_job_match ?? true
+        const shouldSendEmail = !isAsapJob && (emailPrefs?.email_on_trade_job_match ?? true)
 
         if (shouldSendEmail && company.email) {
           // Send email notification

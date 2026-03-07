@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ArrowLeft, MapPin, Calendar, User, Briefcase, FileText } from "lucide-react"
 import Link from "next/link"
 import ApplicationActions from "@/components/application-actions"
+import { requireVacancyEnabled } from "@/lib/vacancy-guard"
 
 interface PageProps {
   params: Promise<{
@@ -15,6 +16,8 @@ interface PageProps {
 }
 
 export default async function JobApplicationsPage({ params }: PageProps) {
+  await requireVacancyEnabled()
+
   const supabase = await createClient()
   const { id: jobId } = await params
 

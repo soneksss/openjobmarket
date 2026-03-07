@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LocationInput } from "@/components/location-input"
-import { Search, Users, Hammer, Map, X, Target, MapPin, SlidersHorizontal } from "lucide-react"
+import { Search, Users, Hammer, Map, X, Target, MapPin, SlidersHorizontal, HardHat, ClipboardList, Building2, UserSearch } from "lucide-react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ProfessionalMap } from "@/components/professional-map"
 import ProfessionalsPageContent from "@/components/professionals-page-content"
@@ -26,6 +26,8 @@ import {
 import { createClient } from "@/lib/client"
 import { useTranslation } from "@/lib/i18n/context"
 import { getBilingualSearchTerms } from "@/lib/bilingual-search"
+import { useSearchType } from "@/lib/contexts/search-type-context"
+import { useSearchLocation } from "@/lib/contexts/search-location-context"
 
 const RESULT_LIMIT = 100
 
@@ -50,7 +52,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [user, setUser] = useState<any>(null)
   const [userType, setUserType] = useState<"professional" | "company" | "contractor" | "homeowner" | null>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
-  const [selectedSearchType, setSelectedSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders">("vacancies")
+  // Default to "traders" (Tradespeople) for unregistered users
+  const { searchType: contextSearchType, setSearchType: setContextSearchType } = useSearchType()
+  const { setLocation: setContextLocation } = useSearchLocation()
+  const [selectedSearchType, setSelectedSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders">(contextSearchType)
 
   // Map picker state
   const [showMapPicker, setShowMapPicker] = useState(false)
@@ -101,6 +106,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const signinRequiredCacheRef = useRef<{ value: boolean | null; timestamp: number } | null>(null)
   const SIGNIN_CACHE_TTL = 60000 // 1 minute cache
 
+  // Admin setting: show/hide vacancies and jobseekers tabs
+  const [vacanciesJobseekersEnabled, setVacanciesJobseekersEnabled] = useState(true)
+
   // Ref to track processed restoration URLs (prevent infinite loop)
   const processedRestorationRef = useRef<string | null>(null)
 
@@ -118,6 +126,29 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   useEffect(() => {
     console.log('[AUTOCOMPLETE] Component mounted, search type:', selectedSearchType)
   }, [])
+
+  // Fetch admin settings for vacancies/jobseekers toggle
+  useEffect(() => {
+    const fetchAdminSettings = async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_public_admin_settings')
+        if (!error && data) {
+          setVacanciesJobseekersEnabled(data.vacancies_jobseekers_enabled ?? true)
+        }
+      } catch (err) {
+        console.error('[MAIN-PAGE-SEARCH] Error fetching admin settings:', err)
+      }
+    }
+    fetchAdminSettings()
+  }, [])
+
+  // Redirect to valid tab if current tab is hidden
+  useEffect(() => {
+    if (!vacanciesJobseekersEnabled && (selectedSearchType === 'vacancies' || selectedSearchType === 'talents')) {
+      setSelectedSearchType('traders')
+      setContextSearchType('traders')
+    }
+  }, [vacanciesJobseekersEnabled, selectedSearchType, setContextSearchType])
 
   // Debug: Monitor isSearching state changes
   useEffect(() => {
@@ -301,6 +332,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         const fetchedUserType = userData?.user_type || null
         setUserType(fetchedUserType)
 
+        // Set default search type based on user type
+        // Companies default to "jobs_tasks" (Trade Jobs) tab; Homeowners default to "traders"
+        const tab = searchParams?.get('tab')
+        if (fetchedUserType === 'company' && !tab) {
+          setSelectedSearchType('jobs_tasks')
+          setContextSearchType('jobs_tasks')
+        }
+        if (fetchedUserType === 'homeowner') {
+          setSelectedSearchType('traders')
+          setContextSearchType('traders')
+        }
+
         // Fetch the appropriate profile based on user type
         let profileData = null
         if (fetchedUserType === 'professional') {
@@ -353,6 +396,17 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         const fetchedUserType = userData?.user_type || null
         setUserType(fetchedUserType)
+
+        // Set default search type based on user type on auth change
+        const tab = searchParams?.get('tab')
+        if (fetchedUserType === 'company' && !tab) {
+          setSelectedSearchType('jobs_tasks')
+          setContextSearchType('jobs_tasks')
+        }
+        if (fetchedUserType === 'homeowner') {
+          setSelectedSearchType('traders')
+          setContextSearchType('traders')
+        }
 
         // Fetch the appropriate profile based on user type
         let profileData = null
@@ -478,6 +532,85 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       processedRestorationRef.current = null
     }
 
+    // Handle autoSearch from dashboard navigation (e.g., Trade Jobs button)
+    const autoSearch = searchParams?.get('autoSearch')
+    if (autoSearch === 'true') {
+      const urlSignature = `autoSearch:${searchParams?.toString() || ''}`
+
+      // Check if we've already processed this exact URL
+      if (processedRestorationRef.current === urlSignature) {
+        console.log("[MAIN-PAGE-SEARCH] ⏭️ AutoSearch already processed - skipping")
+        return
+      }
+
+      console.log("[MAIN-PAGE-SEARCH] 🚀 autoSearch=true detected from dashboard")
+      processedRestorationRef.current = urlSignature
+
+      // Read search params from dashboard
+      const searchParam = searchParams?.get('search')
+      const locationParam = searchParams?.get('location')
+      const latParam = searchParams?.get('lat')
+      const lngParam = searchParams?.get('lng')
+      const radiusParam = searchParams?.get('radius')
+      const languageParam = searchParams?.get('language')
+      const is24_7Param = searchParams?.get('24_7')
+      const urgencyParam = searchParams?.get('urgency')
+      const categoryParam = searchParams?.get('category')
+
+      console.log("[MAIN-PAGE-SEARCH] Dashboard search params:", {
+        search: searchParam,
+        location: locationParam,
+        lat: latParam,
+        lng: lngParam,
+        radius: radiusParam,
+        language: languageParam,
+        is24_7: is24_7Param,
+        urgency: urgencyParam,
+        category: categoryParam,
+        tab
+      })
+
+      // Set the search state
+      if (searchParam) setSearchQuery(searchParam)
+      if (locationParam) setLocation(locationParam)
+      if (latParam && lngParam) {
+        setSelectedLocation({
+          lat: parseFloat(latParam),
+          lon: parseFloat(lngParam)
+        })
+      }
+      if (radiusParam) setDistance(radiusParam)
+      if (languageParam) setSpokenLanguage(languageParam)
+      if (urgencyParam) setUrgency(urgencyParam)
+      if (categoryParam) setTradeCategory(categoryParam)
+      if (is24_7Param === 'true') setAvailableForBusiness(true)
+
+      // Set search type from tab
+      if (tab === 'vacancies' || tab === 'jobs_tasks' || tab === 'talents' || tab === 'traders') {
+        setSelectedSearchType(tab)
+        setContextSearchType(tab)
+      }
+
+      // Check if we should open map or filters specifically
+      const openFiltersParam = searchParams?.get('openFilters')
+
+      // Open the map modal and trigger search
+      setShowMapModal(true)
+
+      // If openFilters=true, also show the filter panel
+      if (openFiltersParam === 'true') {
+        setShowFilters(true)
+      }
+
+      // Trigger search after state is set
+      if (latParam && lngParam) {
+        const searchTypeToUse = (tab === 'vacancies' || tab === 'jobs_tasks' || tab === 'talents' || tab === 'traders') ? tab : 'jobs_tasks'
+        setRestoreSearch(searchTypeToUse)
+      }
+
+      return
+    }
+
     // Fallback: Old tab-based logic (if no returnToSearch flag)
     if (tab) {
       console.log("[MAIN-PAGE-SEARCH] Tab parameter detected:", tab)
@@ -589,6 +722,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     setLocation(locationName)
     setSelectedLocation({ lat, lon })
     setLocationError("")
+    // Update context for JobsNearYou component
+    setContextLocation({ lat, lon, name: locationName })
   }
 
   // Haversine distance calculation (returns distance in km)
@@ -621,6 +756,29 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       }
       return withinRadius
     })
+  }
+
+  // Cancel any ongoing search - used when switching search type tabs
+  const cancelOngoingSearch = () => {
+    if (searchAbortControllerRef.current) {
+      console.log('[MAIN-PAGE-SEARCH] 🛑 Cancelling ongoing search due to tab switch')
+      searchAbortControllerRef.current.abort()
+      searchAbortControllerRef.current = null
+    }
+    if (isSearching) {
+      console.log('[MAIN-PAGE-SEARCH] 🔄 Resetting isSearching state')
+      setIsSearching(false)
+      setSearchProgress("")
+    }
+  }
+
+  // Handler for switching search type tabs
+  const handleSearchTypeChange = (type: "vacancies" | "jobs_tasks" | "talents" | "traders") => {
+    if (type !== selectedSearchType) {
+      cancelOngoingSearch()
+      setSelectedSearchType(type)
+      setContextSearchType(type) // Update context for page background
+    }
   }
 
   const validateSearch = () => {
@@ -804,9 +962,24 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         let companyResults: any[] = []
 
         // Fetch contractors (primary source for tradespeople)
+        // Always apply a location bounding box to avoid full table scans.
+        // Use selectedLocation if set, otherwise fall back to the current map centre.
+        const contractorLat = selectedLocation?.lat ?? mapCenter[0]
+        const contractorLon = selectedLocation?.lon ?? mapCenter[1]
+        const contractorRadiusMiles = parseInt(distance) || 25
+        const contractorRadiusKm = contractorRadiusMiles * 1.60934
+        const contractorLatDelta = contractorRadiusKm / 111.0
+        const contractorLngDelta = contractorRadiusKm / (111.0 * Math.cos(contractorLat * Math.PI / 180))
+
         let contractorQuery = supabase
           .from("contractor_profiles")
-          .select("*")
+          .select("id,user_id,company_name,industry,location,latitude,longitude,services,languages,available_247,logo_url,profile_photo_url,description,bio,website_url,phone_number,company_size,price_list,created_at,average_rating,reviews_count")
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .gte("latitude", contractorLat - contractorLatDelta)
+          .lte("latitude", contractorLat + contractorLatDelta)
+          .gte("longitude", contractorLon - contractorLngDelta)
+          .lte("longitude", contractorLon + contractorLngDelta)
 
         if (searchQuery.trim()) {
           const searchTerm = searchQuery.trim().toLowerCase()
@@ -866,26 +1039,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           contractorQuery = contractorQuery.contains("languages", [spokenLanguage])
         }
 
-        // Apply location-based radius filtering
-        if (selectedLocation) {
-          const lat = selectedLocation.lat
-          const lon = selectedLocation.lon
-          const radiusMiles = parseInt(distance) || 10
-          const radiusKm = radiusMiles * 1.60934
-          const latDelta = radiusKm / 111.0
-          const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
-
-          console.log(`[MAIN-PAGE-SEARCH] Applying location filter: ${radiusMiles} miles radius`)
-
-          contractorQuery = contractorQuery
-            .gte("latitude", lat - latDelta)
-            .lte("latitude", lat + latDelta)
-            .gte("longitude", lon - lngDelta)
-            .lte("longitude", lon + lngDelta)
-        }
-
-        // Add timeout protection to contractor query (10 seconds)
-        const CONTRACTOR_TIMEOUT = 10000
+        // Location bounding box already applied above (always, using mapCenter fallback).
+        // Reduce timeout - with bounded query this should complete much faster.
+        // Add timeout protection to contractor query (8 seconds)
+        const CONTRACTOR_TIMEOUT = 8000
         console.log(`[MAIN-PAGE-SEARCH] Executing contractor query with ${CONTRACTOR_TIMEOUT/1000}s timeout...`)
 
         let contractorData: any = null
@@ -915,14 +1072,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         if (contractorError) {
           console.error(`[MAIN-PAGE-SEARCH] Contractor query error:`, contractorError)
+          // Don't fail the entire search on contractor timeout - just skip contractors
           if (contractorError.type === 'timeout' || contractorError.message?.includes('timeout')) {
-            setSearchError({
-              type: 'timeout',
-              message: t('mainSearch.searchTimeout') || 'Search is taking longer than expected. Please try narrowing your search or try again.'
-            })
-            setIsSearching(false)
-            setSearchProgress("")
-            return
+            console.warn(`[MAIN-PAGE-SEARCH] Contractor query timed out - continuing with other results`)
+            contractorData = [] // Continue with empty contractor results
           }
         } else {
           console.log(`[MAIN-PAGE-SEARCH] Contractor query returned ${contractorData?.length || 0} results`)
@@ -1002,9 +1155,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         // Fetch self-employed professionals as well
+        // Use inner join with users table to filter out deleted users (orphaned profiles)
         let profQuery = supabase
           .from("professional_profiles")
-          .select("*")
+          .select("*, users!inner(id)")
           .eq("profile_visible", true)
           .eq("available_for_work", true)
           .eq("is_self_employed", true)
@@ -1396,9 +1550,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         setSearchProgress("Searching for talented professionals...")
         console.log(`[MAIN-PAGE-SEARCH] Search query:`, searchQuery, `Location:`, location, `selectedLocation:`, selectedLocation)
         // Fetch all professionals (not just self-employed)
+        // Use inner join with users table to filter out deleted users (orphaned profiles)
         let query = supabase
           .from("professional_profiles")
-          .select("*")
+          .select("*, users!inner(id)")
           .eq("profile_visible", true)
           .eq("available_for_work", true)
 
@@ -1413,6 +1568,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           const orConditions = searchTerms.flatMap(term => [
             `first_name.ilike.%${term}%`,
             `last_name.ilike.%${term}%`,
+            `nickname.ilike.%${term}%`,
             `title.ilike.%${term}%`
           ]).join(',')
 
@@ -1596,7 +1752,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           results = filteredTalents.map(item => ({
             ...item,
             id: item.id,
-            name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),
+            // Respect hide_personal_name privacy setting: show nickname or Anonymous if name is hidden
+            name: !item.hide_personal_name && (item.first_name || item.last_name)
+              ? `${item.first_name || ''} ${item.last_name || ''}`.trim()
+              : (item.nickname || 'Anonymous'),
             coordinates: {
               lat: item.latitude!,
               lon: item.longitude!
@@ -2083,20 +2242,105 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const handleModalSearchUpdate = async (params: any) => {
     try {
       let results: any[] = []
-      const searchTerm = params.search || ""
-      const isTraders = params.traders === "true"
+      // "any" is a sentinel value meaning "no specific query, location-based only" — treat as empty
+      const rawSearch = params.search || ""
+      const searchTerm = rawSearch === "any" ? "" : rawSearch
 
       // Get location from params or use the original selectedLocation
       const searchLat = params.lat ? parseFloat(params.lat) : selectedLocation?.lat
       const searchLng = params.lng ? parseFloat(params.lng) : selectedLocation?.lon
       const searchRadius = params.radius ? parseInt(params.radius) : (distance ? parseInt(distance) : 10)
 
-      if (modalSearchType === "traders") {
-        // Fetch traders: self-employed professionals AND companies who trade
+      // Determine search type: prefer params.traders/jobs_tasks/vacancies over modalSearchType
+      const effectiveSearchType = params.traders === "true" ? "traders"
+        : params.jobs_tasks === "true" ? "jobs_tasks"
+        : params.vacancies === "true" ? "vacancies"
+        : params.talents === "true" ? "talents"
+        : modalSearchType
+
+      console.log('[MODAL-SEARCH] params:', params, 'modalSearchType:', modalSearchType, 'effective:', effectiveSearchType, 'searchLat:', searchLat, 'searchLng:', searchLng)
+
+      if (effectiveSearchType === "traders") {
+        // Fetch traders: contractors (primary) + self-employed professionals + companies open for business
+        let contractorResults: any[] = []
         let professionalResults: any[] = []
         let companyResults: any[] = []
 
-        // Fetch self-employed professionals
+        // Always apply a location bounding box to avoid full table scans.
+        // Use params.lat/lng if the user explicitly entered a location,
+        // otherwise fall back to the current map centre.
+        const hasExplicitLocation = !!(params.lat && params.lng)
+        const effectiveLat = searchLat ?? mapCenter[0]
+        const effectiveLng = searchLng ?? mapCenter[1]
+        const radiusKm = searchRadius * 1.60934
+        const latDelta = radiusKm / 111.0
+        const lngDelta = radiusKm / (111.0 * Math.cos(effectiveLat * Math.PI / 180))
+
+        // --- contractor_profiles (primary source for tradespeople) ---
+        let contractorQuery = supabase
+          .from("contractor_profiles")
+          .select("id,user_id,company_name,industry,location,latitude,longitude,services,languages,available_247,logo_url,profile_photo_url,description,bio,website_url,phone_number,company_size,price_list,created_at,average_rating,reviews_count")
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .gte("latitude", effectiveLat - latDelta)
+          .lte("latitude", effectiveLat + latDelta)
+          .gte("longitude", effectiveLng - lngDelta)
+          .lte("longitude", effectiveLng + lngDelta)
+
+        if (searchTerm) {
+          const term = searchTerm.toLowerCase()
+          const searchTerms = [term]
+          if (term.includes('plumber')) searchTerms.push('plumbing', 'heating')
+          if (term.includes('electrician')) searchTerms.push('electrical')
+          if (term.includes('builder') || term.includes('building')) searchTerms.push('construction')
+          if (term.includes('carpenter')) searchTerms.push('carpentry', 'joinery')
+          const orConds = searchTerms.flatMap(t => [
+            `company_name.ilike.%${t}%`,
+            `industry.ilike.%${t}%`
+          ]).join(',')
+          contractorQuery = contractorQuery.or(orConds)
+        }
+
+        if (params.tradeCategory && params.tradeCategory !== "all") {
+          contractorQuery = contractorQuery.ilike("industry", `%${params.tradeCategory}%`)
+        }
+        if (params.is_247 === "true") {
+          contractorQuery = contractorQuery.eq("available_247", true)
+        }
+        if (params.language && params.language !== "all") {
+          contractorQuery = contractorQuery.contains("languages", [params.language])
+        }
+
+        const { data: contractorData, error: contractorError } = await contractorQuery.limit(RESULT_LIMIT + 1)
+        console.log('[MODAL-SEARCH] contractor_profiles result:', contractorData?.length, 'error:', contractorError)
+        if (contractorData) {
+          let filtered = contractorData.filter(item => item.latitude && item.longitude)
+          // Apply precise radius filter when user explicitly chose a location
+          if (hasExplicitLocation) {
+            filtered = filterByRadius(filtered, effectiveLat, effectiveLng, searchRadius)
+          }
+          // Client-side services array filter (mirrors fetchResults behaviour)
+          if (searchTerm && filtered.length > 0) {
+            const svcTerms = [searchTerm.toLowerCase()]
+            if (svcTerms[0].includes('plumber')) svcTerms.push('plumbing', 'heating')
+            if (svcTerms[0].includes('gas')) svcTerms.push('heating', 'boiler')
+            if (svcTerms[0].includes('electrician') || svcTerms[0].includes('electric')) svcTerms.push('electrical', 'electric')
+            if (svcTerms[0].includes('carpenter')) svcTerms.push('carpentry', 'joinery')
+            filtered = filtered.filter(c => {
+              if (!c.services || !Array.isArray(c.services) || c.services.length === 0) return true
+              return svcTerms.some(t => c.services.some((s: string) => s.toLowerCase().includes(t)))
+            })
+          }
+          contractorResults = filtered.map(item => ({
+            ...item,
+            id: item.id,
+            name: item.company_name || item.name || "Contractor",
+            coordinates: { lat: item.latitude, lon: item.longitude },
+            type: 'contractor'
+          }))
+        }
+
+        // --- professional_profiles (self-employed) ---
         let profQuery = supabase
           .from("professional_profiles")
           .select("*")
@@ -2105,7 +2349,6 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           .eq("is_self_employed", true)
 
         if (searchTerm) {
-          // Get bilingual search terms for cross-language search
           const searchTerms = getBilingualSearchTerms(searchTerm)
           const orConditions = searchTerms.flatMap(term => [
             `first_name.ilike.%${term}%`,
@@ -2115,12 +2358,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           profQuery = profQuery.or(orConditions)
         }
 
-        if (searchLat && searchLng) {
-          const radius = 10
-          const radiusKm = radius * 1.60934
-          const latDelta = radiusKm / 111.0
-          const lngDelta = radiusKm / (111.0 * Math.cos(searchLat * Math.PI / 180))
+        if (params.language && params.language !== "all") {
+          profQuery = profQuery.contains("spoken_languages", [params.language])
+        }
 
+        if (hasExplicitLocation && searchLat && searchLng) {
           profQuery = profQuery
             .gte("latitude", searchLat - latDelta)
             .lte("latitude", searchLat + latDelta)
@@ -2128,39 +2370,43 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", searchLng + lngDelta)
         }
 
-        const { data: profData } = await profQuery.limit(RESULT_LIMIT + 1)
-
+        const { data: profData, error: profError } = await profQuery.limit(RESULT_LIMIT + 1)
+        console.log('[MODAL-SEARCH] professional_profiles (self_employed) result:', profData?.length, 'error:', profError)
         if (profData) {
-          professionalResults = profData
-            .filter(item => item.latitude && item.longitude)
-            .map(item => ({
-              ...item,
-              id: item.id,
-              name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),
-              coordinates: {
-                lat: item.latitude,
-                lon: item.longitude
-              },
-              type: 'professional'
-            }))
+          let filtered = profData.filter(item => item.latitude && item.longitude)
+          if (hasExplicitLocation && searchLat && searchLng) {
+            filtered = filterByRadius(filtered, searchLat, searchLng, searchRadius)
+          }
+          professionalResults = filtered.map(item => ({
+            ...item,
+            id: item.id,
+            name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),
+            coordinates: { lat: item.latitude, lon: item.longitude },
+            type: 'professional'
+          }))
         }
 
-        // Fetch companies who trade (open_for_business)
+        // --- company_profiles (open for business) ---
         let companyQuery = supabase
           .from("company_profiles")
           .select("*")
           .eq("open_for_business", true)
 
         if (searchTerm) {
-          companyQuery = companyQuery.ilike("company_name", `%${searchTerm}%`)
+          const cTerm = searchTerm.toLowerCase()
+          const cTerms = [cTerm]
+          if (cTerm.includes('builder') || cTerm.includes('building')) cTerms.push('construction')
+          if (cTerm.includes('plumber')) cTerms.push('plumbing', 'heating')
+          if (cTerm.includes('electrician')) cTerms.push('electrical')
+          if (cTerm.includes('carpenter')) cTerms.push('carpentry', 'joinery')
+          const cOrConds = cTerms.flatMap(t => [
+            `company_name.ilike.%${t}%`,
+            `industry.ilike.%${t}%`
+          ]).join(',')
+          companyQuery = companyQuery.or(cOrConds)
         }
 
-        if (searchLat && searchLng) {
-          const radius = 10
-          const radiusKm = radius * 1.60934
-          const latDelta = radiusKm / 111.0
-          const lngDelta = radiusKm / (111.0 * Math.cos(searchLat * Math.PI / 180))
-
+        if (hasExplicitLocation && searchLat && searchLng) {
           companyQuery = companyQuery
             .gte("latitude", searchLat - latDelta)
             .lte("latitude", searchLat + latDelta)
@@ -2168,30 +2414,40 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .lte("longitude", searchLng + lngDelta)
         }
 
-        const { data: companyData } = await companyQuery.limit(RESULT_LIMIT + 1)
-
+        const { data: companyData, error: companyError } = await companyQuery.limit(RESULT_LIMIT + 1)
+        console.log('[MODAL-SEARCH] company_profiles result:', companyData?.length, 'error:', companyError)
         if (companyData) {
-          companyResults = companyData
-            .filter(item => item.latitude && item.longitude)
-            .map(item => ({
-              ...item,
-              id: item.id,
-              name: item.company_name,
-              coordinates: {
-                lat: item.latitude,
-                lon: item.longitude
-              },
-              type: 'company'
-            }))
+          let filtered = companyData.filter(item => item.latitude && item.longitude)
+          if (hasExplicitLocation && searchLat && searchLng) {
+            filtered = filterByRadius(filtered, searchLat, searchLng, searchRadius)
+          }
+          // Client-side language filter (company_profiles.spoken_languages is JSONB)
+          if (params.language && params.language !== "all") {
+            filtered = filtered.filter(item => {
+              let langs = item.spoken_languages
+              if (!langs) return false
+              if (typeof langs === 'string') {
+                try { langs = JSON.parse(langs) } catch { return false }
+              }
+              return Array.isArray(langs) && langs.includes(params.language)
+            })
+          }
+          companyResults = filtered.map(item => ({
+            ...item,
+            id: item.id,
+            name: item.company_name,
+            coordinates: { lat: item.latitude, lon: item.longitude },
+            type: 'company'
+          }))
         }
 
-        // Combine both results
-        results = [...professionalResults, ...companyResults]
-      } else if (modalSearchType === "talents") {
+        // Combine all three sources
+        results = [...contractorResults, ...professionalResults, ...companyResults]
+      } else if (effectiveSearchType === "talents") {
         // Fetch all professionals (not just self-employed)
         let query = supabase
           .from("professional_profiles")
-          .select("*")
+          .select("*, users!inner(id)")
           .eq("profile_visible", true)
           .eq("available_for_work", true)
 
@@ -2229,14 +2485,17 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             .map(item => ({
               ...item,
               id: item.id,
-              name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),
+              // Respect hide_personal_name privacy setting: show nickname or Anonymous if name is hidden
+              name: !item.hide_personal_name && (item.first_name || item.last_name)
+                ? `${item.first_name || ''} ${item.last_name || ''}`.trim()
+                : (item.nickname || 'Anonymous'),
               coordinates: {
                 lat: item.latitude,
                 lon: item.longitude
               }
             }))
         }
-      } else if (modalSearchType === "vacancies" || modalSearchType === "jobs_tasks") {
+      } else if (effectiveSearchType === "vacancies" || effectiveSearchType === "jobs_tasks") {
         // Fetch jobs - exclude expired ones
         // Vacancies = employee positions (is_tradespeople_job = false)
         // Jobs/Tasks = tradespeople work (is_tradespeople_job = true)
@@ -2263,7 +2522,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           `)
           .eq("status", "open") // Only show open jobs (not accepted, in_progress, completed, or failed)
           .eq("is_active", true)
-          .eq("is_tradespeople_job", modalSearchType === "jobs_tasks") // true for jobs/tasks, false for vacancies
+          .eq("is_tradespeople_job", effectiveSearchType === "jobs_tasks") // true for jobs/tasks, false for vacancies
           .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
 
         if (searchTerm) {
@@ -2327,56 +2586,119 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   }
 
 
+  // Tab configuration with icons - order changes based on user type
+  // Companies see Trade Jobs first, others see Tradespeople first
+  const tabConfig = useMemo(() => {
+    const allTabs = [
+      {
+        key: "traders" as const,
+        icon: HardHat,
+        label: t('mainSearch.tradespeople'),
+        color: "orange",
+        bgActive: "bg-orange-500/20",
+        textActive: "text-orange-400",
+        underline: "bg-orange-400"
+      },
+      {
+        key: "jobs_tasks" as const,
+        icon: ClipboardList,
+        label: t('mainSearch.tradeJobs'),
+        color: "purple",
+        bgActive: "bg-purple-500/20",
+        textActive: "text-purple-400",
+        underline: "bg-purple-400"
+      },
+      {
+        key: "vacancies" as const,
+        icon: Building2,
+        label: t('mainSearch.vacancies'),
+        color: "blue",
+        bgActive: "bg-blue-500/20",
+        textActive: "text-blue-400",
+        underline: "bg-blue-400"
+      },
+      {
+        key: "talents" as const,
+        icon: UserSearch,
+        label: t('mainSearch.jobseekers'),
+        color: "emerald",
+        bgActive: "bg-emerald-500/20",
+        textActive: "text-emerald-400",
+        underline: "bg-emerald-400"
+      },
+    ]
+
+    // Filter out vacancies and jobseekers tabs if admin has disabled them
+    const baseConfig = vacanciesJobseekersEnabled
+      ? allTabs
+      : allTabs.filter(tab => tab.key === 'traders' || tab.key === 'jobs_tasks')
+
+    // For company users: show only Trade Jobs + Vacancies (jobs_tasks first)
+    if (userType === 'company') {
+      return baseConfig.filter(tab => tab.key === 'jobs_tasks' || tab.key === 'vacancies')
+    }
+
+    return baseConfig
+  }, [userType, t, vacanciesJobseekersEnabled])
+
+  // Dynamic headline based on selected tab
+  const getHeadline = () => {
+    switch (selectedSearchType) {
+      case "traders": return t('mainSearch.titleTradespeople')
+      case "jobs_tasks": return t('mainSearch.titleTradeJobs')
+      case "vacancies": return t('mainSearch.titleVacancies')
+      case "talents": return t('mainSearch.titleJobseekers')
+      default: return t('mainSearch.title')
+    }
+  }
+
   return (
     <div className="w-full relative z-[100]">
-      <div className="max-w-2xl mx-auto bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-2 sm:p-3 md:p-4 shadow-xl border border-white/10">
-        <h2 className="text-xs sm:text-sm md:text-base font-bold text-white mb-2 sm:mb-2.5 md:mb-3 text-center">
-          {t('mainSearch.title')}
+      <div className="max-w-3xl mx-auto bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-3 sm:p-4 md:p-6 shadow-xl border border-white/10">
+        {/* Dynamic Headline */}
+        <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-white mb-3 sm:mb-4 md:mb-5 text-center transition-all duration-300">
+          {getHeadline()}
         </h2>
 
-        {/* Selectable Search Type Buttons */}
-        <div className="grid grid-cols-4 gap-1.5 mb-3">
-          <button
-            onClick={() => setSelectedSearchType("vacancies")}
-            className={`h-8 sm:h-9 text-xs sm:text-sm font-semibold rounded-md md:rounded-lg transition-all duration-200 ${
-              selectedSearchType === "vacancies"
-                ? "bg-blue-500 text-white shadow-lg scale-[1.02]"
-                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            {t('mainSearch.vacancies')}
-          </button>
-          <button
-            onClick={() => setSelectedSearchType("jobs_tasks")}
-            className={`h-8 sm:h-9 text-xs sm:text-sm font-semibold rounded-md md:rounded-lg transition-all duration-200 ${
-              selectedSearchType === "jobs_tasks"
-                ? "bg-purple-500 text-white shadow-lg scale-[1.02]"
-                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            {t('mainSearch.tradeJobs')}
-          </button>
-          <button
-            onClick={() => setSelectedSearchType("traders")}
-            className={`h-8 sm:h-9 text-xs sm:text-sm font-semibold rounded-md md:rounded-lg transition-all duration-200 ${
-              selectedSearchType === "traders"
-                ? "bg-orange-500 text-white shadow-lg scale-[1.02]"
-                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            {t('mainSearch.tradespeople')}
-          </button>
-          <button
-            onClick={() => setSelectedSearchType("talents")}
-            className={`h-8 sm:h-9 text-xs sm:text-sm font-semibold rounded-md md:rounded-lg transition-all duration-200 ${
-              selectedSearchType === "talents"
-                ? "bg-emerald-500 text-white shadow-lg scale-[1.02]"
-                : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
-            }`}
-          >
-            {t('mainSearch.talents')}
-          </button>
+        {/* Icon-based Navigation Tabs - hidden for homeowner (fixed to Tradespeople view) */}
+        {userType !== 'homeowner' && (
+        <div className="flex justify-center gap-4 sm:gap-6 md:gap-10 mb-5 sm:mb-6">
+          {tabConfig.map(({ key, icon: Icon, label, bgActive, textActive, underline }) => (
+            <button
+              key={key}
+              onClick={() => handleSearchTypeChange(key)}
+              className="flex flex-col items-center gap-2 group relative pb-3"
+              role="tab"
+              aria-selected={selectedSearchType === key}
+            >
+              {/* Icon Container - uniform compact size */}
+              <div className={`
+                p-2 sm:p-3 md:p-4 rounded-full transition-all duration-300
+                ${selectedSearchType === key
+                  ? `${bgActive} ${textActive}`
+                  : 'bg-white/5 text-white/60 group-hover:bg-white/10 group-hover:text-white/80'}
+              `}>
+                <Icon className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10" />
+              </div>
+              {/* Label - uniform compact size */}
+              <span className={`
+                text-xs sm:text-sm md:text-base font-medium transition-colors duration-200 whitespace-nowrap
+                ${selectedSearchType === key ? 'text-white' : 'text-white/60 group-hover:text-white/80'}
+              `}>
+                {label}
+              </span>
+              {/* Underline Indicator - Airbnb style - thicker */}
+              <div className={`
+                absolute bottom-0 left-1/2 -translate-x-1/2 h-1 rounded-full
+                transition-all duration-300 ease-out
+                ${selectedSearchType === key
+                  ? `w-full ${underline}`
+                  : 'w-0 bg-transparent'}
+              `} />
+            </button>
+          ))}
         </div>
+        )}
 
         {/* Search Inputs */}
         <div className="flex flex-col gap-2">
@@ -2398,12 +2720,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                   }, 200)
                 }}
                 placeholder={t('mainSearch.searchPlaceholder')}
-                className="h-full text-xs md:text-sm px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md w-full"
+                className="h-full text-xs md:text-sm px-3 md:px-4 bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-slate-400 shadow-md w-full"
               />
 
               {/* Autocomplete suggestions dropdown */}
               {showSuggestions && filteredSuggestions.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-[100] max-h-64 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-[100] max-h-64 overflow-y-auto">
                   {filteredSuggestions.map((suggestion, index) => (
                     <button
                       key={index}
@@ -2416,7 +2738,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                         setSearchQuery(suggestion)
                         setShowSuggestions(false)
                       }}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-emerald-50 hover:text-emerald-700 transition-colors first:rounded-t-lg last:rounded-b-lg border-b border-gray-100 last:border-b-0"
+                      className="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-emerald-500/20 hover:text-emerald-400 transition-colors first:rounded-t-lg last:rounded-b-lg border-b border-slate-700 last:border-b-0"
                     >
                       {suggestion}
                     </button>
@@ -2439,11 +2761,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             {/* Map picker button */}
             <Button
               onClick={handleMapPickerClick}
-              className="h-8 sm:h-9 md:h-10 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0"
+              className="h-8 sm:h-9 md:h-10 px-2 sm:px-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 border border-slate-600"
               title={t('mainSearch.pickLocationOnMap')}
               type="button"
             >
-              <Map className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
+              <Map className="h-4 w-4" />
+              <span className="hidden sm:inline ml-1.5">Map</span>
             </Button>
 
             {/* Search button - desktop only */}
@@ -2467,15 +2790,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             {/* Filter button - desktop only */}
             <Button
               onClick={() => setShowFilters(!showFilters)}
-              className={`hidden sm:flex h-8 sm:h-9 md:h-10 px-3 sm:px-4 text-xs sm:text-sm font-bold text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 ${
-                selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
-                selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
-                selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
-                "bg-emerald-600 hover:bg-emerald-700"
-              } ${showFilters ? "ring-2 ring-white/50" : ""}`}
+              className={`hidden sm:flex h-8 sm:h-9 md:h-10 px-2 sm:px-3 text-xs font-medium text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 ${showFilters ? "ring-2 ring-emerald-500/50" : ""}`}
               title={t('mainSearch.toggleFilters')}
             >
               <SlidersHorizontal className="h-4 w-4" />
+              <span className="ml-1.5">Filters</span>
             </Button>
           </div>
 
@@ -2498,12 +2817,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             {/* Filter button - mobile */}
             <Button
               onClick={() => setShowFilters(!showFilters)}
-              className={`h-8 px-3 text-xs font-bold text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 ${
-                selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
-                selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
-                selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
-                "bg-emerald-600 hover:bg-emerald-700"
-              } ${showFilters ? "ring-2 ring-white/50" : ""}`}
+              className={`h-8 px-3 text-xs font-medium text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 ${showFilters ? "ring-2 ring-emerald-500/50" : ""}`}
               title={t('mainSearch.toggleFilters')}
             >
               <SlidersHorizontal className="h-4 w-4" />
@@ -3148,26 +3462,26 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           <Dialog open={showMapPicker} onOpenChange={(open) => {
             if (!open) cancelMapPicker()
           }}>
-            <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[80vh] sm:max-h-[85vh] overflow-y-auto p-3 sm:p-6" showCloseButton={false}>
+            <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[80vh] sm:max-h-[85vh] overflow-y-auto p-3 sm:p-6 bg-slate-900 border-slate-700" showCloseButton={false}>
             <DialogHeader>
-              <DialogTitle className="text-base sm:text-lg">{t('mainSearch.mapPickerTitle')}</DialogTitle>
-              <DialogDescription className="text-xs sm:text-sm">
+              <DialogTitle className="text-base sm:text-lg text-white">{t('mainSearch.mapPickerTitle')}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm text-slate-400">
                 {t('mainSearch.mapPickerDescription')}
               </DialogDescription>
             </DialogHeader>
 
             {/* Radius Control */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-gray-50 rounded-lg">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-slate-800 rounded-lg border border-slate-700">
               <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                <Target className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600 flex-shrink-0" />
-                <label className="text-xs sm:text-sm font-semibold text-gray-900 whitespace-nowrap">{t('mainSearch.searchRadius')}</label>
+                <Target className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-400 flex-shrink-0" />
+                <label className="text-xs sm:text-sm font-semibold text-white whitespace-nowrap">{t('mainSearch.searchRadius')}</label>
                 <Select value={mapPickerRadius} onValueChange={setMapPickerRadius}>
-                  <SelectTrigger className="w-28 sm:w-32 h-8 sm:h-9 text-xs sm:text-sm font-medium border-gray-300 bg-white">
+                  <SelectTrigger className="w-28 sm:w-32 h-8 sm:h-9 text-xs sm:text-sm font-medium border-slate-600 bg-slate-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="max-h-[300px]">
+                  <SelectContent className="max-h-[300px] bg-slate-800 border-slate-600">
                     {[1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map((miles) => (
-                      <SelectItem key={miles} value={miles.toString()}>
+                      <SelectItem key={miles} value={miles.toString()} className="text-white hover:bg-slate-700">
                         {miles} {miles !== 1 ? t('mainSearch.miles') : t('mainSearch.mile')}
                       </SelectItem>
                     ))}
@@ -3175,15 +3489,15 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
                 </Select>
               </div>
               {mapPickerLocation && (
-                <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-600">
-                  <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-blue-600" />
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-400">
+                  <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-blue-400" />
                   <span className="font-mono">{mapPickerLocation.lat.toFixed(4)}, {mapPickerLocation.lon.toFixed(4)}</span>
                 </div>
               )}
             </div>
 
             {/* Map Area - smaller on mobile to ensure footer is visible */}
-            <div className="w-full h-[35vh] sm:h-[400px] rounded-lg overflow-hidden border border-gray-200 min-h-[200px]">
+            <div className="w-full h-[35vh] sm:h-[400px] rounded-lg overflow-hidden border border-slate-700 min-h-[200px]">
               <ProfessionalMap
                 key={`map-picker-${mapPickerKey}`}
                 professionals={[]}
@@ -3199,9 +3513,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             </div>
 
             <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2 sm:pt-3">
-              <div className="text-xs sm:text-sm text-gray-600 text-center sm:text-left mb-2 sm:mb-0 sm:flex-1">
+              <div className="text-xs sm:text-sm text-slate-400 text-center sm:text-left mb-2 sm:mb-0 sm:flex-1">
                 {mapPickerLocation ? (
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-emerald-400">
                     {t('mainSearch.clickToConfirm')}
                   </span>
                 ) : (
@@ -3212,7 +3526,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               </div>
 
               <div className="flex gap-2 justify-center sm:justify-end">
-                <Button onClick={cancelMapPicker} variant="outline" size="sm" className="flex-1 sm:flex-none h-10">
+                <Button onClick={cancelMapPicker} variant="outline" size="sm" className="flex-1 sm:flex-none h-10 border-slate-600 text-slate-300 hover:bg-slate-800">
                   {t('common.cancel')}
                 </Button>
                 <Button
@@ -3232,11 +3546,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
       {/* Full-Screen Map Modal - Uses Same Component as Professionals Page */}
       {showMapModal && (
-        <div className="fixed inset-0 bg-white z-[9999]" style={{ zIndex: 9999 }}>
+        <div className="fixed inset-0 bg-slate-900 z-[9999]" style={{ zIndex: 9999 }}>
           {/* Warning banner when result limit is reached */}
           {resultLimitReached && (
-            <div className="bg-orange-50 border-b border-orange-200 px-4 py-3 text-center">
-              <p className="text-sm text-orange-800">
+            <div className="bg-orange-900/50 border-b border-orange-700 px-4 py-3 text-center">
+              <p className="text-sm text-orange-300">
                 <span className="font-semibold">{t('mainSearch.moreThan100Results')}</span> {t('mainSearch.showing100Results')}
               </p>
             </div>
@@ -3281,22 +3595,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
             isModal={true}
             onSearchUpdate={handleModalSearchUpdate}
             onModalClose={() => {
-              console.log('[MAIN-PAGE-SEARCH] Modal closing, current isSearching:', isSearching)
-              setShowMapModal(false)
-              // Cancel ongoing search and ensure isSearching is reset when modal closes
+              console.log('[MAIN-PAGE-SEARCH] Modal closing, redirecting to landing page')
+              // Cancel ongoing search
               if (searchAbortControllerRef.current) {
-                console.log('[MAIN-PAGE-SEARCH] 🛑 Modal closed, aborting search')
                 searchAbortControllerRef.current.abort()
                 searchAbortControllerRef.current = null
               }
-              setIsSearching(false)
-              setSearchProgress("")
-              setSearchResultCount(0)
-              console.log('[MAIN-PAGE-SEARCH] Modal closed, search state reset')
               // Dispatch event to show BannerMap again
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new Event('mainPageSearchClose'))
               }
+              // Redirect immediately - don't close modal first to avoid flash
+              router.push("/")
             }}
           />
         </div>

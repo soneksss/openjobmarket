@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { Metadata } from "next"
 import JobDetailView from "@/components/job-detail-view"
 import { generateJobPostingSchema } from "@/lib/schema-markup"
+import { requireVacancyEnabledForJob } from "@/lib/vacancy-guard"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const supabase = await createClient()
@@ -79,8 +80,10 @@ export default async function JobDetailPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const supabase = await createClient()
   const { id } = await params
+  await requireVacancyEnabledForJob(id)
+
+  const supabase = await createClient()
   const search = await searchParams
 
   console.log("[JOB-DETAIL] Loading job detail page:", {

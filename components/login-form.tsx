@@ -117,7 +117,7 @@ export default function LoginForm() {
           .from("users")
           .select("user_type, is_banned, ban_reason, ban_expires_at")
           .eq("id", user.id)
-          .single()
+          .maybeSingle()
         addLog('[LOGIN] User type: ' + userData?.user_type)
         addLog('[LOGIN] Ban status: ' + userData?.is_banned)
 
@@ -179,13 +179,13 @@ export default function LoginForm() {
             .from("professional_profiles")
             .select("id, first_name, last_name")
             .eq("user_id", user.id)
-            .single()
+            .maybeSingle()
 
           hasCompleteProfile = !!(professionalProfile?.first_name && professionalProfile?.last_name)
 
           if (hasCompleteProfile) {
-            addLog('[LOGIN] Redirecting to professional dashboard')
-            router.push("/dashboard/professional")
+            addLog('[LOGIN] Redirecting to search page')
+            router.push(isOnBrRoute ? "/br" : "/")
           } else {
             addLog('[LOGIN] Redirecting to onboarding (incomplete)')
             const onboardingUrl = isOnBrRoute
@@ -198,13 +198,13 @@ export default function LoginForm() {
             .from("company_profiles")
             .select("id, company_name")
             .eq("user_id", user.id)
-            .single()
+            .maybeSingle()
 
           hasCompleteProfile = !!companyProfile?.company_name
 
           if (hasCompleteProfile) {
-            addLog('[LOGIN] Redirecting to company dashboard')
-            router.push("/dashboard/company")
+            addLog('[LOGIN] Redirecting to search page')
+            router.push(isOnBrRoute ? "/br" : "/")
           } else {
             addLog('[LOGIN] Redirecting to onboarding (incomplete)')
             const onboardingUrl = isOnBrRoute

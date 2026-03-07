@@ -81,79 +81,79 @@ export function ContractorProfileEditForm({ userId, profile }: ContractorProfile
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-2xl">
-      <Card className="p-8">
+      <Card className="p-8 bg-slate-800/50 border-slate-700">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-white mb-2">
             Edit Contractor Profile
           </h1>
-          <p className="text-gray-600">
+          <p className="text-slate-400">
             Update your business information
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <Label htmlFor="companyName">Company/Trading Name *</Label>
+            <Label htmlFor="companyName" className="text-slate-200">Company/Trading Name *</Label>
             <Input
               id="companyName"
               value={formData.companyName}
               onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
               placeholder="e.g., Smith Plumbing Services"
               required
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
           </div>
 
           <div>
-            <Label htmlFor="industry">Industry/Trade *</Label>
+            <Label htmlFor="industry" className="text-slate-200">Industry/Trade *</Label>
             <Input
               id="industry"
               value={formData.industry}
               onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
               placeholder="e.g., Plumbing, Electrical, Construction"
               required
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
           </div>
 
           <div>
-            <Label htmlFor="services">Services Offered</Label>
+            <Label htmlFor="services" className="text-slate-200">Services Offered</Label>
             <Input
               id="services"
               value={formData.services}
               onChange={(e) => setFormData({ ...formData, services: e.target.value })}
               placeholder="e.g., Plumbing, Heating, Boiler Installation (comma separated)"
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
-            <p className="text-sm text-gray-500 mt-1">Separate multiple services with commas</p>
+            <p className="text-sm text-slate-400 mt-1">Separate multiple services with commas</p>
           </div>
 
           <div>
-            <Label htmlFor="location">Location *</Label>
+            <Label htmlFor="location" className="text-slate-200">Location *</Label>
             <Input
               id="location"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               placeholder="e.g., London, UK"
               required
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
           </div>
 
           <div>
-            <Label htmlFor="phone">Phone Number</Label>
+            <Label htmlFor="phone" className="text-slate-200">Phone Number</Label>
             <Input
               id="phone"
               type="tel"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               placeholder="+44 7700 900000"
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
           </div>
 
           <div>
-            <Label htmlFor="website">Website</Label>
+            <Label htmlFor="website" className="text-slate-200">Website</Label>
             <Input
               id="website"
               type="url"
@@ -166,30 +166,30 @@ export function ContractorProfileEditForm({ userId, profile }: ContractorProfile
                 }
               }}
               placeholder="https://www.yourwebsite.com"
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
           </div>
 
           <div>
-            <Label htmlFor="description">Business Description</Label>
+            <Label htmlFor="description" className="text-slate-200">Business Description</Label>
             <Textarea
               id="description"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               placeholder="Tell us about your business..."
               rows={4}
-              className="border-2 border-gray-300 focus:border-blue-500"
+              className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-lg text-sm">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-4 py-3 rounded-lg text-sm">
               Profile updated successfully! Redirecting...
             </div>
           )}
@@ -199,11 +199,11 @@ export function ContractorProfileEditForm({ userId, profile }: ContractorProfile
               type="button"
               variant="outline"
               onClick={() => router.back()}
-              className="flex-1"
+              className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading} className="flex-1" size="lg">
+            <Button type="submit" disabled={isLoading} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" size="lg">
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />

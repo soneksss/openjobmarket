@@ -406,9 +406,11 @@ export async function deleteProfessionalAccount(professionalProfileId: string) {
 
     // Step 1: Call the database function to delete all related data
     const { data: deletionResult, error: deletionError } = await supabase
-      .rpc('delete_professional_account', {
-        professional_profile_id: professionalProfileId,
-        user_auth_id: user.id
+      .rpc('delete_user_comprehensive', {
+        p_primary_reason: 'other',
+        p_custom_message: null,
+        p_user_email: null,
+        p_user_password: null,
       })
 
     if (deletionError) {
@@ -505,9 +507,11 @@ export async function deleteCompanyAccount(companyProfileId: string) {
 
     // Step 1: Call the database function to delete all related data
     const { data: deletionResult, error: deletionError } = await supabase
-      .rpc('delete_company_account', {
-        company_profile_id: companyProfileId,
-        user_auth_id: user.id
+      .rpc('delete_user_comprehensive', {
+        p_primary_reason: 'other',
+        p_custom_message: null,
+        p_user_email: null,
+        p_user_password: null,
       })
 
     if (deletionError) {

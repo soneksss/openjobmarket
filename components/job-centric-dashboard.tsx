@@ -32,6 +32,7 @@ import {
   PauseCircle,
   PlayCircle,
   CalendarPlus,
+  Zap,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -62,6 +63,7 @@ interface HomeownerJob {
   salary_frequency?: string
   is_active: boolean
   expires_at?: string
+  urgency_type?: "asap" | "today" | "flexible" | null
   created_at: string
   updated_at?: string
   is_tradespeople_job?: boolean
@@ -170,6 +172,33 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
     if (min) return `From £${min.toLocaleString()}`
     if (max) return `Up to £${max.toLocaleString()}`
     return null
+  }
+
+  // Calculate time remaining for urgency-based jobs
+  const getTimeRemaining = (expiresAt?: string, urgencyType?: string | null) => {
+    if (!expiresAt || !urgencyType) return null
+
+    const now = new Date().getTime()
+    const expiry = new Date(expiresAt).getTime()
+    const diff = expiry - now
+
+    if (diff <= 0) {
+      return { text: "Expired", isExpired: true }
+    }
+
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+
+    if (days > 0) {
+      return { text: `${days}d ${hours}h left`, isExpired: false }
+    } else if (hours > 0) {
+      return { text: `${hours}h ${minutes}m left`, isExpired: false }
+    } else if (minutes > 0) {
+      return { text: `${minutes}m left`, isExpired: false }
+    } else {
+      return { text: "<1m left", isExpired: false }
+    }
   }
 
   const getApplicationStatusColor = (status: string) => {
@@ -590,38 +619,31 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
   const displayedJobs = isJobListExpanded ? jobs : jobs.slice(0, 5)
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden border border-blue-500/30 shadow-sm rounded-xl bg-slate-800">
       <Collapsible open={isJobListExpanded} onOpenChange={setIsJobListExpanded}>
         {/* Header - Clickable to expand/collapse */}
         <CollapsibleTrigger asChild>
-          <CardHeader className="pb-2 bg-gradient-to-r from-blue-50 to-purple-50 border-b cursor-pointer hover:bg-gradient-to-r hover:from-blue-100 hover:to-purple-100 transition-colors">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="flex-shrink-0 text-muted-foreground">
-                  {isJobListExpanded ? (
-                    <ChevronDown className="h-5 w-5" />
-                  ) : (
-                    <ChevronRight className="h-5 w-5" />
-                  )}
-                </div>
-                <Briefcase className="h-5 w-5 text-blue-600" />
-                <h2 className="text-lg font-bold">Your Posted Jobs</h2>
-                <Badge variant="secondary" className="ml-2">{stats.totalJobs}</Badge>
+          <CardHeader className="px-4 py-3 cursor-pointer hover:bg-blue-500/10 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-500/30">
+                <Briefcase className="h-4 w-4 text-blue-400" />
               </div>
-            </div>
-
-            {/* Quick Stats */}
-            <div className="flex gap-4 mt-3 text-sm ml-7">
-              <span className="flex items-center gap-1 text-green-600">
-                <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                {stats.activeJobs} Active
-              </span>
-              {stats.completedJobs !== undefined && (
-                <span className="flex items-center gap-1 text-purple-600">
-                  <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-                  {stats.completedJobs} Completed
-                </span>
-              )}
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-white">Your Posted Jobs</span>
+                  <span className="text-xs text-slate-400">
+                    {stats.activeJobs} active{stats.completedJobs !== undefined ? `, ${stats.completedJobs} completed` : ''}
+                  </span>
+                </div>
+              </div>
+              <Badge className="bg-blue-500/30 text-blue-300 border-0 text-xs px-2 py-0.5">{stats.totalJobs}</Badge>
+              <div className="text-slate-400">
+                {isJobListExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </div>
             </div>
           </CardHeader>
         </CollapsibleTrigger>
@@ -631,9 +653,9 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
             {jobs.length === 0 ? (
               /* Empty State */
               <div className="text-center py-12 px-4">
-                <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-3 opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">No jobs posted yet</h3>
-                <p className="text-sm text-muted-foreground mb-4">
+                <Briefcase className="w-12 h-12 text-slate-500 mx-auto mb-3 opacity-50" />
+                <h3 className="text-lg font-semibold mb-2 text-white">No jobs posted yet</h3>
+                <p className="text-sm text-slate-400 mb-4">
                   Post your first job to find contractors and professionals
                 </p>
                 <Link href={`/dashboard/${userType}/post-job`}>
@@ -645,7 +667,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
               </div>
             ) : (
               /* Job List */
-              <div className="divide-y">
+              <div className="divide-y divide-slate-700">
                 {displayedJobs.map((job) => {
               const statusInfo = getStatusInfo(job)
               const StatusIcon = statusInfo.icon
@@ -658,10 +680,10 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                 <Collapsible key={job.id} open={isExpanded} onOpenChange={() => toggleJobExpanded(job.id)}>
                   {/* Level 1: Compact Job Row */}
                   <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between p-3 sm:p-4 hover:bg-muted/50 cursor-pointer transition-colors">
+                    <div className="flex items-center justify-between p-3 sm:p-4 hover:bg-slate-700/50 cursor-pointer transition-colors">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {/* Expand Icon */}
-                        <div className="flex-shrink-0 text-muted-foreground">
+                        <div className="flex-shrink-0 text-slate-400">
                           {isExpanded ? (
                             <ChevronDown className="h-5 w-5" />
                           ) : (
@@ -672,13 +694,13 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                         {/* Job Info */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className="font-semibold text-sm sm:text-base truncate">{job.title}</h3>
+                            <h3 className="font-semibold text-sm sm:text-base truncate text-white">{job.title}</h3>
                             {job.is_tradespeople_job ? (
-                              <Badge className="bg-orange-100 text-orange-700 text-xs">
+                              <Badge className="bg-orange-500/30 text-orange-300 text-xs">
                                 Trade Job
                               </Badge>
                             ) : (
-                              <Badge className="bg-green-100 text-green-700 text-xs">
+                              <Badge className="bg-green-500/30 text-green-300 text-xs">
                                 Vacancy
                               </Badge>
                             )}
@@ -686,14 +708,37 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                               <StatusIcon className="h-3 w-3 mr-1" />
                               {statusInfo.text}
                             </Badge>
+                            {/* Urgency Timer for Trade Jobs */}
+                            {job.is_tradespeople_job && job.urgency_type && (() => {
+                              const timeInfo = getTimeRemaining(job.expires_at, job.urgency_type)
+                              if (!timeInfo) return null
+                              return (
+                                <Badge
+                                  className={`text-xs ${
+                                    timeInfo.isExpired
+                                      ? "bg-slate-600 text-slate-400"
+                                      : job.urgency_type === "asap"
+                                      ? "bg-red-500/30 text-red-300 animate-pulse"
+                                      : job.urgency_type === "today"
+                                      ? "bg-orange-500/30 text-orange-300"
+                                      : "bg-blue-500/30 text-blue-300"
+                                  }`}
+                                >
+                                  {job.urgency_type === "asap" && <Zap className="h-2.5 w-2.5 mr-1" />}
+                                  {job.urgency_type === "today" && <Clock className="h-2.5 w-2.5 mr-1" />}
+                                  {job.urgency_type === "flexible" && <Calendar className="h-2.5 w-2.5 mr-1" />}
+                                  {timeInfo.text}
+                                </Badge>
+                              )
+                            })()}
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                          <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
                             <span className="flex items-center gap-1">
                               <MapPin className="h-2.5 w-2.5" />
                               <span className="truncate max-w-[100px] text-[0.65rem]">{job.location}</span>
                             </span>
                             {budget && (
-                              <span className="text-green-600 font-medium">
+                              <span className="text-emerald-400 font-medium">
                                 {budget}
                               </span>
                             )}
@@ -709,7 +754,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                           className={`flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium transition-all duration-200 ${
                             showApplicantsForJob.has(job.id)
                               ? 'bg-blue-600 text-white shadow-md'
-                              : 'bg-blue-50 text-blue-700 hover:bg-blue-200 hover:scale-110 hover:shadow-md cursor-pointer'
+                              : 'bg-blue-500/30 text-blue-300 hover:bg-blue-500/50 hover:scale-110 hover:shadow-md cursor-pointer'
                           }`}
                           title="Click to view applicants"
                         >
@@ -720,12 +765,12 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                         {/* Job Actions Dropdown */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400 hover:bg-slate-700">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenuItem asChild>
+                          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()} className="bg-slate-800 border-slate-700">
+                            <DropdownMenuItem asChild className="text-slate-200 focus:bg-slate-700 focus:text-white">
                               <Link href={`/dashboard/${userType}/jobs/${job.id}`} className="flex items-center">
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit Job
@@ -734,6 +779,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                             <DropdownMenuItem
                               onClick={() => handleToggleJobStatus(job.id, job.title, job.is_active)}
                               disabled={actionLoading === job.id}
+                              className="text-slate-200 focus:bg-slate-700 focus:text-white"
                             >
                               {job.is_active ? (
                                 <>
@@ -753,13 +799,14 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                 setExtendDuration(7) // Reset to default when opening
                                 setShowExtendDialog(true)
                               }}
+                              className="text-slate-200 focus:bg-slate-700 focus:text-white"
                             >
                               <CalendarPlus className="h-4 w-4 mr-2" />
                               Extend Job
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            <DropdownMenuSeparator className="bg-slate-700" />
                             <DropdownMenuItem
-                              className="text-red-600 focus:text-red-600"
+                              className="text-red-400 focus:text-red-400 focus:bg-slate-700"
                               onClick={() => {
                                 setPendingJobAction({ jobId: job.id, jobTitle: job.title })
                                 setShowDeleteDialog(true)
@@ -776,27 +823,27 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
 
                   {/* Level 2: Expanded Job Details */}
                   <CollapsibleContent>
-                    <div className="px-3 sm:px-4 pb-4 bg-muted/30 border-t">
+                    <div className="px-3 sm:px-4 pb-4 bg-slate-700/30 border-t border-slate-700">
                       {/* Job Details */}
                       <div className="py-4">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                          <div className="bg-white p-2 rounded-lg shadow-sm">
-                            <p className="text-xs text-muted-foreground">Posted</p>
-                            <p className="text-sm font-medium">{formatDate(job.created_at)}</p>
+                          <div className="bg-slate-700/50 p-2 rounded-lg border border-slate-600/50">
+                            <p className="text-xs text-slate-400">Posted</p>
+                            <p className="text-sm font-medium text-white">{formatDate(job.created_at)}</p>
                           </div>
-                          <div className="bg-white p-2 rounded-lg shadow-sm">
-                            <p className="text-xs text-muted-foreground">Views</p>
-                            <p className="text-sm font-medium flex items-center gap-1">
+                          <div className="bg-slate-700/50 p-2 rounded-lg border border-slate-600/50">
+                            <p className="text-xs text-slate-400">Views</p>
+                            <p className="text-sm font-medium text-white flex items-center gap-1">
                               <Eye className="h-3 w-3" />{job.views_count || 0}
                             </p>
                           </div>
-                          <div className="bg-white p-2 rounded-lg shadow-sm">
-                            <p className="text-xs text-muted-foreground">Type</p>
-                            <p className="text-sm font-medium">{job.work_location || 'On-site'}</p>
+                          <div className="bg-slate-700/50 p-2 rounded-lg border border-slate-600/50">
+                            <p className="text-xs text-slate-400">Type</p>
+                            <p className="text-sm font-medium text-white">{job.work_location || 'On-site'}</p>
                           </div>
-                          <div className="bg-white p-2 rounded-lg shadow-sm">
-                            <p className="text-xs text-muted-foreground">Expires</p>
-                            <p className="text-sm font-medium">
+                          <div className="bg-slate-700/50 p-2 rounded-lg border border-slate-600/50">
+                            <p className="text-xs text-slate-400">Expires</p>
+                            <p className="text-sm font-medium text-white">
                               {job.expires_at ? formatDate(job.expires_at) : 'No expiry'}
                             </p>
                           </div>
@@ -804,9 +851,9 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
 
                         {/* Description */}
                         {job.short_description && (
-                          <div className="bg-white p-3 rounded-lg shadow-sm">
-                            <p className="text-xs text-muted-foreground mb-1">Description</p>
-                            <p className="text-sm text-gray-700">{job.short_description}</p>
+                          <div className="bg-slate-700/50 p-3 rounded-lg border border-slate-600/50">
+                            <p className="text-xs text-slate-400 mb-1">Description</p>
+                            <p className="text-sm text-slate-200">{job.short_description}</p>
                           </div>
                         )}
 
@@ -815,7 +862,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                           <div className="mt-4 text-center">
                             <button
                               onClick={(e) => toggleApplicantsVisible(job.id, e)}
-                              className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2 mx-auto"
+                              className="text-sm text-blue-400 hover:text-blue-300 font-medium flex items-center gap-2 mx-auto"
                             >
                               <Users className="h-4 w-4" />
                               Click to view {job.applications_count} applicant{(job.applications_count || 0) !== 1 ? 's' : ''}
@@ -828,16 +875,16 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
 
                   {/* Level 3: Applicants Section - Only shown when applicant badge is clicked */}
                   {showApplicantsForJob.has(job.id) && (
-                    <div className="px-3 sm:px-4 pb-4 bg-blue-50/50 border-t">
+                    <div className="px-3 sm:px-4 pb-4 bg-blue-500/10 border-t border-slate-700">
                       <div className="pt-4">
                         <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-sm flex items-center gap-2">
-                            <Users className="h-4 w-4 text-blue-600" />
+                          <h4 className="font-semibold text-sm flex items-center gap-2 text-white">
+                            <Users className="h-4 w-4 text-blue-400" />
                             Applicants ({applications.length})
                           </h4>
                           <button
                             onClick={(e) => toggleApplicantsVisible(job.id, e)}
-                            className="text-xs text-muted-foreground hover:text-foreground"
+                            className="text-xs text-slate-400 hover:text-white"
                           >
                             Hide
                           </button>
@@ -845,12 +892,12 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
 
                         {isLoadingApps ? (
                           <div className="flex items-center justify-center py-8">
-                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
                           </div>
                         ) : applications.length === 0 ? (
-                          <div className="text-center py-8 bg-white rounded-lg">
-                            <FileText className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-                            <p className="text-sm text-muted-foreground">No applications yet</p>
+                          <div className="text-center py-8 bg-slate-700/50 rounded-lg border border-slate-600/50">
+                            <FileText className="h-8 w-8 text-slate-500 mx-auto mb-2 opacity-50" />
+                            <p className="text-sm text-slate-400">No applications yet</p>
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -874,13 +921,13 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                   onOpenChange={() => toggleApplicantExpanded(application.id)}
                                 >
                                   {/* Applicant Row */}
-                                  <div className={`bg-white rounded-lg shadow-sm overflow-hidden ${
+                                  <div className={`bg-slate-700/50 rounded-lg border border-slate-600/50 overflow-hidden ${
                                     isAccepted ? 'ring-2 ring-green-500' : ''
                                   }`}>
                                     <CollapsibleTrigger asChild>
-                                      <div className="flex items-center gap-3 p-3 hover:bg-muted/30 cursor-pointer transition-colors">
+                                      <div className="flex items-center gap-3 p-3 hover:bg-slate-600/50 cursor-pointer transition-colors">
                                         {/* Expand Icon */}
-                                        <div className="flex-shrink-0 text-muted-foreground">
+                                        <div className="flex-shrink-0 text-slate-400">
                                           {isApplicantExpanded ? (
                                             <ChevronDown className="h-4 w-4" />
                                           ) : (
@@ -889,9 +936,9 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                         </div>
 
                                         {/* Avatar */}
-                                        <Avatar className="h-10 w-10 flex-shrink-0">
+                                        <Avatar className="h-10 w-10 flex-shrink-0 border border-slate-500">
                                           <AvatarImage src={applicantPhoto} alt={applicantName} />
-                                          <AvatarFallback className="text-xs">
+                                          <AvatarFallback className="text-xs bg-slate-600 text-slate-200">
                                             {applicantName?.slice(0, 2).toUpperCase()}
                                           </AvatarFallback>
                                         </Avatar>
@@ -899,7 +946,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                         {/* Info */}
                                         <div className="flex-1 min-w-0">
                                           <div className="flex items-center gap-2 flex-wrap">
-                                            <span className="font-medium text-sm truncate">{applicantName}</span>
+                                            <span className="font-medium text-sm truncate text-white">{applicantName}</span>
                                             <Badge className={`${getApplicationStatusColor(application.status)} text-xs`}>
                                               {application.status}
                                             </Badge>
@@ -907,7 +954,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                               <Badge className="bg-green-600 text-white text-xs">Selected</Badge>
                                             )}
                                           </div>
-                                          <p className="text-xs text-muted-foreground truncate">
+                                          <p className="text-xs text-slate-400 truncate">
                                             {applicantTitle || 'Professional'}
                                           </p>
                                         </div>
@@ -919,7 +966,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                               <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                className="h-8 w-8 p-0 text-green-600 hover:bg-green-50"
+                                                className="h-8 w-8 p-0 text-green-400 hover:bg-green-500/20"
                                                 onClick={(e) => {
                                                   e.stopPropagation()
                                                   setPendingAccept({
@@ -938,7 +985,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                               <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                className="h-8 w-8 p-0 text-red-600 hover:bg-red-50"
+                                                className="h-8 w-8 p-0 text-red-400 hover:bg-red-500/20"
                                                 onClick={(e) => {
                                                   e.stopPropagation()
                                                   handleRejectApplicant(application.id, applicantName, job.id)
@@ -955,36 +1002,36 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
 
                                     {/* Level 4: Expanded Applicant Details */}
                                     <CollapsibleContent>
-                                      <div className="px-3 pb-3 pt-0 border-t bg-gray-50">
+                                      <div className="px-3 pb-3 pt-0 border-t border-slate-600 bg-slate-600/30">
                                         {/* Details Grid */}
                                         <div className="grid grid-cols-2 gap-2 py-3">
                                           <div>
-                                            <p className="text-xs text-muted-foreground">Location</p>
-                                            <p className="text-xs flex items-center gap-1">
+                                            <p className="text-xs text-slate-400">Location</p>
+                                            <p className="text-xs text-white flex items-center gap-1">
                                               <MapPin className="h-2.5 w-2.5" />
                                               {professionalProfile.location || 'Not specified'}
                                             </p>
                                           </div>
                                           <div>
-                                            <p className="text-xs text-muted-foreground">Applied</p>
-                                            <p className="text-sm flex items-center gap-1">
+                                            <p className="text-xs text-slate-400">Applied</p>
+                                            <p className="text-sm text-white flex items-center gap-1">
                                               <Calendar className="h-3 w-3" />
                                               {formatDate(application.applied_at)}
                                             </p>
                                           </div>
                                           {professionalProfile.experience_level && (
                                             <div>
-                                              <p className="text-xs text-muted-foreground">Experience</p>
-                                              <p className="text-sm">{professionalProfile.experience_level}</p>
+                                              <p className="text-xs text-slate-400">Experience</p>
+                                              <p className="text-sm text-white">{professionalProfile.experience_level}</p>
                                             </div>
                                           )}
                                         </div>
 
                                         {/* Cover Letter */}
                                         {application.cover_letter && (
-                                          <div className="bg-white p-3 rounded-lg mb-3">
-                                            <p className="text-xs text-muted-foreground mb-1">Cover Letter</p>
-                                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                          <div className="bg-slate-700/50 p-3 rounded-lg mb-3 border border-slate-600/50">
+                                            <p className="text-xs text-slate-400 mb-1">Cover Letter</p>
+                                            <p className="text-sm text-slate-200 whitespace-pre-wrap">
                                               {application.cover_letter}
                                             </p>
                                           </div>
@@ -992,14 +1039,14 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
 
                                         {/* Bio */}
                                         {professionalProfile.bio && (
-                                          <div className="bg-white p-3 rounded-lg mb-3">
-                                            <p className="text-xs text-muted-foreground mb-1">About</p>
-                                            <p className="text-sm text-gray-700">{professionalProfile.bio}</p>
+                                          <div className="bg-slate-700/50 p-3 rounded-lg mb-3 border border-slate-600/50">
+                                            <p className="text-xs text-slate-400 mb-1">About</p>
+                                            <p className="text-sm text-slate-200">{professionalProfile.bio}</p>
                                           </div>
                                         )}
 
                                         {/* Action Buttons - Sticky on mobile */}
-                                        <div className="sticky bottom-0 bg-gray-50 pt-2 -mx-3 px-3 pb-1 border-t mt-2">
+                                        <div className="sticky bottom-0 bg-slate-600/30 pt-2 -mx-3 px-3 pb-1 border-t border-slate-600 mt-2">
                                           <div className="flex gap-2">
                                             {canTakeAction ? (
                                               <>
@@ -1028,7 +1075,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                                 <Button
                                                   size="sm"
                                                   variant="outline"
-                                                  className="flex-1 border-red-300 text-red-600 hover:bg-red-50"
+                                                  className="flex-1 border-red-500/50 text-red-400 hover:bg-red-500/20"
                                                   onClick={() => handleRejectApplicant(application.id, applicantName, job.id)}
                                                   disabled={actionLoading === application.id}
                                                 >
@@ -1052,6 +1099,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                               size="sm"
                                               variant="outline"
                                               asChild
+                                              className="border-slate-500 text-slate-200 hover:bg-slate-600"
                                             >
                                               <Link href={`/professionals/${professionalProfile.id}`}>
                                                 View Profile

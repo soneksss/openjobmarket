@@ -23,7 +23,7 @@ export default async function ContractorProfileEditPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
       <ContractorProfileEditForm userId={user.id} profile={profile} />
     </div>
   )

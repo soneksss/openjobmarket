@@ -1,8 +1,11 @@
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import VacancyPostingForm from "@/components/vacancy-posting-form"
+import { requireVacancyEnabled } from "@/lib/vacancy-guard"
 
 export default async function NewVacancyPage() {
+  await requireVacancyEnabled()
+
   const supabase = await createClient()
   const {
     data: { user },

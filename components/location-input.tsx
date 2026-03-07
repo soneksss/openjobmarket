@@ -174,22 +174,22 @@ export function LocationInput({
           onFocus={() => setShowSuggestions(true)}
           onBlur={handleBlur}
           placeholder={placeholder}
-          className={`h-8 sm:h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 bg-white border-0 focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-gray-500 shadow-md w-full ${
+          className={`h-8 sm:h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 bg-slate-700 border-slate-600 text-white focus:ring-2 focus:ring-emerald-500/30 rounded-md md:rounded-lg font-medium placeholder:text-slate-400 shadow-md w-full ${
             error || validationError ? "ring-2 ring-red-500" : ""
           } ${className}`}
         />
         <div className="absolute inset-y-0 right-0 items-center pr-3 md:pr-4 pointer-events-none hidden md:flex">
           {isLoading ? (
-            <div className="animate-spin h-5 w-5 border-2 border-gray-300 border-t-emerald-600 rounded-full" />
+            <div className="animate-spin h-5 w-5 border-2 border-slate-500 border-t-emerald-400 rounded-full" />
           ) : (
-            <MapPin className="h-5 w-5 text-gray-400" />
+            <MapPin className="h-5 w-5 text-slate-400" />
           )}
         </div>
       </div>
 
       {/* Error message */}
       {(error || validationError) && (
-        <div className="flex items-center mt-2 text-sm text-red-400 bg-red-50 px-3 py-2 rounded-lg relative z-[100001]">
+        <div className="flex items-center mt-2 text-sm text-red-400 bg-red-900/50 border border-red-700 px-3 py-2 rounded-lg relative z-[100001]">
           <AlertCircle className="h-4 w-4 mr-2" />
           {error || validationError}
         </div>
@@ -198,9 +198,9 @@ export function LocationInput({
       {/* Suggestions dropdown */}
       {showSuggestions && suggestions.length > 0 && (
         <div
-          className="absolute z-[100001] w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl max-h-80 overflow-auto"
+          className="absolute z-[100001] w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-2xl max-h-80 overflow-auto"
           style={{
-            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.3)',
             border: '2px solid #10b981'
           }}
         >
@@ -208,12 +208,12 @@ export function LocationInput({
             <button
               key={suggestion.place_id}
               type="button"
-              className="w-full px-3 py-2.5 text-left hover:bg-emerald-50 focus:bg-emerald-50 focus:outline-none border-b border-gray-100 last:border-b-0 transition-colors"
+              className="w-full px-3 py-2.5 text-left hover:bg-emerald-500/20 focus:bg-emerald-500/20 focus:outline-none border-b border-slate-700 last:border-b-0 transition-colors"
               onClick={() => handleSuggestionSelect(suggestion)}
             >
               <div className="flex items-start">
-                <MapPin className="h-3.5 w-3.5 text-emerald-500 mt-0.5 mr-2 flex-shrink-0" />
-                <span className="text-xs sm:text-sm text-gray-900 font-medium leading-tight break-words">{formatShortAddress(suggestion)}</span>
+                <MapPin className="h-3.5 w-3.5 text-emerald-400 mt-0.5 mr-2 flex-shrink-0" />
+                <span className="text-xs sm:text-sm text-slate-200 font-medium leading-tight break-words">{formatShortAddress(suggestion)}</span>
               </div>
             </button>
           ))}

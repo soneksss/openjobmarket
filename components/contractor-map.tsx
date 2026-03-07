@@ -435,48 +435,48 @@ export default function ContractorMap({
       // Create popup content
       const popupContent = `
         <div style="min-width: 200px;">
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-            <div style="font-weight: 600; font-size: 14px;">${contractor.display_name}</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+            <div style="font-weight: 700; font-size: 14px; color: #f1f5f9;">${contractor.display_name}</div>
           </div>
 
           ${contractor.type === 'professional' && contractor.title ?
-            `<div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${contractor.title}</div>` :
+            `<div style="color: #94a3b8; font-size: 12px; margin-bottom: 4px;">${contractor.title}</div>` :
             ''
           }
 
           ${contractor.type === 'company' && contractor.industry ?
-            `<div style="color: #6b7280; font-size: 12px; margin-bottom: 4px;">${contractor.industry}</div>` :
+            `<div style="color: #94a3b8; font-size: 12px; margin-bottom: 4px;">${contractor.industry}</div>` :
             ''
           }
 
-          <div style="display: flex; align-items: center; gap: 4px; color: #6b7280; font-size: 12px; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 4px; color: #94a3b8; font-size: 12px; margin-bottom: 8px;">
             <span>📍</span>
-            <span>${contractor.location}</span>
+            <span style="color: #cbd5e1;">${contractor.location}</span>
           </div>
 
-          <div style="display: flex; flex-wrap: gap: 4px; margin-bottom: 8px;">
-            <span style="background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 10px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px;">
+            <span style="background: #334155; color: #cbd5e1; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 500;">
               ${contractor.type === 'professional' ? 'Individual' : 'Company'}
             </span>
 
             ${contractor.type === 'professional' && contractor.is_self_employed ?
-              '<span style="background: #fef3c7; padding: 2px 6px; border-radius: 4px; font-size: 10px;">Self-Employed</span>' :
+              '<span style="background: #422006; color: #fb923c; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 500;">Self-Employed</span>' :
               ''
             }
 
             ${contractor.type === 'company' && contractor.service_24_7 ?
-              '<span style="background: #dbeafe; padding: 2px 6px; border-radius: 4px; font-size: 10px;">24/7</span>' :
+              '<span style="background: #1e3a5f; color: #60a5fa; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 500;">24/7</span>' :
               ''
             }
 
             ${contractor.spoken_languages && contractor.spoken_languages.length > 0 ?
-              `<span style="background: #f0f9ff; padding: 2px 6px; border-radius: 4px; font-size: 10px;">${contractor.spoken_languages.length} Languages</span>` :
+              `<span style="background: #14532d; color: #4ade80; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 500;">${contractor.spoken_languages.length} Languages</span>` :
               ''
             }
           </div>
 
           ${contractor.description ?
-            `<div style="color: #374151; font-size: 12px; margin-bottom: 8px; max-height: 60px; overflow: hidden;">${contractor.description.substring(0, 150)}${contractor.description.length > 150 ? '...' : ''}</div>` :
+            `<div style="color: #94a3b8; font-size: 12px; margin-bottom: 4px; max-height: 60px; overflow: hidden; line-height: 1.5;">${contractor.description.substring(0, 150)}${contractor.description.length > 150 ? '...' : ''}</div>` :
             ''
           }
         </div>

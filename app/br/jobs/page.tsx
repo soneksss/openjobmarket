@@ -38,7 +38,12 @@ export default async function JobsPageBR() {
   // Get current user
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Fetch all jobs with company information
+  // Fetch vacancy jobs for the BR market map.
+  // Filters:
+  //   status = 'POSTED'          — state machine active state (was 'open'/'active' pre-migration)
+  //   is_tradespeople_job = false — BR market shows vacancy jobs only, not trade/handyman jobs
+  //   expires_at IS NULL OR > now() — exclude expired listings
+  const now = new Date().toISOString()
   const { data: jobs, error } = await supabase
     .from("jobs")
     .select(`
@@ -50,7 +55,9 @@ export default async function JobsPageBR() {
         industry
       )
     `)
-    .eq("status", "active")
+    .eq("status", "POSTED")
+    .eq("is_tradespeople_job", false)
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
     .order("created_at", { ascending: false })
 
   if (error) {

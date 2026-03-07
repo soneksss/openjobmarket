@@ -7,18 +7,20 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { Settings, AlertTriangle, CheckCircle, Crown, ArrowRight, Shield } from "lucide-react"
+import { Settings, AlertTriangle, CheckCircle, Crown, ArrowRight, Shield, Users, Building2 } from "lucide-react"
 import { createClient } from "@/lib/client"
 
 interface AdminSettings {
   subscriptions_enabled: boolean
   signin_required_to_search: boolean
+  vacancies_jobseekers_enabled: boolean
 }
 
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<AdminSettings>({
     subscriptions_enabled: false,
     signin_required_to_search: false,
+    vacancies_jobseekers_enabled: true,
   })
 
   const [loading, setLoading] = useState(true)
@@ -215,6 +217,52 @@ export default function AdminSettingsPage() {
                 </div>
                 <p className="text-sm text-green-700">
                   Anyone can search without signing in. This provides better user experience and discovery but doesn't require account creation.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Vacancies & Jobseekers Toggle */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2">
+              <Users className="h-5 w-5" />
+              <span>Vacancies & Jobseekers</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="text-base font-medium">Enable Vacancies and Jobseekers</Label>
+                <p className="text-sm text-muted-foreground">
+                  When enabled, the main page shows all 4 tabs: Tradespeople, Trade Jobs, Jobseekers, and Vacancies. When disabled, only Tradespeople and Trade Jobs are shown.
+                </p>
+              </div>
+              <Switch
+                checked={settings.vacancies_jobseekers_enabled}
+                onCheckedChange={(checked) => handleSettingChange("vacancies_jobseekers_enabled", checked)}
+              />
+            </div>
+
+            {settings.vacancies_jobseekers_enabled ? (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Building2 className="h-4 w-4 text-blue-600" />
+                  <h4 className="text-sm font-medium text-blue-800">Full Platform Mode</h4>
+                </div>
+                <p className="text-sm text-blue-700">
+                  All 4 search tabs are visible: Tradespeople, Trade Jobs, Vacancies (employee positions), and Jobseekers (talent search).
+                </p>
+              </div>
+            ) : (
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Users className="h-4 w-4 text-orange-600" />
+                  <h4 className="text-sm font-medium text-orange-800">Simplified Mode</h4>
+                </div>
+                <p className="text-sm text-orange-700">
+                  Only 2 search tabs are visible: Tradespeople and Trade Jobs. Vacancies and Jobseekers tabs are hidden from the main page.
                 </p>
               </div>
             )}

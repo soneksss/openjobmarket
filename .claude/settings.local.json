@@ -58,7 +58,8 @@
       "Bash(psql:*)",
       "Bash(ren:*)",
       "Bash(ls:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { StarRating } from "@/components/star-rating"
-import { MapPin, Building, Clock, Users, Briefcase, Heart, ExternalLink, ChevronDown, ChevronUp, MessageCircle, User as UserIcon } from "lucide-react"
+import { MapPin, Building, Clock, Users, Briefcase, Heart, ExternalLink, ChevronDown, ChevronUp, MessageCircle, User as UserIcon, Zap, Calendar } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import JobApplicationForm from "@/components/job-application-form"
@@ -32,6 +32,8 @@ interface Job {
   skills_required: string[]
   applications_count: number
   created_at: string
+  expires_at?: string
+  urgency_type?: "asap" | "today" | "flexible" | null
   job_photo_url?: string
   is_tradespeople_job?: boolean
   company_profiles?: {
@@ -90,8 +92,56 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [userType, setUserType] = useState<string | null>(null)
 
+  // Countdown timer state for tradespeople jobs
+  const [timeRemaining, setTimeRemaining] = useState<string | null>(null)
+  const [isExpired, setIsExpired] = useState(false)
+
   // Track touch events to distinguish tap from scroll
   const [touchStartY, setTouchStartY] = useState<number | null>(null)
+
+  // Countdown timer effect for tradespeople jobs with urgency
+  useEffect(() => {
+    if (!job.is_tradespeople_job || !job.expires_at || !job.urgency_type) return
+
+    const calculateTimeRemaining = () => {
+      const now = new Date().getTime()
+      const expiresAt = new Date(job.expires_at!).getTime()
+      const diff = expiresAt - now
+
+      if (diff <= 0) {
+        setIsExpired(true)
+        setTimeRemaining("Expired")
+        return
+      }
+
+      setIsExpired(false)
+
+      // Format based on time remaining
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
+
+      if (days > 0) {
+        setTimeRemaining(`${days}d ${hours}h left`)
+      } else if (hours > 0) {
+        setTimeRemaining(`${hours}h ${minutes}m left`)
+      } else if (minutes > 0) {
+        setTimeRemaining(`${minutes}m ${seconds}s left`)
+      } else {
+        setTimeRemaining(`${seconds}s left`)
+      }
+    }
+
+    // Calculate immediately
+    calculateTimeRemaining()
+
+    // Update every second for urgent jobs (ASAP/Today), every minute for flexible
+    const interval = job.urgency_type === "flexible" ? 60000 : 1000
+    const timer = setInterval(calculateTimeRemaining, interval)
+
+    return () => clearInterval(timer)
+  }, [job.is_tradespeople_job, job.expires_at, job.urgency_type])
 
   // Handle card selection (works for both click and touch)
   const handleCardSelect = () => {
@@ -573,6 +623,31 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                 )}
               </div>
 
+              {/* Urgency Timer for Tradespeople Jobs */}
+              {job.is_tradespeople_job && job.urgency_type && timeRemaining && (
+                <div className="flex items-center gap-2 mb-2">
+                  <div
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                      isExpired
+                        ? "bg-gray-100 text-gray-500"
+                        : job.urgency_type === "asap"
+                        ? "bg-red-100 text-red-700 animate-pulse"
+                        : job.urgency_type === "today"
+                        ? "bg-orange-100 text-orange-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
+                    {job.urgency_type === "asap" && <Zap className="h-3 w-3" />}
+                    {job.urgency_type === "today" && <Clock className="h-3 w-3" />}
+                    {job.urgency_type === "flexible" && <Calendar className="h-3 w-3" />}
+                    <span>{timeRemaining}</span>
+                  </div>
+                  {!isExpired && job.urgency_type === "asap" && (
+                    <span className="text-xs text-red-600 font-medium">URGENT</span>
+                  )}
+                </div>
+              )}
+
               {/* Company Name with Stars - Show in collapsed view */}
               {!isExpanded && companyName && (
                 <div className="mb-2">
@@ -662,11 +737,8 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                     <Heart className={`h-4 w-4 sm:h-3 sm:w-3 ${isSaved ? "fill-current text-red-600" : ""}`} />
                   </Button>
 
-                  {/* Hide message button for companies/contractors on vacancies */}
-                  {!(
-                    !job.is_tradespeople_job &&
-                    (userType === 'company' || userType === 'contractor')
-                  ) && (
+                  {/* Hide message button for trade jobs (since main CTA is Message) and for companies/contractors on vacancies */}
+                  {!job.is_tradespeople_job && !(userType === 'company' || userType === 'contractor') && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -680,22 +752,37 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                     </Button>
                   )}
 
-                  <Button
-                    size="sm"
-                    className={hasApplied
-                      ? "h-9 px-4 sm:h-7 sm:px-3 bg-green-600 text-white cursor-not-allowed text-sm sm:text-xs touch-manipulation"
-                      : "h-9 px-4 sm:h-7 sm:px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-xs touch-manipulation font-medium"
-                    }
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (!hasApplied) {
-                        handleApplyClick()
+                  {/* CTA: Trade Jobs = Message, Vacancies = Apply */}
+                  {job.is_tradespeople_job ? (
+                    <Button
+                      size="sm"
+                      className="h-9 px-4 sm:h-7 sm:px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm sm:text-xs touch-manipulation font-medium"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleContactClick()
+                      }}
+                    >
+                      <MessageCircle className="h-4 w-4 sm:h-3 sm:w-3 mr-1.5" />
+                      {t('jobs.message')}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className={hasApplied
+                        ? "h-9 px-4 sm:h-7 sm:px-3 bg-green-600 text-white cursor-not-allowed text-sm sm:text-xs touch-manipulation"
+                        : "h-9 px-4 sm:h-7 sm:px-3 bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-xs touch-manipulation font-medium"
                       }
-                    }}
-                    disabled={hasApplied}
-                  >
-                    {hasApplied ? "Applied" : "Apply"}
-                  </Button>
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (!hasApplied) {
+                          handleApplyClick()
+                        }
+                      }}
+                      disabled={hasApplied}
+                    >
+                      {hasApplied ? t('jobs.applied') : t('jobs.apply')}
+                    </Button>
+                  )}
                 </div>
               </div>
 

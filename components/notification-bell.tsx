@@ -23,7 +23,7 @@ interface Notification {
   created_at: string
 }
 
-export function NotificationBell() {
+export function NotificationBell({ iconClassName }: { iconClassName?: string } = {}) {
   const router = useRouter()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
@@ -117,9 +117,15 @@ export function NotificationBell() {
       // Reload notifications
       await loadNotifications()
 
-      // Navigate if there's a link
+      // Navigate if there's a link — strip domain so it always routes locally
       if (linkUrl) {
-        router.push(linkUrl)
+        try {
+          const url = new URL(linkUrl)
+          router.push(url.pathname + url.search + url.hash)
+        } catch {
+          // linkUrl is already a relative path
+          router.push(linkUrl)
+        }
         setIsOpen(false)
       }
     } catch (error) {
@@ -192,8 +198,8 @@ export function NotificationBell() {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button variant="ghost" size="icon" className={`relative ${iconClassName ? "h-auto w-auto p-1" : ""}`}>
+          <Bell className={iconClassName ?? "h-5 w-5"} />
           {unreadCount > 0 && (
             <Badge
               className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 bg-red-500 text-white text-xs"

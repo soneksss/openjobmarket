@@ -40,63 +40,25 @@ export async function GET(request: NextRequest) {
           .from("users")
           .select("user_type")
           .eq("id", data.user.id)
-          .single()
+          .maybeSingle()
 
-        if (userError) {
-          console.log("[v0] Auth callback - user not found in users table, redirecting to dashboard")
-          return NextResponse.redirect(`${origin}/dashboard`)
+        if (userError || !userData) {
+          console.log("[v0] Auth callback - user not found in users table, redirecting to search page")
+          return NextResponse.redirect(`${origin}/`)
         }
 
         // Role-based redirects using database function for consistent routing
         console.log("[v0] Auth callback - user role:", userData.user_type)
 
-        try {
-          // Use database function to get correct dashboard route
-          const { data: routeData, error: routeError } = await supabase
-            .rpc("get_user_dashboard_route", { user_id_param: data.user.id })
-
-          if (!routeError && routeData) {
-            console.log("[v0] Auth callback - redirecting to:", routeData)
-            return NextResponse.redirect(`${origin}${routeData}`)
-          }
-        } catch (err) {
-          console.log("[v0] Auth callback - route function error, using fallback")
+        // Admin users go to admin dashboard, all others go to search page
+        if (userData.user_type === "admin") {
+          console.log("[v0] Auth callback - admin user, redirecting to admin dashboard")
+          return NextResponse.redirect(`${origin}/admin/dashboard`)
         }
 
-        // Fallback to manual routing if function fails
-        switch (userData.user_type) {
-          case "admin":
-            console.log("[v0] Auth callback - admin user, redirecting to admin dashboard")
-            return NextResponse.redirect(`${origin}/admin/dashboard`)
-
-          case "homeowner":
-            console.log("[v0] Auth callback - homeowner user, redirecting to homeowner dashboard")
-            return NextResponse.redirect(`${origin}/dashboard/homeowner`)
-
-          case "jobseeker":
-            console.log("[v0] Auth callback - jobseeker user, redirecting to professional dashboard")
-            return NextResponse.redirect(`${origin}/dashboard/professional`)
-
-          case "employer":
-            console.log("[v0] Auth callback - employer user, redirecting to company dashboard")
-            return NextResponse.redirect(`${origin}/dashboard/company`)
-
-          case "contractor":
-            console.log("[v0] Auth callback - contractor user, redirecting to contractor dashboard")
-            return NextResponse.redirect(`${origin}/dashboard/contractor`)
-
-          case "company":
-            console.log("[v0] Auth callback - company user, redirecting to company dashboard")
-            return NextResponse.redirect(`${origin}/dashboard/company`)
-
-          case "professional":
-            console.log("[v0] Auth callback - professional user, redirecting to professional dashboard")
-            return NextResponse.redirect(`${origin}/dashboard/professional`)
-
-          default:
-            console.log("[v0] Auth callback - unknown role, redirecting to dashboard")
-            return NextResponse.redirect(`${origin}/dashboard`)
-        }
+        // All other user types go to search page (marketplace first)
+        console.log("[v0] Auth callback - redirecting to search page")
+        return NextResponse.redirect(`${origin}/`)
       }
     } catch (error) {
       console.log("[v0] Auth callback - unexpected error:", error)

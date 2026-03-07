@@ -72,20 +72,12 @@ export function Footer() {
   ]
 
   return (
-    <footer className="border-t bg-background py-8 mt-auto">
+    <footer className="border-t border-slate-700 md:border-border bg-slate-900 md:bg-background py-8 mt-auto pb-28 md:pb-8">
       <div className="container mx-auto px-4">
-        {/* Mobile Header and Menu Button */}
-        <div className="md:hidden mb-4">
+        {/* Mobile Header and Menu Button — desktop-only equivalent handled in grid below */}
+        <div className="hidden md:block mb-4">
           <div className="flex justify-between items-center mb-2">
             <h3 className="font-semibold text-foreground">Open Job Market</h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="p-2"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
           </div>
           <p className="text-sm text-muted-foreground">
             {t('header.connectingTalent')}
@@ -135,21 +127,29 @@ export function Footer() {
         </div>
 
         {/* Copyright and Quick Links */}
-        <div className="border-t pt-6">
+        <div className="border-t border-slate-700 md:border-border pt-6">
+          {/* Mobile links row */}
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-3 md:hidden">
+            {[
+              { href: getLocalePath("/about"),   label: t('header.about') },
+              { href: getLocalePath("/contact"),  label: t('header.contactUs') },
+              ...legalLinks,
+            ].map((link) => (
+              <Link key={link.href} href={link.href} className="text-sm text-slate-400 hover:text-white transition-colors">
+                {link.label}
+              </Link>
+            ))}
+          </div>
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="text-xs text-muted-foreground">
-              © {new Date().getFullYear()} Open Job Market Ltd. All rights reserved.
+            <div className="text-xs text-slate-500 md:text-muted-foreground">
+              © 2025 Open Job Market Ltd.
             </div>
-
-            {/* Quick Legal Links for mobile/small screens */}
-            <div className="flex flex-wrap justify-center gap-4 text-xs text-muted-foreground md:hidden">
-              {legalLinks.map((link, index) => (
-                <span key={link.href}>
-                  <Link href={link.href} className="hover:text-foreground transition-colors">
-                    {link.label}
-                  </Link>
-                  {index < legalLinks.length - 1 && <span className="mx-2">•</span>}
-                </span>
+            {/* Desktop quick legal links */}
+            <div className="hidden md:flex flex-wrap justify-center gap-4 text-xs text-muted-foreground">
+              {legalLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="hover:text-foreground transition-colors">
+                  {link.label}
+                </Link>
               ))}
             </div>
           </div>

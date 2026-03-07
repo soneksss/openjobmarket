@@ -17,7 +17,7 @@ export default async function CompanyApplicationsPage() {
     .from("company_profiles")
     .select("*")
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle()
 
   console.log("🔎 DEBUG profile:", profile, "error:", profileError)
 

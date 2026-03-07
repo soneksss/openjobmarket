@@ -31,6 +31,7 @@ function NewMessagePage() {
   const [authChecked, setAuthChecked] = useState(false)
   const [sending, setSending] = useState(false)
   const [recipientId, setRecipientId] = useState("")
+  const [jobId, setJobId] = useState<string | null>(null)
   const [subject, setSubject] = useState("")
   const [message, setMessage] = useState("")
   const [recipientInfo, setRecipientInfo] = useState<any>(null)
@@ -66,9 +67,11 @@ function NewMessagePage() {
     const recipient = searchParams.get("recipient")
     const subjectParam = searchParams.get("subject")
     const returnUrlParam = searchParams.get("returnUrl")
+    const jobIdParam = searchParams.get("jobId")
     if (recipient) setRecipientId(recipient)
     if (subjectParam) setSubject(subjectParam)
     if (returnUrlParam) setReturnUrl(decodeURIComponent(returnUrlParam))
+    if (jobIdParam) setJobId(jobIdParam)
 
     checkAuth()
   }, [searchParams, supabase])
@@ -158,6 +161,7 @@ function NewMessagePage() {
         subject: subject,
         content: message,
         message_type: 'direct',
+        job_id: jobId || null,
         is_read: false,
         share_personal_info: false
       })

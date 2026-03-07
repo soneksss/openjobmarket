@@ -50,19 +50,37 @@ import {
   MoreVertical,
   XCircle,
   Pencil,
+  Map,
+  ClipboardList,
+  LogOut,
+  Settings,
+  CreditCard,
+  HelpCircle,
 } from "lucide-react"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
+import { signOut } from "@/lib/actions"
 import pica from "pica"
 import JobExpirationAlerts from "./job-expiration-alerts"
-import { LocationPicker } from "@/components/ui/location-picker"
 import { AdminButton } from "@/components/admin-button"
 import { StarRating } from "@/components/star-rating"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
 import { JobCentricDashboard } from "@/components/job-centric-dashboard"
+import { DashboardInbox } from "@/components/dashboard-inbox"
+import ActivityTickerCard from "@/components/activity-ticker-card"
+import { JobConfirmationModal, type ConfirmedJobOffer } from "@/components/job-confirmation-modal"
+import { Progress } from "@/components/ui/progress"
+import { MessageCircle, Zap, Bell } from "lucide-react"
+
+// Helper to add cache-busting to logo URLs
+const getLogoUrlWithCacheBust = (url: string | undefined) => {
+  if (!url) return undefined
+  const separator = url.includes("?") ? "&" : "?"
+  return `${url}${separator}t=${Date.now()}`
+}
 
 interface User {
   id: string
@@ -210,17 +228,132 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [hiring, setHiring] = useState(profile.is_hiring ?? false)
   const [updatingBusinessStatus, setUpdatingBusinessStatus] = useState(false)
   const [updatingHiringStatus, setUpdatingHiringStatus] = useState(false)
-  const [tradeJobNotifications, setTradeJobNotifications] = useState(profile.trade_job_notifications ?? false)
-  const [tradeNotificationDistance, setTradeNotificationDistance] = useState<number>(profile.trade_job_notifications_distance ?? 10)
-  const [updatingTradeNotifications, setUpdatingTradeNotifications] = useState(false)
-  const [showLocationPicker, setShowLocationPicker] = useState(false)
-  const [latitude, setLatitude] = useState<number | null>(profile.latitude || null)
-  const [longitude, setLongitude] = useState<number | null>(profile.longitude || null)
+  // Rename to Instant Job Alerts (was trade_job_notifications)
+  const [instantJobAlerts, setInstantJobAlerts] = useState(profile.trade_job_notifications ?? true) // ON by default
+  const tradeNotificationDistance = 10 // Fixed 10-mile radius for trade job notifications
+  const [updatingInstantAlerts, setUpdatingInstantAlerts] = useState(false)
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [isApplicationsExpanded, setIsApplicationsExpanded] = useState(false)
-  const [isSubmittedAppsExpanded, setIsSubmittedAppsExpanded] = useState(false)
+  const [isConfirmedJobsExpanded, setIsConfirmedJobsExpanded] = useState(true)
+  const [isAwaitingJobsExpanded, setIsAwaitingJobsExpanded] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  // New state for success signals
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0)
+  const [profileViewsWeekly, setProfileViewsWeekly] = useState(0)
+
+  // ── Job-confirmation offer (state machine) ─────────────────
+  // Shown as a full-screen modal when a homeowner confirms this
+  // tradesperson for a job. Never updated via direct DB write —
+  // the tradesperson must call accept_confirmed_job() RPC.
+  const [pendingOffer, setPendingOffer] = useState<ConfirmedJobOffer | null>(null)
+
   const supabase = createClient()
+
+  // Calculate profile completion percentage
+  const profileCompletionFields = ['company_name', 'industry', 'location', 'description', 'logo_url', 'services', 'website_url']
+  const completedFields = profileCompletionFields.filter(field => {
+    const value = profile[field as keyof CompanyProfile]
+    if (Array.isArray(value)) return value.length > 0
+    return !!value
+  })
+  const profileCompletionPercent = Math.round((completedFields.length / profileCompletionFields.length) * 100)
+
+  // Confirmed jobs: accepted by homeowner
+  const confirmedJobs = useMemo(() => {
+    return submittedApplications.filter(app => app.status === 'accepted')
+  }, [submittedApplications])
+
+  // Awaiting homeowner response: still in progress
+  const awaitingResponseJobs = useMemo(() => {
+    return submittedApplications.filter(app =>
+      app.status === 'pending' || app.status === 'reviewed' || app.status === 'interview'
+    )
+  }, [submittedApplications])
+
+  // Combined for backward compat (mobile counter etc.)
+  const activeJobApplications = useMemo(() => [...confirmedJobs, ...awaitingResponseJobs], [confirmedJobs, awaitingResponseJobs])
+
+  // Fetch unread messages count and nearby jobs count
+  useEffect(() => {
+    const fetchCounts = async () => {
+      // Fetch unread messages
+      const { count: unreadCount } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('recipient_id', user.id)
+        .eq('is_read', false)
+
+      setUnreadMessagesCount(unreadCount || 0)
+
+    }
+
+    fetchCounts()
+  }, [user.id, profile.latitude, profile.longitude, profile.id, profile.services, profile.industry, supabase])
+
+  // ── Realtime: watch for job confirmations ─────────────────
+  // Rule: never update jobs.status from the frontend.
+  // Instead, listen for CONFIRMED status on jobs where
+  // confirmed_tradesperson_id = this tradesperson's profile.
+  useEffect(() => {
+    if (!profile?.id) return
+
+    // On mount: check for any already-confirmed job not yet accepted
+    const checkExisting = async () => {
+      const { data } = await supabase
+        .from("jobs")
+        .select("id, title, confirmed_at, homeowner_id")
+        .eq("confirmed_tradesperson_id", profile.id)
+        .eq("status", "CONFIRMED")
+        .order("confirmed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (data) setPendingOffer(data as ConfirmedJobOffer)
+    }
+    checkExisting()
+
+    // Live: react when any job transitions to CONFIRMED for this tradesperson
+    const channel = supabase
+      .channel(`job-offer-${profile.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "jobs",
+          filter: `confirmed_tradesperson_id=eq.${profile.id}`,
+        },
+        (payload) => {
+          const job = payload.new as any
+          if (job.status === "CONFIRMED") {
+            setPendingOffer({
+              id:           job.id,
+              title:        job.title,
+              confirmed_at: job.confirmed_at,
+              homeowner_id: job.homeowner_id,
+            })
+          } else {
+            // Job moved away from CONFIRMED (accepted/cancelled) — clear modal
+            setPendingOffer((prev) => (prev?.id === job.id ? null : prev))
+          }
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.id])
+
+  // Use state for cache-busted logo URL to avoid SSR hydration mismatch
+  // Initialize with original URL, then add cache bust on client only
+  const [logoUrlWithCacheBust, setLogoUrlWithCacheBust] = useState(profile.logo_url)
+
+  useEffect(() => {
+    // Only add cache bust on client side to avoid hydration mismatch
+    if (profile.logo_url) {
+      setLogoUrlWithCacheBust(getLogoUrlWithCacheBust(profile.logo_url))
+    }
+  }, [profile.logo_url])
 
   // Handle withdraw application
   const handleWithdrawApplication = async (applicationId: string, jobTitle: string) => {
@@ -857,10 +990,10 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     }
   }
 
-  const handleTradeNotificationsToggle = async (status: boolean) => {
+  const handleInstantAlertsToggle = async (status: boolean) => {
     // Update UI immediately
-    setTradeJobNotifications(status)
-    setUpdatingTradeNotifications(true)
+    setInstantJobAlerts(status)
+    setUpdatingInstantAlerts(true)
 
     try {
       const supabase = createClient()
@@ -874,144 +1007,195 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
         .eq("id", profile.id)
 
       if (error) {
-        console.error("[v0] Error updating trade job notifications:", error.message)
+        console.error("[v0] Error updating instant job alerts:", error.message)
         if (error.message.includes("column") && error.message.includes("trade_job_notifications")) {
-          console.log("[v0] Trade job notifications feature not yet available - database migration needed")
+          console.log("[v0] Instant job alerts feature not yet available - database migration needed")
           // Column doesn't exist yet, but keep UI updated
         } else {
           toast({
             title: "Update Failed",
-            description: `Error updating trade job notifications: ${error.message}`,
+            description: `Error updating instant job alerts: ${error.message}`,
             variant: "destructive",
             duration: 5000,
           })
           // Revert on actual error
-          setTradeJobNotifications(!status)
+          setInstantJobAlerts(!status)
         }
         return
       }
 
-      console.log("[v0] Trade job notifications updated successfully:", status, "Distance:", tradeNotificationDistance)
+      console.log("[v0] Instant job alerts updated successfully:", status, "Distance:", tradeNotificationDistance)
       if (status) {
         toast({
-          title: "Trade Notifications Enabled",
-          description: `You'll be notified of matching trade jobs within ${tradeNotificationDistance} miles.`,
+          title: "Instant Job Alerts Enabled",
+          description: `You'll receive instant notifications for matching jobs within ${tradeNotificationDistance} miles.`,
           duration: 3000,
         })
       }
     } catch (error) {
-      console.error("[v0] Error updating trade job notifications:", error)
+      console.error("[v0] Error updating instant job alerts:", error)
       toast({
         title: "Update Failed",
-        description: "Error updating trade job notifications. Please try again.",
+        description: "Error updating instant job alerts. Please try again.",
         variant: "destructive",
         duration: 5000,
       })
-      setTradeJobNotifications(!status) // Revert on error
+      setInstantJobAlerts(!status) // Revert on error
     } finally {
-      setUpdatingTradeNotifications(false)
+      setUpdatingInstantAlerts(false)
     }
   }
 
-  const handleTradeNotificationDistanceChange = async (distance: number) => {
-    const previousDistance = tradeNotificationDistance
-    setTradeNotificationDistance(distance)
-
-    try {
-      const supabase = createClient()
-
-      const { error } = await supabase
-        .from("company_profiles")
-        .update({ trade_job_notifications_distance: distance })
-        .eq("id", profile.id)
-
-      if (error) {
-        console.error("[v0] Error updating trade notification distance:", error.message)
-        setTradeNotificationDistance(previousDistance) // Revert on error
-        toast({
-          title: "Update Failed",
-          description: `Error updating notification distance: ${error.message}`,
-          variant: "destructive",
-          duration: 5000,
-        })
-        return
-      }
-
-      console.log("[v0] Trade notification distance updated successfully:", distance)
-      toast({
-        title: "Distance Updated",
-        description: `You'll be notified of jobs within ${distance} miles.`,
-        duration: 2000,
-      })
-    } catch (error) {
-      console.error("[v0] Error updating trade notification distance:", error)
-      setTradeNotificationDistance(previousDistance) // Revert on error
-    }
-  }
-
-  const handleLocationSelect = async (lat: number, lng: number) => {
-    try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from("company_profiles")
-        .update({
-          latitude: lat,
-          longitude: lng
-        })
-        .eq("id", profile.id)
-
-      if (error) {
-        console.error("Error updating location:", error)
-        return
-      }
-
-      setLatitude(lat)
-      setLongitude(lng)
-      console.log("Location updated successfully")
-    } catch (error) {
-      console.error("Error updating location:", error)
-    }
-  }
-
-  const handleLocationClear = async () => {
-    try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from("company_profiles")
-        .update({
-          latitude: null,
-          longitude: null
-        })
-        .eq("id", profile.id)
-
-      if (error) {
-        console.error("Error clearing location:", error)
-        return
-      }
-
-      setLatitude(null)
-      setLongitude(null)
-      console.log("Location cleared successfully")
-    } catch (error) {
-      console.error("Error clearing location:", error)
-    }
-  }
-
+  const pendingApplicationsCount = receivedApplications.filter(a => a.status === 'pending').length
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Incomplete Profile Banner */}
+    <>
+      {/* ── Job-confirmation offer modal ────────────────────────
+          Shown full-screen when a homeowner confirms this tradesperson.
+          Tradesperson must call accept_confirmed_job() RPC via the modal;
+          the frontend never writes jobs.status directly.             */}
+      {pendingOffer && (
+        <JobConfirmationModal
+          job={pendingOffer}
+          onAccepted={() => {
+            setPendingOffer(null)
+            router.refresh()
+          }}
+          onDismiss={() => setPendingOffer(null)}
+        />
+      )}
+
+      {/* Mobile: SpareRoom-style Account Page */}
+      <div className="md:hidden min-h-screen bg-slate-900 text-white">
+        {/* Profile Header */}
+        <div className="bg-slate-800 px-4 py-5">
+          <Link href="/company/profile/edit" className="flex items-center gap-4 hover:opacity-90 transition-opacity">
+            <Avatar className="h-16 w-16 border-2 border-slate-600 flex-shrink-0">
+              <AvatarImage src={profile.logo_url} className="object-cover" />
+              <AvatarFallback className="bg-slate-700 text-white">
+                <Building2 className="h-8 w-8" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-lg font-bold truncate">{profile.company_name}</p>
+              <p className="text-sm text-slate-400 truncate">{user.email}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{profile.industry}</p>
+            </div>
+            <ChevronRight className="h-5 w-5 text-slate-500 flex-shrink-0" />
+          </Link>
+
+          {/* Toggles */}
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-slate-600/50">
+              <div className="flex items-center gap-2">
+                {profileVisible ? <Eye className="h-4 w-4 text-emerald-400" /> : <EyeOff className="h-4 w-4 text-slate-500" />}
+                <div>
+                  <p className="text-sm font-medium">{profileVisible ? 'Visible' : 'Hidden'}</p>
+                  <p className="text-[10px] text-slate-400">{profileVisible ? 'On map & search' : 'Not visible'}</p>
+                </div>
+              </div>
+              <Switch checked={profileVisible} onCheckedChange={handleVisibilityToggle} disabled={updatingVisibility} className="data-[state=checked]:bg-emerald-500" />
+            </div>
+            <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
+              <div className="flex items-center gap-2">
+                <Zap className={`h-4 w-4 ${instantJobAlerts ? 'text-purple-400' : 'text-slate-500'}`} />
+                <div>
+                  <p className="text-sm font-medium">{instantJobAlerts ? 'AVAILABLE' : 'BUSY'}</p>
+                  <p className="text-[10px] text-slate-400">{instantJobAlerts ? 'Instant job notifications On' : 'Instant notifications Off'}</p>
+                </div>
+              </div>
+              <Switch checked={instantJobAlerts} onCheckedChange={handleInstantAlertsToggle} disabled={updatingInstantAlerts} className="data-[state=checked]:bg-purple-500" />
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity Ticker */}
+        <div className="px-4 py-3">
+          <ActivityTickerCard />
+        </div>
+
+        {/* Menu Sections */}
+        <div className="divide-y divide-slate-800">
+          {/* Main Actions */}
+          <div className="py-1">
+            {[
+              { icon: Briefcase, label: 'Active Jobs (Confirmed)', href: '/dashboard/company/my-applications', count: confirmedJobs.length },
+              { icon: Clock, label: 'Awaiting Response', href: '/dashboard/company/my-applications', count: awaitingResponseJobs.length },
+              { icon: FileText, label: 'My Job Listings', href: '/dashboard/company/jobs', count: stats.totalJobs },
+              { icon: MessageCircle, label: 'Messages', href: '/messages', count: unreadMessagesCount },
+            ].map(item => (
+              <Link key={item.href} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 transition-colors">
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-5 w-5 text-slate-400" />
+                  <span className="font-medium text-white">{item.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-300">{item.count ?? 0}</span>
+                  <ChevronRight className="h-5 w-5 text-slate-600" />
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* Profile & Billing */}
+          <div className="py-1">
+            {[
+              { icon: Building2, label: 'Edit Company Profile', href: '/company/profile/edit' },
+              { icon: CreditCard, label: 'Subscription & Billing', href: '/dashboard/company/subscription' },
+            ].map(item => (
+              <Link key={item.href} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 transition-colors">
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-5 w-5 text-slate-400" />
+                  <span className="font-medium text-white">{item.label}</span>
+                </div>
+                <ChevronRight className="h-5 w-5 text-slate-600" />
+              </Link>
+            ))}
+          </div>
+
+          {/* Support & Settings */}
+          <div className="py-1">
+            {[
+              { icon: Settings, label: 'Account Settings', href: '/account/settings' },
+              { icon: HelpCircle, label: 'Get Support', href: '/help' },
+            ].map(item => (
+              <Link key={item.href} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 transition-colors">
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-5 w-5 text-slate-400" />
+                  <span className="font-medium text-white">{item.label}</span>
+                </div>
+                <ChevronRight className="h-5 w-5 text-slate-600" />
+              </Link>
+            ))}
+          </div>
+
+          {/* Sign Out */}
+          <div className="py-1">
+            <button onClick={() => signOut()} className="flex items-center gap-3 w-full px-4 py-3.5 hover:bg-slate-800 transition-colors text-red-400">
+              <LogOut className="h-5 w-5" />
+              <span className="font-medium">Sign Out</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Bottom spacing for mobile nav */}
+        <div className="h-20" />
+      </div>
+
+      {/* Desktop: Full Dashboard - Premium Dark Theme */}
+      <div className="hidden md:block min-h-screen bg-slate-900 text-white">
+      {/* Incomplete Profile Banner - Dark Theme */}
       {!isProfileComplete && missingFields.length > 0 && (
-        <div className="bg-amber-50 border-b border-amber-200">
+        <div className="bg-amber-500/20 border-b border-amber-500/30">
           <div className="container mx-auto px-3 sm:px-4 md:px-6 py-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-medium text-amber-800">
+                  <p className="font-medium text-amber-300">
                     Complete your company profile to unlock all features
                   </p>
-                  <p className="text-sm text-amber-700 mt-0.5">
+                  <p className="text-sm text-amber-400/80 mt-0.5">
                     Missing: {missingFields.map(f => getFieldDisplayName(f)).join(", ")}
                   </p>
                 </div>
@@ -1034,7 +1218,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
         <div className="flex flex-col lg:grid lg:grid-cols-4 gap-1.5 sm:gap-5 md:gap-6 lg:gap-8">
           {/* Company Profile Section - Order 1 on mobile */}
           <div className="lg:col-span-1 space-y-4 sm:space-y-6 order-1">
-            <Card>
+            <Card className="bg-slate-800 border-slate-700">
               <CardHeader className="p-3 sm:p-4 relative">
                 {/* Edit Button - Top Right Corner - Hidden on mobile, visible on desktop */}
                 <div className="hidden lg:flex absolute -top-1 right-2 gap-1 z-20">
@@ -1042,41 +1226,45 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     size="sm"
                     variant="outline"
                     asChild
-                    className="h-8 w-8 p-0 sm:h-9 sm:w-9 bg-white shadow-sm"
+                    className="h-8 w-8 p-0 sm:h-9 sm:w-9 bg-slate-700 border-slate-600 hover:bg-slate-600 shadow-sm"
                   >
                     <Link href="/company/profile/edit">
-                      <Edit className="h-4 w-4 sm:h-4 sm:w-4" />
+                      <Edit className="h-4 w-4 sm:h-4 sm:w-4 text-slate-300" />
                     </Link>
                   </Button>
                 </div>
 
                 {/* Mobile Layout: Company name at top, then logo and toggles below */}
                 <div className="lg:hidden">
-                  {/* Company Name - Top Center */}
-                  <h2 className="text-xl sm:text-2xl font-bold text-foreground break-words mb-1.5 leading-tight text-center">
-                    {profile.company_name}
-                  </h2>
+                  {/* Company Name - Top Center (clickable to edit profile) */}
+                  <Link href="/company/profile/edit" className="block hover:opacity-80 transition-opacity">
+                    <h2 className="text-xl sm:text-2xl font-bold text-foreground break-words mb-1.5 leading-tight text-center cursor-pointer">
+                      {profile.company_name}
+                    </h2>
+                  </Link>
 
                   {/* Main Row: Logo, Info, Toggles */}
                   <div className="flex items-start gap-2 mb-2">
-                    {/* Left: Logo */}
+                    {/* Left: Logo (clickable to edit profile) */}
                     <div className="relative flex-shrink-0">
-                      <div className="h-16 w-16 sm:h-20 sm:w-20 bg-muted rounded-full overflow-hidden border flex items-center justify-center">
-                        {profile.logo_url ? (
-                          <Image
-                            src={profile.logo_url}
-                            alt={`${profile.company_name} logo`}
-                            width={80}
-                            height={80}
-                            className="h-full w-full object-contain"
-                            unoptimized
-                          />
-                        ) : (
-                          <div className="text-xl sm:text-2xl font-medium text-muted-foreground">
-                            {profile.company_name.substring(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                      </div>
+                      <Link href="/company/profile/edit" className="block hover:opacity-80 transition-opacity">
+                        <div className="h-16 w-16 sm:h-20 sm:w-20 bg-muted rounded-full overflow-hidden border flex items-center justify-center cursor-pointer">
+                          {profile.logo_url ? (
+                            <Image
+                              src={logoUrlWithCacheBust || profile.logo_url}
+                              alt={`${profile.company_name} logo`}
+                              width={80}
+                              height={80}
+                              className="h-full w-full object-contain"
+                              unoptimized
+                            />
+                          ) : (
+                            <div className="text-xl sm:text-2xl font-medium text-muted-foreground">
+                              {profile.company_name.substring(0, 2).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                      </Link>
                       <div className="absolute -bottom-1 -right-1">
                         <Label htmlFor="logo-upload" className="cursor-pointer">
                           <div className="bg-primary text-primary-foreground rounded-full p-1 hover:bg-primary/90 transition-colors">
@@ -1142,118 +1330,63 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                               <Info className="h-3 w-3" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent side="bottom" align="end" className="w-64 max-w-[calc(100vw-2rem)]">
-                            <p className="text-xs text-muted-foreground">When active, you are open to business and people can contact you directly</p>
-                          </PopoverContent>
-                        </Popover>
-                        <span className="text-xs text-muted-foreground w-16 text-right">{openForBusiness ? "Open" : "Closed"}</span>
-                        <Switch
-                          checked={openForBusiness}
-                          onCheckedChange={handleBusinessStatusToggle}
-                          disabled={updatingBusinessStatus}
-                          className="data-[state=checked]:bg-blue-600"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1 whitespace-nowrap">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-muted-foreground hover:text-foreground transition-colors">
-                              <Info className="h-3 w-3" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" align="end" className="w-72 max-w-[calc(100vw-2rem)]">
+                          <PopoverContent side="bottom" align="end" className="w-80 max-w-[calc(100vw-2rem)]">
                             <div className="space-y-2">
-                              <p className="text-xs font-medium text-foreground">Trade Job Notifications</p>
+                              <div className="flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-purple-600" />
+                                <p className="text-sm font-semibold text-foreground">Instant Job Alerts</p>
+                              </div>
                               <p className="text-xs text-muted-foreground">
-                                Get notified when homeowners or companies post trade jobs that match your services and are within your selected radius.
+                                <strong>Works like Uber.</strong> When a nearby job matching your skills is posted, you receive an instant notification to apply or skip.
                               </p>
-                              <div className="text-xs text-muted-foreground border-t pt-2 mt-2">
-                                <p><strong>You'll be notified when:</strong></p>
-                                <ul className="list-disc list-inside mt-1 space-y-0.5">
-                                  <li>Job skills match your services</li>
-                                  <li>Job is within {tradeNotificationDistance} miles</li>
+                              <div className="text-xs text-muted-foreground border-t pt-2 mt-2 bg-purple-50 p-2 rounded">
+                                <p className="font-medium text-purple-700">Be first to respond:</p>
+                                <ul className="list-disc list-inside mt-1 space-y-0.5 text-purple-600">
+                                  <li>Jobs matching your services</li>
+                                  <li>Within {tradeNotificationDistance} miles of you</li>
+                                  <li>Instant push notification</li>
                                 </ul>
                               </div>
                             </div>
                           </PopoverContent>
                         </Popover>
-                        <span className="text-xs text-muted-foreground w-16 text-right">{tradeJobNotifications ? "On" : "Off"}</span>
+                        <span className="text-xs text-muted-foreground w-16 text-right">{instantJobAlerts ? "On" : "Off"}</span>
                         <Switch
-                          checked={tradeJobNotifications}
-                          onCheckedChange={handleTradeNotificationsToggle}
-                          disabled={updatingTradeNotifications}
+                          checked={instantJobAlerts}
+                          onCheckedChange={handleInstantAlertsToggle}
+                          disabled={updatingInstantAlerts}
                           className="data-[state=checked]:bg-purple-600"
                         />
                       </div>
-                      {/* Distance Selector - Show when notifications are enabled */}
-                      {tradeJobNotifications && (
-                        <div className="flex items-center gap-1 whitespace-nowrap">
-                          <span className="text-xs text-muted-foreground">Radius:</span>
-                          <Select
-                            value={tradeNotificationDistance.toString()}
-                            onValueChange={(value) => handleTradeNotificationDistanceChange(parseInt(value))}
-                          >
-                            <SelectTrigger className="h-6 w-20 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="5">5 miles</SelectItem>
-                              <SelectItem value="10">10 miles</SelectItem>
-                              <SelectItem value="15">15 miles</SelectItem>
-                              <SelectItem value="20">20 miles</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                     </div>
                   </div>
 
-                  {/* Location Button - Full Width Below */}
-                  <div className="space-y-1">
-                    <button
-                      onClick={() => setShowLocationPicker(true)}
-                      className="flex items-center justify-between gap-2 bg-blue-600 border border-blue-700 rounded-lg px-3 py-2 hover:bg-blue-700 transition-colors w-full shadow-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-white flex-shrink-0" />
-                        <span className="text-sm font-semibold text-white">Location</span>
-                      </div>
-                      {latitude && longitude ? (
-                        <span className="font-mono text-xs text-white font-medium">
-                          {latitude.toFixed(4)}, {longitude.toFixed(4)}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-white/80">Not set</span>
-                      )}
-                    </button>
-                    <p className="text-xs text-muted-foreground px-1">
-                      Update your location if you work away so locals can find you.
-                    </p>
                   </div>
-                </div>
 
-                {/* Desktop Layout: Original layout */}
+                {/* Desktop Layout: Original layout - Dark Theme */}
                 <div className="hidden lg:flex items-start gap-3 mb-3 sm:mb-2">
                   <div className="relative flex-shrink-0">
-                    <div className="h-16 w-16 sm:h-20 sm:w-20 bg-muted rounded-full overflow-hidden border flex items-center justify-center">
-                      {profile.logo_url ? (
-                        <Image
-                          src={profile.logo_url}
-                          alt={`${profile.company_name} logo`}
-                          width={80}
-                          height={80}
-                          className="h-full w-full object-contain"
-                          unoptimized
-                        />
-                      ) : (
-                        <div className="text-xl sm:text-2xl font-medium text-muted-foreground">
-                          {profile.company_name.substring(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
+                    <Link href="/company/profile/edit" className="block hover:opacity-80 transition-opacity">
+                      <div className="h-16 w-16 sm:h-20 sm:w-20 bg-slate-700 rounded-full overflow-hidden border-2 border-slate-600 flex items-center justify-center cursor-pointer">
+                        {profile.logo_url ? (
+                          <Image
+                            src={logoUrlWithCacheBust || profile.logo_url}
+                            alt={`${profile.company_name} logo`}
+                            width={80}
+                            height={80}
+                            className="h-full w-full object-contain"
+                            unoptimized
+                          />
+                        ) : (
+                          <div className="text-xl sm:text-2xl font-medium text-slate-400">
+                            {profile.company_name.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                    </Link>
                     <div className="absolute -bottom-1 -right-1">
                       <Label htmlFor="logo-upload-desktop" className="cursor-pointer">
-                        <div className="bg-primary text-primary-foreground rounded-full p-1 hover:bg-primary/90 transition-colors">
+                        <div className="bg-emerald-500 text-white rounded-full p-1 hover:bg-emerald-600 transition-colors">
                           <Camera className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         </div>
                       </Label>
@@ -1270,10 +1403,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
                   {/* Company Info - Center */}
                   <div className="flex-1 min-w-0">
-                    {/* Company Name - 50% larger */}
-                    <h2 className="text-xl sm:text-2xl font-bold text-foreground break-words mb-0.5 leading-tight">
-                      {profile.company_name}
-                    </h2>
+                    {/* Company Name - 50% larger (clickable to edit profile) */}
+                    <Link href="/company/profile/edit" className="block hover:opacity-80 transition-opacity">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white break-words mb-0.5 leading-tight cursor-pointer">
+                        {profile.company_name}
+                      </h2>
+                    </Link>
 
                     {/* Star Rating */}
                     <div
@@ -1290,310 +1425,316 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     </div>
 
                     {/* Industry - 30% larger */}
-                    <p className="text-sm sm:text-base text-muted-foreground break-words">{profile.industry}</p>
+                    <p className="text-sm sm:text-base text-slate-400 break-words">{profile.industry}</p>
                   </div>
                 </div>
 
-                {/* Toggles Section - Desktop Only */}
-                <div className="hidden lg:block space-y-1 sm:space-y-2 pt-1 sm:pt-2 border-t">
-                  {/* Visibility Toggle */}
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    {profileVisible ? (
-                      <Eye className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <EyeOff className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-                    )}
+                {/* Toggles Section - Desktop - Mobile Style */}
+                <div className="hidden lg:block space-y-2 pt-3 mt-3 border-t border-slate-700">
+                  {/* Profile Visibility Toggle */}
+                  <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-slate-600/50">
+                    <div className="flex items-center gap-2">
+                      {profileVisible ? (
+                        <Eye className="h-4 w-4 text-emerald-400" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-slate-500" />
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          {profileVisible ? 'Visible' : 'Hidden'}
+                        </p>
+                        <p className="text-[10px] text-slate-400">
+                          {profileVisible ? 'On map & search' : 'Not visible'}
+                        </p>
+                      </div>
+                    </div>
                     <Switch
                       checked={profileVisible}
                       onCheckedChange={handleVisibilityToggle}
                       disabled={updatingVisibility}
-                      className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
+                      className="data-[state=checked]:bg-emerald-500"
                     />
-                    <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
-                      {profileVisible ? t('common.visible') : t('common.hidden')}
-                    </p>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
-                          title="Learn more"
-                        >
-                          <Info className="h-3.5 w-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="right" className="w-80">
-                        <p className="text-sm text-muted-foreground">
-                          When active, people can see you on the map
+                  </div>
+
+                  {/* Instant Job Alerts Toggle */}
+                  <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
+                    <div className="flex items-center gap-2">
+                      <Zap className={`h-4 w-4 ${instantJobAlerts ? 'text-purple-400' : 'text-slate-500'}`} />
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          {instantJobAlerts ? 'Instant Alerts On' : 'Alerts Off'}
                         </p>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Available Toggle */}
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    {openForBusiness ? (
-                      <Store className="h-3 w-3 sm:h-4 sm:w-4 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <Store className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <Switch
-                      checked={openForBusiness}
-                      onCheckedChange={handleBusinessStatusToggle}
-                      disabled={updatingBusinessStatus}
-                      className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
-                    />
-                    <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
-                      {openForBusiness ? "Available" : "Not available"}
-                    </p>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
-                          title="Learn more"
-                        >
-                          <Info className="h-3.5 w-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="right" className="w-80">
-                        <p className="text-sm text-muted-foreground">
-                          When active, you are open to business and people can contact you directly
+                        <p className="text-[10px] text-slate-400">
+                          Uber-style job notifications
                         </p>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Hiring Toggle */}
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    {hiring ? (
-                      <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 text-emerald-600 flex-shrink-0" />
-                    ) : (
-                      <UserCheck className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <Switch
-                      checked={hiring}
-                      onCheckedChange={handleHiringStatusToggle}
-                      disabled={updatingHiringStatus}
-                      className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
-                    />
-                    <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
-                      {hiring ? "Hiring" : "Not hiring"}
-                    </p>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
-                          title="Learn more"
-                        >
-                          <Info className="h-3.5 w-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="right" className="w-80">
-                        <div className="space-y-2">
-                          <h4 className="font-semibold text-sm">Hiring Status</h4>
-                          <p className="text-sm text-muted-foreground">
-                            When enabled, you indicate that your company is actively hiring and looking for new talent. This makes your company more visible to job seekers. When disabled, users will see that you're not currently hiring.
-                          </p>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Trade Jobs Notification Toggle */}
-                  <div className="flex items-center space-x-1.5 sm:space-x-2">
-                    {tradeJobNotifications ? (
-                      <Briefcase className="h-3 w-3 sm:h-4 sm:w-4 text-purple-600 flex-shrink-0" />
-                    ) : (
-                      <Briefcase className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <Switch
-                      checked={tradeJobNotifications}
-                      onCheckedChange={handleTradeNotificationsToggle}
-                      disabled={updatingTradeNotifications}
-                      className="scale-75 sm:scale-90 data-[state=unchecked]:bg-muted-foreground/20"
-                    />
-                    <p className="text-[10px] sm:text-sm text-muted-foreground flex-1">
-                      {tradeJobNotifications ? "Trade Notif. On" : "Trade Notif. Off"}
-                    </p>
-                    {/* Distance Selector - Desktop */}
-                    {tradeJobNotifications && (
-                      <Select
-                        value={tradeNotificationDistance.toString()}
-                        onValueChange={(value) => handleTradeNotificationDistanceChange(parseInt(value))}
-                      >
-                        <SelectTrigger className="h-7 w-24 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="5">5 miles</SelectItem>
-                          <SelectItem value="10">10 miles</SelectItem>
-                          <SelectItem value="15">15 miles</SelectItem>
-                          <SelectItem value="20">20 miles</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <button
-                          className="text-muted-foreground hover:text-foreground transition-colors hidden sm:block"
-                          title="Learn more"
-                        >
-                          <Info className="h-3.5 w-3.5" />
-                        </button>
-                      </PopoverTrigger>
-                      <PopoverContent side="right" className="w-80">
-                        <div className="space-y-2">
-                          <h4 className="font-semibold text-sm">Trade Job Notifications</h4>
-                          <p className="text-sm text-muted-foreground">
-                            Get notified when homeowners or companies post trade jobs that match your services and are within your selected radius.
-                          </p>
-                          <div className="text-sm text-muted-foreground border-t pt-2 mt-2">
-                            <p className="font-medium text-foreground">You'll be notified when:</p>
-                            <ul className="list-disc list-inside mt-1 space-y-0.5">
-                              <li>Job skills match your services</li>
-                              <li>Job is within {tradeNotificationDistance} miles</li>
-                            </ul>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="ml-1 text-slate-500 hover:text-slate-300 transition-colors">
+                            <Info className="h-3.5 w-3.5" />
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent side="top" className="w-72 bg-slate-800 border-slate-700 text-white">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <Zap className="h-4 w-4 text-purple-400" />
+                              <p className="text-sm font-semibold">Instant Job Alerts</p>
+                            </div>
+                            <p className="text-xs text-slate-300">
+                              <strong>Works like Uber.</strong> When a nearby job matching your skills is posted, you receive an instant notification to apply or skip.
+                            </p>
+                            <div className="text-xs border-t border-slate-700 pt-2 mt-2 bg-purple-500/10 p-2 rounded">
+                              <p className="font-medium text-purple-300">Be first to respond:</p>
+                              <ul className="list-disc list-inside mt-1 space-y-0.5 text-purple-200">
+                                <li>Jobs matching your services</li>
+                                <li>Within {tradeNotificationDistance} miles of you</li>
+                                <li>Instant push notification</li>
+                              </ul>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground border-t pt-2 mt-2">
-                            Notifications are sent via email and appear in your notification bell.
-                          </p>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Switch
+                      checked={instantJobAlerts}
+                      onCheckedChange={handleInstantAlertsToggle}
+                      disabled={updatingInstantAlerts}
+                      className="data-[state=checked]:bg-purple-500"
+                    />
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="hidden lg:block space-y-0.5 sm:space-y-1 p-2 sm:p-6 pt-1">
                 {profile.location && (
-                  <div className="flex items-center text-[9px] sm:text-xs text-muted-foreground">
+                  <div className="flex items-center text-[9px] sm:text-xs text-slate-400">
                     <MapPin className="h-2.5 w-2.5 sm:h-3 sm:w-3 mr-1 flex-shrink-0" />
                     <span className="truncate">{profile.location}</span>
                   </div>
                 )}
 
                 {profile.description && (
-                  <p className="text-[10px] sm:text-sm text-foreground line-clamp-2 sm:line-clamp-3 hidden sm:block">{profile.description}</p>
+                  <p className="text-[10px] sm:text-sm text-slate-300 line-clamp-2 sm:line-clamp-3 hidden sm:block">{profile.description}</p>
                 )}
 
                 {profile.services && profile.services.length > 0 && (
                   <div className="space-y-0.5 sm:space-y-1 hidden sm:block">
-                    <h4 className="font-medium text-xs sm:text-sm text-foreground flex items-center">
+                    <h4 className="font-medium text-xs sm:text-sm text-white flex items-center">
                       <Building2 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
                       Services
                     </h4>
                     <div className="flex flex-wrap gap-1">
                       {profile.services.slice(0, 3).map((service, idx) => (
-                        <Badge key={idx} variant="secondary" className="text-xs">
+                        <Badge key={idx} variant="secondary" className="text-xs bg-slate-700 text-slate-300 border-slate-600">
                           {service}
                         </Badge>
                       ))}
                       {profile.services.length > 3 && (
-                        <span className="text-xs text-muted-foreground">+{profile.services.length - 3} more</span>
+                        <span className="text-xs text-slate-500">+{profile.services.length - 3} more</span>
                       )}
                     </div>
                   </div>
                 )}
 
-                <div className="hidden sm:block">
-                  <LocationPicker
-                    latitude={latitude || undefined}
-                    longitude={longitude || undefined}
-                    onLocationSelect={handleLocationSelect}
-                    onLocationClear={handleLocationClear}
-                    className="w-full"
-                  />
-                </div>
+                </CardContent>
 
-              </CardContent>
+              {/* Profile Completion Progress - Inside profile card - Dark Theme */}
+              {profileCompletionPercent < 100 && (
+                <div className="px-4 pb-4 pt-2 border-t border-slate-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-slate-400">Profile Completion</span>
+                    <span className="text-xs font-bold text-purple-400">{profileCompletionPercent}%</span>
+                  </div>
+                  <Progress value={profileCompletionPercent} className="h-2 mb-2 bg-slate-700" />
+                  <Link href="/company/profile/edit" className="text-xs text-purple-400 hover:text-purple-300 hover:underline">
+                    Complete profile to get more jobs →
+                  </Link>
+                </div>
+              )}
             </Card>
+
+            {/* Recent Activity Ticker */}
+            <ActivityTickerCard />
 
           </div>
 
           {/* Main Content - Reordered for mobile */}
           <div className="lg:col-span-3 flex flex-col space-y-1.5 sm:space-y-6 order-2">
-            {/* Upper Section: Stats + Main Actions - Order 2 on mobile */}
-            <div className="order-2 lg:order-none space-y-1.5 sm:space-y-3">
-            {/* Stats Cards - Hidden on mobile, visible on desktop */}
-            <div className="hidden lg:grid grid-cols-3 gap-2">
-              <div className="bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 rounded-lg p-2 h-16">
-                <div className="flex items-center justify-between h-full">
-                  <div>
-                    <div className="text-xs font-medium text-foreground mb-0.5">{t('dashboard.activeJobs')}</div>
-                    <div className="text-lg font-bold text-foreground">{stats.activeJobs}</div>
+            {/* Success Signals - Top Priority (Messages & New Jobs) - Dark Theme */}
+            <div className="flex gap-2 sm:gap-3">
+              <Link href="/messages" className="flex-1">
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-500/20 rounded-xl border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors cursor-pointer">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500 text-white">
+                    <MessageCircle className="h-4 w-4" />
                   </div>
-                  <Briefcase className="h-4 w-4 text-primary" />
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-br from-secondary/10 to-secondary/5 border border-secondary/20 rounded-lg p-2 h-16">
-                <div className="flex items-center justify-between h-full">
-                  <div>
-                    <div className="text-xs font-medium text-foreground mb-0.5">{t('dashboard.totalApps')}</div>
-                    <div className="text-lg font-bold text-foreground">{stats.totalApplications}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-emerald-300">Messages</div>
+                    <div className="text-xs text-emerald-400/80">View conversations</div>
                   </div>
-                  <Users className="h-4 w-4 text-secondary" />
+                  {unreadMessagesCount > 0 && (
+                    <Badge className="bg-emerald-500 text-white h-6 min-w-[24px] flex items-center justify-center rounded-full">
+                      {unreadMessagesCount}
+                    </Badge>
+                  )}
                 </div>
-              </div>
+              </Link>
+            </div>
 
-              <div className="bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20 rounded-lg p-2 h-16">
-                <div className="flex items-center justify-between h-full">
-                  <div>
-                    <div className="text-xs font-medium text-foreground mb-0.5">Avg. Apps</div>
-                    <div className="text-lg font-bold text-foreground">
-                      {stats.activeJobs > 0 ? Math.round(stats.totalApplications / stats.activeJobs) : 0}
+            {/* 1. Active Jobs (Confirmed) */}
+            <Card className="overflow-hidden border border-emerald-500/30 shadow-sm rounded-xl bg-slate-800">
+              <Collapsible open={isConfirmedJobsExpanded} onOpenChange={setIsConfirmedJobsExpanded}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="px-4 py-3 cursor-pointer hover:bg-emerald-500/10 transition-colors bg-emerald-500/10">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/30">
+                        <Briefcase className="h-4 w-4 text-emerald-400" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-sm font-semibold text-white">Active Jobs (Confirmed)</span>
+                        <p className="text-xs text-slate-400">Jobs accepted by the homeowner</p>
+                      </div>
+                      <Badge className="bg-emerald-500/30 text-emerald-300 border-0 text-xs px-2 py-0.5">{confirmedJobs.length}</Badge>
+                      <div className="text-slate-400">
+                        {isConfirmedJobsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </div>
                     </div>
-                  </div>
-                  <TrendingUp className="h-4 w-4 text-green-600" />
-                </div>
-              </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="p-0">
+                    {confirmedJobs.length === 0 ? (
+                      <div className="text-center py-6 text-slate-400">
+                        <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-xs">No confirmed jobs yet</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-700">
+                        {confirmedJobs.map((application) => (
+                          <div key={application.id} className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-700/50 transition-colors">
+                            <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium text-xs text-white truncate block">{application.jobs.title}</span>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] text-slate-400 truncate">{application.job_poster_name}</span>
+                                <span className="text-[10px] text-slate-600">•</span>
+                                <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
+                                  <MapPin className="h-2 w-2" />{application.jobs.location}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-[10px] hover:bg-emerald-500/20 text-emerald-400">
+                                <Link href={`/jobs/${application.job_id}`}>View</Link>
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-700" disabled={actionLoading === application.id}>
+                                    <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-32 bg-slate-800 border-slate-700">
+                                  <DropdownMenuItem asChild className="text-slate-200 focus:bg-slate-700 focus:text-white">
+                                    <Link href={`/jobs/${application.job_id}`} className="flex items-center text-xs">
+                                      <Eye className="h-3 w-3 mr-2" />View Job
+                                    </Link>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+
+            {/* 2. Awaiting Homeowner Response */}
+            <Card className="overflow-hidden border border-amber-500/30 shadow-sm rounded-xl bg-slate-800">
+              <Collapsible open={isAwaitingJobsExpanded} onOpenChange={setIsAwaitingJobsExpanded}>
+                <CollapsibleTrigger asChild>
+                  <CardHeader className="px-4 py-3 cursor-pointer hover:bg-amber-500/10 transition-colors bg-amber-500/10">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/30">
+                        <Clock className="h-4 w-4 text-amber-400" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-sm font-semibold text-white">Awaiting Homeowner Response</span>
+                        <p className="text-xs text-slate-400">Applications sent, waiting for reply</p>
+                      </div>
+                      <Badge className="bg-amber-500/30 text-amber-300 border-0 text-xs px-2 py-0.5">{awaitingResponseJobs.length}</Badge>
+                      <div className="text-slate-400">
+                        {isAwaitingJobsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                      </div>
+                    </div>
+                  </CardHeader>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <CardContent className="p-0">
+                    {awaitingResponseJobs.length === 0 ? (
+                      <div className="text-center py-6 text-slate-400">
+                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                        <p className="text-xs">No pending applications</p>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-700">
+                        {awaitingResponseJobs.map((application) => {
+                          const canWithdraw = application.status === 'pending' || application.status === 'reviewed'
+                          return (
+                            <div key={application.id} className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-700/50 transition-colors">
+                              <div className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium text-xs text-white truncate">{application.jobs.title}</span>
+                                  <Badge className={`${getStatusColor(application.status)} text-[10px] px-1 py-0`}>{application.status}</Badge>
+                                </div>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[10px] text-slate-400 truncate">{application.job_poster_name}</span>
+                                  <span className="text-[10px] text-slate-600">•</span>
+                                  <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
+                                    <MapPin className="h-2 w-2" />{application.jobs.location}
+                                  </span>
+                                </div>
+                              </div>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-700" disabled={actionLoading === application.id}>
+                                    <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-32 bg-slate-800 border-slate-700">
+                                  <DropdownMenuItem asChild className="text-slate-200 focus:bg-slate-700 focus:text-white">
+                                    <Link href={`/jobs/${application.job_id}`} className="flex items-center text-xs">
+                                      <Eye className="h-3 w-3 mr-2" />View Job
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  {canWithdraw && (
+                                    <DropdownMenuItem
+                                      className="flex items-center text-xs text-red-400 focus:text-red-400 focus:bg-slate-700"
+                                      onClick={() => handleWithdrawApplication(application.id, application.jobs.title)}
+                                    >
+                                      <XCircle className="h-3 w-3 mr-2" />Withdraw
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+
+            {/* Admin Button */}
+            <div className="hidden md:flex justify-center mb-4">
+              <AdminButton />
             </div>
 
-            {/* Quick Actions - Text 30% larger */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-1.5 sm:gap-2 md:gap-3">
-                <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-blue-500 hover:bg-blue-600 text-white">
-                  <Link href={locale === 'pt-BR' ? '/br?tab=jobs_tasks' : '/?tab=jobs_tasks'}>
-                    <Search className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
-                    <span className="font-semibold text-sm sm:text-base leading-tight">{t('dashboard.backToSearch')}</span>
-                    <span className="text-sm opacity-90 hidden md:block">{t('dashboard.mainPage')}</span>
-                  </Link>
-                </Button>
-                <Button asChild className="h-auto p-1 sm:p-2 flex-col bg-primary hover:bg-primary/90">
-                  <Link href="/jobs/new">
-                    <Plus className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
-                    <span className="font-semibold text-sm sm:text-base leading-tight">{t('dashboard.postJob')}</span>
-                    <span className="text-sm opacity-90 hidden md:block">{t('dashboard.createJobListing')}</span>
-                  </Link>
-                </Button>
-                <Button
-                  variant="outline"
-                  asChild
-                  className="h-auto p-1 sm:p-2 flex-col bg-transparent border-secondary text-secondary hover:bg-secondary hover:text-secondary-foreground"
-                >
-                  <Link href="/dashboard/company/jobs">
-                    <Briefcase className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
-                    <span className="font-semibold text-sm sm:text-base leading-tight">{t('dashboard.manage')}</span>
-                    <span className="text-xs sm:text-sm opacity-70">({jobs.length})</span>
-                  </Link>
-                </Button>
-                <Button variant="outline" asChild className="h-auto p-1 sm:p-2 flex-col bg-transparent">
-                  <Link href="/dashboard/company/analytics">
-                    <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6 mb-0.5" />
-                    <span className="font-semibold text-sm sm:text-base leading-tight">Analytics</span>
-                    <span className="text-sm opacity-70 hidden md:block">View insights</span>
-                  </Link>
-                </Button>
-              </div>
-
-              {/* Admin Button - Only visible for admin users */}
-              <div className="flex justify-center">
-                <AdminButton />
-              </div>
-            </div>
-            </div>
-
-            {/* Bottom Section: Cards - Order 3 on mobile */}
+            {/* 3. My Job Listings */}
             <div className="order-3 lg:order-none space-y-1.5 sm:space-y-4">
-            {/* Job-Centric Dashboard - Your Posted Jobs with Expandable Applications */}
             <JobCentricDashboard
               jobs={jobs.map(job => ({
                 ...job,
@@ -1608,183 +1749,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                 activeJobs: stats.activeJobs,
               }}
             />
-
-            {/* Applications Received - Compact Airbnb Style */}
-            <Card className="overflow-hidden border-0 shadow-sm">
-              <Collapsible open={isApplicationsExpanded} onOpenChange={setIsApplicationsExpanded}>
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors border-b">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-shrink-0 text-gray-400">
-                        {isApplicationsExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </div>
-                      <Users className="h-4 w-4 text-teal-500" />
-                      <span className="text-sm font-medium">{t('dashboard.applications')}</span>
-                      <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">{receivedApplications.length}</Badge>
-                    </div>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="p-0">
-                    {receivedApplications.length === 0 ? (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <Users className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                        <p className="text-xs">No applications received yet</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-gray-100">
-                        {receivedApplications.map((application) => {
-                          const isCompanyApplicant = application.applicant_type === "company"
-                          const isProfessionalApplicant = application.applicant_type === "professional"
-
-                          const displayName = isCompanyApplicant && application.company_profiles
-                            ? application.company_profiles.company_name
-                            : isProfessionalApplicant && application.professional_profiles
-                            ? `${application.professional_profiles.first_name} ${application.professional_profiles.last_name}`
-                            : "Unknown"
-
-                          const displayAvatar = isCompanyApplicant && application.company_profiles
-                            ? application.company_profiles.logo_url
-                            : isProfessionalApplicant && application.professional_profiles
-                            ? application.professional_profiles.profile_photo_url
-                            : undefined
-
-                          const displayInitials = isCompanyApplicant && application.company_profiles
-                            ? application.company_profiles.company_name.substring(0, 2).toUpperCase()
-                            : isProfessionalApplicant && application.professional_profiles
-                            ? `${application.professional_profiles.first_name[0]}${application.professional_profiles.last_name[0]}`
-                            : "?"
-
-                          return (
-                            <div
-                              key={application.id}
-                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
-                            >
-                              <Avatar className="h-8 w-8 flex-shrink-0">
-                                <AvatarImage src={displayAvatar} alt={displayName} />
-                                <AvatarFallback className="text-xs bg-teal-100 text-teal-700">{displayInitials}</AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-medium text-xs text-gray-900 truncate">{displayName}</span>
-                                  <Badge className={`${getStatusColor(application.status)} text-[10px] px-1 py-0`}>
-                                    {application.status}
-                                  </Badge>
-                                </div>
-                                <p className="text-[10px] text-gray-500 truncate">{application.jobs.title}</p>
-                              </div>
-                              <Button size="sm" variant="ghost" asChild className="h-6 px-2 text-[10px] hover:bg-teal-50">
-                                <Link href={`/applications/${application.id}`}>Review</Link>
-                              </Button>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
-
-            {/* Your Recent Applications - Compact Airbnb Style */}
-            <Card className="overflow-hidden border-0 shadow-sm">
-              <Collapsible open={isSubmittedAppsExpanded} onOpenChange={setIsSubmittedAppsExpanded}>
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="px-3 py-2 cursor-pointer hover:bg-gray-50 transition-colors border-b">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-shrink-0 text-gray-400">
-                        {isSubmittedAppsExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </div>
-                      <FileText className="h-4 w-4 text-indigo-500" />
-                      <span className="text-sm font-medium">Your Applications</span>
-                      <Badge variant="secondary" className="text-xs px-1.5 py-0 h-5">{submittedApplications.length}</Badge>
-                    </div>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="p-0">
-                    {submittedApplications.length === 0 ? (
-                      <div className="text-center py-6 text-muted-foreground">
-                        <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                        <p className="text-xs">No applications submitted yet</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-gray-100">
-                        {submittedApplications.map((application) => {
-                          const displayInitials = application.job_poster_name.substring(0, 2).toUpperCase()
-                          const canWithdraw = application.status === 'pending' || application.status === 'reviewed'
-
-                          return (
-                            <div
-                              key={application.id}
-                              className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 transition-colors"
-                            >
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-medium text-xs text-gray-900 truncate">{application.jobs.title}</span>
-                                  <Badge className={`${getStatusColor(application.status)} text-[10px] px-1 py-0`}>
-                                    {application.status}
-                                  </Badge>
-                                  {application.jobs.is_tradespeople_job && (
-                                    <Badge variant="outline" className="text-[10px] px-1 py-0 border-orange-300 text-orange-600">Trade</Badge>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-[10px] text-gray-500 truncate">{application.job_poster_name}</span>
-                                  <span className="text-[10px] text-gray-300">•</span>
-                                  <span className="text-[10px] text-gray-400 truncate flex items-center gap-0.5">
-                                    <MapPin className="h-2 w-2" />
-                                    {application.jobs.location}
-                                  </span>
-                                </div>
-                              </div>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" disabled={actionLoading === application.id}>
-                                    <MoreVertical className="h-3.5 w-3.5 text-gray-400" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-32">
-                                  <DropdownMenuItem asChild>
-                                    <Link href={`/jobs/${application.job_id}`} className="flex items-center text-xs">
-                                      <Eye className="h-3 w-3 mr-2" />
-                                      View Job
-                                    </Link>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem asChild>
-                                    <Link href={`/applications/${application.id}/edit`} className="flex items-center text-xs">
-                                      <Pencil className="h-3 w-3 mr-2" />
-                                      Edit
-                                    </Link>
-                                  </DropdownMenuItem>
-                                  {canWithdraw && (
-                                    <DropdownMenuItem
-                                      className="flex items-center text-xs text-red-600 focus:text-red-600"
-                                      onClick={() => handleWithdrawApplication(application.id, application.jobs.title)}
-                                    >
-                                      <XCircle className="h-3 w-3 mr-2" />
-                                      Withdraw
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
             </div>
           </div>
         </div>
@@ -1887,15 +1851,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
         </DialogContent>
       </Dialog>
 
-      {/* LocationPicker with controlled dialog state - Hidden wrapper, only dialog shows */}
-      <LocationPicker
-        latitude={latitude || undefined}
-        longitude={longitude || undefined}
-        onLocationSelect={handleLocationSelect}
-        onLocationClear={handleLocationClear}
-        isOpen={showLocationPicker}
-        onOpenChange={setShowLocationPicker}
-      />
-    </div>
+      </div>
+    </>
   )
 }

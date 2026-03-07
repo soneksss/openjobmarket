@@ -63,9 +63,10 @@ interface CompanyDetailViewProps {
   company: CompanyProfile
   user: User | null
   isModal?: boolean
+  onSignUpPrompt?: () => void
 }
 
-export default function CompanyDetailView({ company, user, isModal = false }: CompanyDetailViewProps) {
+export default function CompanyDetailView({ company, user, isModal = false, onSignUpPrompt }: CompanyDetailViewProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -141,7 +142,11 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
 
   const handleContactClick = () => {
     if (!user) {
-      router.push("/auth/login")
+      if (onSignUpPrompt) {
+        onSignUpPrompt()
+      } else {
+        router.push("/signup")
+      }
       return
     }
     setShowMessageModal(true)
@@ -226,6 +231,147 @@ export default function CompanyDetailView({ company, user, isModal = false }: Co
     }
 
     return compact
+  }
+
+  // Premium dark layout when opened from modal map
+  if (isModal) {
+    return (
+      <div className="bg-slate-900 text-white rounded-lg overflow-hidden">
+        {/* Gradient Hero */}
+        <div className="bg-gradient-to-br from-blue-950 via-slate-800 to-slate-900 px-5 pt-5 pb-4">
+          <div className="flex items-start gap-3">
+            <Avatar className="h-16 w-16 ring-2 ring-blue-500/40 flex-shrink-0">
+              <AvatarImage src={company.logo_url} alt={company.company_name} />
+              <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-700 text-white font-bold text-xl">
+                {getCompanyInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-white">{company.company_name}</h2>
+              <p className="text-sm text-slate-300 mt-0.5">{company.industry}</p>
+              <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                <MapPin className="h-3 w-3 flex-shrink-0" />{formatAddress(company.location)}
+              </p>
+              <div className="mt-1.5">
+                <RatingDisplay rating={company.average_rating || 0} reviewsCount={company.reviews_count || 0} size="sm" />
+              </div>
+            </div>
+            {isOwnProfile && (
+              <Button size="sm" variant="ghost" onClick={() => router.push("/company/profile/edit")} className="text-slate-400 hover:text-white shrink-0">Edit</Button>
+            )}
+          </div>
+
+          {/* Badges */}
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">{company.company_size}</span>
+            {company.service_24_7 && (
+              <span className="text-xs bg-emerald-800/60 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">24/7 Service</span>
+            )}
+            {activeJobs.length > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs bg-blue-800/60 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded-full">
+                <Sparkles className="h-2.5 w-2.5" />Hiring
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-4 py-4 space-y-4">
+          {company.description && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">About</p>
+              <p className="text-sm text-slate-300 leading-relaxed">{company.description}</p>
+            </div>
+          )}
+
+          {company.services && company.services.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Services</p>
+              <div className="flex flex-wrap gap-1">
+                {company.services.map((s, i) => (
+                  <span key={i} className="text-xs bg-slate-800 text-slate-200 border border-slate-700 px-2 py-0.5 rounded-md">{s}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {company.spoken_languages && company.spoken_languages.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Languages</p>
+              <div className="flex flex-wrap gap-1">
+                {company.spoken_languages.map((lang, i) => (
+                  <span key={i} className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-md">{lang}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {company.price_list && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Pricing</p>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{company.price_list}</p>
+            </div>
+          )}
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/50">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Industry</p>
+              <p className="text-xs text-white font-medium">{company.industry}</p>
+            </div>
+            <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/50">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Size</p>
+              <p className="text-xs text-white font-medium">{company.company_size}</p>
+            </div>
+          </div>
+
+          {/* Active job openings */}
+          {!loadingJobs && activeJobs.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Open Positions</p>
+              <div className="space-y-1.5">
+                {activeJobs.map((job) => (
+                  <Link key={job.id} href={`/jobs/${job.id}`} className="flex items-center justify-between p-2.5 bg-slate-800 border border-slate-700 hover:border-blue-500/50 rounded-lg group transition-colors">
+                    <span className="text-xs text-slate-200 group-hover:text-white truncate">{job.title}</span>
+                    <ExternalLink className="h-3 w-3 text-slate-500 group-hover:text-blue-400 flex-shrink-0 ml-2" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Website link */}
+          {company.website_url && (
+            <div className="flex flex-wrap gap-1.5">
+              <a href={company.website_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-blue-300 hover:text-blue-200 bg-slate-800 border border-slate-700 hover:border-blue-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
+                <Globe className="h-3 w-3" />Website
+              </a>
+            </div>
+          )}
+
+          {/* Contact button */}
+          {!isOwnProfile && (
+            <button
+              onClick={handleContactClick}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {user ? "Send Message" : "Sign Up to Contact"}
+            </button>
+          )}
+        </div>
+
+        {showMessageModal && user && (
+          <MessageModal
+            isOpen={showMessageModal}
+            onClose={() => setShowMessageModal(false)}
+            professionalId={company.user_id}
+            professionalName={company.company_name}
+            user={user}
+          />
+        )}
+      </div>
+    )
   }
 
   return (

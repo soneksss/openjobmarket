@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/server"
+import { createClient, createAdminClient } from "@/lib/server"
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 
@@ -120,7 +120,22 @@ export async function POST(request: Request) {
 
     console.log("[API] Account deletion successful:", deleteResult)
 
-    // Step 4: Force sign out on server side
+    // Step 4: Delete auth user via Admin API (SQL DELETE FROM auth.users in the RPC
+    // silently fails because the postgres role lacks permission on auth.users)
+    try {
+      const adminClient = createAdminClient()
+      const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(user.id)
+      if (authDeleteError) {
+        console.error("[API] Admin auth deletion error:", authDeleteError)
+        // Don't fail the request — public data is already deleted, user is effectively gone
+      } else {
+        console.log("[API] Auth user deleted via Admin API")
+      }
+    } catch (adminError) {
+      console.error("[API] Admin client error during auth deletion:", adminError)
+    }
+
+    // Step 6: Force sign out on server side
     // Note: This will likely fail with 403 because user no longer exists,
     // but we try anyway for completeness
     try {
@@ -131,7 +146,7 @@ export async function POST(request: Request) {
       // Expected to fail since user is deleted, continue anyway
     }
 
-    // Step 5: Clear all auth cookies (non-critical - don't fail if this fails)
+    // Step 7: Clear all auth cookies (non-critical - don't fail if this fails)
     try {
       const cookiesToClear = [
         'sb-access-token',
@@ -155,7 +170,7 @@ export async function POST(request: Request) {
       // Continue anyway - account is already deleted
     }
 
-    // Step 6: Return success with redirect instruction
+    // Step 8: Return success with redirect instruction
     return NextResponse.json(
       {
         success: true,

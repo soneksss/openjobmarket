@@ -1,8 +1,11 @@
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import { HomeownerUpgradeForm } from "@/components/homeowner-upgrade-form"
+import { requireVacancyEnabled } from "@/lib/vacancy-guard"
 
 export default async function HomeownerUpgradePage() {
+  await requireVacancyEnabled()
+
   const supabase = await createClient()
 
   const { data: { user }, error: userError } = await supabase.auth.getUser()

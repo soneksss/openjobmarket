@@ -125,8 +125,8 @@ export default function JobDetailView({
   // Locale-aware sign-in URL (users viewing jobs likely already have accounts)
   const isOnBrRoute = pathname?.startsWith('/br')
   const signInUrl = isOnBrRoute
-    ? `/auth/sign-in?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
-    : `/auth/sign-in?returnUrl=${encodeURIComponent(pathname || '/')}`
+    ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+    : `/auth/login?returnUrl=${encodeURIComponent(pathname || '/')}`
 
   const [loading, setLoading] = useState(false)
   const [coverLetter, setCoverLetter] = useState("")
@@ -186,9 +186,7 @@ export default function JobDetailView({
     if (job.company_profiles) {
       return `/companies/${job.company_profiles.id}`
     }
-    if (job.homeowner_profiles) {
-      return `/homeowner/${job.homeowner_profiles.user_id}`
-    }
+    // Homeowner public profile pages are not a route — no link
     return null
   }
 
@@ -458,20 +456,20 @@ export default function JobDetailView({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100">
+    <div className="min-h-screen bg-slate-900">
       {/* Session Error Banner */}
       {sessionError && (
-        <div className="bg-red-50 border-b border-red-200 px-4 py-3">
+        <div className="bg-red-900/30 border-b border-red-500/30 px-4 py-3">
           <div className="container mx-auto flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <span className="text-sm text-red-700 font-medium">Session Issue: {sessionError}</span>
+              <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+              <span className="text-sm text-red-400 font-medium">Session Issue: {sessionError}</span>
             </div>
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={() => window.location.reload()}
-              className="border-red-300 text-red-700 hover:bg-red-100"
+              className="border border-red-500/30 text-red-400 hover:bg-red-900/30"
             >
               Refresh Page
             </Button>
@@ -479,18 +477,16 @@ export default function JobDetailView({
         </div>
       )}
 
-      <div className="relative container mx-auto px-4 py-8 max-w-4xl">
+      <div className="relative container mx-auto px-4 py-6 max-w-4xl">
         {/* Back Button */}
-        <div className="mb-6">
+        <div className="mb-5">
           <Button
-            variant="outline"
-            className="hover:bg-blue-50 bg-white shadow-sm"
+            variant="ghost"
+            className="text-slate-400 hover:text-white hover:bg-white/10"
             onClick={() => {
-              // If search params exist, use the backUrl to preserve search state
               if (searchParams && Object.keys(searchParams).length > 0) {
                 router.push(backUrl)
               } else {
-                // Otherwise, go back to previous page
                 router.back()
               }
             }}
@@ -499,15 +495,32 @@ export default function JobDetailView({
             Back
           </Button>
         </div>
-        <div className="grid lg:grid-cols-3 gap-8">
+
+        {/* Expired / Inactive job notice */}
+        {!job.is_active && (
+          <div className="mb-5 flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3">
+            <span className="mt-0.5 text-red-400 text-lg leading-none">⚠</span>
+            <div>
+              <p className="text-sm font-semibold text-red-400">This job is no longer available</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                The posting has been closed or expired. You can browse similar jobs below.
+              </p>
+            </div>
+            <Button asChild size="sm" variant="ghost" className="ml-auto shrink-0 text-slate-400 hover:text-white hover:bg-white/10 border border-white/15">
+              <Link href={`/?tab=${job.is_tradespeople_job ? 'jobs_tasks' : 'vacancies'}`}>Browse jobs</Link>
+            </Button>
+          </div>
+        )}
+
+        <div className="grid lg:grid-cols-3 gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-4">
             {/* Job Header */}
-            <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-              <CardHeader className="pb-4">
+            <Card className="border border-white/10 bg-slate-800/60 shadow-none">
+              <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1 w-full">
-                    {/* Company Logo, Name, and Rating - Above Title */}
+                    {/* Poster row */}
                     <div className="flex items-center gap-3 mb-4">
                       {posterProfileUrl ? (
                         <Link
@@ -515,76 +528,48 @@ export default function JobDetailView({
                           className="flex items-center gap-3 hover:opacity-80 transition-opacity group"
                         >
                           {posterLogo ? (
-                            <div className="h-10 w-10 flex-shrink-0 relative rounded-full overflow-hidden border-2 border-gray-300 bg-gray-100 group-hover:border-blue-500 transition-colors">
-                              <Image
-                                src={posterLogo}
-                                alt={posterName}
-                                fill
-                                className="object-cover"
-                              />
+                            <div className="h-9 w-9 flex-shrink-0 relative rounded-full overflow-hidden border border-white/20 bg-slate-700 group-hover:border-emerald-500/50 transition-colors">
+                              <Image src={posterLogo} alt={posterName} fill className="object-cover" />
                             </div>
                           ) : (
-                            <Avatar className="h-10 w-10 border-2 border-gray-300 group-hover:border-blue-500 transition-colors">
-                              <AvatarFallback className="text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                            <Avatar className="h-9 w-9 border border-white/20 group-hover:border-emerald-500/50 transition-colors">
+                              <AvatarFallback className="text-sm bg-gradient-to-br from-emerald-600 to-emerald-700 text-white">
                                 {posterInitials}
                               </AvatarFallback>
                             </Avatar>
                           )}
                           <div>
-                            <span className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">{posterName}</span>
+                            <span className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">{posterName}</span>
                             <div
-                              className="mt-1 cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                setShowReviewsModal(true)
-                              }}
+                              className="mt-0.5 cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowReviewsModal(true) }}
                               title="Click to view reviews"
                             >
-                              <StarRating
-                                rating={companyRating.average_rating}
-                                totalReviews={companyRating.total_reviews}
-                                size="sm"
-                                showCount={true}
-                              />
+                              <StarRating rating={companyRating.average_rating} totalReviews={companyRating.total_reviews} size="sm" showCount={true} />
                             </div>
                           </div>
                         </Link>
                       ) : (
                         <div className="flex items-center gap-3">
                           {posterLogo ? (
-                            <div className="h-10 w-10 flex-shrink-0 relative rounded-full overflow-hidden border-2 border-gray-300 bg-gray-100">
-                              <Image
-                                src={posterLogo}
-                                alt={posterName}
-                                fill
-                                className="object-cover"
-                              />
+                            <div className="h-9 w-9 flex-shrink-0 relative rounded-full overflow-hidden border border-white/20 bg-slate-700">
+                              <Image src={posterLogo} alt={posterName} fill className="object-cover" />
                             </div>
                           ) : (
-                            <Avatar className="h-10 w-10 border-2 border-gray-300">
-                              <AvatarFallback className="text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                            <Avatar className="h-9 w-9 border border-white/20">
+                              <AvatarFallback className="text-sm bg-gradient-to-br from-emerald-600 to-emerald-700 text-white">
                                 {posterInitials}
                               </AvatarFallback>
                             </Avatar>
                           )}
                           <div>
-                            <span className="text-base font-semibold text-gray-900">{posterName}</span>
+                            <span className="text-sm font-semibold text-white">{posterName}</span>
                             <div
-                              className="mt-1 cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                setShowReviewsModal(true)
-                              }}
+                              className="mt-0.5 cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setShowReviewsModal(true) }}
                               title="Click to view reviews"
                             >
-                              <StarRating
-                                rating={companyRating.average_rating}
-                                totalReviews={companyRating.total_reviews}
-                                size="sm"
-                                showCount={true}
-                              />
+                              <StarRating rating={companyRating.average_rating} totalReviews={companyRating.total_reviews} size="sm" showCount={true} />
                             </div>
                           </div>
                         </div>
@@ -592,101 +577,97 @@ export default function JobDetailView({
                     </div>
 
                     {/* Job Title */}
-                    <div className="flex items-center gap-3 mb-3">
-                      <h1 className="text-3xl font-bold text-gray-900 leading-tight">{job.title}</h1>
+                    <div className="flex flex-wrap items-center gap-2 mb-3">
+                      <h1 className="text-2xl font-bold text-white leading-tight">{job.title}</h1>
                       {job.is_tradespeople_job ? (
-                        <Badge className="bg-orange-500 text-white hover:bg-orange-600 text-sm px-3 py-1">
+                        <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs">
                           {t('jobs.tradeJob')}
                         </Badge>
                       ) : (
-                        <Badge className="bg-green-600 text-white hover:bg-green-700 text-sm px-3 py-1">
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs">
                           {t('jobs.vacancy')}
+                        </Badge>
+                      )}
+                      {!job.is_active && (
+                        <Badge className="bg-red-500/20 text-red-400 border border-red-500/30 text-xs">
+                          Inactive
                         </Badge>
                       )}
                     </div>
 
-                    {/* Job Badges */}
-                    <div className="flex flex-wrap items-center gap-3 text-sm">
-                      <span className="flex items-center text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
-                        <MapPin className="h-4 w-4 mr-1" />
+                    {/* Meta badges */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="flex items-center text-slate-400 bg-white/5 border border-white/10 px-2.5 py-1 rounded-full">
+                        <MapPin className="h-3.5 w-3.5 mr-1" />
                         {formatDisplayAddress(job.location)}
                       </span>
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 hover:bg-blue-200">
+                      <Badge variant="secondary" className="bg-blue-500/15 text-blue-400 border-0 text-xs">
                         {job.job_type}
                       </Badge>
-                      <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-200">
+                      <Badge variant="secondary" className="bg-slate-700 text-slate-300 border-0 text-xs">
                         {job.work_location}
                       </Badge>
-                      <Badge
-                        variant="secondary"
-                        className="bg-purple-100 text-purple-700 hover:bg-purple-200 capitalize"
-                      >
+                      <Badge variant="secondary" className="bg-purple-500/15 text-purple-400 border-0 capitalize text-xs">
                         {job.experience_level.replace("_", " ")}
                       </Badge>
                     </div>
                   </div>
-
-                  {/* Status Badge - Top Right */}
-                  {!job.is_active && (
-                    <Badge variant="secondary" className="bg-red-100 text-red-700 flex-shrink-0 self-start">
-                      Inactive
-                    </Badge>
-                  )}
                 </div>
               </CardHeader>
+
               <CardContent className="pt-0">
-                <div className="flex items-center justify-between flex-wrap gap-4">
-                  <div className="flex items-center space-x-6 text-sm">
-                    <span className="flex items-center text-green-600 font-semibold bg-green-50 px-3 py-2 rounded-lg">
+                <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-white/10">
+                  <div className="flex flex-wrap items-center gap-4 text-sm">
+                    <span className="flex items-center text-emerald-400 font-semibold">
                       <DollarSign className="h-4 w-4 mr-1" />
                       {formatSalary(job.salary_min, job.salary_max)}
                     </span>
-                    <span className="flex items-center text-gray-600">
-                      <Calendar className="h-4 w-4 mr-1" />
+                    <span className="flex items-center text-slate-500 text-xs">
+                      <Calendar className="h-3.5 w-3.5 mr-1" />
                       Posted {formatDate(job.created_at)}
                     </span>
-                    <span className="flex items-center text-gray-600">
-                      <Users className="h-4 w-4 mr-1" />
+                    <span className="flex items-center text-slate-500 text-xs">
+                      <Users className="h-3.5 w-3.5 mr-1" />
                       {job.applications_count} applicants
                     </span>
                   </div>
-                  {userProfile && (
-                    <div className="flex items-center space-x-2">
+                  <div className="flex items-center gap-2">
+                    {userProfile && (
                       <Button
-                        variant="outline"
+                        variant="ghost"
+                        size="sm"
                         onClick={handleSaveJob}
                         disabled={loading}
-                        className="border-blue-200 hover:bg-blue-50 bg-transparent"
+                        className="border border-white/15 hover:bg-white/10 text-slate-400 hover:text-white"
                       >
-                        <BookmarkIcon className={`h-4 w-4 mr-2 ${isSaved ? "fill-current text-blue-600" : ""}`} />
+                        <BookmarkIcon className={`h-4 w-4 mr-1.5 ${isSaved ? "fill-current text-emerald-400" : ""}`} />
                         {isSaved ? "Saved" : "Save"}
                       </Button>
-                    </div>
-                  )}
-                  {!user && (
-                    <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                      <Link href={signInUrl}>Sign In to Apply</Link>
-                    </Button>
-                  )}
+                    )}
+                    {!user && (
+                      <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                        <Link href={signInUrl}>Sign In to Apply</Link>
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Job Description */}
-            <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-xl text-gray-900">
+            <Card className="border border-white/10 bg-slate-800/60 shadow-none">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base text-white">
                   {job.is_tradespeople_job ? "About this job" : "About this role"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {/* Job Photo - if available */}
                 {job.job_photo_url && (
-                  <div className="mb-6">
+                  <div className="mb-4">
                     <img
                       src={job.job_photo_url}
                       alt={job.title}
-                      className="w-full max-h-[400px] object-cover rounded-lg shadow-md"
+                      className="w-full max-h-[360px] object-cover rounded-lg"
                       onError={(e) => {
                         console.error("[JOB-DETAIL-VIEW] Failed to load image:", job.job_photo_url)
                         e.currentTarget.style.display = 'none'
@@ -697,25 +678,22 @@ export default function JobDetailView({
                     />
                   </div>
                 )}
-
-                <div className="prose prose-gray max-w-none">
-                  <p className="whitespace-pre-wrap text-gray-700 leading-relaxed text-base">{job.description}</p>
-                </div>
+                <p className="whitespace-pre-wrap text-slate-300 leading-relaxed text-sm">{job.description}</p>
               </CardContent>
             </Card>
 
             {/* Responsibilities */}
             {job.responsibilities && job.responsibilities.length > 0 && (
-              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl text-gray-900">Responsibilities</CardTitle>
+              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base text-white">Responsibilities</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3">
+                  <ul className="space-y-2">
                     {job.responsibilities.map((responsibility, index) => (
                       <li key={index} className="flex items-start">
-                        <span className="text-blue-500 mr-3 mt-1 text-lg">•</span>
-                        <span className="text-gray-700 leading-relaxed">{responsibility}</span>
+                        <span className="text-emerald-400 mr-2.5 mt-0.5 text-base leading-5">•</span>
+                        <span className="text-slate-300 leading-relaxed text-sm">{responsibility}</span>
                       </li>
                     ))}
                   </ul>
@@ -725,16 +703,16 @@ export default function JobDetailView({
 
             {/* Requirements */}
             {job.requirements && job.requirements.length > 0 && (
-              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl text-gray-900">Requirements</CardTitle>
+              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base text-white">Requirements</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3">
+                  <ul className="space-y-2">
                     {job.requirements.map((requirement, index) => (
                       <li key={index} className="flex items-start">
-                        <span className="text-blue-500 mr-3 mt-1 text-lg">•</span>
-                        <span className="text-gray-700 leading-relaxed">{requirement}</span>
+                        <span className="text-emerald-400 mr-2.5 mt-0.5 text-base leading-5">•</span>
+                        <span className="text-slate-300 leading-relaxed text-sm">{requirement}</span>
                       </li>
                     ))}
                   </ul>
@@ -744,17 +722,17 @@ export default function JobDetailView({
 
             {/* Skills */}
             {job.skills_required && job.skills_required.length > 0 && (
-              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl text-gray-900">Required Skills</CardTitle>
+              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base text-white">Required Skills</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap gap-2">
                     {job.skills_required.map((skill) => (
                       <Badge
                         key={skill}
                         variant="secondary"
-                        className="bg-blue-100 text-blue-700 hover:bg-blue-200 px-3 py-1 text-sm"
+                        className="bg-white/10 text-slate-300 border border-white/10 hover:bg-white/15 text-xs"
                       >
                         {skill}
                       </Badge>
@@ -766,16 +744,16 @@ export default function JobDetailView({
 
             {/* Benefits */}
             {job.benefits && job.benefits.length > 0 && (
-              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-xl text-gray-900">Benefits & Perks</CardTitle>
+              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base text-white">Benefits & Perks</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {job.benefits.map((benefit, index) => (
                       <div key={index} className="flex items-center">
-                        <span className="text-green-500 mr-3 text-lg">✓</span>
-                        <span className="text-gray-700">{benefit}</span>
+                        <span className="text-emerald-400 mr-2 text-sm">✓</span>
+                        <span className="text-slate-300 text-sm">{benefit}</span>
                       </div>
                     ))}
                   </div>
@@ -783,14 +761,14 @@ export default function JobDetailView({
               </Card>
             )}
 
-            {/* Apply Button - Show for ALL logged-in users */}
+            {/* Apply CTA */}
             {user && (
-              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-                <CardContent className="p-8 text-center">
-                  <h3 className="text-xl font-semibold mb-3 text-gray-900">
+              <Card className="border border-emerald-500/20 bg-emerald-500/5 shadow-none">
+                <CardContent className="p-6 text-center">
+                  <h3 className="text-base font-semibold mb-2 text-white">
                     {applicationSubmitted ? "Application Submitted" : "Ready to Apply?"}
                   </h3>
-                  <p className="text-gray-600 mb-6 leading-relaxed">
+                  <p className="text-slate-400 mb-5 text-sm leading-relaxed">
                     {applicationSubmitted
                       ? "You have already applied to this position. Check your applications to see the status."
                       : "Review what information will be shared and submit your application."}
@@ -798,15 +776,15 @@ export default function JobDetailView({
                   <Button
                     onClick={() => !applicationSubmitted && handleApplyClick()}
                     className={applicationSubmitted
-                      ? "bg-green-600 text-white px-8 py-3 cursor-not-allowed opacity-90"
-                      : "bg-blue-600 hover:bg-blue-700 px-8 py-3"
+                      ? "bg-slate-700 text-slate-300 px-8 cursor-not-allowed opacity-80"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white px-8"
                     }
                     disabled={applicationSubmitted}
                   >
                     {applicationSubmitted ? "Applied" : "Apply Now"}
                   </Button>
                   {applicationSubmitted && (
-                    <Button asChild variant="outline" className="px-8 py-3 mt-4">
+                    <Button asChild variant="ghost" className="px-8 mt-3 text-slate-400 hover:text-white hover:bg-white/10">
                       <Link href="/dashboard/professional/applications">View Applications</Link>
                     </Button>
                   )}
@@ -815,13 +793,13 @@ export default function JobDetailView({
             )}
 
             {!user && (
-              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-                <CardContent className="p-8 text-center">
-                  <h3 className="text-xl font-semibold mb-3 text-gray-900">Ready to Apply?</h3>
-                  <p className="text-gray-600 mb-6 leading-relaxed">
+              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
+                <CardContent className="p-6 text-center">
+                  <h3 className="text-base font-semibold mb-2 text-white">Ready to Apply?</h3>
+                  <p className="text-slate-400 mb-5 text-sm leading-relaxed">
                     Sign up to apply for this position and manage your privacy settings.
                   </p>
-                  <Button asChild className="bg-blue-600 hover:bg-blue-700 px-8 py-3">
+                  <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white px-8">
                     <Link href={signInUrl}>Sign In to Apply</Link>
                   </Button>
                 </CardContent>
@@ -831,76 +809,65 @@ export default function JobDetailView({
 
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <Card className="sticky top-8 shadow-lg border-0 bg-white/90 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="flex items-center text-xl text-gray-900 mb-3">
+            <Card className="sticky top-6 border border-white/10 bg-slate-800/60 shadow-none">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center text-base text-white mb-2">
                   {posterLogo ? (
-                    <div className="h-8 w-8 flex-shrink-0 relative rounded-full overflow-hidden border border-gray-200 bg-gray-100 mr-2">
-                      <Image
-                        src={posterLogo}
-                        alt={posterName}
-                        fill
-                        className="object-cover"
-                      />
+                    <div className="h-7 w-7 flex-shrink-0 relative rounded-full overflow-hidden border border-white/20 bg-slate-700 mr-2">
+                      <Image src={posterLogo} alt={posterName} fill className="object-cover" />
                     </div>
                   ) : (
-                    <Building className="h-5 w-5 mr-2 text-blue-600" />
+                    <Building className="h-4 w-4 mr-2 text-emerald-400" />
                   )}
                   About {posterName}
                 </CardTitle>
-                {/* Poster Rating */}
                 <div
                   className="cursor-pointer hover:opacity-80 transition-opacity inline-block"
                   onClick={() => setShowReviewsModal(true)}
                   title="Click to view reviews"
                 >
-                  <StarRating
-                    rating={companyRating.average_rating}
-                    totalReviews={companyRating.total_reviews}
-                    size="md"
-                    showCount={true}
-                  />
+                  <StarRating rating={companyRating.average_rating} totalReviews={companyRating.total_reviews} size="sm" showCount={true} />
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 {job.company_profiles?.description && (
-                  <p className="text-gray-700 leading-relaxed">{job.company_profiles.description}</p>
+                  <p className="text-slate-400 leading-relaxed text-sm">{job.company_profiles.description}</p>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-0 divide-y divide-white/10">
                   {job.company_profiles && (
                     <>
-                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Industry</span>
-                        <span className="text-gray-900 font-semibold">{job.company_profiles.industry}</span>
+                      <div className="flex items-center justify-between py-2.5">
+                        <span className="text-slate-500 text-xs">Industry</span>
+                        <span className="text-slate-300 text-xs font-medium">{job.company_profiles.industry}</span>
                       </div>
-                      <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                        <span className="text-gray-600 font-medium">Company Size</span>
-                        <span className="text-gray-900 font-semibold">{job.company_profiles.company_size}</span>
+                      <div className="flex items-center justify-between py-2.5">
+                        <span className="text-slate-500 text-xs">Company Size</span>
+                        <span className="text-slate-300 text-xs font-medium">{job.company_profiles.company_size}</span>
                       </div>
-                      <div className="flex items-center justify-between py-2">
-                        <span className="text-gray-600 font-medium">Location</span>
-                        <span className="text-gray-900 font-semibold">{formatDisplayAddress(job.company_profiles.location)}</span>
+                      <div className="flex items-center justify-between py-2.5">
+                        <span className="text-slate-500 text-xs">Location</span>
+                        <span className="text-slate-300 text-xs font-medium">{formatDisplayAddress(job.company_profiles.location)}</span>
                       </div>
                     </>
                   )}
                   {job.homeowner_profiles && (
-                    <div className="flex items-center justify-between py-2">
-                      <span className="text-gray-600 font-medium">Posted by</span>
-                      <span className="text-gray-900 font-semibold">Homeowner</span>
+                    <div className="flex items-center justify-between py-2.5">
+                      <span className="text-slate-500 text-xs">Posted by</span>
+                      <span className="text-slate-300 text-xs font-medium">Homeowner</span>
                     </div>
                   )}
                 </div>
 
                 {job.company_profiles?.website_url && (
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     asChild
-                    className="w-full border-blue-200 hover:bg-blue-50 text-blue-600 bg-transparent"
+                    className="w-full border border-white/15 hover:bg-white/10 text-slate-400 hover:text-white"
                   >
                     <a href={job.company_profiles.website_url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-4 w-4 mr-2" />
+                      <ExternalLink className="h-3.5 w-3.5 mr-2" />
                       Visit Website
                     </a>
                   </Button>
@@ -913,95 +880,75 @@ export default function JobDetailView({
 
       {/* Reviews Modal */}
       <Dialog open={showReviewsModal} onOpenChange={setShowReviewsModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-slate-900 border border-white/10">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              Company Reviews
-            </DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl font-bold text-white">Company Reviews</DialogTitle>
+            <DialogDescription className="text-slate-400">
               View all reviews and ratings for this company
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Rating Summary */}
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+            <div className="bg-white/5 border border-white/10 p-4 rounded-xl">
               <div className="flex items-center gap-4">
                 <div className="text-center">
-                  <div className="text-4xl font-bold text-blue-600">
+                  <div className="text-4xl font-bold text-emerald-400">
                     {companyRating.average_rating > 0 ? companyRating.average_rating.toFixed(1) : "0.0"}
                   </div>
-                  <div className="text-sm text-gray-600">out of 5</div>
+                  <div className="text-xs text-slate-500">out of 5</div>
                 </div>
                 <div className="flex-1">
-                  <StarRating
-                    rating={companyRating.average_rating}
-                    totalReviews={companyRating.total_reviews}
-                    size="lg"
-                    showCount={false}
-                  />
-                  <div className="text-sm text-gray-600 mt-1">
+                  <StarRating rating={companyRating.average_rating} totalReviews={companyRating.total_reviews} size="lg" showCount={false} />
+                  <div className="text-xs text-slate-500 mt-1">
                     Based on {companyRating.total_reviews} review{companyRating.total_reviews !== 1 ? "s" : ""}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Reviews List */}
             {companyReviews.length > 0 ? (
-              <div className="space-y-4">
-                {companyReviews.map((review) => {
-                  return (
-                    <div key={review.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {review.reviewer_avatar ? (
-                            <div className="h-8 w-8 flex-shrink-0 relative rounded-full overflow-hidden border border-gray-200 bg-gray-100">
-                              <Image
-                                src={review.reviewer_avatar}
-                                alt={review.reviewer_name}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
-                                {review.reviewer_name.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
-                          <div>
-                            <div className="font-semibold text-sm">{review.reviewer_name}</div>
-                            <div className="text-xs text-gray-500">
-                              {new Date(review.created_at).toLocaleDateString()}
-                              {review.is_edited && " (edited)"}
-                            </div>
+              <div className="space-y-3">
+                {companyReviews.map((review) => (
+                  <div key={review.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {review.reviewer_avatar ? (
+                          <div className="h-8 w-8 flex-shrink-0 relative rounded-full overflow-hidden border border-white/20 bg-slate-700">
+                            <Image src={review.reviewer_avatar} alt={review.reviewer_name} fill className="object-cover" />
+                          </div>
+                        ) : (
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-slate-700 text-slate-300 text-xs">
+                              {review.reviewer_name.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div>
+                          <div className="font-semibold text-sm text-white">{review.reviewer_name}</div>
+                          <div className="text-xs text-slate-500">
+                            {new Date(review.created_at).toLocaleDateString()}
+                            {review.is_edited && " (edited)"}
                           </div>
                         </div>
-                        <div className="flex items-center">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`h-4 w-4 ${
-                                star <= review.rating
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : "text-gray-300"
-                              }`}
-                            />
-                          ))}
-                        </div>
                       </div>
-                      {review.review_text && (
-                        <p className="text-sm text-gray-700 mt-2">{review.review_text}</p>
-                      )}
+                      <div className="flex items-center">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-3.5 w-3.5 ${star <= review.rating ? "fill-yellow-400 text-yellow-400" : "text-slate-600"}`}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  )
-                })}
+                    {review.review_text && (
+                      <p className="text-sm text-slate-400 mt-2">{review.review_text}</p>
+                    )}
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p>No reviews yet for this company.</p>
+              <div className="text-center py-8 text-slate-500">
+                <p className="text-sm">No reviews yet for this company.</p>
               </div>
             )}
           </div>
@@ -1013,9 +960,7 @@ export default function JobDetailView({
         <Dialog open={showApplicationModal} onOpenChange={setShowApplicationModal}>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">
-                Apply for {job.title}
-              </DialogTitle>
+              <DialogTitle className="text-xl font-bold">Apply for {job.title}</DialogTitle>
               <DialogDescription>
                 Review what information will be shared with the employer and submit your application.
               </DialogDescription>
@@ -1039,21 +984,19 @@ export default function JobDetailView({
       <Dialog open={showProfileRequiredModal} onOpenChange={setShowProfileRequiredModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-amber-600">
-              Complete Your Profile
-            </DialogTitle>
+            <DialogTitle className="text-lg font-bold text-amber-500">Complete Your Profile</DialogTitle>
             <DialogDescription>
               You need to complete your profile before applying for jobs.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-muted-foreground">
               To apply for this {job.is_tradespeople_job ? "job" : "vacancy"}, please complete your profile setup first.
               This ensures employers can review your qualifications and contact you.
             </p>
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <h4 className="font-semibold text-amber-900 mb-2">What you need to do:</h4>
-              <ul className="text-sm text-amber-800 space-y-1">
+            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+              <h4 className="font-semibold text-amber-400 mb-2 text-sm">What you need to do:</h4>
+              <ul className="text-sm text-amber-300/80 space-y-1">
                 <li>• Fill in your basic information</li>
                 <li>• Add your skills and experience</li>
                 <li>• Upload a CV (optional but recommended)</li>
@@ -1061,13 +1004,9 @@ export default function JobDetailView({
             </div>
           </div>
           <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setShowProfileRequiredModal(false)}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setShowProfileRequiredModal(false)}>Cancel</Button>
             <Button asChild className="bg-amber-600 hover:bg-amber-700">
-              <Link href={job.is_tradespeople_job ? "/onboarding" : "/onboarding"}>
-                Complete Profile
-              </Link>
+              <Link href="/onboarding">Complete Profile</Link>
             </Button>
           </div>
         </DialogContent>
@@ -1077,7 +1016,7 @@ export default function JobDetailView({
       <Dialog open={showBlockedModal} onOpenChange={setShowBlockedModal}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-red-600">
+            <DialogTitle className="text-lg font-bold text-red-400">
               {blockedReason === 'own_job'
                 ? "Cannot Apply to Your Own Job"
                 : job.is_tradespeople_job ? t('jobs.blockedModalTitle') : "Cannot Apply for This Job"}
@@ -1093,15 +1032,13 @@ export default function JobDetailView({
           <div className="space-y-4 py-4">
             {blockedReason === 'own_job' ? (
               <>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-muted-foreground">
                   This is your own job posting. You can manage it from your dashboard, but you cannot submit an application to it.
                 </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">Manage This Job</h4>
-                  <p className="text-sm text-blue-800 mb-3">
-                    View applications, edit details, or manage this job from your dashboard.
-                  </p>
-                  <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                  <h4 className="font-semibold text-white mb-1 text-sm">Manage This Job</h4>
+                  <p className="text-sm text-slate-400 mb-3">View applications, edit details, or manage this job from your dashboard.</p>
+                  <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700">
                     <Link href={job.is_tradespeople_job ? "/dashboard/homeowner/jobs" : "/dashboard/company/jobs"}>
                       Go to Dashboard
                     </Link>
@@ -1110,27 +1047,23 @@ export default function JobDetailView({
               </>
             ) : (
               <>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-muted-foreground">
                   {job.is_tradespeople_job ? (
-                    <>
-                      {t('jobs.blockedModalExplanation')} <strong>{t('jobs.blockedModalVacanciesLink')}</strong> {t('jobs.blockedModalSectionInstead')}
-                    </>
+                    <>{t('jobs.blockedModalExplanation')} <strong>{t('jobs.blockedModalVacanciesLink')}</strong> {t('jobs.blockedModalSectionInstead')}</>
                   ) : (
-                    <>
-                      Vacancy jobs are employment positions for individual jobseekers. As a business account, you can browse the <strong>Jobs/Tasks</strong> section to find work opportunities, or post jobs to hire professionals.
-                    </>
+                    <>Vacancy jobs are employment positions for individual jobseekers. As a business account, you can browse the <strong>Jobs/Tasks</strong> section to find work opportunities, or post jobs to hire professionals.</>
                   )}
                 </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">
+                <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                  <h4 className="font-semibold text-white mb-1 text-sm">
                     {job.is_tradespeople_job ? t('jobs.blockedModalWantToApply') : "Looking for work?"}
                   </h4>
-                  <p className="text-sm text-blue-800 mb-3">
+                  <p className="text-sm text-slate-400 mb-3">
                     {job.is_tradespeople_job
                       ? t('jobs.blockedModalAccountRequired')
                       : "Browse the Jobs/Tasks section to find opportunities suitable for your business."}
                   </p>
-                  <Button asChild className="w-full bg-blue-600 hover:bg-blue-700">
+                  <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700">
                     <Link href={job.is_tradespeople_job ? "/auth/sign-up" : "/?tab=jobs_tasks"}>
                       {job.is_tradespeople_job ? t('jobs.blockedModalCreateAccount') : "Browse Jobs/Tasks"}
                     </Link>

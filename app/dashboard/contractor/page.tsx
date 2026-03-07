@@ -26,7 +26,7 @@ export default async function ContractorDashboardPage() {
     .from("contractor_profiles")
     .select("*")
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle()
 
   if (profileError) {
     console.log("[CONTRACTOR] Profile error:", profileError)

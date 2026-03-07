@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Loader2, X, User, Users, Wrench, Home } from "lucide-react"
 
 interface SignUpFormProps {
@@ -25,8 +25,16 @@ export default function SignUpForm({ initialUserType, error }: SignUpFormProps) 
   const [userType, setUserType] = useState(initialUserType || "professional")
   const [formError, setFormError] = useState<string | null>(error || null)
   const [isLoading, setIsLoading] = useState(false)
+  const [vacancyEnabled, setVacancyEnabled] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.rpc("get_public_admin_settings").then(({ data }) => {
+      if (data) setVacancyEnabled(data.vacancies_jobseekers_enabled ?? true)
+    })
+  }, [])
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -158,19 +166,21 @@ export default function SignUpForm({ initialUserType, error }: SignUpFormProps) 
             <div className="space-y-3">
               <Label className="text-2xl font-medium">I am a:</Label>
               <RadioGroup value={userType} onValueChange={(value) => setUserType(value as "company" | "professional" | "contractor" | "homeowner")} className="grid grid-cols-1 gap-3">
-                <div>
-                  <RadioGroupItem value="professional" id="professional" className="peer sr-only" />
-                  <Label
-                    htmlFor="professional"
-                    className="flex items-center space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-colors"
-                  >
-                    <User className="h-5 w-5 text-primary" />
-                    <div>
-                      <div className="font-medium">Jobseeker / Professional</div>
-                      <div className="text-xs text-muted-foreground">Looking for job opportunities</div>
-                    </div>
-                  </Label>
-                </div>
+                {vacancyEnabled && (
+                  <div>
+                    <RadioGroupItem value="professional" id="professional" className="peer sr-only" />
+                    <Label
+                      htmlFor="professional"
+                      className="flex items-center space-x-3 rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-colors"
+                    >
+                      <User className="h-5 w-5 text-primary" />
+                      <div>
+                        <div className="font-medium">Jobseeker / Professional</div>
+                        <div className="text-xs text-muted-foreground">Looking for job opportunities</div>
+                      </div>
+                    </Label>
+                  </div>
+                )}
                 <div>
                   <RadioGroupItem value="company" id="company" className="peer sr-only" />
                   <Label

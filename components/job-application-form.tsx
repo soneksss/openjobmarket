@@ -111,7 +111,7 @@ export default function JobApplicationForm({
           .from("users")
           .select("user_type")
           .eq("id", user.id)
-          .single()
+          .maybeSingle()
 
         if (userData) {
           setUserType(userData.user_type)
@@ -125,14 +125,14 @@ export default function JobApplicationForm({
               .from("professional_profiles")
               .select("*")
               .eq("user_id", user.id)
-              .single()
+              .maybeSingle()
             profile = data
           } else if (userData.user_type === 'company') {
             const { data } = await supabase
               .from("company_profiles")
               .select("*")
               .eq("user_id", user.id)
-              .single()
+              .maybeSingle()
             if (data) {
               // Map company fields to common profile structure
               profile = {
@@ -155,7 +155,7 @@ export default function JobApplicationForm({
               .from("contractor_profiles")
               .select("*")
               .eq("user_id", user.id)
-              .single()
+              .maybeSingle()
             if (data) {
               // Map contractor fields to common profile structure
               profile = {
@@ -205,9 +205,18 @@ export default function JobApplicationForm({
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Only check for professionals/homeowners, not companies
-      const isCompanyApplicant = !!(userProfile as any).company_name
-      if (isCompanyApplicant) return
+      // Only check for professionals/homeowners, not companies or contractors
+      // Note: userType state is set by fetchFreshProfile, so we check directly from DB here
+      const { data: userData } = await supabase
+        .from("users")
+        .select("user_type")
+        .eq("id", user.id)
+        .maybeSingle()
+
+      if (userData?.user_type === 'company' || userData?.user_type === 'contractor') {
+        console.log("[APPLICATION-LIMIT] Skipping limit check for company/contractor")
+        return
+      }
 
       const { data: limitData, error } = await supabase
         .rpc('can_submit_application', { user_id_param: user.id })
@@ -226,12 +235,26 @@ export default function JobApplicationForm({
   const checkCVAvailability = async () => {
     setCheckingCV(true)
     try {
-      // Companies don't have CVs, only professionals do
-      const isCompanyApplicant = !!(userProfile as any).company_name
-      setIsCompany(isCompanyApplicant)
+      // Companies and contractors don't have CVs, only professionals do
+      // We need to check the user type from the DB since userType state might not be set yet
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setHasCV(false)
+        setCheckingCV(false)
+        return
+      }
 
-      if (isCompanyApplicant) {
-        console.log("[JOB-APPLICATION] Company applicant - skipping CV check")
+      const { data: userData } = await supabase
+        .from("users")
+        .select("user_type")
+        .eq("id", user.id)
+        .maybeSingle()
+
+      const isCompanyOrContractor = userData?.user_type === 'company' || userData?.user_type === 'contractor'
+      setIsCompany(isCompanyOrContractor)
+
+      if (isCompanyOrContractor) {
+        console.log("[JOB-APPLICATION] Company/Contractor applicant - skipping CV check, user_type:", userData?.user_type)
         setHasCV(false)
         setCheckingCV(false)
         return
@@ -241,7 +264,7 @@ export default function JobApplicationForm({
         .from("professional_cvs")
         .select("id")
         .eq("professional_id", userProfile.id)
-        .single()
+        .maybeSingle()
 
       setHasCV(!!cvRecord)
     } catch (error) {
@@ -262,22 +285,12 @@ export default function JobApplicationForm({
       return
     }
 
-    // CRITICAL: Block jobseekers and homeowners from applying to Trade Jobs
-    if (job.is_tradespeople_job && (userType === 'professional' || userType === 'homeowner')) {
-      console.error("[JOB-APPLICATION] BLOCKED: User type '" + userType + "' cannot apply to Trade Jobs")
+    // CRITICAL: Block Individual accounts (homeowner, professional) from applying to ANY jobs
+    // New simplified model: Only Business accounts (company, contractor) can apply for jobs
+    if (userType === 'professional' || userType === 'homeowner') {
+      console.error("[JOB-APPLICATION] BLOCKED: Individual account '" + userType + "' cannot apply to jobs")
       setSubmissionError(
-        userType === 'professional'
-          ? "Jobseekers cannot apply to Trade Jobs. Trade Jobs are for businesses and tradespeople offering services. Please browse the Vacancies section for employment opportunities."
-          : "Homeowners cannot apply to Trade Jobs. Trade Jobs are for businesses and tradespeople offering services. If you need a service, you can post a Trade Job instead."
-      )
-      return
-    }
-
-    // CRITICAL: Block companies and contractors from applying to Vacancies
-    if (!job.is_tradespeople_job && (userType === 'company' || userType === 'contractor')) {
-      console.error("[JOB-APPLICATION] BLOCKED: User type '" + userType + "' cannot apply to Vacancies")
-      setSubmissionError(
-        "Businesses cannot apply for vacancy jobs. Vacancy jobs are employment positions for individual jobseekers. If you're looking to hire professionals or tradespeople, please post a job in the relevant section."
+        "Only business accounts can apply for jobs. Individual accounts (homeowners and jobseekers) can post jobs to find services but cannot apply to jobs posted by others."
       )
       return
     }
@@ -301,10 +314,10 @@ export default function JobApplicationForm({
       console.log("[v0] Job is Trade Job:", job.is_tradespeople_job)
       console.log("[v0] User type:", userType)
 
-      // Detect if this is a company or professional applying
-      // Company profiles have company_name, professional profiles don't
-      const isCompanyApplicant = !!(userProfile as any).company_name
-      console.log("[v0] Applicant type:", isCompanyApplicant ? "Company" : "Professional")
+      // Detect if this is a company or professional applying based on userType state
+      // Using userType is more reliable than checking for company_name property
+      const isCompanyApplicant = userType === 'company' || userType === 'contractor'
+      console.log("[v0] Applicant type:", isCompanyApplicant ? "Company/Contractor" : "Professional", "| User type:", userType)
       console.log("[v0] Applicant ID:", userProfile.id)
       console.log("[v0] Cover letter length:", coverLetter?.length || 0)
       console.log("[v0] Share personal info:", sharePersonalInfo)
@@ -342,12 +355,15 @@ export default function JobApplicationForm({
       }
 
       // Check for duplicate application
+      // For companies/contractors, check company_id; for professionals, check professional_id
       const duplicateCheck = await supabase
         .from("job_applications")
         .select("id")
         .eq("job_id", job.id)
         .eq(isCompanyApplicant ? "company_id" : "professional_id", userProfile.id)
         .maybeSingle()
+
+      console.log("[v0] Duplicate check using field:", isCompanyApplicant ? "company_id" : "professional_id", "value:", userProfile.id)
 
       if (duplicateCheck.data) {
         console.log("[v0] Duplicate application detected, aborting")
@@ -377,7 +393,7 @@ export default function JobApplicationForm({
             .from("professional_profiles")
             .select("cv_source")
             .eq("id", userProfile.id)
-            .single()
+            .maybeSingle()
 
           applicationData.cv_type_used = profileData?.cv_source || 'builder'
           console.log("[v0] CV will be attached. Type:", applicationData.cv_type_used)

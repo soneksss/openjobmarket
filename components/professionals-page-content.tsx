@@ -20,6 +20,7 @@ import {
   UserIcon,
   ExternalLink,
   Filter,
+  ChevronDown,
   PoundSterling,
   Users,
   MessageCircle,
@@ -29,12 +30,13 @@ import {
   UserCheck,
   Target,
   X,
-  ChevronDown,
   Crown,
   Zap,
   Globe,
   CheckCircle,
   Eye,
+  HardHat,
+  ArrowLeft,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -48,9 +50,14 @@ import { createBrowserClient } from "@supabase/ssr"
 import { CompactStarRating } from "@/components/compact-star-rating"
 import { SignUpPromptModal } from "@/components/sign-up-prompt-modal"
 import { getLanguageFlag } from "@/components/language-selector"
+import { industries, allSubcategories } from "@/lib/data/industries"
+
+// Searchable trades list for autocomplete
+const searchableTrades = [...allSubcategories, ...industries.map((i: { title: string }) => i.title)]
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ReviewsList } from "@/components/reviews-list"
 import ProfessionalDetailView from "@/components/professional-detail-view"
+import CompanyDetailView from "@/components/company-detail-view"
 import { MobileMapBottomSheet, BottomSheetState } from "@/components/mobile-map-bottom-sheet"
 import { MobilePreviewCard, PreviewData } from "@/components/mobile-preview-card"
 
@@ -81,6 +88,7 @@ interface Professional {
   employment_status?: string
   actively_looking?: boolean
   nickname?: string
+  hide_personal_name?: boolean
   average_rating?: number
   reviews_count?: number
   phone?: string
@@ -100,6 +108,9 @@ interface Job {
   salary_min?: number
   salary_max?: number
   created_at: string
+  expires_at?: string
+  urgency_type?: "asap" | "today" | "flexible" | null
+  is_tradespeople_job?: boolean
   company_profiles: {
     company_name: string
     industry: string
@@ -268,14 +279,32 @@ export default function ProfessionalsPageContent({
   const [ownTransportFilter, setOwnTransportFilter] = useState((searchParams as any).own_transport === "true")
   const [selfEmployedFilter, setSelfEmployedFilter] = useState((searchParams as any).self_employed === "true")
   const [availableFilter, setAvailableFilter] = useState((searchParams as any).open_for_business === "true")
+  // Modal filter local state (applied on Search click, not on URL immediately)
+  const [filterRadius, setFilterRadius] = useState(searchParams.radius || "5")
+  const [filterCategory, setFilterCategory] = useState((searchParams as any).tradeCategory || "all")
+  const [filterUrgency, setFilterUrgency] = useState((searchParams as any).urgency || "all")
+  const [filterBudget, setFilterBudget] = useState("all")
+  const [filterAvailability, setFilterAvailability] = useState("all")
+  const [filterBusinessType, setFilterBusinessType] = useState(
+    (searchParams as any).self_employed === "true" ? "self_employed" : "all"
+  )
+  const [filter247, setFilter247] = useState(false)
+  const [searchApplied, setSearchApplied] = useState(false)
+  const [showIndustryDropdown, setShowIndustryDropdown] = useState(false)
+  const [customLanguage, setCustomLanguage] = useState("")
   const [sendingMessage, setSendingMessage] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<"nearest" | "salary" | "best_match">("best_match")
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null)
   const professionalCardRefs = useRef<{[key: string]: HTMLElement | null}>({})
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [tradeSuggestions, setTradeSuggestions] = useState<string[]>([])
+  const [showTradeSuggestions, setShowTradeSuggestions] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null)
   const [viewProfileModalId, setViewProfileModalId] = useState<string | null>(null)
   const [viewProfileData, setViewProfileData] = useState<any | null>(null)
+  const [viewCompanyModalId, setViewCompanyModalId] = useState<string | null>(null)
+  const [viewCompanyData, setViewCompanyData] = useState<any | null>(null)
 
   // Application modal state
   const [showApplicationModal, setShowApplicationModal] = useState(false)
@@ -388,6 +417,7 @@ export default function ProfessionalsPageContent({
 
     if (hasSearchParams) {
       setIsFullScreenMode(true)
+      setShowAdvancedFilters(true)
     }
   }, [searchParams.search, searchParams.location, searchParams.lat, searchParams.lng, searchParams.traders])
 
@@ -397,8 +427,9 @@ export default function ProfessionalsPageContent({
   }, [showMapPicker])
 
   // Clear filter parameters for unregistered users
+  // Skip this if in modal mode - we don't want to redirect when shown as a modal
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser && !isModal) {
       const params = new URLSearchParams(currentSearchParams.toString())
       const filterParams = ['type', 'level', 'salaryMin', 'salaryMax', 'radius']
       let hasFilters = false
@@ -416,7 +447,7 @@ export default function ProfessionalsPageContent({
         router.replace(`/professionals?${params.toString()}`)
       }
     }
-  }, [currentUser, currentSearchParams, router])
+  }, [currentUser, currentSearchParams, router, isModal])
 
   const updateSearchParams = (key: string, value: string) => {
     const params = new URLSearchParams(currentSearchParams.toString())
@@ -435,6 +466,7 @@ export default function ProfessionalsPageContent({
   }
 
   const handleSearch = (customRadius?: string) => {
+    setSearchApplied(true)
     const params = new URLSearchParams()
 
     // Allow empty search or "any" if location is provided
@@ -454,23 +486,39 @@ export default function ProfessionalsPageContent({
       params.set("lng", selectedLocationCoords.lon.toString())
     }
     if (skillsFilter) params.set("skills", skillsFilter)
-    if (languageFilter) params.set("language", languageFilter)
+    const finalLanguage = languageFilter === "other" ? customLanguage.trim() : (languageFilter || "")
+    if (finalLanguage && finalLanguage !== "all") params.set("language", finalLanguage)
     if (unemployedFilter) params.set("unemployed", "true")
     if (employedFilter) params.set("employed", "true")
     if (relocateFilter) params.set("relocate", "true")
     if (cvFilter) params.set("cv", "true")
     if (drivingLicenseFilter) params.set("driving_license", "true")
     if (ownTransportFilter) params.set("own_transport", "true")
-    if (selfEmployedFilter) params.set("self_employed", "true")
-    if (availableFilter) params.set("open_for_business", "true")
     if (searchParams.level) params.set("level", searchParams.level)
     if (searchParams.type) params.set("type", searchParams.type)
     if (searchParams.salaryMin) params.set("salaryMin", searchParams.salaryMin)
-    if (searchParams.open_for_business) params.set("open_for_business", searchParams.open_for_business)
     if (searchParams.hiring) params.set("hiring", searchParams.hiring)
     if (searchParams.traders) params.set("traders", searchParams.traders)
-    // Include radius from map picker or existing search params
-    const radiusToUse = customRadius || searchParams.radius || "20"
+    if ((searchParams as any).jobs_tasks) params.set("jobs_tasks", (searchParams as any).jobs_tasks)
+    if ((searchParams as any).vacancies) params.set("vacancies", (searchParams as any).vacancies)
+    if ((searchParams as any).autoSearch) params.set("autoSearch", (searchParams as any).autoSearch)
+    if ((searchParams as any).tab) params.set("tab", (searchParams as any).tab)
+    // Modal-specific filters (local state, applied on Search click)
+    if (filterCategory !== "all") params.set("tradeCategory", filterCategory)
+    if (filterUrgency !== "all") params.set("urgency", filterUrgency)
+    if (filterBudget !== "all") params.set("budget", filterBudget)
+    if (filterAvailability === "available") params.set("open_for_business", "true")
+    if (filterBusinessType === "self_employed") params.set("self_employed", "true")
+    if (filterBusinessType === "company") params.set("company", "true")
+    if (filter247) params.set("is_247", "true")
+    // Non-modal legacy filters
+    if (!isModal) {
+      if (selfEmployedFilter) params.set("self_employed", "true")
+      if (availableFilter) params.set("open_for_business", "true")
+      if (searchParams.open_for_business) params.set("open_for_business", searchParams.open_for_business)
+    }
+    // Radius from map picker or local filter state
+    const radiusToUse = customRadius || filterRadius || "5"
     params.set("radius", radiusToUse)
 
     // If in modal mode, call callback instead of navigating
@@ -484,6 +532,28 @@ export default function ProfessionalsPageContent({
   const handleLocationSelect = (locationName: string, lat: number, lon: number) => {
     setLocationFilter(locationName)
     setSelectedLocationCoords({ lat, lon })
+  }
+
+  const handleModalTradeSearchChange = (value: string) => {
+    setSearchTerm(value)
+    if (value.length >= 2) {
+      const lowerValue = value.toLowerCase()
+      const matches = searchableTrades.filter((trade: string) =>
+        trade.toLowerCase().includes(lowerValue)
+      ).slice(0, 8)
+      setTradeSuggestions(matches)
+      setShowTradeSuggestions(matches.length > 0)
+    } else {
+      setTradeSuggestions([])
+      setShowTradeSuggestions(false)
+    }
+  }
+
+  const handleModalTradeSuggestionSelect = (trade: string) => {
+    setSearchTerm(trade)
+    setTradeSuggestions([])
+    setShowTradeSuggestions(false)
+    searchInputRef.current?.blur()
   }
 
   const clearFilters = () => {
@@ -656,8 +726,8 @@ export default function ProfessionalsPageContent({
 
   console.log("[PROFESSIONALS-PAGE] Data with coordinates:", dataWithCoordinates.length, "out of", data.length)
 
-  // Always show map if we have center coordinates (from URL search parameters)
-  const shouldShowMap = center[0] !== 51.5074 || center[1] !== -0.1278 || dataWithCoordinates.length > 0
+  // Always show map in modal mode; otherwise show only when we have data or a non-default center
+  const shouldShowMap = isModal || center[0] !== 51.5074 || center[1] !== -0.1278 || dataWithCoordinates.length > 0
 
   console.log("[PROFESSIONALS-PAGE] Should show map:", shouldShowMap, "Center:", center)
 
@@ -683,45 +753,37 @@ export default function ProfessionalsPageContent({
   })
 
 
-  const handleViewProfile = async (profileId: string) => {
-    // Try professional_profiles first
-    let { data, error } = await supabase
-      .from('professional_profiles')
-      .select('*')
-      .eq('id', profileId)
-      .single()
+  const handleViewProfile = (profileId: string) => {
+    // Data is already fetched — find the item in the data prop directly.
+    // This avoids 3 sequential Supabase queries (which are slow and may be
+    // blocked by RLS for unauthenticated users, causing the UI to appear stuck).
+    const item = (data as any[]).find((d: any) => d.id === profileId)
 
-    let isCompany = false
-
-    // If not found, try company_profiles
-    if (error || !data) {
-      console.log('[DEBUG] Not found in professional_profiles, trying company_profiles')
-      const companyResult = await supabase
-        .from('company_profiles')
-        .select('*')
-        .eq('id', profileId)
-        .single()
-
-      data = companyResult.data
-      error = companyResult.error
-      isCompany = true
-    }
-
-    if (error || !data) {
-      console.error('Error fetching profile:', error)
+    if (!item) {
+      console.error('[handleViewProfile] Item not found in data for id:', profileId)
       return
     }
 
-    // If it's a company profile, navigate to company page instead of opening modal
-    if (isCompany || ('company_name' in data && data.company_name)) {
-      console.log('[DEBUG] Navigating to company profile page for user_id:', data.user_id)
-      router.push(`/company/${data.user_id}`)
-      return
-    }
+    const isCompany = 'company_name' in item
 
-    // For professional profiles, open the modal with the profile data
-    setViewProfileData(data)
-    setViewProfileModalId(profileId)
+    if (isCompany) {
+      // Company or contractor — show CompanyDetailView modal
+      setViewCompanyData({
+        ...item,
+        company_name: item.company_name || item.name || 'Contractor',
+        description: item.description || item.bio || '',
+        industry: item.industry || '',
+        company_size: item.company_size || 'Individual',
+        spoken_languages: item.spoken_languages || item.languages || [],
+        service_24_7: item.service_24_7 || item.available_247 || false,
+        logo_url: item.logo_url || item.profile_photo_url || null,
+      })
+      setViewCompanyModalId(item.id)
+    } else {
+      // Professional — show ProfessionalDetailView modal
+      setViewProfileData(item)
+      setViewProfileModalId(item.id)
+    }
   }
 
   const handleSendInquiry = async (professionalProfileId: string, professionalName: string, professionalUserId?: string) => {
@@ -1052,7 +1114,7 @@ export default function ProfessionalsPageContent({
                 <Button
                   onClick={() => {
                     handleSearch()
-                    setShowAdvancedFilters(false) // Hide filters when entering full-screen mode
+                    setShowAdvancedFilters(true)
                     setIsFullScreenMode(true)
                   }}
                   className="w-full h-10 md:h-12 text-sm md:text-base font-bold bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200 hover:scale-[1.01]"
@@ -1435,7 +1497,12 @@ export default function ProfessionalsPageContent({
                         <ProfessionalMap
                           professionals={dataWithCoordinates.map((item: any) => ({
                             id: item.id,
-                            name: isEmployer ? `${item.first_name || 'Professional'} ${item.last_name || 'User'}` : item.title || item.company_name || 'Unknown',
+                            // Show name for professionals (respecting privacy), company name for companies
+                            name: ('first_name' in item)
+                              ? (!item.hide_personal_name && (item.first_name || item.last_name)
+                                  ? `${item.first_name || ''} ${item.last_name || ''}`.trim()
+                                  : (item.nickname || 'Anonymous'))
+                              : item.company_name || 'Unknown',
                             title: item.title || item.industry || 'Professional',
                             location: item.location || 'Location not specified',
                             coordinates: { lat: item.latitude, lon: item.longitude },
@@ -1522,8 +1589,18 @@ export default function ProfessionalsPageContent({
                         {data.length === 0 ? (
                           <div className="text-center py-12 px-4">
                             <UserIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-lg font-semibold mb-2 text-gray-900">No results found</h3>
-                            <p className="text-gray-600 mb-4">Try adjusting your search criteria</p>
+                            <h3 className="text-lg font-semibold mb-2 text-gray-900">
+                              {isShowingJobs
+                                ? `No jobs found${locationFilter ? ` in ${locationFilter}` : ''}`
+                                : `No tradespeople found${locationFilter ? ` in ${locationFilter}` : ''}`
+                              }
+                            </h3>
+                            <p className="text-gray-600 mb-4">
+                              {isShowingJobs
+                                ? "Try expanding your search radius or adjusting your filters"
+                                : "Try expanding your search radius or searching for a different trade"
+                              }
+                            </p>
                           </div>
                         ) : (
                           <div className="space-y-3 p-3 sm:p-4">
@@ -1581,9 +1658,9 @@ export default function ProfessionalsPageContent({
                                     <Avatar className="h-12 w-12 flex-shrink-0">
                                       <AvatarImage src={item.profile_photo_url || item.logo_url} alt={item.first_name || item.company_name} />
                                       <AvatarFallback className="bg-blue-50 text-blue-600 font-semibold">
-                                        {isEmployer
+                                        {('first_name' in item)
                                           ? `${(item.first_name || 'P').charAt(0)}${(item.last_name || 'R').charAt(0)}`
-                                          : (item.company_name || item.title || 'C').substring(0, 2).toUpperCase()
+                                          : (item.company_name || 'C').substring(0, 2).toUpperCase()
                                         }
                                       </AvatarFallback>
                                     </Avatar>
@@ -1602,9 +1679,11 @@ export default function ProfessionalsPageContent({
                                         )}
                                       </div>
 
-                                      {/* 2. Nickname or Name */}
+                                      {/* 2. Nickname or Name - respects hide_personal_name privacy setting */}
                                       <p className="text-sm text-gray-600 mb-2 font-medium">
-                                        {item.nickname || `${item.first_name || 'Professional'} ${item.last_name || 'User'}`}
+                                        {!item.hide_personal_name && (item.first_name || item.last_name)
+                                          ? `${item.first_name || ''} ${item.last_name || ''}`.trim()
+                                          : (item.nickname || 'Anonymous')}
                                       </p>
 
                                       {/* Star Rating - Show for professionals */}
@@ -2048,7 +2127,7 @@ export default function ProfessionalsPageContent({
                                                 disabled={!canContact || sendingMessage === item.id}
                                               >
                                                 <MessageCircle className="h-4 w-4 mr-2" />
-                                                Contact
+                                                Send inquiry
                                               </Button>
                                               <Button
                                                 className="flex-1"
@@ -2389,13 +2468,42 @@ export default function ProfessionalsPageContent({
       {/* Professional Profile Modal */}
       {viewProfileModalId && viewProfileData && (
         <Dialog open={!!viewProfileModalId} onOpenChange={(open) => !open && setViewProfileModalId(null)}>
-          <DialogContent className="max-w-5xl w-[95vw] max-h-[85vh] overflow-hidden p-0">
-            <div className="overflow-y-auto max-h-[85vh] p-4">
+          <DialogContent aria-describedby={undefined} overlayClassName="z-[10001]" className="z-[10001] max-w-lg w-[95vw] max-h-[90vh] overflow-hidden p-0 bg-slate-900 border-slate-700">
+            <DialogTitle className="sr-only">
+              {viewProfileData.first_name} {viewProfileData.last_name} — Profile
+            </DialogTitle>
+            <div className="overflow-y-auto max-h-[90vh]">
               <ProfessionalDetailView
                 professional={viewProfileData}
                 user={currentUser}
                 userType={currentUser ? currentUserType as "professional" | "company" | "contractor" | "homeowner" | null : null}
                 isModal={true}
+                onSignUpPrompt={() => {
+                  setViewProfileModalId(null)
+                  setSignUpPrompt({ isOpen: true, action: "message" })
+                }}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Company Profile Modal */}
+      {viewCompanyModalId && viewCompanyData && (
+        <Dialog open={!!viewCompanyModalId} onOpenChange={(open) => !open && setViewCompanyModalId(null)}>
+          <DialogContent aria-describedby={undefined} overlayClassName="z-[10001]" className="z-[10001] max-w-lg w-[95vw] max-h-[90vh] overflow-hidden p-0 bg-slate-900 border-slate-700">
+            <DialogTitle className="sr-only">
+              {viewCompanyData.company_name} — Company Profile
+            </DialogTitle>
+            <div className="overflow-y-auto max-h-[90vh]">
+              <CompanyDetailView
+                company={viewCompanyData}
+                user={currentUser}
+                isModal={true}
+                onSignUpPrompt={() => {
+                  setViewCompanyModalId(null)
+                  setSignUpPrompt({ isOpen: true, action: "message" })
+                }}
               />
             </div>
           </DialogContent>
@@ -2404,284 +2512,585 @@ export default function ProfessionalsPageContent({
 
       {/* Full-Screen Map Mode (Google Maps Style) OR Modal Mode */}
       {(isFullScreenMode || isModal) && (
-        <div className="fixed inset-0 z-[9999] bg-white flex flex-col overflow-hidden h-screen max-h-screen">
+        <div className={`fixed inset-0 z-[9999] flex flex-col overflow-hidden h-screen max-h-screen ${isModal ? 'bg-slate-900' : 'bg-white'}`}>
           {/* Site Header - show in both full-screen and modal mode */}
           <Header user={currentUser} isModal={isModal} onModalClose={onModalClose} />
 
           {/* Top Search Bar (Fixed) - show in both full-screen and modal, but smaller in modal */}
-          {(isFullScreenMode || isModal) && <div className="sticky top-0 z-20 bg-white shadow-lg border-b overflow-visible">
-            <div className={`container mx-auto ${isModal ? 'px-1.5 py-1.5' : 'px-4 py-4'} overflow-visible`}>
-              {/* Compact Search Bar */}
-              <div className={`flex items-center ${isModal ? 'gap-0.5' : 'gap-3'}`}>
-                {/* Search Input */}
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder={isShowingJobs ? "Plumber" : "Search"}
-                  className={`${isModal ? 'h-7 text-xs px-1.5' : 'h-12 text-base px-4'} flex-1 bg-white/95 shadow-sm border font-medium`}
-                />
+          {(isFullScreenMode || isModal) && <div className={`sticky top-0 z-20 shadow-lg border-b overflow-visible ${isModal ? 'bg-slate-800 border-slate-700' : 'bg-white'}`}>
+            <div className={`container mx-auto ${isModal ? 'px-2 py-2' : 'px-4 py-4'} overflow-visible`}>
+              {/* ── Compact bar (Airbnb-style) shown after first search in modal ── */}
+              {isModal && searchApplied ? (
+                <div className="flex items-center gap-2">
+                  {/* Back arrow — exits modal */}
+                  <button
+                    onClick={() => {
+                      setIsFullScreenMode(false)
+                      if (isModal && onModalClose) onModalClose()
+                      else router.push('/professionals')
+                    }}
+                    className="h-9 w-9 flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 text-white flex-shrink-0 transition-colors"
+                    title="Back"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
 
-                {/* Location Input */}
-                <div className="flex-1 relative overflow-visible">
-                  <LocationInput
-                    value={locationFilter}
-                    onChange={setLocationFilter}
-                    onLocationSelect={handleLocationSelect}
-                    placeholder="London"
-                    error=""
-                  />
+                  {/* Search summary pill — click to re-edit */}
+                  <button
+                    onClick={() => setSearchApplied(false)}
+                    className="flex-1 flex items-center gap-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-full px-4 py-2 min-w-0 transition-colors shadow-sm"
+                  >
+                    <Search className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                      <span className="text-white text-sm font-semibold truncate">
+                        {searchTerm || (isShowingJobs ? "All jobs" : "All trades")}
+                      </span>
+                      <span className="text-slate-600 flex-shrink-0">·</span>
+                      <span className="text-slate-400 text-sm truncate">
+                        {locationFilter || "Any location"}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Close modal */}
+                  <button
+                    onClick={() => {
+                      setIsFullScreenMode(false)
+                      if (isModal && onModalClose) onModalClose()
+                      else router.push('/professionals')
+                    }}
+                    className="h-9 w-9 flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white flex-shrink-0 transition-colors"
+                    title="Close"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
-
-                {/* Map Picker Button */}
-                <Button
-                  onClick={handleMapPickerClick}
-                  size="sm"
-                  className={`${isModal ? 'h-7 px-1.5' : 'h-12 px-3'} bg-blue-500 hover:bg-blue-600 shadow-sm flex-shrink-0`}
-                  title="Pick location on map"
-                >
-                  <Map className={isModal ? "h-3 w-3" : "h-5 w-5"} />
-                </Button>
-
-                {/* Filters Button */}
-                <Button
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  variant="outline"
-                  size="sm"
-                  className={`${isModal ? 'h-7 px-1.5' : 'h-12 px-4'} bg-white shadow-sm flex-shrink-0`}
-                >
-                  <Filter className={isModal ? 'h-3 w-3' : 'h-4 w-4'} />
-                </Button>
-
-                {/* Search Button */}
-                <Button
-                  onClick={() => handleSearch()}
-                  size="sm"
-                  className={`${isModal ? 'h-7 px-2 text-xs' : 'h-12 px-6'} bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm font-semibold flex-shrink-0`}
-                >
-                  <Search className={isModal ? 'h-3 w-3' : 'h-5 w-5'} />
-                </Button>
-
-                {/* Exit Button */}
-                <Button
-                  onClick={() => {
-                    setIsFullScreenMode(false)
-                    if (isModal && onModalClose) {
-                      onModalClose()
-                    } else {
-                      router.push('/professionals')
-                    }
-                  }}
-                  variant="outline"
-                  size={isModal ? "sm" : "default"}
-                  className={`${isModal ? 'h-7 px-2' : 'h-12 px-3'} bg-red-600 hover:bg-red-700 text-white shadow-lg border-red-600`}
-                  title="Exit full-screen"
-                >
-                  <X className={isModal ? "h-3 w-3" : "h-5 w-5"} />
-                </Button>
-              </div>
-
-              {/* Advanced Filters Toggle */}
-              {showAdvancedFilters && (
-                <div className="mt-3 p-4 bg-white rounded-lg shadow-md border-2 border-gray-200">
-                  <div className="space-y-4">
-                    {/* First Row - Main Filters with Individual Boxes */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      {/* Experience Level */}
-                      <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                        <label className="block text-gray-900 text-sm font-semibold mb-2">Experience Level</label>
-                        <Select
-                          value={searchParams.level || "all"}
-                          onValueChange={(value) => updateSearchParams("level", value)}
+              ) : (
+                /* ── Full search bar — initial state or when re-editing ── */
+                <div className={`flex flex-col gap-2 sm:flex-row sm:items-center ${isModal ? 'sm:gap-2' : 'sm:gap-3'}`}>
+                  {/* Inputs — stack on mobile, side-by-side on sm+ */}
+                  <div className={`flex flex-col gap-2 sm:flex-row sm:flex-1 ${isModal ? 'sm:gap-2' : 'sm:gap-3'}`}>
+                    {/* Search Input with autocomplete + industry quick-pick */}
+                    <div className="relative flex-1">
+                      <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${isModal ? 'h-4 w-4 text-slate-400' : 'h-4 w-4 text-gray-400'} z-10`} />
+                      <Input
+                        ref={searchInputRef}
+                        value={searchTerm}
+                        onChange={(e) => handleModalTradeSearchChange(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                        onFocus={() => searchTerm.length >= 2 && tradeSuggestions.length > 0 && setShowTradeSuggestions(true)}
+                        onBlur={() => {
+                          setTimeout(() => setShowTradeSuggestions(false), 200)
+                          setTimeout(() => setShowIndustryDropdown(false), 200)
+                        }}
+                        placeholder={isShowingJobs ? "Job title, e.g. Electrician" : "Trade or skill, e.g. Plumber"}
+                        className={`${isModal ? 'h-12 text-base pl-10 pr-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/30' : 'h-12 text-base pl-10 bg-white/95 shadow-sm border'} font-medium`}
+                      />
+                      {/* Industry dropdown arrow — modal traders only */}
+                      {isModal && isShowingTraders && (
+                        <button
+                          type="button"
+                          onMouseDown={(e) => { e.preventDefault(); setShowIndustryDropdown(v => !v); setShowTradeSuggestions(false) }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-400 transition-colors z-10"
+                          title="Browse industries"
                         >
-                          <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Levels</SelectItem>
-                            <SelectItem value="entry">Entry Level</SelectItem>
-                            <SelectItem value="mid">Mid Level</SelectItem>
-                            <SelectItem value="senior">Senior</SelectItem>
-                            <SelectItem value="lead">Lead</SelectItem>
-                            <SelectItem value="executive">Executive</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Job Type - Only for employees */}
-                      {!isEmployer && (
-                        <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                          <label className="block text-gray-900 text-sm font-semibold mb-2">Job Type</label>
-                          <Select
-                            value={searchParams.type || "all"}
-                            onValueChange={(value) => updateSearchParams("type", value)}
-                          >
-                            <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All Types</SelectItem>
-                              <SelectItem value="full-time">Full-time</SelectItem>
-                              <SelectItem value="part-time">Part-time</SelectItem>
-                              <SelectItem value="contract">Contract</SelectItem>
-                              <SelectItem value="freelance">Freelance</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showIndustryDropdown ? 'rotate-180 text-emerald-400' : ''}`} />
+                        </button>
+                      )}
+                      {/* Industry pick dropdown */}
+                      {isModal && isShowingTraders && showIndustryDropdown && (
+                        <div className="absolute z-[100001] w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden">
+                          <div className="px-3 py-2 border-b border-slate-700">
+                            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Popular Industries</p>
+                          </div>
+                          {[
+                            { label: "🛠️ Plumbing", value: "Plumbing" },
+                            { label: "⚡ Electrical", value: "Electrical" },
+                            { label: "🧱 Construction", value: "Construction" },
+                            { label: "🎨 Painting & Decorating", value: "Painting & Decorating" },
+                            { label: "🏠 Roofing", value: "Roofing" },
+                            { label: "🌿 Gardening", value: "Gardening" },
+                            { label: "🧹 Cleaning", value: "Cleaning" },
+                            { label: "🪵 Flooring", value: "Flooring" },
+                            { label: "🚗 Automotive", value: "Automotive" },
+                            { label: "💻 IT / Tech", value: "Technology" },
+                          ].map(({ label, value }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onMouseDown={(e) => {
+                                e.preventDefault()
+                                setSearchTerm(value)
+                                setShowIndustryDropdown(false)
+                                handleSearch()
+                              }}
+                              className={`w-full px-4 py-2.5 text-left border-b border-slate-700 last:border-b-0 transition-colors ${
+                                searchTerm === value
+                                  ? 'bg-emerald-500/20 text-emerald-400'
+                                  : 'text-slate-200 hover:bg-slate-700'
+                              }`}
+                            >
+                              <span className="text-sm font-medium">{label}</span>
+                            </button>
+                          ))}
                         </div>
                       )}
-
-                      {/* Skills / Min Salary */}
-                      <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                        <label className="block text-gray-900 text-sm font-semibold mb-2">
-                          {isEmployer ? "Skills" : "Min Salary (£)"}
-                        </label>
-                        <Input
-                          placeholder={isEmployer ? "React, Python" : "e.g. 30000"}
-                          value={isEmployer ? skillsFilter : searchParams.salaryMin || ""}
-                          type={isEmployer ? "text" : "number"}
-                          onChange={(e) =>
-                            isEmployer
-                              ? setSkillsFilter(e.target.value)
-                              : updateSearchParams("salaryMin", e.target.value)
-                          }
-                          className="h-10 text-sm bg-white font-medium"
-                        />
-                      </div>
-
-                      {/* Language - Only for employers */}
-                      {isEmployer && (
-                        <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                          <label className="block text-gray-900 text-sm font-semibold mb-2">Language</label>
-                          <Input
-                            placeholder="English, Spanish"
-                            value={languageFilter}
-                            onChange={(e) => setLanguageFilter(e.target.value)}
-                            className="h-10 text-sm bg-white font-medium"
-                          />
+                      {/* Autocomplete dropdown */}
+                      {showTradeSuggestions && tradeSuggestions.length > 0 && (
+                        <div className="absolute z-[100001] w-full mt-1 bg-slate-800 border border-slate-600 rounded-lg max-h-52 overflow-auto shadow-xl">
+                          {tradeSuggestions.map((suggestion: string, idx: number) => (
+                            <button
+                              key={`${suggestion}-${idx}`}
+                              type="button"
+                              className="w-full px-3 py-2.5 text-left hover:bg-emerald-500/20 focus:bg-emerald-500/20 focus:outline-none border-b border-slate-700 last:border-b-0 transition-colors"
+                              onClick={() => handleModalTradeSuggestionSelect(suggestion)}
+                            >
+                              <div className="flex items-center gap-2">
+                                <HardHat className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                                <span className="text-sm text-slate-200 font-medium">{suggestion}</span>
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       )}
-
-                      {/* Search Radius */}
-                      <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
-                        <label className="block text-gray-900 text-sm font-semibold mb-2">Search Radius</label>
-                        <Select value={searchParams.radius || "20"} onValueChange={(value) => updateSearchParams("radius", value)}>
-                          <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {[1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map((miles) => (
-                              <SelectItem key={miles} value={miles.toString()}>
-                                {miles} mile{miles !== 1 ? "s" : ""}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </div>
 
-                    {/* Second Row - Checkbox Filters (Only for employers) */}
-                    {isEmployer && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 pt-3 border-t border-gray-200">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="unemployed-fullscreen"
-                            checked={unemployedFilter}
-                            onCheckedChange={(checked) => setUnemployedFilter(!!checked)}
-                            className="bg-white border-2 border-gray-400 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                          />
-                          <label htmlFor="unemployed-fullscreen" className="text-sm text-gray-700 cursor-pointer">
-                            Unemployed
-                          </label>
+                    {/* Location Input with Map Picker icon embedded on right */}
+                    <div className="flex-1 relative overflow-visible">
+                      <LocationInput
+                        value={locationFilter}
+                        onChange={setLocationFilter}
+                        onLocationSelect={handleLocationSelect}
+                        placeholder="Postcode or town"
+                        error=""
+                        className={`${isModal ? 'h-12 text-base bg-slate-700 border-slate-600 text-white' : ''} pr-8`}
+                      />
+                      <button
+                        onClick={handleMapPickerClick}
+                        type="button"
+                        title="Pick location on map"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-emerald-400 transition-colors z-10"
+                      >
+                        <Map className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+
+                  {/* Action Buttons: non-modal only — in modal, no buttons here (search+filter are one block) */}
+                  {!isModal && (
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <Button
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                        variant="outline"
+                        size="sm"
+                        className="h-12 px-4 bg-white shadow-sm flex-shrink-0"
+                      >
+                        <Filter className="h-4 w-4 mr-1.5" />
+                        Filters
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setIsFullScreenMode(false)
+                          router.push('/professionals')
+                        }}
+                        variant="outline"
+                        size="default"
+                        className="h-12 px-3 bg-red-600 hover:bg-red-700 border-red-600 text-white shadow-lg flex-shrink-0"
+                        title="Exit"
+                      >
+                        <X className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+
+              {/* Filters — always visible in modal full mode; toggle-controlled in non-modal */}
+              {(isModal && !searchApplied ? true : showAdvancedFilters) && (
+                <div className={`mt-3 p-4 rounded-lg shadow-md border-2 ${isModal ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-200'}`}>
+                  <div className="space-y-4">
+                    {/* Modal Mode: Simplified filters for Traders/Trade Jobs */}
+                    {isModal ? (
+                      <>
+                        {/* ── FOR HOMEOWNERS: Traders/professionals search ── */}
+                        {isShowingTraders && (
+                          <>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {/* 1. Distance — auto-applies search on change */}
+                              <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
+                                <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Distance</label>
+                                <Select value={filterRadius} onValueChange={(value) => { setFilterRadius(value); handleSearch(value) }}>
+                                  <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-slate-800 border-slate-600">
+                                    {[2, 5, 10, 15, 20, 25, 30, 50].map((miles) => (
+                                      <SelectItem key={miles} value={miles.toString()} className="text-white hover:bg-slate-700">
+                                        Within {miles} miles
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {/* 2. Availability */}
+                              <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
+                                <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Availability</label>
+                                <Select value={filterAvailability} onValueChange={setFilterAvailability}>
+                                  <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-slate-800 border-slate-600">
+                                    <SelectItem value="all" className="text-white hover:bg-slate-700">All</SelectItem>
+                                    <SelectItem value="available" className="text-white hover:bg-slate-700">Available now</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {/* 3. Preferred Language */}
+                              <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
+                                <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Preferred Language</label>
+                                <Select value={languageFilter || "all"} onValueChange={(v) => { setLanguageFilter(v === "all" ? "" : v); if (v !== "other") setCustomLanguage("") }}>
+                                  <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                    <SelectValue placeholder="Any language" />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-slate-800 border-slate-600 max-h-[220px]">
+                                    <SelectItem value="all" className="text-white hover:bg-slate-700">Any language</SelectItem>
+                                    {["English","Spanish","French","German","Italian","Portuguese","Polish","Romanian","Ukrainian","Russian","Arabic","Hindi","Urdu","Bengali","Mandarin"].map((lang) => (
+                                      <SelectItem key={lang} value={lang} className="text-white hover:bg-slate-700">{lang}</SelectItem>
+                                    ))}
+                                    <SelectItem value="other" className="text-emerald-400 hover:bg-slate-700">Other (type below)…</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                {languageFilter === "other" && (
+                                  <Input
+                                    placeholder="Type language name…"
+                                    value={customLanguage}
+                                    onChange={(e) => setCustomLanguage(e.target.value)}
+                                    className="mt-2 h-8 text-sm bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                                    autoFocus
+                                  />
+                                )}
+                              </div>
+                            </div>
+                            {/* 6. 24/7 Service checkbox */}
+                            <div className="flex items-center gap-3 p-3 bg-slate-800 rounded-lg border border-slate-600 mt-3">
+                              <Checkbox
+                                id="247-modal"
+                                checked={filter247}
+                                onCheckedChange={(checked) => setFilter247(!!checked)}
+                                className="border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 bg-slate-700 border-slate-500 flex-shrink-0"
+                              />
+                              <div>
+                                <label htmlFor="247-modal" className="text-sm font-medium text-white cursor-pointer">24/7 Service</label>
+                                <p className="text-xs text-slate-400">Only show tradespeople available around the clock</p>
+                              </div>
+                            </div>
+                          </>
+                        )}
+
+                        {/* ── FOR TRADESPEOPLE: Jobs search ── */}
+                        {isShowingJobs && (
+                          <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+                            {/* 1. Distance */}
+                            <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
+                              <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Distance</label>
+                              <Select value={filterRadius} onValueChange={setFilterRadius}>
+                                <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-800 border-slate-600">
+                                  {[2, 5, 10, 15, 20, 25, 30, 50].map((miles) => (
+                                    <SelectItem key={miles} value={miles.toString()} className="text-white hover:bg-slate-700">
+                                      Within {miles} miles
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {/* 2. Job Urgency */}
+                            <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
+                              <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Job Urgency</label>
+                              <Select value={filterUrgency} onValueChange={setFilterUrgency}>
+                                <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-800 border-slate-600">
+                                  <SelectItem value="all" className="text-white hover:bg-slate-700">All</SelectItem>
+                                  <SelectItem value="urgent" className="text-white hover:bg-slate-700">ASAP</SelectItem>
+                                  <SelectItem value="today" className="text-white hover:bg-slate-700">Today</SelectItem>
+                                  <SelectItem value="flexible" className="text-white hover:bg-slate-700">Flexible</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {/* 3. Job Budget */}
+                            <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
+                              <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Job Budget</label>
+                              <Select value={filterBudget} onValueChange={setFilterBudget}>
+                                <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-800 border-slate-600">
+                                  <SelectItem value="all" className="text-white hover:bg-slate-700">Any budget</SelectItem>
+                                  <SelectItem value="under_500" className="text-white hover:bg-slate-700">Under £500</SelectItem>
+                                  <SelectItem value="500_1k" className="text-white hover:bg-slate-700">£500 – £1k</SelectItem>
+                                  <SelectItem value="1k_5k" className="text-white hover:bg-slate-700">£1k – £5k</SelectItem>
+                                  <SelectItem value="5k_plus" className="text-white hover:bg-slate-700">£5k+</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {/* 4. Preferred Language */}
+                            <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
+                              <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Preferred Language</label>
+                              <Select value={languageFilter || "all"} onValueChange={(v) => { setLanguageFilter(v === "all" ? "" : v); if (v !== "other") setCustomLanguage("") }}>
+                                <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                  <SelectValue placeholder="Any language" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-slate-800 border-slate-600 max-h-[220px]">
+                                  <SelectItem value="all" className="text-white hover:bg-slate-700">Any language</SelectItem>
+                                  {["English","Spanish","French","German","Italian","Portuguese","Polish","Romanian","Ukrainian","Russian","Arabic","Hindi","Urdu","Bengali","Mandarin"].map((lang) => (
+                                    <SelectItem key={lang} value={lang} className="text-white hover:bg-slate-700">{lang}</SelectItem>
+                                  ))}
+                                  <SelectItem value="other" className="text-emerald-400 hover:bg-slate-700">Other (type below)…</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {languageFilter === "other" && (
+                                <Input
+                                  placeholder="Type language name…"
+                                  value={customLanguage}
+                                  onChange={(e) => setCustomLanguage(e.target.value)}
+                                  className="mt-2 h-8 text-sm bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                                  autoFocus
+                                />
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        {/* Original filters for non-modal or non-trader/jobs searches */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {/* Experience Level */}
+                          <div className={`p-3 rounded-lg border ${isModal ? 'bg-slate-800 border-slate-600' : 'bg-blue-50 border-blue-200'}`}>
+                            <label className={`block text-sm font-semibold mb-2 ${isModal ? 'text-white' : 'text-gray-900'}`}>Experience Level</label>
+                            <Select
+                              value={searchParams.level || "all"}
+                              onValueChange={(value) => updateSearchParams("level", value)}
+                            >
+                              <SelectTrigger className={`w-full h-10 text-sm font-medium ${isModal ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white'}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className={isModal ? 'bg-slate-800 border-slate-600' : ''}>
+                                <SelectItem value="all" className={isModal ? 'text-white hover:bg-slate-700' : ''}>All Levels</SelectItem>
+                                <SelectItem value="entry" className={isModal ? 'text-white hover:bg-slate-700' : ''}>Entry Level</SelectItem>
+                                <SelectItem value="mid" className={isModal ? 'text-white hover:bg-slate-700' : ''}>Mid Level</SelectItem>
+                                <SelectItem value="senior" className={isModal ? 'text-white hover:bg-slate-700' : ''}>Senior</SelectItem>
+                                <SelectItem value="lead" className={isModal ? 'text-white hover:bg-slate-700' : ''}>Lead</SelectItem>
+                                <SelectItem value="executive" className={isModal ? 'text-white hover:bg-slate-700' : ''}>Executive</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Job Type - Only for employees */}
+                          {!isEmployer && (
+                            <div className={`p-3 rounded-lg border ${isModal ? 'bg-slate-800 border-slate-600' : 'bg-purple-50 border-purple-200'}`}>
+                              <label className={`block text-sm font-semibold mb-2 ${isModal ? 'text-white' : 'text-gray-900'}`}>Job Type</label>
+                              <Select
+                                value={searchParams.type || "all"}
+                                onValueChange={(value) => updateSearchParams("type", value)}
+                              >
+                                <SelectTrigger className={`w-full h-10 text-sm font-medium ${isModal ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white'}`}>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className={isModal ? 'bg-slate-800 border-slate-600' : ''}>
+                                  <SelectItem value="all" className={isModal ? 'text-white hover:bg-slate-700' : ''}>All Types</SelectItem>
+                                  <SelectItem value="full-time" className={isModal ? 'text-white hover:bg-slate-700' : ''}>Full-time</SelectItem>
+                                  <SelectItem value="part-time" className={isModal ? 'text-white hover:bg-slate-700' : ''}>Part-time</SelectItem>
+                                  <SelectItem value="contract" className={isModal ? 'text-white hover:bg-slate-700' : ''}>Contract</SelectItem>
+                                  <SelectItem value="freelance" className={isModal ? 'text-white hover:bg-slate-700' : ''}>Freelance</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+
+                          {/* Skills / Min Salary */}
+                          <div className={`p-3 rounded-lg border ${isModal ? 'bg-slate-800 border-slate-600' : 'bg-emerald-50 border-emerald-200'}`}>
+                            <label className={`block text-sm font-semibold mb-2 ${isModal ? 'text-white' : 'text-gray-900'}`}>
+                              {isEmployer ? "Skills" : "Min Salary (£)"}
+                            </label>
+                            <Input
+                              placeholder={isEmployer ? "React, Python" : "e.g. 30000"}
+                              value={isEmployer ? skillsFilter : searchParams.salaryMin || ""}
+                              type={isEmployer ? "text" : "number"}
+                              onChange={(e) =>
+                                isEmployer
+                                  ? setSkillsFilter(e.target.value)
+                                  : updateSearchParams("salaryMin", e.target.value)
+                              }
+                              className={`h-10 text-sm font-medium ${isModal ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-400' : 'bg-white'}`}
+                            />
+                          </div>
+
+                          {/* Language - Only for employers */}
+                          {isEmployer && (
+                            <div className={`p-3 rounded-lg border ${isModal ? 'bg-slate-800 border-slate-600' : 'bg-orange-50 border-orange-200'}`}>
+                              <label className={`block text-sm font-semibold mb-2 ${isModal ? 'text-white' : 'text-gray-900'}`}>Language</label>
+                              <Input
+                                placeholder="English, Spanish"
+                                value={languageFilter}
+                                onChange={(e) => setLanguageFilter(e.target.value)}
+                                className={`h-10 text-sm font-medium ${isModal ? 'bg-slate-700 border-slate-600 text-white placeholder:text-slate-400' : 'bg-white'}`}
+                              />
+                            </div>
+                          )}
+
+                          {/* Search Radius */}
+                          <div className={`p-3 rounded-lg border ${isModal ? 'bg-slate-800 border-slate-600' : 'bg-indigo-50 border-indigo-200'}`}>
+                            <label className={`block text-sm font-semibold mb-2 ${isModal ? 'text-white' : 'text-gray-900'}`}>Search Radius</label>
+                            <Select value={searchParams.radius || "20"} onValueChange={(value) => updateSearchParams("radius", value)}>
+                              <SelectTrigger className={`w-full h-10 text-sm font-medium ${isModal ? 'bg-slate-700 border-slate-600 text-white' : 'bg-white'}`}>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent className={isModal ? 'bg-slate-800 border-slate-600' : ''}>
+                                {[1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 60, 70, 80, 90, 100].map((miles) => (
+                                  <SelectItem key={miles} value={miles.toString()} className={isModal ? 'text-white hover:bg-slate-700' : ''}>
+                                    {miles} mile{miles !== 1 ? "s" : ""}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="employed-fullscreen"
-                            checked={employedFilter}
-                            onCheckedChange={(checked) => setEmployedFilter(!!checked)}
-                            className="bg-white border-2 border-gray-400 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                          />
-                          <label htmlFor="employed-fullscreen" className="text-sm text-gray-700 cursor-pointer">
-                            Employed
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="relocate-fullscreen"
-                            checked={relocateFilter}
-                            onCheckedChange={(checked) => setRelocateFilter(!!checked)}
-                            className="bg-white border-2 border-gray-400 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                          />
-                          <label htmlFor="relocate-fullscreen" className="text-sm text-gray-700 cursor-pointer">
-                            Ready to relocate
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="cv-fullscreen"
-                            checked={cvFilter}
-                            onCheckedChange={(checked) => setCvFilter(!!checked)}
-                            className="bg-white border-2 border-gray-400 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                          />
-                          <label htmlFor="cv-fullscreen" className="text-sm text-gray-700 cursor-pointer">
-                            With CV
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="driving-license-fullscreen"
-                            checked={drivingLicenseFilter}
-                            onCheckedChange={(checked) => setDrivingLicenseFilter(!!checked)}
-                            className="bg-white border-2 border-gray-400 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                          />
-                          <label htmlFor="driving-license-fullscreen" className="text-sm text-gray-700 cursor-pointer">
-                            Valid Driving License
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="own-transport-fullscreen"
-                            checked={ownTransportFilter}
-                            onCheckedChange={(checked) => setOwnTransportFilter(!!checked)}
-                            className="bg-white border-2 border-gray-400 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                          />
-                          <label htmlFor="own-transport-fullscreen" className="text-sm text-gray-700 cursor-pointer">
-                            Own transport
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="self-employed-fullscreen"
-                            checked={selfEmployedFilter}
-                            onCheckedChange={(checked) => setSelfEmployedFilter(!!checked)}
-                            className="bg-white border-2 border-gray-400 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                          />
-                          <label htmlFor="self-employed-fullscreen" className="text-sm text-gray-700 cursor-pointer">
-                            Self-employed
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="available-fullscreen"
-                            checked={availableFilter}
-                            onCheckedChange={(checked) => setAvailableFilter(!!checked)}
-                            className="bg-white border-2 border-gray-400 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                          />
-                          <label htmlFor="available-fullscreen" className="text-sm text-gray-700 cursor-pointer">
-                            Available (Companies)
-                          </label>
-                        </div>
-                      </div>
+
+                        {/* Second Row - Checkbox Filters (Only for employers) */}
+                        {isEmployer && (
+                          <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 pt-3 border-t ${isModal ? 'border-slate-600' : 'border-gray-200'}`}>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="unemployed-fullscreen"
+                                checked={unemployedFilter}
+                                onCheckedChange={(checked) => setUnemployedFilter(!!checked)}
+                                className={`border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 ${isModal ? 'bg-slate-700 border-slate-500' : 'bg-white border-gray-400'}`}
+                              />
+                              <label htmlFor="unemployed-fullscreen" className={`text-sm cursor-pointer ${isModal ? 'text-slate-300' : 'text-gray-700'}`}>
+                                Unemployed
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="employed-fullscreen"
+                                checked={employedFilter}
+                                onCheckedChange={(checked) => setEmployedFilter(!!checked)}
+                                className={`border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 ${isModal ? 'bg-slate-700 border-slate-500' : 'bg-white border-gray-400'}`}
+                              />
+                              <label htmlFor="employed-fullscreen" className={`text-sm cursor-pointer ${isModal ? 'text-slate-300' : 'text-gray-700'}`}>
+                                Employed
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="relocate-fullscreen"
+                                checked={relocateFilter}
+                                onCheckedChange={(checked) => setRelocateFilter(!!checked)}
+                                className={`border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 ${isModal ? 'bg-slate-700 border-slate-500' : 'bg-white border-gray-400'}`}
+                              />
+                              <label htmlFor="relocate-fullscreen" className={`text-sm cursor-pointer ${isModal ? 'text-slate-300' : 'text-gray-700'}`}>
+                                Ready to relocate
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="cv-fullscreen"
+                                checked={cvFilter}
+                                onCheckedChange={(checked) => setCvFilter(!!checked)}
+                                className={`border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 ${isModal ? 'bg-slate-700 border-slate-500' : 'bg-white border-gray-400'}`}
+                              />
+                              <label htmlFor="cv-fullscreen" className={`text-sm cursor-pointer ${isModal ? 'text-slate-300' : 'text-gray-700'}`}>
+                                With CV
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="driving-license-fullscreen"
+                                checked={drivingLicenseFilter}
+                                onCheckedChange={(checked) => setDrivingLicenseFilter(!!checked)}
+                                className={`border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 ${isModal ? 'bg-slate-700 border-slate-500' : 'bg-white border-gray-400'}`}
+                              />
+                              <label htmlFor="driving-license-fullscreen" className={`text-sm cursor-pointer ${isModal ? 'text-slate-300' : 'text-gray-700'}`}>
+                                Valid Driving License
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="own-transport-fullscreen"
+                                checked={ownTransportFilter}
+                                onCheckedChange={(checked) => setOwnTransportFilter(!!checked)}
+                                className={`border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 ${isModal ? 'bg-slate-700 border-slate-500' : 'bg-white border-gray-400'}`}
+                              />
+                              <label htmlFor="own-transport-fullscreen" className={`text-sm cursor-pointer ${isModal ? 'text-slate-300' : 'text-gray-700'}`}>
+                                Own transport
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="self-employed-fullscreen"
+                                checked={selfEmployedFilter}
+                                onCheckedChange={(checked) => setSelfEmployedFilter(!!checked)}
+                                className={`border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 ${isModal ? 'bg-slate-700 border-slate-500' : 'bg-white border-gray-400'}`}
+                              />
+                              <label htmlFor="self-employed-fullscreen" className={`text-sm cursor-pointer ${isModal ? 'text-slate-300' : 'text-gray-700'}`}>
+                                Self-employed
+                              </label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id="available-fullscreen"
+                                checked={availableFilter}
+                                onCheckedChange={(checked) => setAvailableFilter(!!checked)}
+                                className={`border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 ${isModal ? 'bg-slate-700 border-slate-500' : 'bg-white border-gray-400'}`}
+                              />
+                              <label htmlFor="available-fullscreen" className={`text-sm cursor-pointer ${isModal ? 'text-slate-300' : 'text-gray-700'}`}>
+                                Available (Companies)
+                              </label>
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
 
-                    {/* Hide Filters Button */}
-                    <div className="flex justify-end pt-2">
+                    {/* Filter Actions */}
+                    <div className="flex items-center gap-2 pt-3 border-t border-slate-600/50 mt-2">
+                      {/* Hide Filters — non-modal: ghost; modal traders: outline button */}
+                      {!isModal ? (
+                        <Button
+                          onClick={() => setShowAdvancedFilters(false)}
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-600 whitespace-nowrap"
+                        >
+                          Hide Filters
+                        </Button>
+                      ) : isShowingTraders && (
+                        <Button
+                          onClick={() => { setSearchApplied(true); setShowAdvancedFilters(false) }}
+                          variant="ghost"
+                          size="sm"
+                          className="bg-slate-600 hover:bg-slate-500 text-white whitespace-nowrap"
+                        >
+                          Hide Filters
+                        </Button>
+                      )}
                       <Button
-                        onClick={() => setShowAdvancedFilters(false)}
-                        variant="ghost"
+                        onClick={() => {
+                          handleSearch()
+                          setShowAdvancedFilters(false)
+                        }}
                         size="sm"
-                        className="text-gray-600"
+                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6"
                       >
-                        Hide Filters
+                        <Search className="h-4 w-4 mr-2" />
+                        Search
                       </Button>
                     </div>
                   </div>
@@ -2693,7 +3102,7 @@ export default function ProfessionalsPageContent({
           {/* Mobile & Desktop Layouts */}
           <>
           {/* Mobile: Airbnb-style Bottom Sheet Layout */}
-          <div className="flex md:!hidden flex-col flex-1 overflow-hidden">
+          <div className={`flex md:!hidden flex-col flex-1 overflow-hidden ${isModal ? 'bg-slate-900' : ''}`}>
             <MobileMapBottomSheet
               state={bottomSheetState}
               onStateChange={setBottomSheetState}
@@ -2719,7 +3128,12 @@ export default function ProfessionalsPageContent({
                     <ProfessionalMap
                       professionals={dataWithCoordinates.map((item: any) => ({
                         id: item.id,
-                        name: isEmployer ? `${item.first_name || 'Professional'} ${item.last_name || 'User'}` : item.title || item.company_name || 'Unknown',
+                        // Show name for professionals (respecting privacy), company name for companies
+                        name: ('first_name' in item)
+                          ? (!item.hide_personal_name && (item.first_name || item.last_name)
+                              ? `${item.first_name || ''} ${item.last_name || ''}`.trim()
+                              : (item.nickname || 'Anonymous'))
+                          : item.company_name || 'Unknown',
                         title: item.title || item.industry || 'Professional',
                         location: item.location || 'Location not specified',
                         coordinates: { lat: item.latitude, lon: item.longitude },
@@ -2765,8 +3179,8 @@ export default function ProfessionalsPageContent({
                 )
               }
               listContent={
-                <div className="p-3">
-                  <h3 className="font-semibold text-base mb-3">
+                <div className="p-3 bg-slate-900 min-h-full">
+                  <h3 className="font-semibold text-sm text-slate-400 uppercase tracking-wide mb-3">
                     {isEmployer ? "Professionals" : isShowingCompanies ? "Companies" : isShowingTraders ? "Traders" : isShowingJobs ? "Jobs" : "Results"}
                   </h3>
 
@@ -2778,8 +3192,8 @@ export default function ProfessionalsPageContent({
                       <div
                         key={item.id}
                         ref={(el: HTMLDivElement | null) => { professionalCardRefs.current[item.id] = el }}
-                        className={`bg-white rounded-lg shadow-sm border p-3 cursor-pointer transition-all ${
-                          isExpanded ? 'border-blue-500 shadow-md' : 'border-gray-200 hover:border-blue-300'
+                        className={`bg-slate-800 rounded-xl border p-3 cursor-pointer transition-all ${
+                          isExpanded ? 'border-emerald-500 shadow-md shadow-emerald-900/20' : 'border-slate-700 hover:border-slate-500'
                         }`}
                         onClick={() => {
                           // Toggle selection/expansion
@@ -2793,24 +3207,24 @@ export default function ProfessionalsPageContent({
                           <div className="space-y-2">
                             <div className="flex items-start gap-3">
                               <div className="flex-1 min-w-0">
-                                <h4 className="font-semibold text-sm line-clamp-2">{item.title}</h4>
-                                <p className="text-xs text-gray-600">
+                                <h4 className="font-semibold text-sm text-white line-clamp-2">{item.title}</h4>
+                                <p className="text-xs text-slate-400">
                                   {item.company_profiles?.company_name || `${item.poster_first_name} ${item.poster_last_name}`}
                                 </p>
 
                                 {/* Description - show truncated or full based on expanded state */}
                                 {item.description && (
-                                  <p className={`text-xs text-gray-700 mt-2 whitespace-pre-line ${isExpanded ? '' : 'line-clamp-2'}`}>
+                                  <p className={`text-xs text-slate-300 mt-2 whitespace-pre-line ${isExpanded ? '' : 'line-clamp-2'}`}>
                                     {item.description}
                                   </p>
                                 )}
 
-                                <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                <div className="flex items-center gap-1 text-xs text-slate-400 mt-1">
                                   <MapPin className="h-3 w-3" />
                                   <span className="truncate">{formatShortAddress(item.location)}</span>
                                 </div>
                                 {(item.salary_min || item.salary_max || item.budget_min || item.budget_max) && (
-                                  <div className="flex items-center gap-1 text-xs text-green-600 font-medium mt-1">
+                                  <div className="flex items-center gap-1 text-xs text-emerald-400 font-medium mt-1">
                                     <PoundSterling className="h-3 w-3" />
                                     <span>
                                       {item.salary_min && item.salary_max
@@ -2832,7 +3246,7 @@ export default function ProfessionalsPageContent({
 
                                 {/* Show "Tap to expand/collapse" hint */}
                                 {item.description && item.description.length > 100 && (
-                                  <p className="text-xs text-blue-500 mt-1">
+                                  <p className="text-xs text-emerald-500 mt-1">
                                     {isExpanded ? 'Tap to collapse' : 'Tap to see more'}
                                   </p>
                                 )}
@@ -2842,7 +3256,7 @@ export default function ProfessionalsPageContent({
                                   <Button
                                     size="sm"
                                     variant="outline"
-                                    className="h-10 px-4 flex-1 text-sm touch-manipulation"
+                                    className="h-10 px-4 flex-1 text-sm touch-manipulation border-slate-600 text-slate-300 hover:bg-slate-700"
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       // Build URL with return context to enable "Back to Search"
@@ -2862,7 +3276,7 @@ export default function ProfessionalsPageContent({
                                   </Button>
                                   <Button
                                     size="sm"
-                                    className="h-10 px-4 flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium touch-manipulation"
+                                    className="h-10 px-4 flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium touch-manipulation"
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       if (currentUser) {
@@ -2884,16 +3298,20 @@ export default function ProfessionalsPageContent({
                               <Avatar className={isExpanded ? "h-16 w-16" : "h-10 w-10"}>
                                 <AvatarImage src={item.profile_photo_url || item.logo_url} />
                                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold text-xs">
-                                  {isEmployer
+                                  {('first_name' in item)
                                     ? `${item.first_name?.[0] || ''}${item.last_name?.[0] || ''}`
-                                    : item.company_name?.[0] || item.title?.[0] || '?'}
+                                    : item.company_name?.[0] || '?'}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="flex-1 min-w-0">
-                                <h4 className={`font-semibold ${isExpanded ? 'text-base' : 'text-sm'}`}>
-                                  {isEmployer ? `${item.first_name || ''} ${item.last_name || ''}` : item.company_name || item.title}
+                                <h4 className={`font-semibold text-white ${isExpanded ? 'text-base' : 'text-sm'}`}>
+                                  {('first_name' in item)
+                                    ? (!item.hide_personal_name && (item.first_name || item.last_name)
+                                        ? `${item.first_name || ''} ${item.last_name || ''}`.trim()
+                                        : (item.nickname || 'Anonymous'))
+                                    : item.company_name || item.title}
                                 </h4>
-                                <p className={`text-xs text-gray-600 ${isExpanded ? '' : 'truncate'}`}>{item.title || item.industry}</p>
+                                <p className={`text-xs text-slate-400 ${isExpanded ? '' : 'truncate'}`}>{item.title || item.industry}</p>
 
                                 {/* Star Rating - Show for professionals */}
                                 {'first_name' in item && (
@@ -2923,7 +3341,7 @@ export default function ProfessionalsPageContent({
 
                                 {/* Expected Salary - Show for professionals in short view */}
                                 {'first_name' in item && !isExpanded && (item.salary_min || item.salary_max) && (
-                                  <p className="text-xs font-semibold text-green-600 mt-1">
+                                  <p className="text-xs font-semibold text-emerald-400 mt-1">
                                     {item.salary_min && item.salary_max
                                       ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
                                       : item.salary_min
@@ -2933,6 +3351,27 @@ export default function ProfessionalsPageContent({
                                   </p>
                                 )}
                               </div>
+                              {/* Available / Busy badge — right side of card */}
+                              {(() => {
+                                const hasTradeNotif = 'trade_job_notifications' in item
+                                const hasAvailNow = 'available_now' in item
+                                const isAvail = hasTradeNotif
+                                  ? (item as any).trade_job_notifications === true
+                                  : hasAvailNow
+                                  ? (item as any).available_now === true
+                                  : null
+                                if (isAvail === true) return (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full whitespace-nowrap self-start mt-0.5">
+                                    ● Available
+                                  </span>
+                                )
+                                if (isAvail === false) return (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold bg-slate-600/60 text-slate-400 border border-slate-600 px-1.5 py-0.5 rounded-full whitespace-nowrap self-start mt-0.5">
+                                    ● Busy
+                                  </span>
+                                )
+                                return null
+                              })()}
                             </div>
 
                             {/* Show expanded details */}
@@ -2944,32 +3383,32 @@ export default function ProfessionalsPageContent({
                               const canContact = (isItemCompany && item.open_for_business) || currentUserType === "company" || currentUserType === "contractor"
 
                               return (
-                                <div className="space-y-3 pt-2 border-t border-gray-100">
+                                <div className="space-y-3 pt-2 border-t border-slate-700">
                                   {/* Description/Bio */}
                                   {(item.description || item.bio) && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1">
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1">
                                         {isItemCompany ? 'Company Description' : 'About'}
                                       </h5>
-                                      <p className="text-xs text-gray-700">{item.description || item.bio}</p>
+                                      <p className="text-xs text-slate-300">{item.description || item.bio}</p>
                                     </div>
                                   )}
 
                                   {/* Industry - For companies */}
                                   {isItemCompany && item.industry && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1">Industry</h5>
-                                      <Badge variant="secondary" className="text-xs">{item.industry}</Badge>
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1">Industry</h5>
+                                      <Badge variant="secondary" className="text-xs bg-slate-700 text-slate-200 border-slate-600">{item.industry}</Badge>
                                     </div>
                                   )}
 
                                   {/* Services - For companies */}
                                   {isItemCompany && item.services && item.services.length > 0 && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1.5">Services Offered</h5>
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1.5">Services Offered</h5>
                                       <div className="flex flex-wrap gap-1.5">
                                         {item.services.map((service: string, idx: number) => (
-                                          <Badge key={idx} variant="secondary" className="text-xs">
+                                          <Badge key={idx} variant="secondary" className="text-xs bg-slate-700 text-slate-200 border-slate-600">
                                             {service}
                                           </Badge>
                                         ))}
@@ -2980,10 +3419,10 @@ export default function ProfessionalsPageContent({
                                   {/* Skills - For professionals */}
                                   {isItemProfessional && item.skills && item.skills.length > 0 && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1.5">Skills</h5>
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1.5">Skills</h5>
                                       <div className="flex flex-wrap gap-1.5">
                                         {item.skills.map((skill: string, idx: number) => (
-                                          <Badge key={idx} variant="secondary" className="text-xs">
+                                          <Badge key={idx} variant="secondary" className="text-xs bg-slate-700 text-slate-200 border-slate-600">
                                             {skill}
                                           </Badge>
                                         ))}
@@ -2994,10 +3433,10 @@ export default function ProfessionalsPageContent({
                                   {/* Phone Number - For companies */}
                                   {isItemCompany && (item.phone || item.phone_number) && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1">Phone</h5>
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1">Phone</h5>
                                       <a
                                         href={`tel:${item.phone || item.phone_number}`}
-                                        className="text-xs text-blue-600 hover:underline font-medium"
+                                        className="text-xs text-emerald-400 hover:underline font-medium"
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         {item.phone || item.phone_number}
@@ -3008,12 +3447,12 @@ export default function ProfessionalsPageContent({
                                   {/* Website - For companies */}
                                   {isItemCompany && item.website_url && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1">Website</h5>
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1">Website</h5>
                                       <a
                                         href={item.website_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs text-blue-600 hover:underline break-all"
+                                        className="text-xs text-emerald-400 hover:underline break-all"
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         {item.website_url}
@@ -3024,10 +3463,10 @@ export default function ProfessionalsPageContent({
                                   {/* Languages */}
                                   {item.spoken_languages && item.spoken_languages.length > 0 && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1.5">Languages</h5>
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1.5">Languages</h5>
                                       <div className="flex flex-wrap gap-1.5">
                                         {item.spoken_languages.map((language: string, idx: number) => (
-                                          <Badge key={idx} variant="outline" className="text-xs flex items-center gap-1">
+                                          <Badge key={idx} variant="outline" className="text-xs flex items-center gap-1 border-slate-600 text-slate-300">
                                             <span className="text-sm">{getLanguageFlag(language)}</span>
                                             {language}
                                           </Badge>
@@ -3039,12 +3478,12 @@ export default function ProfessionalsPageContent({
                                   {/* Price List - For companies */}
                                   {isItemCompany && item.price_list && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1 flex items-center gap-1">
-                                        <PoundSterling className="h-3 w-3 text-green-600" />
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1 flex items-center gap-1">
+                                        <PoundSterling className="h-3 w-3 text-emerald-400" />
                                         Price List
                                       </h5>
-                                      <div className="bg-green-50 border border-green-200 rounded p-2">
-                                        <p className="text-xs text-gray-700 whitespace-pre-wrap">{item.price_list}</p>
+                                      <div className="bg-emerald-900/20 border border-emerald-700/30 rounded p-2">
+                                        <p className="text-xs text-slate-300 whitespace-pre-wrap">{item.price_list}</p>
                                       </div>
                                     </div>
                                   )}
@@ -3052,15 +3491,15 @@ export default function ProfessionalsPageContent({
                                   {/* Location/Address */}
                                   {item.location && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1">Location</h5>
-                                      <p className="text-xs text-gray-700">{formatShortAddress(item.location)}</p>
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1">Location</h5>
+                                      <p className="text-xs text-slate-300">{formatShortAddress(item.location)}</p>
                                     </div>
                                   )}
 
                                   {(item.salary_min || item.salary_max) && (
                                     <div>
-                                      <h5 className="font-semibold text-xs mb-1">Expected Salary</h5>
-                                      <p className="text-xs text-green-600 font-medium">
+                                      <h5 className="font-semibold text-xs text-slate-400 mb-1">Expected Salary</h5>
+                                      <p className="text-xs text-emerald-400 font-medium">
                                         {item.salary_min && item.salary_max
                                           ? `£${item.salary_min.toLocaleString()} - £${item.salary_max.toLocaleString()}`
                                           : item.salary_min
@@ -3073,8 +3512,7 @@ export default function ProfessionalsPageContent({
                                   {/* Action Buttons - Always visible */}
                                   <div className="flex gap-2">
                                     <Button
-                                      variant="outline"
-                                      className="flex-1 text-xs py-2 h-10"
+                                      className="flex-1 text-xs py-2 h-10 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
                                       disabled={currentUser ? !canContact : false}
                                       onClick={(e) => {
                                         e.stopPropagation()
@@ -3096,7 +3534,7 @@ export default function ProfessionalsPageContent({
                                       Message
                                     </Button>
                                     <Button
-                                      className="flex-1 text-xs py-2 h-10"
+                                      className="flex-1 text-xs py-2 h-10 bg-emerald-500 hover:bg-emerald-600 text-white"
                                       onClick={(e) => {
                                         e.stopPropagation()
                                         handleViewProfile(item.id)
@@ -3115,7 +3553,7 @@ export default function ProfessionalsPageContent({
                                     </p>
                                   )}
 
-                                  <p className="text-xs text-blue-500 text-center">
+                                  <p className="text-xs text-emerald-500 text-center">
                                     Tap to collapse
                                   </p>
                                 </div>
@@ -3123,7 +3561,7 @@ export default function ProfessionalsPageContent({
                             })()}
 
                             {!isExpanded && (
-                              <p className="text-xs text-blue-500 text-center">
+                              <p className="text-xs text-emerald-500 text-center mt-1">
                                 Tap to see more
                               </p>
                             )}
@@ -3162,7 +3600,12 @@ export default function ProfessionalsPageContent({
                   <ProfessionalMap
                     professionals={dataWithCoordinates.map((item: any) => ({
                       id: item.id,
-                      name: isEmployer ? `${item.first_name || 'Professional'} ${item.last_name || 'User'}` : item.title || item.company_name || 'Unknown',
+                      // Show name for professionals (respecting privacy), company name for companies
+                      name: ('first_name' in item)
+                        ? (!item.hide_personal_name && (item.first_name || item.last_name)
+                            ? `${item.first_name || ''} ${item.last_name || ''}`.trim()
+                            : (item.nickname || 'Anonymous'))
+                        : item.company_name || 'Unknown',
                       title: item.title || item.industry || 'Professional',
                       location: item.location || 'Location not specified',
                       coordinates: { lat: item.latitude, lon: item.longitude },
@@ -3196,10 +3639,10 @@ export default function ProfessionalsPageContent({
 
               {/* Results Counter (Top-Left) */}
               <div className="absolute top-4 left-4 z-10">
-                <div className="bg-white rounded-lg shadow-lg p-3 border">
+                <div className={`rounded-lg shadow-lg p-3 border ${isModal ? 'bg-slate-800 border-slate-600' : 'bg-white'}`}>
                   <div className="flex items-center gap-2">
-                    <UserIcon className="h-5 w-5 text-blue-600" />
-                    <span className="font-semibold text-lg">
+                    <UserIcon className={`h-5 w-5 ${isModal ? 'text-emerald-400' : 'text-blue-600'}`} />
+                    <span className={`font-semibold text-lg ${isModal ? 'text-white' : ''}`}>
                       {data.length} {isEmployer ? "Professional" : isShowingCompanies ? "Company" : isShowingTraders ? "Trader" : "Professional"}{data.length !== 1 ? "s" : ""} Found
                     </span>
                   </div>
@@ -3208,18 +3651,18 @@ export default function ProfessionalsPageContent({
 
               {/* Search Radius (Top-Right) */}
               <div className="absolute top-4 right-[420px] z-10">
-                <div className="bg-white rounded-lg shadow-lg p-3 border">
+                <div className={`rounded-lg shadow-lg p-3 border ${isModal ? 'bg-slate-800 border-slate-600' : 'bg-white'}`}>
                   <div className="flex items-center gap-2">
                     <Target className="h-5 w-5 text-emerald-600" />
-                    <label className="text-sm font-medium">Radius:</label>
+                    <label className={`text-sm font-medium ${isModal ? 'text-white' : ''}`}>Radius:</label>
                     <Select
                       value={searchParams.radius || "20"}
                       onValueChange={(value) => updateSearchParams("radius", value)}
                     >
-                      <SelectTrigger className="w-28 h-9">
+                      <SelectTrigger className={`w-28 h-9 ${isModal ? 'bg-slate-700 border-slate-600 text-white' : ''}`}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className={isModal ? 'bg-slate-800 border-slate-600' : ''}>
                         {[1, 5, 10, 15, 20, 25, 30, 40, 50].map((miles) => (
                           <SelectItem key={miles} value={miles.toString()}>
                             {miles} mi
@@ -3234,24 +3677,24 @@ export default function ProfessionalsPageContent({
             </Panel>
 
             {/* Resize Handle */}
-            <PanelResizeHandle className="w-2 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize" />
+            <PanelResizeHandle className={`w-2 transition-colors cursor-col-resize ${isModal ? 'bg-slate-700 hover:bg-emerald-500' : 'bg-gray-200 hover:bg-blue-400'}`} />
 
             {/* Right Sidebar - Scrollable Professional List Panel */}
             <Panel defaultSize={40} minSize={25}>
-              <div className="h-full bg-white border-l shadow-xl flex flex-col">
+              <div className={`h-full border-l shadow-xl flex flex-col ${isModal ? 'bg-slate-800 border-slate-700' : 'bg-white'}`}>
               {/* Sidebar Header */}
-              <div className="p-4 border-b bg-gray-50">
-                <h3 className="font-semibold text-lg">
+              <div className={`p-4 border-b ${isModal ? 'bg-slate-700 border-slate-600' : 'bg-gray-50'}`}>
+                <h3 className={`font-semibold text-lg ${isModal ? 'text-white' : ''}`}>
                   Results
                 </h3>
-                <p className="text-sm text-gray-600">
+                <p className={`text-sm ${isModal ? 'text-slate-400' : 'text-gray-600'}`}>
                   {data.length} {isEmployer ? "professional" : "result"}{data.length !== 1 ? "s" : ""} found - Click to expand
                 </p>
               </div>
 
               {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto">
-                  <div className="divide-y">
+              <div className={`flex-1 overflow-y-auto ${isModal ? 'bg-slate-800' : ''}`}>
+                  <div className={`divide-y ${isModal ? 'divide-slate-700' : ''}`}>
                     {data.slice(0, 50).map((item: any) => {
                       const isSelected = selectedProfessionalId === item.id
 
@@ -3281,7 +3724,9 @@ export default function ProfessionalsPageContent({
                           key={item.id}
                           ref={(el) => { professionalCardRefs.current[item.id] = el }}
                           className={`p-4 cursor-pointer transition-colors ${
-                            isSelected ? "bg-blue-50 border-l-4 border-blue-500" : "hover:bg-gray-50"
+                            isSelected
+                              ? (isModal ? "bg-emerald-900/30 border-l-4 border-emerald-500" : "bg-blue-50 border-l-4 border-blue-500")
+                              : (isModal ? "hover:bg-slate-700" : "hover:bg-gray-50")
                           }`}
                           onClick={() => {
                             // Toggle selection
@@ -3291,7 +3736,7 @@ export default function ProfessionalsPageContent({
                           <div className="flex gap-3">
                             <Avatar className="h-12 w-12 flex-shrink-0">
                               <AvatarImage src={item.profile_photo_url || item.logo_url} alt={isProfessional ? item.first_name : item.company_name} />
-                              <AvatarFallback className="bg-blue-100 text-blue-600">
+                              <AvatarFallback className={isModal ? "bg-slate-600 text-emerald-400" : "bg-blue-100 text-blue-600"}>
                                 {isProfessional ? item.first_name?.charAt(0) : item.company_name?.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
@@ -3299,21 +3744,20 @@ export default function ProfessionalsPageContent({
                             <div className="flex-1 min-w-0">
                               {/* 1. Profession Title - Main heading */}
                               <div className="flex items-center gap-1.5">
-                                <h4 className="text-base text-gray-900 font-bold truncate">
+                                <h4 className={`text-base font-bold truncate ${isModal ? 'text-white' : 'text-gray-900'}`}>
                                   {item.title || item.industry || 'Professional'}
                                 </h4>
                                 {item.isPremium && (
                                   <Crown className="h-3 w-3 text-amber-500 flex-shrink-0" />
                                 )}
-                                {isCompany && item.open_for_business && (
-                                  <span className="text-xs font-semibold text-green-600 ml-2">Available</span>
-                                )}
                               </div>
 
-                              {/* 2. Nickname or Name */}
-                              <p className="text-sm text-gray-600 truncate font-medium">
+                              {/* 2. Nickname or Name - respects hide_personal_name privacy setting */}
+                              <p className={`text-sm truncate font-medium ${isModal ? 'text-slate-300' : 'text-gray-600'}`}>
                                 {isProfessional
-                                  ? (item.nickname || `${item.first_name} ${item.last_name}`)
+                                  ? (!item.hide_personal_name && (item.first_name || item.last_name)
+                                      ? `${item.first_name || ''} ${item.last_name || ''}`.trim()
+                                      : (item.nickname || 'Anonymous'))
                                   : item.company_name
                                 }
                               </p>
@@ -3360,12 +3804,12 @@ export default function ProfessionalsPageContent({
                               {item.skills && item.skills.length > 0 && (
                                 <div className="flex flex-wrap gap-1 mt-2">
                                   {item.skills.slice(0, 3).map((skill: string, idx: number) => (
-                                    <Badge key={idx} variant="outline" className="text-xs">
+                                    <Badge key={idx} variant="outline" className={`text-xs ${isModal ? 'border-slate-600 text-slate-300' : ''}`}>
                                       {skill}
                                     </Badge>
                                   ))}
                                   {item.skills.length > 3 && (
-                                    <Badge variant="outline" className="text-xs">
+                                    <Badge variant="outline" className={`text-xs ${isModal ? 'border-slate-600 text-slate-300' : ''}`}>
                                       +{item.skills.length - 3}
                                     </Badge>
                                   )}
@@ -3374,14 +3818,14 @@ export default function ProfessionalsPageContent({
 
                               {/* Bio - Show short preview */}
                               {item.bio && (
-                                <p className="text-xs text-gray-600 mt-2 line-clamp-2">
+                                <p className={`text-xs mt-2 line-clamp-2 ${isModal ? 'text-slate-400' : 'text-gray-600'}`}>
                                   {item.bio}
                                 </p>
                               )}
 
                               {/* Languages - Show with flags */}
                               {item.spoken_languages && item.spoken_languages.length > 0 && (
-                                <div className="text-[10px] text-gray-600 mt-2 flex items-center flex-wrap gap-1">
+                                <div className={`text-[10px] mt-2 flex items-center flex-wrap gap-1 ${isModal ? 'text-slate-400' : 'text-gray-600'}`}>
                                   <Globe className="h-2.5 w-2.5 inline mr-1" />
                                   <span className="font-medium mr-1">Languages:</span>
                                   {item.spoken_languages.slice(0, 2).map((lang: string, idx: number) => (
@@ -3411,6 +3855,28 @@ export default function ProfessionalsPageContent({
                               </div>
 
                               {/* Extended details - only show when selected */}
+                              {/* Available / Busy badge — right side of desktop card */}
+                              {(() => {
+                                const hasTradeNotif = 'trade_job_notifications' in item
+                                const hasAvailNow = 'available_now' in item
+                                const isAvail = hasTradeNotif
+                                  ? (item as any).trade_job_notifications === true
+                                  : hasAvailNow
+                                  ? (item as any).available_now === true
+                                  : null
+                                if (isAvail === true) return (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full whitespace-nowrap mt-1 w-fit">
+                                    ● Available
+                                  </span>
+                                )
+                                if (isAvail === false) return (
+                                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold bg-slate-600/60 text-slate-400 border border-slate-600 px-1.5 py-0.5 rounded-full whitespace-nowrap mt-1 w-fit">
+                                    ● Busy
+                                  </span>
+                                )
+                                return null
+                              })()}
+
                               {isSelected && (() => {
                                 // Determine item type and contact permission
                                 const isItemProfessional = 'first_name' in item
@@ -3615,7 +4081,7 @@ export default function ProfessionalsPageContent({
                                         disabled={!canContact || sendingMessage === item.id}
                                       >
                                         <MessageCircle className="h-4 w-4 mr-2" />
-                                        Contact
+                                        Send inquiry
                                       </Button>
                                       <Button
                                         className="flex-1"
@@ -3650,8 +4116,18 @@ export default function ProfessionalsPageContent({
                     {data.length === 0 && (
                       <div className="p-8 text-center text-gray-500">
                         <UserIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p>No results found</p>
-                        <p className="text-sm">Try adjusting your filters</p>
+                        <p className="font-medium">
+                          {isShowingJobs
+                            ? `No jobs found${locationFilter ? ` in ${locationFilter}` : ''}`
+                            : `No tradespeople found${locationFilter ? ` in ${locationFilter}` : ''}`
+                          }
+                        </p>
+                        <p className="text-sm mt-1">
+                          {isShowingJobs
+                            ? "Try expanding your search radius or adjusting your filters"
+                            : "Try expanding your search radius or searching for a different trade"
+                          }
+                        </p>
                       </div>
                     )}
                   </div>

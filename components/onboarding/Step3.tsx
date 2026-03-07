@@ -1,8 +1,10 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Home, UserCircle, Briefcase, HardHat } from "lucide-react"
 import { OptionButton } from "./OptionButton"
+import { createClient } from "@/lib/client"
 
 interface Step3Props {
   userType: "individual" | "business"
@@ -11,6 +13,15 @@ interface Step3Props {
 }
 
 export function Step3({ userType, onSelect, onBack }: Step3Props) {
+  const [vacancyEnabled, setVacancyEnabled] = useState(true)
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.rpc("get_public_admin_settings").then(({ data }) => {
+      if (data) setVacancyEnabled(data.vacancies_jobseekers_enabled ?? true)
+    })
+  }, [])
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -41,12 +52,14 @@ export function Step3({ userType, onSelect, onBack }: Step3Props) {
               onClick={() => onSelect("homeowner")}
             />
 
-            <OptionButton
-              icon={UserCircle}
-              title="Jobseeker / Professional"
-              subtitle="I'm looking for work opportunities"
-              onClick={() => onSelect("jobseeker")}
-            />
+            {vacancyEnabled && (
+              <OptionButton
+                icon={UserCircle}
+                title="Jobseeker / Professional"
+                subtitle="I'm looking for work opportunities"
+                onClick={() => onSelect("jobseeker")}
+              />
+            )}
           </>
         ) : (
           <>

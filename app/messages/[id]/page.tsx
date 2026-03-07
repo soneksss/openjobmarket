@@ -6,9 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ArrowLeft, Send, User } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Send, User, MapPin, Briefcase, CheckCircle, Clock, Play, MoreHorizontal, PoundSterling } from "lucide-react"
 import { createClient } from "@/lib/client"
 import Link from "next/link"
+import { StatusDot } from "@/components/status-dot"
+import { updatePresence } from "@/lib/presence"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import ReviewSubmissionModal from "@/components/review-submission-modal"
 
 interface Message {
   id: string
@@ -18,6 +28,20 @@ interface Message {
   recipient_id: string
   is_read: boolean
   conversation_id?: string
+  job_id?: string
+  message_type?: string
+  metadata?: { amount?: number; currency?: string }
+}
+
+interface JobContext {
+  id: string
+  title: string
+  location?: string
+  status?: string
+  matching_status?: string
+  is_tradespeople_job?: boolean
+  urgency_type?: string | null
+  max_responses?: number | null
 }
 
 export default function ConversationPage() {
@@ -44,6 +68,15 @@ export default function ConversationPage() {
   const [newMessage, setNewMessage] = useState("")
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [jobContext, setJobContext] = useState<JobContext | null>(null)
+  const [updatingJobStatus, setUpdatingJobStatus] = useState(false)
+  const [showQuoteInput, setShowQuoteInput] = useState(false)
+  const [quoteAmount, setQuoteAmount] = useState("")
+  const [senderRole, setSenderRole] = useState<string | null>(null)
+  const [responseCount, setResponseCount] = useState(0)
+  const [hasAlreadyResponded, setHasAlreadyResponded] = useState(false)
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [otherUserLastSeen, setOtherUserLastSeen] = useState<string | null>(null)
 
   useEffect(() => {
     fetchConversation()
@@ -55,6 +88,7 @@ export default function ConversationPage() {
   }, [messages])
 
   const fetchConversation = async () => {
+    updatePresence() // best-effort, fire-and-forget
     console.log('[CONVERSATION] fetchConversation called')
     try {
       console.log('[CONVERSATION] Step 1: Getting session...')
@@ -176,6 +210,7 @@ export default function ConversationPage() {
       console.log('[CONVERSATION] Step 6: Current user data retrieved:', !!currentUserData, 'error:', currentUserError)
 
       if (currentUserData) {
+        setSenderRole(currentUserData.user_type)
         let currentPhoto = currentUserData.profile_photo_url
         console.log('[CONVERSATION] Step 7: Current user type:', currentUserData.user_type)
 
@@ -218,7 +253,7 @@ export default function ConversationPage() {
       try {
         const { data: userData, error: userDataError } = await supabase
           .from("users")
-          .select("user_type, full_name, nickname, profile_photo_url, email")
+          .select("user_type, full_name, nickname, profile_photo_url, email, last_seen_at")
           .eq("id", determinedOtherId)
           .maybeSingle()
 
@@ -227,6 +262,7 @@ export default function ConversationPage() {
         if (userData && !userDataError) {
           displayName = userData.nickname || userData.full_name || userData.email || 'Unknown User'
           photoUrl = userData.profile_photo_url
+          setOtherUserLastSeen(userData.last_seen_at ?? null)
           console.log('[CONVERSATION] Step 12: Other user type:', userData.user_type)
 
           // Get profile-specific data with error handling
@@ -322,6 +358,35 @@ export default function ConversationPage() {
       setMessages(messagesData || [])
       console.log('[CONVERSATION] Step 17: Messages state set')
 
+      // Fetch job context if any message has a job_id
+      const jobId = messagesData?.find(msg => msg.job_id)?.job_id
+      if (jobId) {
+        console.log('[CONVERSATION] Step 17.5: Fetching job context for:', jobId)
+        const { data: jobData, error: jobError } = await supabase
+          .from('jobs')
+          .select('id, title, location, status, matching_status, is_tradespeople_job, urgency_type, max_responses')
+          .eq('id', jobId)
+          .maybeSingle()
+
+        if (jobData && !jobError) {
+          setJobContext(jobData)
+          console.log('[CONVERSATION] Job context loaded:', jobData.title)
+
+          // For flexible jobs with a cap: fetch distinct tradesperson responders
+          if (jobData.urgency_type === 'flexible' && jobData.max_responses) {
+            const { data: responders } = await supabase
+              .from('messages')
+              .select('sender_id')
+              .eq('job_id', jobId)
+              .eq('sender_role', 'tradesperson')
+
+            const distinctIds = new Set(responders?.map(r => r.sender_id) || [])
+            setResponseCount(distinctIds.size)
+            setHasAlreadyResponded(distinctIds.has(currentUser.id))
+          }
+        }
+      }
+
       // Mark unread messages as read
       const unreadMessageIds = messagesData
         ?.filter(msg => msg.recipient_id === currentUser.id && !msg.is_read)
@@ -351,6 +416,14 @@ export default function ConversationPage() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || sending || !otherUserId) return
 
+    // Response cap check for flexible jobs
+    if (jobContext?.urgency_type === 'flexible' && jobContext.max_responses && senderRole === 'contractor') {
+      if (!hasAlreadyResponded && responseCount >= jobContext.max_responses) {
+        alert("This job already received enough responses.")
+        return
+      }
+    }
+
     setSending(true)
     try {
       console.log('[CONVERSATION] Sending message with conversation_id:', actualConvId, 'to recipient:', otherUserId)
@@ -367,7 +440,8 @@ export default function ConversationPage() {
           content: newMessage.trim(),
           conversation_id: finalConversationId,
           message_type: "direct",
-          job_id: null,
+          job_id: jobContext?.id ?? null,
+          sender_role: senderRole,
           is_read: false,
           share_personal_info: false
         })
@@ -394,12 +468,56 @@ export default function ConversationPage() {
 
       setMessages(prev => [...prev, tempMessage])
       setNewMessage("")
+      updatePresence() // update own presence on send
 
       // Refresh to get actual message from DB
       setTimeout(() => fetchConversation(), 500)
     } catch (error) {
       console.error("[CONVERSATION] Error sending:", error)
       alert("Failed to send message")
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleSendQuote = async () => {
+    const amount = parseFloat(quoteAmount)
+    if (isNaN(amount) || amount <= 0 || sending || !otherUserId) return
+
+    // Response cap check for flexible jobs
+    if (jobContext?.urgency_type === 'flexible' && jobContext.max_responses && senderRole === 'contractor') {
+      if (!hasAlreadyResponded && responseCount >= jobContext.max_responses) {
+        alert("This job already received enough responses.")
+        return
+      }
+    }
+
+    setSending(true)
+    try {
+      const { error } = await supabase
+        .from("messages")
+        .insert({
+          sender_id: user.id,
+          recipient_id: otherUserId,
+          subject: "Quote",
+          content: `Sent a quote for £${amount.toFixed(2)}`,
+          conversation_id: actualConvId,
+          message_type: "quote",
+          metadata: { amount, currency: "GBP" },
+          job_id: jobContext?.id ?? null,
+          sender_role: senderRole,
+          is_read: false,
+          share_personal_info: false
+        })
+
+      if (error) throw error
+
+      setQuoteAmount("")
+      setShowQuoteInput(false)
+      setTimeout(() => fetchConversation(), 500)
+    } catch (error) {
+      console.error("[CONVERSATION] Error sending quote:", error)
+      alert("Failed to send quote")
     } finally {
       setSending(false)
     }
@@ -415,46 +533,183 @@ export default function ConversationPage() {
     })
   }
 
+  const updateJobStatus = async (newStatus: string) => {
+    if (!jobContext?.id) return
+
+    setUpdatingJobStatus(true)
+    try {
+      if (newStatus === 'completed') {
+        // Use the state-machine RPC — enforces homeowner-only, correct transition
+        const { error } = await supabase.rpc('complete_job', { p_job_id: jobContext.id })
+        if (error) throw error
+        setJobContext(prev => prev ? { ...prev, status: 'COMPLETED', matching_status: 'closed' } : null)
+        // Prompt the homeowner to leave a review immediately
+        setShowReviewModal(true)
+      } else {
+        const { error } = await supabase
+          .from('jobs')
+          .update({ matching_status: newStatus })
+          .eq('id', jobContext.id)
+        if (error) throw error
+        setJobContext(prev => prev ? { ...prev, matching_status: newStatus } : null)
+      }
+    } catch (error: any) {
+      console.error('[CONVERSATION] Error updating job status:', error)
+      alert(error.message || 'Failed to update job status')
+    } finally {
+      setUpdatingJobStatus(false)
+    }
+  }
+
+  const getJobStatusBadge = () => {
+    if (!jobContext) return null
+
+    const status = jobContext.matching_status || jobContext.status
+
+    // Dark theme badges
+    const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
+      searching: { label: 'Searching', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Clock },
+      reviewing: { label: 'Reviewing', className: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: Clock },
+      in_progress: { label: 'In Progress', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: Play },
+      closed: { label: 'Completed', className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
+      open: { label: 'Open', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Clock },
+    }
+
+    const config = statusConfig[status || 'open'] || statusConfig.open
+    const Icon = config.icon
+
+    return (
+      <Badge variant="outline" className={`${config.className} border font-medium text-xs`}>
+        <Icon className="w-3 h-3 mr-1" />
+        {config.label}
+      </Badge>
+    )
+  }
+
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="text-center">Loading conversation...</div>
+      <div className="min-h-screen bg-slate-900">
+        <div className="container mx-auto p-4 md:p-6">
+          <div className="text-center text-slate-300 py-12">Loading conversation...</div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <Card className="h-[calc(100vh-8rem)] flex flex-col">
-        <CardHeader className="border-b">
-          <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-slate-900 pb-20 md:pb-6">
+      <div className="container mx-auto p-4 md:p-6 max-w-2xl">
+        {/* Header */}
+        <div className="bg-slate-800/90 rounded-t-xl border border-slate-700/50 border-b-0 p-3">
+          <div className="flex items-center gap-3">
             {returnUrl ? (
-              <Button variant="ghost" size="sm" asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-300 hover:text-white hover:bg-slate-700 h-8 w-8 p-0"
+                asChild
+              >
                 <Link href={returnUrl}>
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Search
+                  <ArrowLeft className="h-4 w-4" />
                 </Link>
               </Button>
             ) : (
-              <Button variant="ghost" size="sm" onClick={() => router.push('/messages')}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-slate-300 hover:text-white hover:bg-slate-700 h-8 w-8 p-0"
+                onClick={() => router.push('/messages')}
+              >
+                <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
-            <Avatar className="h-10 w-10">
+            <Avatar className="h-9 w-9 border border-slate-600 flex-shrink-0">
               <AvatarImage src={otherUser?.profile_photo_url} />
-              <AvatarFallback>
-                <User className="h-5 w-5" />
+              <AvatarFallback className="bg-slate-700 text-slate-300">
+                <User className="h-4 w-4" />
               </AvatarFallback>
             </Avatar>
-            <CardTitle className="text-lg">{otherUser?.name || 'Unknown User'}</CardTitle>
+            <div className="flex items-center gap-1.5">
+              <span className="font-medium text-white text-sm">{otherUser?.name || 'Unknown User'}</span>
+              <StatusDot lastSeenAt={otherUserLastSeen} />
+            </div>
           </div>
-        </CardHeader>
 
-        <CardContent className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* Job Context Header */}
+          {jobContext && (
+            <div className="mt-3 p-2.5 bg-slate-700/50 rounded-lg border border-slate-600/50">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 bg-slate-600 rounded-md flex-shrink-0">
+                    <Briefcase className="h-3.5 w-3.5 text-slate-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-xs text-white truncate">{jobContext.title}</p>
+                    {jobContext.location && (
+                      <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
+                        <MapPin className="h-2.5 w-2.5" />
+                        <span className="truncate">{jobContext.location}</span>
+                      </div>
+                    )}
+                    {/* Response cap counter for flexible jobs */}
+                    {jobContext.urgency_type === 'flexible' && jobContext.max_responses && (
+                      <div className="text-[10px] mt-0.5 font-medium">
+                        {senderRole === 'homeowner' ? (
+                          <span className="text-emerald-400">{responseCount} / {jobContext.max_responses} responded</span>
+                        ) : senderRole === 'contractor' ? (
+                          <span className={responseCount >= jobContext.max_responses ? 'text-red-400' : 'text-amber-400'}>
+                            {Math.max(0, jobContext.max_responses - responseCount)} spots left
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {getJobStatusBadge()}
+                  {jobContext.is_tradespeople_job && senderRole === 'homeowner' && jobContext.status !== 'COMPLETED' && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0 text-slate-400 hover:text-white hover:bg-slate-600"
+                          disabled={updatingJobStatus}
+                        >
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
+                        {jobContext.matching_status !== 'in_progress' && (
+                          <DropdownMenuItem
+                            onClick={() => updateJobStatus('in_progress')}
+                            className="text-slate-200 hover:bg-slate-700 focus:bg-slate-700"
+                          >
+                            <Play className="h-4 w-4 mr-2 text-purple-400" />
+                            Mark In Progress
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => updateJobStatus('completed')}
+                          className="text-slate-200 hover:bg-slate-700 focus:bg-slate-700"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2 text-emerald-400" />
+                          Mark Completed
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Messages Area */}
+        <div className="bg-slate-800/60 border-x border-slate-700/50 h-[calc(100vh-280px)] overflow-y-auto p-4 space-y-3">
           {messages.length === 0 ? (
-            <div className="text-center text-muted-foreground py-12">
-              No messages yet. Start the conversation!
+            <div className="text-center text-slate-500 py-12">
+              <p className="text-sm">No messages yet. Start the conversation!</p>
             </div>
           ) : (
             messages.map((message) => {
@@ -462,28 +717,40 @@ export default function ConversationPage() {
               return (
                 <div
                   key={message.id}
-                  className={`flex items-start gap-3 ${isSent ? 'flex-row-reverse' : 'flex-row'}`}
+                  className={`flex items-end gap-2 ${isSent ? 'flex-row-reverse' : 'flex-row'}`}
                 >
-                  <Avatar className="h-8 w-8">
+                  <Avatar className="h-7 w-7 flex-shrink-0 border border-slate-600">
                     <AvatarImage
                       src={isSent ? currentUserPhoto : otherUser?.profile_photo_url}
                     />
-                    <AvatarFallback>
-                      <User className="h-4 w-4" />
+                    <AvatarFallback className="bg-slate-700 text-slate-400 text-xs">
+                      <User className="h-3 w-3" />
                     </AvatarFallback>
                   </Avatar>
 
-                  <div className={`flex flex-col ${isSent ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                  <div className={`flex flex-col ${isSent ? 'items-end' : 'items-start'} max-w-[75%]`}>
                     <div
-                      className={`rounded-lg px-4 py-2 ${
+                      className={`rounded-2xl px-3.5 py-2 ${
                         isSent
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-900'
+                          ? 'bg-emerald-600 text-white rounded-br-sm'
+                          : 'bg-slate-700 text-slate-100 rounded-bl-sm'
                       }`}
                     >
-                      <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                      {message.message_type === 'quote' ? (
+                        <div className="min-w-[140px]">
+                          <div className="flex items-center gap-1 mb-1 opacity-80">
+                            <PoundSterling className="h-3 w-3" />
+                            <span className="text-[11px] font-medium uppercase tracking-wide">Quote</span>
+                          </div>
+                          <p className="text-2xl font-bold leading-none">
+                            £{message.metadata?.amount?.toFixed(2) ?? '—'}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                      )}
                     </div>
-                    <span className="text-xs text-muted-foreground mt-1">
+                    <span className="text-[10px] text-slate-500 mt-1 px-1">
                       {formatTime(message.created_at)}
                     </span>
                   </div>
@@ -492,16 +759,61 @@ export default function ConversationPage() {
             })
           )}
           <div ref={messagesEndRef} />
-        </CardContent>
+        </div>
 
-        <div className="border-t p-4">
+        {/* Input Area */}
+        <div className="bg-slate-800/90 rounded-b-xl border border-slate-700/50 border-t-0 p-3">
+          {/* Quote input panel */}
+          {showQuoteInput && (
+            <div className="flex gap-2 mb-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium pointer-events-none">£</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={quoteAmount}
+                  onChange={(e) => setQuoteAmount(e.target.value)}
+                  placeholder="0.00"
+                  autoFocus
+                  className="w-full pl-7 pr-3 py-2.5 bg-slate-700 border border-emerald-500/50 rounded-lg text-white text-sm focus:outline-none focus:border-emerald-500"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendQuote() }}
+                />
+              </div>
+              <Button
+                onClick={handleSendQuote}
+                disabled={!quoteAmount || parseFloat(quoteAmount) <= 0 || sending}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm px-4"
+              >
+                Send
+              </Button>
+              <Button
+                onClick={() => { setShowQuoteInput(false); setQuoteAmount("") }}
+                variant="ghost"
+                className="text-slate-400 hover:text-white px-2"
+              >
+                ✕
+              </Button>
+            </div>
+          )}
+
           <div className="flex gap-2">
+            {/* Quote button */}
+            <Button
+              onClick={() => setShowQuoteInput((v) => !v)}
+              variant="ghost"
+              size="sm"
+              title="Send a quote"
+              className={`self-end h-[44px] px-3 flex-shrink-0 ${showQuoteInput ? 'text-emerald-400 bg-slate-700' : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-700'}`}
+            >
+              <PoundSterling className="h-4 w-4" />
+            </Button>
             <Textarea
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              className="resize-none"
-              rows={2}
+              className="resize-none bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:border-emerald-500 min-h-[44px] py-2.5"
+              rows={1}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()
@@ -512,16 +824,31 @@ export default function ConversationPage() {
             <Button
               onClick={handleSendMessage}
               disabled={!newMessage.trim() || sending}
-              className="self-end"
+              className="self-end bg-emerald-600 hover:bg-emerald-700 text-white h-[44px] w-[44px] p-0"
             >
               <Send className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            Press Enter to send, Shift+Enter for new line
+          <p className="text-[10px] text-slate-500 mt-1.5 text-center">
+            Press Enter to send
           </p>
         </div>
-      </Card>
+      </div>
+
+      {/* Review modal — auto-shown after homeowner marks job completed */}
+      {showReviewModal && jobContext && otherUserId && (
+        <ReviewSubmissionModal
+          isOpen={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          jobId={jobContext.id}
+          jobTitle={jobContext.title}
+          reviewedUserId={otherUserId}
+          reviewedUserName={otherUser?.name || 'the tradesperson'}
+          reviewedUserType="contractor"
+          reviewerType="homeowner"
+          onSuccess={() => setShowReviewModal(false)}
+        />
+      )}
     </div>
   )
 }

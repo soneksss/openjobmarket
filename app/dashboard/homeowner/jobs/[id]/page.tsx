@@ -79,7 +79,10 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
       job_photo_url,
       accepted_contractor_id,
       completed_at,
-      completion_status
+      completion_status,
+      status,
+      urgency_type,
+      max_responses
     `)
     .eq("id", id)
     .eq("homeowner_id", profile.id)
@@ -88,6 +91,17 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
   if (jobError || !job) {
     console.error("[HOMEOWNER-JOB-DETAILS] Error fetching job:", jobError)
     notFound()
+  }
+
+  // Response count for flexible jobs with a cap
+  let responseCount = 0
+  if (job.is_tradespeople_job && job.urgency_type === 'flexible' && job.max_responses) {
+    const { data: responders } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('job_id', id)
+      .eq('sender_role', 'tradesperson')
+    responseCount = new Set(responders?.map((r: any) => r.sender_id) || []).size
   }
 
   // Get applications for this job (support both contractors and professionals)
@@ -203,6 +217,11 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
                   {job.is_tradespeople_job && (
                     <Badge className="bg-purple-100 text-purple-800">Tradespeople Job</Badge>
                   )}
+                  {job.urgency_type === 'flexible' && job.max_responses && (
+                    <Badge className="bg-emerald-100 text-emerald-800 font-semibold">
+                      Responses: {responseCount} / {job.max_responses}
+                    </Badge>
+                  )}
                   {job.work_location && (
                     <Badge variant="outline">
                       {job.work_location.charAt(0).toUpperCase() + job.work_location.slice(1)}
@@ -271,6 +290,8 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
                 jobTitle={job.title}
                 isActive={isActive}
                 expiresAt={job.expires_at}
+                jobStatus={job.status}
+                isFlexibleJob={job.is_tradespeople_job && job.urgency_type === 'flexible'}
                 currentJob={{
                   title: job.title,
                   description: job.description,

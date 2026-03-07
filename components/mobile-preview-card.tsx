@@ -145,23 +145,23 @@ export function MobilePreviewCard({
     const salary = formatSalary(data.salaryMin || data.budgetMin, data.salaryMax || data.budgetMax)
 
     return (
-      <div className="flex flex-col h-full bg-white animate-in slide-in-from-bottom-4 duration-300">
+      <div className="flex flex-col h-full bg-slate-900 animate-in slide-in-from-bottom-4 duration-300">
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto overscroll-contain pb-20">
           {/* Header with close button */}
-          <div className="sticky top-0 bg-white z-10 px-4 pt-4 pb-3 border-b">
+          <div className="sticky top-0 bg-slate-900 z-10 px-4 pt-4 pb-3 border-b border-slate-700">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0 pr-2">
-                <h3 className="font-bold text-lg leading-tight">{data.title}</h3>
-                <p className="text-sm text-gray-600 mt-1">
+                <h3 className="font-bold text-lg text-white leading-tight">{data.title}</h3>
+                <p className="text-sm text-slate-400 mt-1">
                   {data.companyName || data.posterName || "Anonymous"}
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0 -mt-1 -mr-1"
+                className="p-2 rounded-full hover:bg-slate-700 transition-colors flex-shrink-0 -mt-1 -mr-1"
               >
-                <X className="h-5 w-5 text-gray-500" />
+                <X className="h-5 w-5 text-slate-400" />
               </button>
             </div>
           </div>
@@ -170,13 +170,13 @@ export function MobilePreviewCard({
             {/* Key Info */}
             <div className="flex flex-wrap gap-2">
               {data.jobType && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge className="text-xs bg-slate-700 text-slate-200 border-slate-600">
                   <Briefcase className="h-3 w-3 mr-1" />
                   {data.jobType}
                 </Badge>
               )}
               {data.workLocation && (
-                <Badge variant="outline" className="text-xs">
+                <Badge className="text-xs bg-slate-800 text-slate-300 border border-slate-600">
                   {data.workLocation}
                 </Badge>
               )}
@@ -184,18 +184,18 @@ export function MobilePreviewCard({
 
             {/* Location and Salary */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <MapPin className="h-4 w-4 text-slate-500 flex-shrink-0" />
                 <span>{data.location}</span>
               </div>
               {salary && (
-                <div className="flex items-center gap-2 text-sm font-semibold text-green-600">
+                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
                   <PoundSterling className="h-4 w-4 flex-shrink-0" />
                   <span>{salary}</span>
                 </div>
               )}
               {data.createdAt && (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
+                <div className="flex items-center gap-2 text-xs text-slate-500">
                   <Clock className="h-3.5 w-3.5 flex-shrink-0" />
                   <span>{formatDate(data.createdAt)}</span>
                 </div>
@@ -205,8 +205,8 @@ export function MobilePreviewCard({
             {/* Description */}
             {data.description && (
               <div>
-                <h4 className="font-semibold text-sm mb-2">Job Description</h4>
-                <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                <h4 className="font-semibold text-sm text-white mb-2">Job Description</h4>
+                <p className="text-sm text-slate-300 whitespace-pre-line leading-relaxed">
                   {data.description}
                 </p>
               </div>
@@ -215,10 +215,10 @@ export function MobilePreviewCard({
         </div>
 
         {/* Sticky Action Buttons */}
-        <div className="absolute bottom-0 left-0 right-0 bg-white border-t px-4 py-3 flex gap-3 shadow-lg">
+        <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 flex gap-3 shadow-lg">
           <Button
             variant="outline"
-            className="flex-1 h-12"
+            className="flex-1 h-12 border-slate-600 text-slate-300 hover:bg-slate-700"
             onClick={() => onViewDetails(data.id)}
           >
             <ExternalLink className="h-4 w-4 mr-2" />
@@ -226,7 +226,7 @@ export function MobilePreviewCard({
           </Button>
           {showAction && (
             <Button
-              className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
+              className="flex-1 h-12 bg-emerald-500 hover:bg-emerald-600"
               onClick={handleActionClick}
               disabled={actionDisabled}
             >
@@ -245,13 +245,13 @@ export function MobilePreviewCard({
     const initials = `${data.firstName?.[0] || ""}${data.lastName?.[0] || ""}`
 
     return (
-      <div className="flex flex-col h-full bg-white animate-in slide-in-from-bottom-4 duration-300">
+      <div className="flex flex-col h-full bg-slate-900 animate-in slide-in-from-bottom-4 duration-300">
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto overscroll-contain pb-20">
           {/* Header */}
-          <div className="sticky top-0 bg-white z-10 px-4 pt-4 pb-3 border-b">
+          <div className="sticky top-0 bg-slate-900 z-10 px-4 pt-4 pb-3 border-b border-slate-700">
             <div className="flex items-start gap-3">
-              <Avatar className="h-16 w-16 flex-shrink-0 ring-2 ring-blue-100">
+              <Avatar className="h-16 w-16 flex-shrink-0 ring-2 ring-slate-700">
                 <AvatarImage src={data.avatarUrl} />
                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold text-lg">
                   {initials || "?"}
@@ -260,16 +260,16 @@ export function MobilePreviewCard({
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 pr-2">
-                    <h3 className="font-bold text-lg">
+                    <h3 className="font-bold text-lg text-white">
                       {data.firstName} {data.lastName}
                     </h3>
-                    <p className="text-sm text-gray-600">{data.title}</p>
+                    <p className="text-sm text-slate-400">{data.title}</p>
                   </div>
                   <button
                     onClick={onClose}
-                    className="p-2 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0 -mt-1 -mr-1"
+                    className="p-2 rounded-full hover:bg-slate-700 transition-colors flex-shrink-0 -mt-1 -mr-1"
                   >
-                    <X className="h-5 w-5 text-gray-500" />
+                    <X className="h-5 w-5 text-slate-400" />
                   </button>
                 </div>
                 {/* Rating */}
@@ -297,12 +297,12 @@ export function MobilePreviewCard({
                 </Badge>
               )}
               {data.experienceLevel && (
-                <Badge variant="secondary" className="text-xs capitalize">
+                <Badge className="text-xs capitalize bg-slate-700 text-slate-200 border-slate-600">
                   {data.experienceLevel}
                 </Badge>
               )}
               {data.isSelfEmployed && (
-                <Badge variant="outline" className="text-xs">
+                <Badge className="text-xs bg-slate-800 text-slate-300 border border-slate-600">
                   Self-Employed
                 </Badge>
               )}
@@ -310,12 +310,12 @@ export function MobilePreviewCard({
 
             {/* Location and Salary */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <MapPin className="h-4 w-4 text-slate-500 flex-shrink-0" />
                 <span>{data.location}</span>
               </div>
               {salary && (
-                <div className="flex items-center gap-2 text-sm font-semibold text-green-600">
+                <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
                   <PoundSterling className="h-4 w-4 flex-shrink-0" />
                   <span>{salary}{data.salaryFrequency ? ` (${data.salaryFrequency})` : ""}</span>
                 </div>
@@ -325,8 +325,8 @@ export function MobilePreviewCard({
             {/* Bio */}
             {data.bio && (
               <div>
-                <h4 className="font-semibold text-sm mb-2">About</h4>
-                <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                <h4 className="font-semibold text-sm text-white mb-2">About</h4>
+                <p className="text-sm text-slate-300 whitespace-pre-line leading-relaxed">
                   {data.bio}
                 </p>
               </div>
@@ -335,10 +335,10 @@ export function MobilePreviewCard({
             {/* Skills */}
             {data.skills && data.skills.length > 0 && (
               <div>
-                <h4 className="font-semibold text-sm mb-2">Skills</h4>
+                <h4 className="font-semibold text-sm text-white mb-2">Skills</h4>
                 <div className="flex flex-wrap gap-1.5">
                   {data.skills.map((skill, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">
+                    <Badge key={idx} className="text-xs bg-slate-700 text-slate-200 border-slate-600">
                       {skill}
                     </Badge>
                   ))}
@@ -349,10 +349,10 @@ export function MobilePreviewCard({
             {/* Languages */}
             {data.spokenLanguages && data.spokenLanguages.length > 0 && (
               <div>
-                <h4 className="font-semibold text-sm mb-2">Languages</h4>
+                <h4 className="font-semibold text-sm text-white mb-2">Languages</h4>
                 <div className="flex flex-wrap gap-1.5">
                   {data.spokenLanguages.map((lang, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs">
+                    <Badge key={idx} className="text-xs bg-slate-800 text-slate-300 border border-slate-600">
                       {lang}
                     </Badge>
                   ))}
@@ -363,17 +363,17 @@ export function MobilePreviewCard({
         </div>
 
         {/* Sticky Action Buttons */}
-        <div className="absolute bottom-0 left-0 right-0 bg-white border-t px-4 py-3 flex gap-3 shadow-lg">
+        <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 flex gap-3 shadow-lg">
           <Button
             variant="outline"
-            className="flex-1 h-12"
+            className="flex-1 h-12 border-slate-600 text-slate-300 hover:bg-slate-700"
             onClick={() => onViewDetails(data.id)}
           >
             View Profile
           </Button>
           {showAction && (
             <Button
-              className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
+              className="flex-1 h-12 bg-emerald-500 hover:bg-emerald-600"
               onClick={handleActionClick}
               disabled={actionDisabled}
             >
@@ -389,13 +389,13 @@ export function MobilePreviewCard({
   // Render company expanded card
   if (data.type === "company") {
     return (
-      <div className="flex flex-col h-full bg-white animate-in slide-in-from-bottom-4 duration-300">
+      <div className="flex flex-col h-full bg-slate-900 animate-in slide-in-from-bottom-4 duration-300">
         {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto overscroll-contain pb-20">
           {/* Header */}
-          <div className="sticky top-0 bg-white z-10 px-4 pt-4 pb-3 border-b">
+          <div className="sticky top-0 bg-slate-900 z-10 px-4 pt-4 pb-3 border-b border-slate-700">
             <div className="flex items-start gap-3">
-              <Avatar className="h-16 w-16 flex-shrink-0 rounded-xl ring-2 ring-emerald-100">
+              <Avatar className="h-16 w-16 flex-shrink-0 rounded-xl ring-2 ring-slate-700">
                 <AvatarImage src={data.logoUrl} className="object-cover rounded-xl" />
                 <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-semibold text-lg rounded-xl">
                   {data.companyName?.[0] || "C"}
@@ -404,26 +404,26 @@ export function MobilePreviewCard({
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 pr-2">
-                    <h3 className="font-bold text-lg">{data.companyName}</h3>
-                    <p className="text-sm text-gray-600">{data.industry}</p>
+                    <h3 className="font-bold text-lg text-white">{data.companyName}</h3>
+                    <p className="text-sm text-slate-400">{data.industry}</p>
                   </div>
                   <button
                     onClick={onClose}
-                    className="p-2 rounded-full hover:bg-gray-100 transition-colors flex-shrink-0 -mt-1 -mr-1"
+                    className="p-2 rounded-full hover:bg-slate-700 transition-colors flex-shrink-0 -mt-1 -mr-1"
                   >
-                    <X className="h-5 w-5 text-gray-500" />
+                    <X className="h-5 w-5 text-slate-400" />
                   </button>
                 </div>
                 {/* Status badges */}
                 <div className="flex gap-1.5 mt-2">
                   {data.openForBusiness && (
-                    <Badge className="bg-green-100 text-green-700 text-xs">
+                    <Badge className="bg-emerald-900/40 text-emerald-400 border border-emerald-700/50 text-xs">
                       <CheckCircle className="h-3 w-3 mr-1" />
                       Open
                     </Badge>
                   )}
                   {data.isHiring && (
-                    <Badge className="bg-blue-100 text-blue-700 text-xs">
+                    <Badge className="bg-blue-900/40 text-blue-400 border border-blue-700/50 text-xs">
                       Hiring
                     </Badge>
                   )}
@@ -435,14 +435,14 @@ export function MobilePreviewCard({
           <div className="px-4 py-4 space-y-4">
             {/* Location */}
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <MapPin className="h-4 w-4 text-gray-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <MapPin className="h-4 w-4 text-slate-500 flex-shrink-0" />
                 <span>{data.location}</span>
               </div>
               {data.phone && (
                 <a
                   href={`tel:${data.phone}`}
-                  className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                  className="flex items-center gap-2 text-sm text-emerald-400 hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Phone className="h-4 w-4 flex-shrink-0" />
@@ -454,7 +454,7 @@ export function MobilePreviewCard({
                   href={data.websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                  className="flex items-center gap-2 text-sm text-emerald-400 hover:underline"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Globe className="h-4 w-4 flex-shrink-0" />
@@ -466,8 +466,8 @@ export function MobilePreviewCard({
             {/* Description */}
             {data.description && (
               <div>
-                <h4 className="font-semibold text-sm mb-2">About</h4>
-                <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                <h4 className="font-semibold text-sm text-white mb-2">About</h4>
+                <p className="text-sm text-slate-300 whitespace-pre-line leading-relaxed">
                   {data.description}
                 </p>
               </div>
@@ -476,10 +476,10 @@ export function MobilePreviewCard({
             {/* Services */}
             {data.services && data.services.length > 0 && (
               <div>
-                <h4 className="font-semibold text-sm mb-2">Services</h4>
+                <h4 className="font-semibold text-sm text-white mb-2">Services</h4>
                 <div className="flex flex-wrap gap-1.5">
                   {data.services.map((service, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">
+                    <Badge key={idx} className="text-xs bg-slate-700 text-slate-200 border-slate-600">
                       {service}
                     </Badge>
                   ))}
@@ -490,10 +490,10 @@ export function MobilePreviewCard({
             {/* Languages */}
             {data.spokenLanguages && data.spokenLanguages.length > 0 && (
               <div>
-                <h4 className="font-semibold text-sm mb-2">Languages</h4>
+                <h4 className="font-semibold text-sm text-white mb-2">Languages</h4>
                 <div className="flex flex-wrap gap-1.5">
                   {data.spokenLanguages.map((lang, idx) => (
-                    <Badge key={idx} variant="outline" className="text-xs">
+                    <Badge key={idx} className="text-xs bg-slate-800 text-slate-300 border border-slate-600">
                       {lang}
                     </Badge>
                   ))}
@@ -504,10 +504,10 @@ export function MobilePreviewCard({
         </div>
 
         {/* Sticky Action Buttons */}
-        <div className="absolute bottom-0 left-0 right-0 bg-white border-t px-4 py-3 flex gap-3 shadow-lg">
+        <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 flex gap-3 shadow-lg">
           <Button
             variant="outline"
-            className="flex-1 h-12"
+            className="flex-1 h-12 border-slate-600 text-slate-300 hover:bg-slate-700"
             onClick={() => onViewDetails(data.id)}
           >
             <Building className="h-4 w-4 mr-2" />
@@ -515,7 +515,7 @@ export function MobilePreviewCard({
           </Button>
           {showAction && (
             <Button
-              className="flex-1 h-12 bg-blue-600 hover:bg-blue-700"
+              className="flex-1 h-12 bg-emerald-500 hover:bg-emerald-600"
               onClick={handleActionClick}
               disabled={actionDisabled}
             >

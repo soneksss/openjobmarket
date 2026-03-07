@@ -85,9 +85,10 @@ interface ProfessionalDetailViewProps {
   user: User | null
   userType: "professional" | "company" | "contractor" | "homeowner" | null
   isModal?: boolean
+  onSignUpPrompt?: () => void
 }
 
-export default function ProfessionalDetailView({ professional, user, userType, isModal = false }: ProfessionalDetailViewProps) {
+export default function ProfessionalDetailView({ professional, user, userType, isModal = false, onSignUpPrompt }: ProfessionalDetailViewProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -177,7 +178,11 @@ export default function ProfessionalDetailView({ professional, user, userType, i
 
   const handleContact = () => {
     if (!user) {
-      router.push("/auth/login")
+      if (onSignUpPrompt) {
+        onSignUpPrompt()
+      } else {
+        router.push("/signup")
+      }
       return
     }
 
@@ -204,9 +209,197 @@ export default function ProfessionalDetailView({ professional, user, userType, i
   const displayName = professional.nickname || `${professional.first_name || ''}${professional.last_name ? ' ' + professional.last_name.charAt(0) + '.' : ''}`
   const salaryDisplay = formatSalary(professional.salary_min, professional.salary_max)
 
+  // Premium dark layout when opened from modal map
+  if (isModal) {
+    const langsToShow: string[] = professional.languages || (professional as any).spoken_languages || []
+    const canContactModal = userType === "company" || userType === "contractor"
+
+    return (
+      <div className="bg-slate-900 text-white rounded-lg overflow-hidden">
+        {/* Gradient Hero */}
+        <div className="bg-gradient-to-br from-blue-950 via-slate-800 to-slate-900 px-5 pt-5 pb-4">
+          <div className="flex items-start gap-3">
+            <Avatar className="h-16 w-16 ring-2 ring-blue-500/40 flex-shrink-0">
+              <AvatarImage src={professional.profile_photo_url} alt={displayName} />
+              <AvatarFallback className="bg-blue-900 text-blue-200 font-bold text-xl">
+                {professional.first_name?.charAt(0) || ''}{professional.last_name?.charAt(0) || ''}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-bold text-white">{displayName}</h2>
+                {premiumStatus.isPremium && (
+                  <span className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-400 to-yellow-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                    <Crown className="h-2.5 w-2.5" />PREMIUM
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-slate-300 mt-0.5 font-medium">{professional.title}</p>
+              <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                <MapPin className="h-3 w-3 flex-shrink-0" />{professional.location}
+              </p>
+              <div className="mt-1.5">
+                <RatingDisplay rating={professional.average_rating || 0} reviewsCount={professional.reviews_count || 0} size="sm" />
+              </div>
+            </div>
+            {isOwnProfile && (
+              <Button size="sm" variant="ghost" onClick={handleEditProfile} className="text-slate-400 hover:text-white shrink-0">Edit</Button>
+            )}
+          </div>
+
+          {/* Status badges */}
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full capitalize">{professional.experience_level}</span>
+            {professional.is_self_employed && (
+              <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">Self-Employed</span>
+            )}
+            {professional.actively_looking && (
+              <span className="inline-flex items-center gap-1 text-xs bg-emerald-800/60 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
+                <CheckCircle className="h-2.5 w-2.5" />Actively Looking
+              </span>
+            )}
+            {!professional.actively_looking && professional.available_for_work && (
+              <span className="inline-flex items-center gap-1 text-xs bg-green-800/60 text-green-300 border border-green-700/50 px-2 py-0.5 rounded-full">
+                <CheckCircle className="h-2.5 w-2.5" />Available
+              </span>
+            )}
+            {salaryDisplay && (
+              <span className="text-xs font-semibold text-emerald-400 bg-emerald-900/40 border border-emerald-700/40 px-2 py-0.5 rounded-full">
+                {salaryDisplay}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-4 py-4 space-y-4">
+          {professional.bio && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">About</p>
+              <p className="text-sm text-slate-300 leading-relaxed">{professional.bio}</p>
+            </div>
+          )}
+
+          {professional.skills && professional.skills.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Skills</p>
+              <div className="flex flex-wrap gap-1">
+                {professional.skills.map((skill, i) => (
+                  <span key={i} className="text-xs bg-slate-800 text-slate-200 border border-slate-700 px-2 py-0.5 rounded-md">{skill}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {langsToShow.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Languages</p>
+              <div className="flex flex-wrap gap-1">
+                {langsToShow.map((lang: string, i: number) => (
+                  <span key={i} className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-md">{lang}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Info grid */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/50">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Employment</p>
+              <p className="text-xs text-white font-medium">{professional.is_self_employed ? "Self-Employed" : "Employed"}</p>
+            </div>
+            <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/50">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Availability</p>
+              <p className={`text-xs font-medium ${professional.available_for_work ? 'text-emerald-400' : 'text-red-400'}`}>
+                {professional.available_for_work ? (professional.availability ? formatAvailability(professional.availability) : 'Available') : 'Not Available'}
+              </p>
+            </div>
+            {professional.has_driving_licence && (
+              <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/50 flex items-center gap-2">
+                <CheckCircle className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                <p className="text-xs text-emerald-300 font-medium">Driving Licence</p>
+              </div>
+            )}
+            {professional.has_own_transport && (
+              <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/50 flex items-center gap-2">
+                <Car className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                <p className="text-xs text-emerald-300 font-medium">Own Transport</p>
+              </div>
+            )}
+            {professional.ready_to_relocate && (
+              <div className="bg-slate-800/80 rounded-xl p-3 border border-slate-700/50 flex items-center gap-2">
+                <TrendingUp className="h-3.5 w-3.5 text-blue-400 flex-shrink-0" />
+                <p className="text-xs text-blue-300 font-medium">Ready to Relocate</p>
+              </div>
+            )}
+          </div>
+
+          {/* Links */}
+          {(professional.portfolio_url || professional.linkedin_url || professional.github_url || professional.website_url || professional.cv_url) && (
+            <div className="flex flex-wrap gap-1.5">
+              {professional.cv_url && (
+                <a href={professional.cv_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-blue-300 hover:text-blue-200 bg-slate-800 border border-slate-700 hover:border-blue-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <FileText className="h-3 w-3" />CV
+                </a>
+              )}
+              {professional.portfolio_url && (
+                <a href={professional.portfolio_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-blue-300 hover:text-blue-200 bg-slate-800 border border-slate-700 hover:border-blue-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <ExternalLink className="h-3 w-3" />Portfolio
+                </a>
+              )}
+              {professional.linkedin_url && (
+                <a href={professional.linkedin_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-blue-300 hover:text-blue-200 bg-slate-800 border border-slate-700 hover:border-blue-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <Linkedin className="h-3 w-3" />LinkedIn
+                </a>
+              )}
+              {professional.github_url && (
+                <a href={professional.github_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-blue-300 hover:text-blue-200 bg-slate-800 border border-slate-700 hover:border-blue-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <Github className="h-3 w-3" />GitHub
+                </a>
+              )}
+              {professional.website_url && (
+                <a href={professional.website_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-blue-300 hover:text-blue-200 bg-slate-800 border border-slate-700 hover:border-blue-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <Globe className="h-3 w-3" />Website
+                </a>
+              )}
+            </div>
+          )}
+
+          {/* Contact Button */}
+          {!isOwnProfile && (
+            <button
+              onClick={handleContact}
+              disabled={!!user && !canContactModal}
+              className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {user
+                ? canContactModal ? (userType === "company" ? "Send Inquiry" : "Send Message") : "Contact Restricted"
+                : "Sign Up to Contact"}
+            </button>
+          )}
+
+          {user && !isOwnProfile && !canContactModal && (
+            <p className="text-xs text-slate-500 text-center">Only employers and tradespeople can contact professionals</p>
+          )}
+        </div>
+
+        {showMessageModal && (
+          <MessageModal
+            isOpen={showMessageModal}
+            onClose={() => setShowMessageModal(false)}
+            professionalId={professional.id}
+            professionalName={`${professional.first_name || ''}${professional.last_name ? ' ' + professional.last_name : ''}`}
+            user={user}
+          />
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={isModal ? "" : "min-h-screen bg-background"}>
-      <div className={isModal ? "" : "container mx-auto px-4 py-6"}>
+      <div className={isModal ? "" : "max-w-7xl mx-auto px-4 py-6 lg:px-8"}>
         {/* Header with back button */}
         {!isModal && (
           <div className="flex items-center gap-4 mb-6">
@@ -223,7 +416,7 @@ export default function ProfessionalDetailView({ professional, user, userType, i
           </div>
         )}
 
-        <div className={isModal ? "grid md:grid-cols-3 gap-4" : "grid lg:grid-cols-3 gap-8"}>
+        <div className={isModal ? "grid md:grid-cols-3 gap-4" : "grid md:grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8"}>
           {/* Main Profile Card */}
           <div className={isModal ? "md:col-span-2 space-y-4" : "lg:col-span-2 space-y-6"}>
             <Card className={isModal ? "shadow-sm" : ""}>
@@ -477,7 +670,7 @@ export default function ProfessionalDetailView({ professional, user, userType, i
                     </>
                   ) : (
                     <Button
-                      onClick={() => router.push("/auth/login")}
+                      onClick={handleContact}
                       className="w-full bg-blue-600 hover:bg-blue-700"
                     >
                       <MessageCircle className="h-4 w-4 mr-2" />

@@ -1,6 +1,6 @@
 import { Suspense } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { CreditCard, UserCheck, Users, Briefcase, Wrench, Home, Building2 } from "lucide-react"
+import { CreditCard, UserCheck, Users, Briefcase, Wrench, Home, Building2, ThumbsUp, ThumbsDown, MessageSquare } from "lucide-react"
 import { getAdminUser } from "@/lib/admin-auth"
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
@@ -96,8 +96,94 @@ async function StatsCards() {
     totalUsers: totalUsersResult.count || 0
   }
 
+  // Fetch feedback stats
+  const [likesResult, dislikesResult, feedbackMessagesResult] = await Promise.all([
+    supabase
+      .from('app_feedback')
+      .select('id', { count: 'exact', head: true })
+      .eq('feedback_type', 'like'),
+    supabase
+      .from('app_feedback')
+      .select('id', { count: 'exact', head: true })
+      .eq('feedback_type', 'dislike'),
+    supabase
+      .from('app_feedback')
+      .select('*')
+      .not('message', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(20)
+  ])
+
+  const feedbackStats = {
+    likes: likesResult.count || 0,
+    dislikes: dislikesResult.count || 0,
+    messages: feedbackMessagesResult.data || []
+  }
+
   return (
     <div className="space-y-6">
+      {/* Feedback Card - Top Priority */}
+      <Card className="border-l-4 border-l-purple-500">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-purple-500" />
+              User Feedback
+            </CardTitle>
+            <div className="flex items-center gap-4 text-sm">
+              <div className="flex items-center gap-1.5">
+                <ThumbsUp className="h-4 w-4 text-emerald-500" />
+                <span className="font-semibold text-emerald-600">{feedbackStats.likes}</span>
+                <span className="text-muted-foreground">likes</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <ThumbsDown className="h-4 w-4 text-red-500" />
+                <span className="font-semibold text-red-600">{feedbackStats.dislikes}</span>
+                <span className="text-muted-foreground">dislikes</span>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {feedbackStats.messages.length > 0 ? (
+            <div className="max-h-48 overflow-y-auto space-y-2">
+              {feedbackStats.messages.map((feedback: any) => (
+                <div
+                  key={feedback.id}
+                  className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 flex-1">
+                      "{feedback.message}"
+                    </p>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      feedback.feedback_type === 'like'
+                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                        : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                    }`}>
+                      {feedback.feedback_type}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {new Date(feedback.created_at).toLocaleDateString('en-GB', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No feedback messages yet. User feedback will appear here.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Main Stats Row */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>

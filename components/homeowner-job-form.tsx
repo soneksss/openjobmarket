@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/select"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
-import { Loader2, Briefcase, Calendar } from "lucide-react"
+import { Loader2, Briefcase, Calendar, ArrowLeft, Zap, Clock } from "lucide-react"
+import { UrgentJobSearch } from "@/components/urgent-job-search"
 
 interface HomeownerJobFormProps {
   userId: string
@@ -39,6 +40,8 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showUrgentSearch, setShowUrgentSearch] = useState(false)
+  const [postedJobId, setPostedJobId] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
     title: "",
@@ -79,23 +82,62 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
       const expiryDate = new Date()
       expiryDate.setDate(expiryDate.getDate() + 7)
 
-      const jobData = {
-        homeowner_id: userId,
+      // Determine if this is an urgent job (ASAP or Today)
+      const isUrgentJob = formData.urgency === "asap" || formData.urgency === "today"
+      const defaultRadius = formData.urgency === "asap" ? 5 : 10 // Smaller radius for ASAP
+
+      // Insert into 'jobs' table (consistent with homeowner dashboard)
+      // Use profile.id (homeowner_profile.id) for the foreign key
+      const jobData: Record<string, any> = {
+        homeowner_id: profile.id,
         title: formData.title,
         description: formData.description,
-        category: formData.category,
-        budget_min: formData.budgetMin ? parseInt(formData.budgetMin) : null,
-        budget_max: formData.budgetMax ? parseInt(formData.budgetMax) : null,
+        short_description: formData.description.substring(0, 200), // Auto-generate short description
         location: formData.location,
-        urgency: formData.urgency,
-        status: "open",
+        // Map budget fields to salary fields (jobs table uses salary_min/max)
+        salary_min: formData.budgetMin ? parseInt(formData.budgetMin) : null,
+        salary_max: formData.budgetMax ? parseInt(formData.budgetMax) : null,
+        // Mark as tradespeople job (homeowner looking for services)
+        is_tradespeople_job: true,
         is_active: true,
         expires_at: expiryDate.toISOString(),
       }
 
-      const { error: insertError } = await supabase
-        .from("homeowner_jobs")
+      // Try to add urgent job fields if supported (columns may not exist yet)
+      if (isUrgentJob) {
+        jobData.urgency_type = formData.urgency
+        jobData.search_radius_miles = defaultRadius
+        jobData.search_state = "active_search"
+      }
+
+      let insertedJob: { id: string } | null = null
+      let insertError: any = null
+
+      // First attempt with all fields into 'jobs' table
+      const result1 = await supabase
+        .from("jobs")
         .insert(jobData)
+        .select("id")
+        .single()
+
+      if (result1.error) {
+        // If error mentions unknown column, retry without urgent-specific fields
+        if (result1.error.message?.includes("column") || result1.error.code === "42703") {
+          console.log("[HOMEOWNER-JOB-FORM] Retrying without urgent columns...")
+          const { urgency_type, search_radius_miles, search_state, ...baseJobData } = jobData
+          const result2 = await supabase
+            .from("jobs")
+            .insert(baseJobData)
+            .select("id")
+            .single()
+          insertedJob = result2.data
+          insertError = result2.error
+        } else {
+          insertError = result1.error
+        }
+      } else {
+        insertedJob = result1.data
+      }
 
       if (insertError) {
         clearTimeout(timeoutId)
@@ -103,24 +145,35 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
         throw insertError
       }
 
-      console.log("[HOMEOWNER-JOB-FORM] Job posted successfully")
+      console.log("[HOMEOWNER-JOB-FORM] Job posted successfully", insertedJob)
       clearTimeout(timeoutId)
 
-      // Reset loading before redirect
+      // Reset loading before redirect/showing urgent search
       setIsLoading(false)
 
-      // Redirect to homeowner dashboard with error handling
-      console.log("[HOMEOWNER-JOB-FORM] Redirecting to dashboard...")
+      // If urgent job (ASAP/Today), show the urgent search overlay
+      if (isUrgentJob && insertedJob?.id) {
+        setPostedJobId(insertedJob.id)
+        setShowUrgentSearch(true)
+        return
+      }
 
-      setTimeout(() => {
+      // For flexible/normal jobs, redirect to job details page immediately
+      // This shows "Waiting for applications" status
+      console.log("[HOMEOWNER-JOB-FORM] Redirecting to job details page...")
+
+      if (insertedJob?.id) {
         try {
-          router.push("/dashboard/homeowner")
+          router.push(`/dashboard/homeowner/jobs/${insertedJob.id}`)
         } catch (pushError) {
           console.error("[HOMEOWNER-JOB-FORM] Router push failed:", pushError)
           // Fallback to direct navigation
-          window.location.href = "/dashboard/homeowner"
+          window.location.href = `/dashboard/homeowner/jobs/${insertedJob.id}`
         }
-      }, 1000)
+      } else {
+        // Fallback if no job ID (shouldn't happen)
+        router.push("/dashboard/homeowner")
+      }
     } catch (err: any) {
       clearTimeout(timeoutId)
       console.error("[HOMEOWNER-JOB-FORM] Job posting error:", err)
@@ -135,9 +188,24 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
   }
 
   return (
-    <div className="container mx-auto px-4 py-12 max-w-2xl">
-      <Card className="p-8">
-        <div className="mb-8">
+    <div className="container mx-auto px-4 py-6 md:py-12 max-w-2xl pb-24 md:pb-12">
+      {/* Mobile Header */}
+      <div className="flex items-center gap-3 mb-6 md:hidden">
+        <button
+          onClick={() => router.back()}
+          className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Briefcase className="w-5 h-5 text-emerald-400" />
+          Post a Task
+        </h1>
+      </div>
+
+      <Card className="p-4 md:p-8 bg-slate-800 md:bg-white border-slate-700/50 md:border-gray-200">
+        {/* Desktop Header */}
+        <div className="mb-6 md:mb-8 hidden md:block">
           <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center">
             <Briefcase className="w-8 h-8 mr-3 text-blue-600" />
             Post a Task
@@ -147,35 +215,45 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
           </p>
         </div>
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 flex items-start">
-          <Calendar className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-blue-800">
-            <p className="font-medium mb-1">Auto-expires in 7 days</p>
+        {/* Mobile description */}
+        <p className="text-sm text-slate-400 mb-4 md:hidden">
+          Describe the job you need help with and local contractors will be able to see it
+        </p>
+
+        <div className="bg-emerald-500/20 md:bg-blue-50 border border-emerald-500/30 md:border-blue-200 rounded-xl p-4 mb-6 flex items-start">
+          <Calendar className="w-5 h-5 text-emerald-400 md:text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-emerald-200 md:text-blue-800">
+            <p className="font-medium mb-1 text-emerald-300 md:text-blue-900">Auto-expires in 7 days</p>
             <p>Your task will automatically expire after 7 days to keep listings fresh. You can post again anytime.</p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5 md:space-y-6">
           <div>
-            <Label htmlFor="title">Task Title *</Label>
+            <Label htmlFor="title" className="text-white md:text-gray-900">Task Title *</Label>
             <Input
               id="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="e.g., Fix leaking kitchen tap"
               required
+              className="mt-1.5 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400 focus:ring-emerald-500 md:focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <Label htmlFor="category">Category *</Label>
+            <Label htmlFor="category" className="text-white md:text-gray-900">Category *</Label>
             <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
-              <SelectTrigger>
+              <SelectTrigger className="mt-1.5 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-slate-800 md:bg-white border-slate-700 md:border-gray-200">
                 {CATEGORIES.map((category) => (
-                  <SelectItem key={category} value={category}>
+                  <SelectItem
+                    key={category}
+                    value={category}
+                    className="text-slate-200 md:text-gray-900 hover:bg-slate-700 md:hover:bg-gray-100 focus:bg-slate-700 md:focus:bg-gray-100"
+                  >
                     {category}
                   </SelectItem>
                 ))}
@@ -184,7 +262,7 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
           </div>
 
           <div>
-            <Label htmlFor="description">Description *</Label>
+            <Label htmlFor="description" className="text-white md:text-gray-900">Description *</Label>
             <Textarea
               id="description"
               value={formData.description}
@@ -192,73 +270,121 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
               placeholder="Describe the task in detail... What needs to be done? Any specific requirements?"
               rows={5}
               required
+              className="mt-1.5 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400 focus:ring-emerald-500 md:focus:ring-blue-500"
             />
           </div>
 
           <div>
-            <Label htmlFor="location">Location *</Label>
+            <Label htmlFor="location" className="text-white md:text-gray-900">Location *</Label>
             <Input
               id="location"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
               placeholder="e.g., London, UK"
               required
+              className="mt-1.5 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400 focus:ring-emerald-500 md:focus:ring-blue-500"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
             <div>
-              <Label htmlFor="budgetMin">Min Budget (£)</Label>
+              <Label htmlFor="budgetMin" className="text-white md:text-gray-900">Min Budget (£)</Label>
               <Input
                 id="budgetMin"
                 type="number"
                 value={formData.budgetMin}
                 onChange={(e) => setFormData({ ...formData, budgetMin: e.target.value })}
                 placeholder="50"
+                className="mt-1.5 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400 focus:ring-emerald-500 md:focus:ring-blue-500"
               />
             </div>
             <div>
-              <Label htmlFor="budgetMax">Max Budget (£)</Label>
+              <Label htmlFor="budgetMax" className="text-white md:text-gray-900">Max Budget (£)</Label>
               <Input
                 id="budgetMax"
                 type="number"
                 value={formData.budgetMax}
                 onChange={(e) => setFormData({ ...formData, budgetMax: e.target.value })}
                 placeholder="150"
+                className="mt-1.5 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400 focus:ring-emerald-500 md:focus:ring-blue-500"
               />
             </div>
           </div>
 
           <div>
-            <Label htmlFor="urgency">Urgency *</Label>
+            <Label htmlFor="urgency" className="text-white md:text-gray-900">When do you need this done? *</Label>
             <Select value={formData.urgency} onValueChange={(value) => setFormData({ ...formData, urgency: value })}>
-              <SelectTrigger>
+              <SelectTrigger className="mt-1.5 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="flexible">Flexible - No rush</SelectItem>
-                <SelectItem value="normal">Normal - Within a week</SelectItem>
-                <SelectItem value="urgent">Urgent - ASAP</SelectItem>
+              <SelectContent className="bg-slate-800 md:bg-white border-slate-700 md:border-gray-200">
+                <SelectItem
+                  value="asap"
+                  className="text-slate-200 md:text-gray-900 hover:bg-slate-700 md:hover:bg-gray-100 focus:bg-slate-700 md:focus:bg-gray-100"
+                >
+                  <span className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-red-400" />
+                    ASAP - Within 10 minutes
+                  </span>
+                </SelectItem>
+                <SelectItem
+                  value="today"
+                  className="text-slate-200 md:text-gray-900 hover:bg-slate-700 md:hover:bg-gray-100 focus:bg-slate-700 md:focus:bg-gray-100"
+                >
+                  <span className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    Today - Within 1-3 hours
+                  </span>
+                </SelectItem>
+                <SelectItem
+                  value="normal"
+                  className="text-slate-200 md:text-gray-900 hover:bg-slate-700 md:hover:bg-gray-100 focus:bg-slate-700 md:focus:bg-gray-100"
+                >
+                  This week - Within a few days
+                </SelectItem>
+                <SelectItem
+                  value="flexible"
+                  className="text-slate-200 md:text-gray-900 hover:bg-slate-700 md:hover:bg-gray-100 focus:bg-slate-700 md:focus:bg-gray-100"
+                >
+                  Flexible - 1-7 days
+                </SelectItem>
               </SelectContent>
             </Select>
+            {formData.urgency === "asap" && (
+              <p className="mt-2 text-sm text-red-400 md:text-red-600">
+                <Zap className="w-3 h-3 inline mr-1" />
+                Emergency mode: First tradesperson to respond can accept immediately. Auto-expands to "Today" after 10 minutes if no response.
+              </p>
+            )}
+            {formData.urgency === "today" && (
+              <p className="mt-2 text-sm text-amber-400 md:text-amber-600">
+                <Clock className="w-3 h-3 inline mr-1" />
+                Same-day mode: Get multiple quotes within 1-3 hours and choose the best fit.
+              </p>
+            )}
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+            <div className="bg-red-500/20 md:bg-red-50 border border-red-500/30 md:border-red-200 text-red-400 md:text-red-700 px-4 py-3 rounded-xl text-sm">
               {error}
             </div>
           )}
 
-          <div className="flex space-x-4">
+          <div className="flex space-x-3 md:space-x-4 pt-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => router.back()}
-              className="flex-1"
+              className="flex-1 border-slate-600 md:border-gray-300 text-slate-300 md:text-gray-700 hover:bg-slate-700 md:hover:bg-gray-100 hover:text-white md:hover:text-gray-900"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading} className="flex-1" size="lg">
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 bg-emerald-600 md:bg-blue-600 hover:bg-emerald-700 md:hover:bg-blue-700 text-white"
+              size="lg"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
@@ -271,6 +397,34 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
           </div>
         </form>
       </Card>
+
+      {/* Urgent Job Search Overlay */}
+      {showUrgentSearch && postedJobId && (
+        <UrgentJobSearch
+          jobId={postedJobId}
+          jobTitle={formData.title}
+          urgencyType={formData.urgency as "asap" | "today"}
+          initialRadius={formData.urgency === "asap" ? 5 : 10}
+          location={formData.location}
+          onClose={() => {
+            setShowUrgentSearch(false)
+            router.push("/dashboard/homeowner")
+          }}
+          onConvertToStandard={async () => {
+            // Update the job to remove urgent search flags
+            const supabase = createClient()
+            await supabase
+              .from("jobs")
+              .update({
+                urgency_type: null,
+                search_state: null,
+              })
+              .eq("id", postedJobId)
+            setShowUrgentSearch(false)
+            router.push("/dashboard/homeowner")
+          }}
+        />
+      )}
     </div>
   )
 }

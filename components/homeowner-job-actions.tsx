@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Trash2, Edit, Clock, Eye, EyeOff, Calendar, Camera, Upload, X as XIcon } from "lucide-react"
+import { Trash2, Edit, Clock, Eye, EyeOff, Calendar, Camera, Upload, X as XIcon, Play } from "lucide-react"
 import { createClient } from "@/lib/client"
 import {
   AlertDialog,
@@ -34,6 +34,8 @@ interface HomeownerJobActionsProps {
   jobTitle: string
   isActive: boolean
   expiresAt: string | null
+  jobStatus?: string
+  isFlexibleJob?: boolean
   currentJob: {
     title: string
     description: string
@@ -55,6 +57,8 @@ export function HomeownerJobActions({
   jobTitle,
   isActive,
   expiresAt,
+  jobStatus,
+  isFlexibleJob,
   currentJob,
 }: HomeownerJobActionsProps) {
   const router = useRouter()
@@ -62,6 +66,8 @@ export function HomeownerJobActions({
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
+  const [isMarkingInProgress, setIsMarkingInProgress] = useState(false)
+  const [localStatus, setLocalStatus] = useState(jobStatus)
   const [isExtending, setIsExtending] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -191,6 +197,24 @@ export function HomeownerJobActions({
     setJobPhoto(null)
     setJobPhotoUrl(null)
     setPhotoChanged(true)
+  }
+
+  const handleMarkInProgress = async () => {
+    setIsMarkingInProgress(true)
+    try {
+      const { error } = await supabase.rpc('mark_flexible_in_progress', { p_job_id: jobId })
+      if (error) throw error
+      setLocalStatus('ACTIVE')
+      toast({ title: "Job marked as in progress" })
+    } catch (error: any) {
+      toast({
+        title: "Failed to update status",
+        description: error.message,
+        variant: "destructive",
+      })
+    } finally {
+      setIsMarkingInProgress(false)
+    }
   }
 
   const handleDelete = async () => {
@@ -412,6 +436,19 @@ export function HomeownerJobActions({
 
   return (
     <div className="flex flex-wrap gap-3">
+      {/* Mark In Progress — flexible jobs only, while still POSTED */}
+      {isFlexibleJob && localStatus === 'POSTED' && (
+        <Button
+          onClick={handleMarkInProgress}
+          disabled={isMarkingInProgress}
+          variant="outline"
+          className="border-purple-500/50 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/30"
+        >
+          <Play className="w-4 h-4 mr-2" />
+          {isMarkingInProgress ? "Updating..." : "Mark as in progress"}
+        </Button>
+      )}
+
       {/* Edit Button */}
       <Button onClick={() => setShowEditDialog(true)} variant="outline">
         <Edit className="w-4 h-4 mr-2" />

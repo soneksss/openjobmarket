@@ -126,6 +126,9 @@ export const ptBR: Dictionary = {
     apps: 'candidaturas',
     views: 'visualizações',
     viewJob: 'Ver Vaga',
+    apply: 'Candidatar',
+    applied: 'Candidatado',
+    message: 'Mensagem',
     latestVacancies: 'Últimas vagas que você publicou (últimas 5)',
     jobsAppliedTo: 'Vagas às quais você se candidatou (últimas 5)',
     findJobs: 'Encontre vagas ou deixe empregadores te encontrarem...',
@@ -208,9 +211,9 @@ export const ptBR: Dictionary = {
     whoAreYou: 'Como você está se cadastrando?',
     chooseAccountType: 'Escolha o tipo de conta que melhor te descreve',
     individual: 'Pessoa Física',
-    individualDesc: 'Para quem procura emprego e proprietários em busca de serviços',
+    individualDesc: 'Publique Vagas/Tarefas ou Busque por Oportunidades',
     company: 'Empresa / Negócio',
-    companyDesc: 'Para empregadores e empresas de serviços',
+    companyDesc: 'Busque por Empregos, Publique Vagas, Publique Oportunidades',
     selected: 'Selecionado',
     // Step 2A - Individual
     whatToDo: 'O que você gostaria de fazer no Open Job Market?',
@@ -673,6 +676,13 @@ export const ptBR: Dictionary = {
     tradeJobs: 'Trabalhos',
     tradespeople: 'Profissionais',
     talents: 'Talentos',
+    jobseekers: 'Candidatos',
+
+    // Dynamic Headlines for each tab
+    titleTradespeople: 'Pesquise e Compare Profissionais Locais',
+    titleTradeJobs: 'Pesquise e candidate-se a trabalhos locais',
+    titleVacancies: 'Explore Vagas disponíveis perto de você',
+    titleJobseekers: 'Encontre candidatos ativos buscando novas oportunidades',
 
     // Actions
     search: 'Buscar',

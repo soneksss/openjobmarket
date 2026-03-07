@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info, Lightbulb } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
 import { NotificationBell } from "@/components/notification-bell"
 import { useRouter, usePathname } from "next/navigation"
@@ -33,9 +33,11 @@ interface HeaderProps {
   showProfessionalsPageButtons?: boolean
   isModal?: boolean
   onModalClose?: () => void
+  /** When true: black background, logo centred, nav/auth on sides */
+  dark?: boolean
 }
 
-export function Header({ user, userType, showAuth = true, onSignOut, profilePhotoUrl, showProfessionalsPageButtons = false, isModal = false, onModalClose }: HeaderProps) {
+export function Header({ user, userType, showAuth = true, onSignOut, profilePhotoUrl, showProfessionalsPageButtons = false, isModal = false, onModalClose, dark = false }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { t, locale } = useTranslation()
@@ -224,56 +226,70 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
     }
   }
 
+  // ─── Logo click handler (shared) ─────────────────────────────────────────
+  const handleLogoClick = () => {
+    if (isModal && onModalClose) { onModalClose(); return }
+    const targetUrl = getLocalePath("/")
+    if (pathname === targetUrl) return
+    router.push(targetUrl)
+  }
+
+  const logoEl = (
+    <div
+      onClick={handleLogoClick}
+      className="cursor-pointer rounded-2xl overflow-hidden shadow-lg ring-1 ring-white/10 hover:opacity-90 hover:shadow-xl hover:scale-[1.03] transition-all duration-200"
+    >
+      <Image
+        src="/Logo.png"
+        alt="Open Job Market"
+        width={180}
+        height={40}
+        className="h-10 w-auto block"
+        style={{ width: "auto" }}
+        priority
+      />
+    </div>
+  )
+
+  // ─── Header: dark slate bg on mobile home page, default everywhere else ─────
   return (
-    <header className="border-b bg-background">
+    <header className={`border-b ${dark ? "bg-slate-900 border-slate-700/50 md:bg-background md:border-border" : "bg-background"}`}>
       <div className="container mx-auto px-2 py-1">
+
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-2">
-            <div
-              onClick={() => {
-                // If in modal mode, close the modal instead of navigating
-                if (isModal && onModalClose) {
-                  onModalClose()
-                  return
-                }
+            {logoEl}
 
-                // Determine target URL based on multiple factors
-                const serverUserType = userType
-                const effectiveUserType = serverUserType || currentUserType
-                const hasUser = user || clientUser
-
-                // Always redirect to homepage (unified search page) for all users
-                let targetUrl = getLocalePath("/")
-
-                // Don't redirect if already on the target page
-                if (pathname === targetUrl || (targetUrl === "/" && pathname === "/")) {
-                  return
-                }
-
-                router.push(targetUrl)
-              }}
-              className="hover:opacity-80 transition-opacity cursor-pointer flex items-center"
-            >
-              <Image
-                src="/Logo.png"
-                alt="Open Job Market"
-                width={100}
-                height={32}
-                className="h-8 w-auto max-h-8 flex-shrink-0"
-                style={{ width: 'auto' }}
-                priority
-              />
+            {/* Help Icon Dropdown - Mobile only */}
+            <div className="md:hidden">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className={`p-2 ${dark ? "text-slate-200 hover:text-white hover:bg-white/10" : ""}`}>
+                    <HelpCircle className="h-9 w-9" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48 z-[100]">
+                  <DropdownMenuItem asChild>
+                    <Link href={getLocalePath("/about")} className="flex items-center">
+                      <Info className="h-4 w-4 mr-2" />
+                      {t('header.about')}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={getLocalePath("/useful-info")} className="flex items-center">
+                      <Lightbulb className="h-4 w-4 mr-2" />
+                      {t('header.usefulInfo')}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href={getLocalePath("/help")} className="flex items-center">
+                      <HelpCircle className="h-4 w-4 mr-2" />
+                      {t('header.help')}
+                    </Link>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-
-            {/* Mobile Hamburger Menu Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="md:hidden p-2"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
 
             <nav className="hidden md:flex items-center space-x-2">
               <Link href={getLocalePath("/about")}>
@@ -336,23 +352,20 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                   <span className="text-sm text-muted-foreground">{t('header.loading')}</span>
                 </div>
               ) : currentUser ? (
-                <div className="flex items-center space-x-2 sm:space-x-4">
-                  {/* Dashboard Button - Home icon on mobile, Button on desktop */}
-                  <Link
-                    href={getLocalePath("/dashboard")}
-                    className="sm:hidden"
-                  >
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Home className="h-5 w-5 text-green-600" />
+                <>
+                  {/* Mobile: Notification Bell only */}
+                  <div className="flex md:hidden items-center gap-2">
+                    <NotificationBell iconClassName="h-9 w-9" />
+                  </div>
+                  {/* Desktop: Full navigation */}
+                  <div className="hidden md:flex items-center space-x-4">
+                    <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-xs">
+                      <Link href={getLocalePath("/dashboard")}>{t('header.dashboard')}</Link>
                     </Button>
-                  </Link>
-                  <Button asChild size="sm" className="hidden sm:inline-flex bg-green-600 hover:bg-green-700 text-xs">
-                    <Link href={getLocalePath("/dashboard")}>{t('header.dashboard')}</Link>
-                  </Button>
-                  {/* Message Icon */}
-                  <MessageIcon user={currentUser} />
-                  {/* Notification Bell */}
-                  <NotificationBell />
+                    {/* Message Icon */}
+                    <MessageIcon user={currentUser} />
+                    {/* Notification Bell */}
+                    <NotificationBell />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
@@ -622,13 +635,14 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
+                </>
               ) : (
                 <div className="flex items-center space-x-1 sm:space-x-2">
                   <Link href={loginUrl}>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 bg-transparent"
+                      className={`text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 bg-transparent ${dark ? "border-slate-500 text-slate-200 hover:bg-white/10 hover:text-white md:border-input md:text-foreground md:hover:bg-accent" : ""}`}
                     >
                       {t('header.signIn')}
                     </Button>

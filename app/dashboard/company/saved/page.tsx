@@ -122,61 +122,62 @@ export default async function CompanySavedJobsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-slate-900 pb-20 md:pb-6">
+      <div className="container mx-auto px-4 py-6 max-w-2xl">
         {/* Header */}
-        <div className="mb-8">
+        <div className="flex items-center justify-between mb-6">
           <Button
             variant="ghost"
-            className="mb-4"
+            size="sm"
+            className="text-slate-300 hover:text-white hover:bg-slate-800"
             asChild
           >
             <Link href="/dashboard/company">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
+              Back
             </Link>
           </Button>
+          <h1 className="text-lg font-semibold text-white flex items-center gap-2">
+            <BookmarkIcon className="h-5 w-5 text-emerald-400 fill-emerald-400" />
+            Saved Jobs
+          </h1>
+          <div className="w-16" /> {/* Spacer for centering */}
+        </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-600 p-3 rounded-lg">
-                <BookmarkIcon className="h-6 w-6 text-white fill-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Saved Jobs</h1>
-                <p className="text-gray-600">
-                  {savedJobs.length} active {savedJobs.length === 1 ? 'job' : 'jobs'} saved
-                </p>
-              </div>
-            </div>
-            <Button asChild>
-              <Link href="/tasks">
-                <Briefcase className="h-4 w-4 mr-2" />
-                Browse More Jobs
-              </Link>
-            </Button>
-          </div>
+        {/* Count Badge */}
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-sm text-slate-400">
+            {savedJobs.length} {savedJobs.length === 1 ? 'job' : 'jobs'} saved
+          </p>
+          <Button
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            asChild
+          >
+            <Link href="/?tab=jobs_tasks&autoSearch=true">
+              <Briefcase className="h-4 w-4 mr-1.5" />
+              Browse Jobs
+            </Link>
+          </Button>
         </div>
 
         {/* Jobs List */}
         {savedJobs.length === 0 ? (
-          <Card className="border-2 border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <BookmarkIcon className="h-16 w-16 text-gray-400 mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">No Saved Jobs</h2>
-              <p className="text-gray-600 text-center mb-6 max-w-md">
-                You haven't saved any jobs yet. Browse available jobs and click the bookmark icon to save them here.
-              </p>
-              <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                <Link href="/tasks">
+          <div className="bg-slate-800/90 rounded-xl border border-slate-700/50 p-8">
+            <div className="text-center text-slate-400">
+              <BookmarkIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <h3 className="text-base font-medium text-slate-300 mb-1">No Saved Jobs</h3>
+              <p className="text-sm mb-4">Browse jobs and tap the bookmark icon to save them here.</p>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" asChild>
+                <Link href="/?tab=jobs_tasks&autoSearch=true">
                   <Briefcase className="h-4 w-4 mr-2" />
                   Browse Jobs
                 </Link>
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="space-y-2">
             {savedJobs.map((job) => {
               // Determine poster type (company or homeowner)
               const isCompanyJob = !!job.company_profiles
@@ -194,125 +195,81 @@ export default async function CompanySavedJobsPage() {
                 ? job.homeowner_profiles.location
                 : job.location
 
-              const posterIndustry = isCompanyJob ? job.company_profiles.industry : "Homeowner"
-
               const logoUrl = isCompanyJob ? job.company_profiles.logo_url : null
 
-              const posterUserId = isCompanyJob
-                ? job.company_profiles.user_id
-                : isHomeownerJob
-                ? job.homeowner_profiles.user_id
-                : null
-
               return (
-                <Card
+                <Link
                   key={job.id}
-                  className="hover:shadow-lg transition-all duration-200 border-2 hover:border-blue-200"
+                  href={`/jobs/${job.id}`}
+                  className="block"
                 >
-                  <CardContent className="p-6">
-                    <div className="flex gap-4">
-                      {/* Poster Logo/Avatar */}
-                      <div className="flex-shrink-0">
-                        {logoUrl ? (
-                          <div className="h-16 w-16 relative rounded-lg overflow-hidden bg-gray-100">
-                            <Image
-                              src={logoUrl}
-                              alt={posterName}
-                              fill
-                              className="object-cover"
-                            />
-                          </div>
-                        ) : (
-                          <Avatar className="h-16 w-16">
-                            <AvatarFallback className="bg-blue-100 text-blue-600 font-bold text-lg">
-                              {posterName.substring(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                        )}
+                  <div className="flex items-start gap-3 p-3 bg-slate-800/60 border border-slate-700/50 rounded-xl hover:bg-slate-700/80 transition-all duration-200">
+                    {/* Poster Logo/Avatar */}
+                    <div className="flex-shrink-0">
+                      {logoUrl ? (
+                        <div className="h-12 w-12 relative rounded-lg overflow-hidden bg-slate-700 border border-slate-600">
+                          <Image
+                            src={logoUrl}
+                            alt={posterName}
+                            fill
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <Avatar className="h-12 w-12 border border-slate-600">
+                          <AvatarFallback className="bg-slate-700 text-emerald-400 font-bold text-sm">
+                            {posterName.substring(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+                    </div>
+
+                    {/* Job Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm font-semibold text-white truncate mb-0.5">
+                            {job.title}
+                          </h3>
+                          <p className="text-xs text-slate-400 truncate mb-1">
+                            {posterName}
+                          </p>
+                        </div>
+                        <Badge className="bg-slate-700 text-slate-300 text-[10px] px-1.5 py-0 border-0 flex-shrink-0">
+                          {formatDate(job.saved_at)}
+                        </Badge>
                       </div>
 
-                      {/* Job Details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <h3 className="text-xl font-bold text-gray-900 mb-1">
-                              {job.title}
-                            </h3>
-                            <p className="text-gray-700 font-medium mb-1">
-                              {posterName}
-                            </p>
-                            <div className="flex items-center gap-4 text-sm text-gray-600 mb-3">
-                              <div className="flex items-center gap-1">
-                                <MapPin className="h-4 w-4" />
-                                {posterLocation || job.location}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Building className="h-4 w-4" />
-                                {posterIndustry}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                Posted {formatDate(job.created_at)}
-                              </div>
-                            </div>
-                          </div>
-                          <Badge variant="secondary" className="ml-4">
-                            Saved {formatDate(job.saved_at)}
-                          </Badge>
+                      <div className="flex items-center gap-2 text-[11px] text-slate-500 mb-2">
+                        <div className="flex items-center gap-0.5">
+                          <MapPin className="h-3 w-3" />
+                          <span className="truncate">{posterLocation || job.location}</span>
                         </div>
+                        <span>•</span>
+                        <span>{job.job_type}</span>
+                      </div>
 
-                        {/* Salary */}
-                        {formatSalary(job.salary_min, job.salary_max) && (
-                          <div className="flex items-center gap-2 text-green-600 font-semibold mb-3">
-                            <DollarSign className="h-4 w-4" />
-                            {formatSalary(job.salary_min, job.salary_max)}
-                          </div>
+                      {/* Badges */}
+                      <div className="flex flex-wrap gap-1">
+                        {job.is_tradespeople_job && (
+                          <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px] px-1.5 py-0">
+                            Trade Job
+                          </Badge>
                         )}
-
-                        {/* Badges */}
-                        <div className="flex flex-wrap gap-2 mb-3">
-                          <Badge variant="outline" className="bg-blue-50">
-                            {job.job_type}
+                        {formatSalary(job.salary_min, job.salary_max) && (
+                          <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0">
+                            {formatSalary(job.salary_min, job.salary_max)}
                           </Badge>
-                          {job.experience_level && (
-                            <Badge variant="outline" className="bg-purple-50">
-                              {job.experience_level}
-                            </Badge>
-                          )}
-                          <Badge variant="outline" className="bg-green-50">
-                            {job.work_location}
+                        )}
+                        {isHomeownerJob && (
+                          <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] px-1.5 py-0">
+                            Homeowner
                           </Badge>
-                          {isHomeownerJob && (
-                            <Badge variant="outline" className="bg-orange-50">
-                              Homeowner Task
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Description */}
-                        <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                          {job.description}
-                        </p>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2">
-                          <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                            <Link href={`/jobs/${job.id}`}>
-                              View Details & Apply
-                            </Link>
-                          </Button>
-                          {isCompanyJob && posterUserId && (
-                            <Button variant="outline" asChild>
-                              <Link href={`/company/${posterUserId}`}>
-                                View Company
-                              </Link>
-                            </Button>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </Link>
               )
             })}
           </div>
@@ -323,30 +280,41 @@ export default async function CompanySavedJobsPage() {
   } catch (error) {
     console.error("[COMPANY-SAVED-JOBS] Fatal error:", error)
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-8">
-        <Card className="max-w-md">
-          <CardContent className="p-8 text-center">
-            <BookmarkIcon className="h-16 w-16 text-red-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Saved Jobs</h2>
-            <p className="text-gray-600 mb-6">
-              There was an error loading your saved jobs. Please try again.
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Button asChild variant="outline">
-                <Link href="/dashboard/company">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Back to Dashboard
-                </Link>
-              </Button>
-              <Button asChild className="bg-blue-600 hover:bg-blue-700">
-                <Link href="/tasks">
-                  <Briefcase className="h-4 w-4 mr-2" />
-                  Browse Jobs
-                </Link>
-              </Button>
+      <div className="min-h-screen bg-slate-900 pb-20 md:pb-6">
+        <div className="container mx-auto p-4 md:p-6 max-w-2xl">
+          <div className="bg-slate-800/90 rounded-xl border border-slate-700/50 p-6">
+            <div className="text-center">
+              <BookmarkIcon className="h-12 w-12 text-red-400 mx-auto mb-3 opacity-70" />
+              <h2 className="text-lg font-semibold text-white mb-2">Error Loading Saved Jobs</h2>
+              <p className="text-sm text-slate-400 mb-4">
+                There was an error loading your saved jobs. Please try again.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                  asChild
+                >
+                  <Link href="/dashboard/company">
+                    <ArrowLeft className="h-4 w-4 mr-1.5" />
+                    Back
+                  </Link>
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  asChild
+                >
+                  <Link href="/?tab=jobs_tasks&autoSearch=true">
+                    <Briefcase className="h-4 w-4 mr-1.5" />
+                    Browse Jobs
+                  </Link>
+                </Button>
+              </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     )
   }

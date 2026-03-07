@@ -157,7 +157,7 @@ export function MobileMapBottomSheet({
   return (
     <div
       ref={containerRef}
-      className="flex flex-col h-full w-full overflow-hidden bg-gray-100"
+      className="flex flex-col h-full w-full overflow-hidden bg-slate-900"
     >
       {/* Map Section - Takes remaining space */}
       <div
@@ -171,8 +171,8 @@ export function MobileMapBottomSheet({
 
         {/* Results Counter Badge - Top Right of Map */}
         <div className="absolute top-3 right-3 z-10">
-          <div className="bg-white/95 backdrop-blur-sm rounded-full shadow-lg px-3 py-1.5 border border-gray-200">
-            <span className="font-semibold text-sm text-gray-800">
+          <div className="bg-slate-900/90 backdrop-blur-sm rounded-full shadow-lg px-3 py-1.5 border border-slate-600">
+            <span className="font-semibold text-sm text-white">
               {resultsCount} {resultsLabel}
             </span>
           </div>
@@ -182,8 +182,8 @@ export function MobileMapBottomSheet({
       {/* Bottom Sheet */}
       <div
         ref={sheetRef}
-        className={`bg-white shadow-[0_-4px_20px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden relative z-20 ${
-          isShowingPreview ? "rounded-t-2xl" : "rounded-t-3xl"
+        className={`bg-slate-900 border-t border-slate-700 shadow-[0_-4px_24px_rgba(0,0,0,0.5)] flex flex-col overflow-hidden relative z-20 ${
+          isShowingPreview ? "rounded-t-2xl" : "rounded-t-2xl"
         }`}
         style={sheetStyle}
       >
@@ -197,12 +197,12 @@ export function MobileMapBottomSheet({
             onMouseDown={onMouseDown}
           >
             {/* Visual Handle Bar */}
-            <div className="w-10 h-1 bg-gray-300 rounded-full mb-1" />
+            <div className="w-10 h-1 bg-slate-600 rounded-full mb-1" />
 
             {/* Expand/Collapse Indicator */}
             <button
               onClick={handleExpandClick}
-              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors py-1 px-3"
+              className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors py-1 px-3"
             >
               {state === "fullList" ? (
                 <>
@@ -220,7 +220,7 @@ export function MobileMapBottomSheet({
         )}
 
         {/* Content Area */}
-        <div className={`flex-1 overflow-hidden ${isShowingPreview ? "h-full" : "overflow-y-auto overscroll-contain"}`}>
+        <div className={`flex-1 overflow-hidden bg-slate-900 ${isShowingPreview ? "h-full" : "overflow-y-auto overscroll-contain"}`}>
           {isShowingPreview ? (
             <div className="h-full relative">
               {previewCardContent}

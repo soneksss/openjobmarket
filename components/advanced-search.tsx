@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, MapPin, DollarSign, Users, Star, Filter } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/context"
+import { industryTitles } from "@/lib/data/industries"
 
 interface AdvancedSearchProps {
   onSearch: (filters: SearchFilters) => void
@@ -39,7 +40,8 @@ interface SearchFilters {
 const jobTypes = ["full-time", "part-time", "contract", "internship", "temporary"]
 const experienceLevels = ["entry", "mid", "senior", "lead", "executive"]
 const workLocations = ["on-site", "remote", "hybrid"]
-const industries = ["Technology", "Healthcare", "Finance", "Education", "Marketing", "Sales", "Design", "Engineering"]
+// Use centralized industry titles
+const industries = industryTitles
 const companySizes = ["1-10", "11-50", "51-200", "201-1000", "1000+"]
 const commonSkills = ["JavaScript", "Python", "React", "Node.js", "SQL", "AWS", "Docker", "TypeScript", "Java", "C++"]
 const benefits = ["Health Insurance", "401k", "Flexible Hours", "Remote Work", "Unlimited PTO", "Stock Options"]
