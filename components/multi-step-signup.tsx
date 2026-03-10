@@ -172,12 +172,6 @@ export default function MultiStepSignup() {
       return false
     }
 
-    // Professional title is required for individuals
-    if (signupData.accountType === "individual" && !signupData.title) {
-      setError(t('signup.enterProfessionalTitle') || 'Please enter your professional title')
-      return false
-    }
-
     // Location is required for all user types
     if (!signupData.latitude || !signupData.longitude) {
       setError(t('signup.selectLocationRequired') || 'Please enter your postcode')
@@ -517,21 +511,6 @@ export default function MultiStepSignup() {
                         className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
                       />
                     </div>
-                  </div>
-
-                  {/* Professional Title */}
-                  <div>
-                    <Label htmlFor="title" className="text-sm font-medium text-slate-300">
-                      {t('signup.professionalTitleLabel') || 'Professional Title'} *
-                    </Label>
-                    <Input
-                      id="title"
-                      value={signupData.title}
-                      onChange={(e) => updateSignupData({ title: e.target.value })}
-                      placeholder={t('signup.professionalTitlePlaceholder') || 'e.g. Software Engineer, Plumber'}
-                      required
-                      className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
-                    />
                   </div>
 
                   {/* Email & Postcode Row */}

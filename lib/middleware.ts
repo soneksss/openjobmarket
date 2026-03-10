@@ -61,8 +61,22 @@ function detectBrowserLocale(req: NextRequest): Locale {
   return 'en'
 }
 
+// Canonical domain: always redirect to www.openjobmarket.com
+const CANONICAL_HOST = "www.openjobmarket.com"
+const NON_CANONICAL_HOSTS = ["openjobmarket.com", "openjobmarket.vercel.app"]
+
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
+
+  // Canonical host redirect (SEO: consolidate all traffic to www.openjobmarket.com)
+  const host = req.headers.get("host") || req.nextUrl.hostname
+  const isNonCanonical = NON_CANONICAL_HOSTS.some(h => host === h || host.startsWith(h))
+  if (isNonCanonical) {
+    const url = req.nextUrl.clone()
+    url.host = CANONICAL_HOST
+    url.port = ""
+    return NextResponse.redirect(url, { status: 301 })
+  }
 
   // Skip ignored paths completely
   if (shouldIgnorePath(pathname)) {

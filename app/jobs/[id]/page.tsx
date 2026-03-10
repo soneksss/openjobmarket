@@ -480,6 +480,7 @@ export default async function JobDetailPage({
     salary_max: job.salary_max,
     created_at: job.created_at,
     expires_at: job.expires_at,
+    is_tradespeople_job: job.is_tradespeople_job,
   })
 
   return (

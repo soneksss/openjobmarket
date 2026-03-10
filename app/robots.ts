@@ -1,43 +1,27 @@
 import { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://openjobmarket.com'
-
   return {
     rules: [
       {
         userAgent: '*',
         allow: '/',
         disallow: [
-          '/dashboard/*',
-          '/admin/*',
-          '/api/*',
-          '/auth/*',
-          '/onboarding/*',
-          '/profile/*',
-          '/billing/*',
-          '/messages/*',
-          '/applications/*',
-          '/tasks/*',
-        ],
-      },
-      {
-        userAgent: 'Googlebot',
-        allow: '/',
-        disallow: [
-          '/dashboard/*',
-          '/admin/*',
-          '/api/*',
-          '/auth/*',
-          '/onboarding/*',
-          '/profile/*',
-          '/billing/*',
-          '/messages/*',
-          '/applications/*',
-          '/tasks/*',
+          '/dashboard/',
+          '/admin/',
+          '/api/',
+          '/auth/',
+          '/onboarding/',
+          '/profile/',
+          '/billing/',
+          '/messages/',
+          '/applications/',
+          '/tasks/',
+          '/account/',
+          '/notifications/',
         ],
       },
     ],
-    sitemap: `${baseUrl}/sitemap.xml`,
+    sitemap: 'https://www.openjobmarket.com/sitemap.xml',
   }
 }

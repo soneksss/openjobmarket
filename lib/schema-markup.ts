@@ -15,6 +15,7 @@ interface JobPostingSchema {
   salary_max?: number
   created_at: string
   expires_at?: string
+  is_tradespeople_job?: boolean
 }
 
 interface ProfessionalSchema {
@@ -49,6 +50,8 @@ interface LocalBusinessSchema {
 export function generateJobPostingSchema(job: JobPostingSchema): string {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://openjobmarket.com"
 
+  const employmentType = job.is_tradespeople_job ? "CONTRACTOR" : mapJobTypeToEmploymentType(job.job_type)
+
   const schema = {
     "@context": "https://schema.org/",
     "@type": "JobPosting",
@@ -56,15 +59,15 @@ export function generateJobPostingSchema(job: JobPostingSchema): string {
     "description": job.description,
     "identifier": {
       "@type": "PropertyValue",
-      "name": "OpenJobMarket",
+      "name": "Open Job Market",
       "value": job.id,
     },
     "datePosted": job.created_at,
     ...(job.expires_at && { "validThrough": job.expires_at }),
-    "employmentType": mapJobTypeToEmploymentType(job.job_type),
+    "employmentType": employmentType,
     "hiringOrganization": {
       "@type": "Organization",
-      "name": job.company_name,
+      "name": "Open Job Market",
       "sameAs": baseUrl,
     },
     "jobLocation": {
