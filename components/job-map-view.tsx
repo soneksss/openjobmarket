@@ -43,7 +43,8 @@ import {
   MessageCircle,
   AlertCircle,
   Zap,
-  Clock
+  Clock,
+  SlidersHorizontal
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
@@ -155,7 +156,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
   )
   const [salaryMin, setSalaryMin] = useState(searchParams.salaryMin || "")
   const [salaryMax, setSalaryMax] = useState(searchParams.salaryMax || "")
-  const [radius, setRadius] = useState(searchParams.radius || "25")
+  const [radius, setRadius] = useState(searchParams.radius || "5")
   const [noExperienceRequired, setNoExperienceRequired] = useState(searchParams.noExperienceRequired === "true")
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [searchError, setSearchError] = useState("")
@@ -1505,211 +1506,15 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
 
       {/* Full-Screen Map Mode */}
       {isFullScreenMode && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+        <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col">
           {/* Site Header */}
-          <Header user={user} />
+          <Header user={user} dark={true} />
 
-          {/* Top Search Bar */}
-          <div className="sticky top-0 z-20 bg-white shadow-lg border-b">
-            <div className="container mx-auto px-4 py-4">
-              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3">
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="e.g. Software Engineer, Marketing Manager"
-                  className="h-10 md:h-12 flex-1 bg-white/95 shadow-lg border-2 font-medium text-sm md:text-base"
-                />
-                <div className="flex-1 flex gap-2">
-                  <div className="flex-1">
-                    <LocationInput
-                      value={location}
-                      onChange={setLocation}
-                      onLocationSelect={handleLocationSelect}
-                      placeholder="e.g. London, New York"
-                      error=""
-                      className="h-10 md:h-12 bg-white/95 shadow-lg border-2 text-sm md:text-base"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleMapPickerClick}
-                    className="h-10 md:h-12 px-2 md:px-3 bg-blue-500 hover:bg-blue-600 shadow-lg"
-                    title="Pick location on map"
-                  >
-                    <Map className="h-4 w-4 md:h-5 md:w-5" />
-                  </Button>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                    variant="outline"
-                    className="h-10 md:h-12 px-3 md:px-4 bg-white shadow-lg flex-1 md:flex-none"
-                  >
-                    <Filter className="h-4 w-4 md:mr-2" />
-                    <span className="hidden md:inline">Filters</span>
-                  </Button>
-                  <Button
-                    onClick={handleSearch}
-                    className={`h-10 md:h-12 px-4 md:px-6 text-white shadow-lg font-semibold flex-1 md:flex-none ${
-                      basePath === '/tasks'
-                        ? 'bg-purple-500 hover:bg-purple-600'
-                        : 'bg-emerald-500 hover:bg-emerald-600'
-                    }`}
-                  >
-                    <Search className="mr-2 h-4 w-4 md:h-5 md:w-5" />
-                    <span className="hidden md:inline">Search</span>
-                  </Button>
-                  <Button
-                    onClick={() => {
-                      setIsFullScreenMode(false)
-                      router.push(basePath)
-                    }}
-                    variant="outline"
-                    className="h-10 md:h-12 px-2 md:px-3 bg-white shadow-lg"
-                    title="Exit full-screen"
-                  >
-                    <X className="h-4 w-4 md:h-5 md:w-5" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Search Error Message */}
-              {searchError && (
-                <div className="mt-3 p-3 bg-red-500 text-white rounded-lg text-sm font-medium shadow-lg">
-                  {searchError}
-                </div>
-              )}
-
-              {/* Advanced Filters */}
-              {showAdvancedFilters && (
-                <div className="mt-3 p-4 bg-white/10 backdrop-blur-sm rounded-lg">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    {/* Job Type - Hide for tasks page */}
-                    {basePath !== '/tasks' && (
-                      <div className="p-3 bg-blue-50/90 backdrop-blur-sm rounded-lg border border-blue-200/50">
-                        <label className="block text-gray-900 text-sm font-semibold mb-2">Job Type</label>
-                        <Select
-                          value={searchParams.type || "all"}
-                          onValueChange={(value) => updateSearchParams("type", value)}
-                        >
-                          <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
-                            <SelectItem value="remote">🌍 Remote</SelectItem>
-                            <SelectItem value="full-time">Full-time</SelectItem>
-                            <SelectItem value="part-time">Part-time</SelectItem>
-                            <SelectItem value="contract">Contract</SelectItem>
-                            <SelectItem value="freelance">Freelance</SelectItem>
-                            <SelectItem value="internship">Internship</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {/* Jobs Posted Date Filter - Only for tasks page */}
-                    {basePath === '/tasks' && (
-                      <div className="p-3 bg-blue-50/90 backdrop-blur-sm rounded-lg border border-blue-200/50">
-                        <label className="block text-gray-900 text-sm font-semibold mb-2">Jobs Posted</label>
-                        <Select
-                          value={searchParams.posted || "all"}
-                          onValueChange={(value) => updateSearchParams("posted", value)}
-                        >
-                          <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Show All</SelectItem>
-                            <SelectItem value="today">Today</SelectItem>
-                            <SelectItem value="3days">Last 3 days</SelectItem>
-                            <SelectItem value="5days">Last 5 days</SelectItem>
-                            <SelectItem value="week">Last week</SelectItem>
-                            <SelectItem value="2weeks">Last 2 weeks</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {/* Experience Level - Hide for tasks page */}
-                    {basePath !== '/tasks' && (
-                      <div className="p-3 bg-purple-50/90 backdrop-blur-sm rounded-lg border border-purple-200/50">
-                        <label className="block text-gray-900 text-sm font-semibold mb-2">Experience Level</label>
-                        <Select
-                          value={searchParams.level || "all"}
-                          onValueChange={(value) => updateSearchParams("level", value)}
-                        >
-                          <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Levels</SelectItem>
-                            <SelectItem value="entry">Entry Level</SelectItem>
-                            <SelectItem value="mid">Mid Level</SelectItem>
-                            <SelectItem value="senior">Senior</SelectItem>
-                            <SelectItem value="lead">Lead</SelectItem>
-                            <SelectItem value="executive">Executive</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {/* No Experience Required - Only for jobs page */}
-                    {basePath !== '/tasks' && (
-                      <div className="p-3 bg-amber-50/90 backdrop-blur-sm rounded-lg border border-amber-200/50">
-                        <label className="block text-gray-900 text-sm font-semibold mb-3">No Experience Required</label>
-                        <label className="flex items-center space-x-2 cursor-pointer bg-white rounded-lg p-2.5 hover:bg-gray-50 transition-colors border border-gray-200">
-                          <input
-                            type="checkbox"
-                            checked={noExperienceRequired}
-                            onChange={(e) => setNoExperienceRequired(e.target.checked)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-900 font-medium">Training provided</span>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Salary/Price Range */}
-                    <div className="p-3 bg-emerald-50/90 backdrop-blur-sm rounded-lg border border-emerald-200/50">
-                      <label className="block text-gray-900 text-sm font-semibold mb-2">
-                        {basePath === '/tasks' ? 'Min price (£)' : 'Min Salary (£)'}
-                      </label>
-                      <Input
-                        type="number"
-                        placeholder={basePath === '/tasks' ? 'e.g. 100' : 'e.g. 30000'}
-                        value={salaryMin}
-                        onChange={(e) => setSalaryMin(e.target.value)}
-                        className="h-10 text-sm bg-white font-medium"
-                      />
-                    </div>
-
-                    {/* Search Radius */}
-                    <div className="p-3 bg-indigo-50/90 backdrop-blur-sm rounded-lg border border-indigo-200/50">
-                      <label className="block text-gray-900 text-sm font-semibold mb-2">Search Radius</label>
-                      <Select value={radius} onValueChange={setRadius}>
-                        <SelectTrigger className="w-full h-10 text-sm bg-white font-medium">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[5, 10, 15, 20, 25, 30, 40, 50].map((miles) => (
-                            <SelectItem key={miles} value={miles.toString()}>
-                              {miles} miles
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Main Content: Map + Sidebar - Desktop: Resizable Panels, Mobile: Stacked */}
+          {/* Map + Floating Search Overlay */}
+          <div className="flex-1 relative overflow-hidden">
 
           {/* Desktop Layout: Resizable Panels (visible on md and up) */}
-          <PanelGroup direction="horizontal" className="!hidden md:!flex flex-1 overflow-hidden">
+          <PanelGroup direction="horizontal" className="!hidden md:!flex absolute inset-0">
             {/* Map Panel */}
             <Panel defaultSize={60} minSize={30}>
               <div className="h-full relative">
@@ -1730,7 +1535,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                 />
 
                 {/* Results Counter */}
-                <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
+                <div className="absolute top-20 left-4 z-10 flex flex-col gap-2">
                   <div className="bg-white rounded-lg shadow-lg p-3 border">
                     <div className="flex items-center gap-2">
                       <Briefcase className="h-5 w-5 text-blue-600" />
@@ -2085,8 +1890,8 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
             </Panel>
           </PanelGroup>
 
-          {/* Full-screen Map with Bottom Sheet (like Google Maps/Idealista/Rightmove) - MOBILE ONLY */}
-          <div className="flex-1 relative !flex md:!hidden">
+          {/* Full-screen Map with Bottom Sheet - MOBILE ONLY */}
+          <div className="absolute inset-0 !flex md:!hidden flex-col">
             {/* Full Screen Map */}
             <div className="absolute inset-0">
               <JobMap
@@ -2666,6 +2471,225 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
               </div>
             </div>
           </div>
+
+          {/* ── Floating Search Overlay (Airbnb-style) ── */}
+          <div className="absolute top-4 inset-x-3 z-30 flex justify-center pointer-events-none">
+            <div className="w-full max-w-xl pointer-events-auto">
+
+              {/* Search pill */}
+              <div className="flex items-center bg-slate-950/95 backdrop-blur-xl rounded-full border border-slate-700/50 shadow-[0_8px_40px_rgba(0,0,0,0.6)] px-2 py-1.5 gap-1">
+                {/* Back */}
+                <button
+                  onClick={() => { setIsFullScreenMode(false); router.push(basePath) }}
+                  className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  title="Back"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div className="w-px h-4 bg-slate-700/80 flex-shrink-0" />
+
+                {/* Keyword */}
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  placeholder={basePath === '/tasks' ? 'Fix boiler, Paint fence…' : 'Electrician, Plumber…'}
+                  className="flex-1 min-w-0 bg-transparent text-white placeholder:text-slate-500 text-sm font-medium outline-none px-2"
+                />
+
+                {/* Location — desktop only */}
+                <div className="hidden md:flex items-center gap-1 max-w-[210px] min-w-0">
+                  <div className="w-px h-4 bg-slate-700/80 flex-shrink-0" />
+                  <MapPin className="h-3.5 w-3.5 text-slate-500 flex-shrink-0 ml-1" />
+                  <div className="flex-1 min-w-0">
+                    <LocationInput
+                      value={location}
+                      onChange={setLocation}
+                      onLocationSelect={handleLocationSelect}
+                      placeholder="Location"
+                      error=""
+                      className="h-7"
+                    />
+                  </div>
+                  <button
+                    onClick={handleMapPickerClick}
+                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-slate-500 hover:text-emerald-400 transition-colors"
+                    title="Pick on map"
+                  >
+                    <Map className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* Search */}
+                <button
+                  onClick={handleSearch}
+                  className={`flex-shrink-0 h-8 px-4 rounded-full text-white font-semibold text-sm flex items-center gap-1.5 transition-colors ${
+                    basePath === '/tasks' ? 'bg-purple-500 hover:bg-purple-600' : 'bg-emerald-500 hover:bg-emerald-600'
+                  }`}
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Search</span>
+                </button>
+
+                {/* Filter toggle */}
+                <button
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ml-0.5 ${
+                    showAdvancedFilters
+                      ? basePath === '/tasks' ? 'bg-purple-500 text-white' : 'bg-emerald-500 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700'
+                  }`}
+                  title="Filters"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Mobile: Location row */}
+              <div className="mt-2 md:hidden flex items-center bg-slate-950/95 backdrop-blur-xl rounded-full border border-slate-700/50 shadow-lg px-3 py-1.5 gap-2">
+                <MapPin className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <LocationInput
+                    value={location}
+                    onChange={setLocation}
+                    onLocationSelect={handleLocationSelect}
+                    placeholder="Location"
+                    error=""
+                    className="h-7"
+                  />
+                </div>
+                <button
+                  onClick={handleMapPickerClick}
+                  className="flex-shrink-0 w-6 h-6 flex items-center justify-center text-slate-500 hover:text-emerald-400 transition-colors"
+                >
+                  <Map className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Error */}
+              {searchError && (
+                <div className="mt-2 px-4 py-2.5 bg-red-500/20 backdrop-blur-xl border border-red-500/30 text-red-300 rounded-2xl text-sm font-medium">
+                  {searchError}
+                </div>
+              )}
+
+              {/* Filter popup card */}
+              {showAdvancedFilters && (
+                <div className="mt-3 bg-slate-950/98 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-5 max-h-[70vh] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-white font-bold text-base">Filters</h3>
+                    <button
+                      onClick={() => setShowAdvancedFilters(false)}
+                      className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                      title="Close filters"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {basePath !== '/tasks' && (
+                      <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                        <label className="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wide">Job Type</label>
+                        <Select value={searchParams.type || "all"} onValueChange={(v) => updateSearchParams("type", v)}>
+                          <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white font-medium">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Types</SelectItem>
+                            <SelectItem value="remote">🌍 Remote</SelectItem>
+                            <SelectItem value="full-time">Full-time</SelectItem>
+                            <SelectItem value="part-time">Part-time</SelectItem>
+                            <SelectItem value="contract">Contract</SelectItem>
+                            <SelectItem value="freelance">Freelance</SelectItem>
+                            <SelectItem value="internship">Internship</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {basePath === '/tasks' && (
+                      <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                        <label className="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wide">Jobs Posted</label>
+                        <Select value={searchParams.posted || "all"} onValueChange={(v) => updateSearchParams("posted", v)}>
+                          <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white font-medium">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">Show All</SelectItem>
+                            <SelectItem value="today">Today</SelectItem>
+                            <SelectItem value="3days">Last 3 days</SelectItem>
+                            <SelectItem value="5days">Last 5 days</SelectItem>
+                            <SelectItem value="week">Last week</SelectItem>
+                            <SelectItem value="2weeks">Last 2 weeks</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {basePath !== '/tasks' && (
+                      <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                        <label className="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wide">Experience Level</label>
+                        <Select value={searchParams.level || "all"} onValueChange={(v) => updateSearchParams("level", v)}>
+                          <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white font-medium">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Levels</SelectItem>
+                            <SelectItem value="entry">Entry Level</SelectItem>
+                            <SelectItem value="mid">Mid Level</SelectItem>
+                            <SelectItem value="senior">Senior</SelectItem>
+                            <SelectItem value="lead">Lead</SelectItem>
+                            <SelectItem value="executive">Executive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    {basePath !== '/tasks' && (
+                      <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                        <label className="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wide">Experience</label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-slate-700 rounded-xl px-3 py-2.5 hover:bg-slate-600 transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={noExperienceRequired}
+                            onChange={(e) => setNoExperienceRequired(e.target.checked)}
+                            className="w-4 h-4 text-emerald-500 border-slate-500 rounded focus:ring-emerald-500"
+                          />
+                          <span className="text-sm text-white font-medium">Training provided</span>
+                        </label>
+                      </div>
+                    )}
+                    <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                      <label className="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wide">
+                        {basePath === '/tasks' ? 'Min Price (£)' : 'Min Salary (£)'}
+                      </label>
+                      <Input
+                        type="number"
+                        placeholder={basePath === '/tasks' ? 'e.g. 100' : 'e.g. 30000'}
+                        value={salaryMin}
+                        onChange={(e) => setSalaryMin(e.target.value)}
+                        className="h-9 text-sm bg-slate-700 border-slate-600 text-white font-medium"
+                      />
+                    </div>
+                    <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                      <label className="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wide">Search Radius</label>
+                      <Select value={radius} onValueChange={setRadius}>
+                        <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white font-medium">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[5, 10, 15, 20, 25, 30, 40, 50].map((miles) => (
+                            <SelectItem key={miles} value={miles.toString()}>{miles} miles</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+          {/* ── End Floating Search Overlay ── */}
+
+          </div>{/* flex-1 relative overflow-hidden */}
         </div>
       )}
 

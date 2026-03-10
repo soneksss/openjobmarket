@@ -136,6 +136,6 @@ export function getDefaultMapCenter(country: Country): [number, number] {
       return [-23.5505, -46.6333] // São Paulo, Brazil
     case 'GLOBAL':
     default:
-      return [51.5074, -0.1278] // London, UK
+      return [50.8058, -1.0872] // Portsmouth, UK
   }
 }

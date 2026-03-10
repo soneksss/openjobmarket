@@ -69,10 +69,10 @@ export default function ContactPage() {
           <div className="max-w-3xl mx-auto text-center">
             <Mail className="h-16 w-16 mx-auto mb-4" />
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              {t('contact.title')}
+              Get in Touch
             </h1>
             <p className="text-xl text-blue-100">
-              {t('contact.subtitle')}
+              Send us a message and we'll get back to you as soon as possible.
             </p>
           </div>
         </div>

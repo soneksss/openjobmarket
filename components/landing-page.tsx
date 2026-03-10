@@ -134,7 +134,7 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
 
   // Filters state
   const [showFilters, setShowFilters] = useState(false)
-  const [distance, setDistance] = useState("10")
+  const [distance, setDistance] = useState("5")
   const [tradeCategory, setTradeCategory] = useState("all")
   const [urgency, setUrgency] = useState("all")
   const [is24_7, setIs24_7] = useState(false)
@@ -293,10 +293,10 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
   const hasSearchParams = searchParams?.get("autoSearch") || searchParams?.get("returnToSearch")
 
   const handleSearch = () => {
-    // Auto-fill London if no location provided
-    let searchLat = selectedLocation?.lat || 51.5074
-    let searchLon = selectedLocation?.lon || -0.1278
-    let searchLocation = location || "London, UK"
+    // Auto-fill Portsmouth if no location provided
+    let searchLat = selectedLocation?.lat || 50.8058
+    let searchLon = selectedLocation?.lon || -1.0872
+    let searchLocation = location || "Portsmouth, UK"
 
     const params = new URLSearchParams()
     params.set("search", searchQuery)
@@ -534,8 +534,8 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
 
   return (
     <div className="min-h-screen bg-slate-900 pb-20 md:pb-0">
-      {/* Premium Tabs - Under Header */}
-      <div className="border-b border-slate-700/50 bg-slate-900/95 sticky top-0 z-40">
+      {/* Premium Tabs - Under Header — only shown to non-logged-in users */}
+      {!isSignedIn && <div className="border-b border-slate-700/50 bg-slate-900/95 sticky top-0 z-40">
         <div className="container mx-auto px-4">
           <div className="flex justify-center gap-2 sm:gap-4">
             <button
@@ -568,7 +568,7 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
             </button>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* Available/Busy toggle — tradespeople tab, signed-in business/tradespeople only */}
       {activeTab === "jobs" && isSignedIn && isTradesPerson && (
@@ -681,12 +681,14 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
                     {/* Bottom fade — blends into page bg (#0f172a) */}
                     <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent to-[#0f172a]" />
                     {/* Text starts from the vertical middle of the photo */}
-                    <div className="absolute inset-x-0 px-4" style={{ top: '38%' }}>
-                      <p className="font-black text-white leading-tight drop-shadow-lg" style={{ fontSize: '38px' }}>
-                        Hire trusted local trades — <span className="text-emerald-400" style={{ fontSize: 'inherit' }}>fast.</span>
+                    <div className="absolute inset-x-0 px-4" style={{ top: '22%' }}>
+                      <p className="font-black text-white leading-tight drop-shadow-lg" style={{ fontSize: '36px' }}>
+                        Find nearby tradespeople<br /><span className="text-emerald-400" style={{ fontSize: '36px' }}>in minutes.</span>
                       </p>
-                      <p className="mt-2 text-sm font-light tracking-widest text-white/60 uppercase drop-shadow-md" style={{ letterSpacing: '0.18em' }}>
-                        Like <span className="font-semibold text-white/90">Uber</span>, but for local trades
+                      <p className="mt-3 font-semibold text-white/80 drop-shadow-md leading-snug" style={{ fontSize: '18px' }}>
+                        Like <span className="text-orange-400 font-bold">Uber</span> for urgent jobs
+                        <span className="mx-2 text-white/30">·</span>
+                        Like <span className="text-emerald-400 font-bold">Airbnb</span> for flexible projects
                       </p>
                     </div>
                   </div>
@@ -1486,38 +1488,47 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
       {/* Comparison Table */}
       <section className="py-10 border-t border-slate-800/50">
         <div className="container mx-auto px-4 max-w-2xl">
-          <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6">
-            Why homeowners choose <span className="text-emerald-400">Open Job Market</span>
+          <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-8">
+            Why Homeowners Choose <span className="text-emerald-400">Open Job Market</span>
           </h2>
 
-          {/* Header row */}
-          <div className="grid grid-cols-2 mb-2">
-            <div className="text-center text-sm font-semibold text-slate-400 pb-2">Other platforms</div>
-            <div className="text-center text-sm font-semibold text-emerald-400 pb-2">Open Job Market</div>
-          </div>
-
-          {/* Rows */}
-          {[
-            ["Send requests and wait",      "See available trades instantly"],
-            ["Multiple unwanted calls",     "Direct message only"],
-            ["Pay for leads indirectly",    "Transparent connection"],
-            ["Slow quote process",          "Faster responses"],
-            ["Hard to know who's active",   "See who's ready to work"],
-          ].map(([bad, good], i) => (
-            <div
-              key={i}
-              className={`grid grid-cols-2 py-3 ${i < 4 ? "border-b border-slate-800" : ""}`}
-            >
-              <div className="flex items-center justify-center gap-2 px-3">
-                <span className="text-red-400 flex-shrink-0 text-base">✕</span>
-                <span className="text-slate-400 text-sm leading-tight">{bad}</span>
-              </div>
-              <div className="flex items-center justify-center gap-2 px-3">
-                <span className="text-emerald-400 flex-shrink-0 text-base">✓</span>
-                <span className="text-slate-100 text-sm font-medium leading-tight">{good}</span>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Other platforms column */}
+            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
+              <div className="text-center text-sm font-bold text-slate-400 mb-4 pb-3 border-b border-slate-700">Other platforms</div>
+              <ul className="space-y-3">
+                {[
+                  "Sell your request as paid leads",
+                  "Multiple unwanted sales calls",
+                  "Often matched with non-local companies",
+                  "Slow quote process",
+                ].map((text, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-red-400 flex-shrink-0 mt-0.5">✕</span>
+                    <span className="text-slate-400 text-sm leading-snug">{text}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          ))}
+
+            {/* Open Job Market column */}
+            <div className="bg-emerald-950/40 border border-emerald-800/50 rounded-2xl p-4">
+              <div className="text-center text-sm font-bold text-emerald-400 mb-4 pb-3 border-b border-emerald-800/50">Open Job Market</div>
+              <ul className="space-y-3">
+                {[
+                  "No lead selling — fairer prices",
+                  "Connect directly with nearby tradespeople",
+                  "Message only — no spam calls",
+                  "Uber-style for urgent jobs, Airbnb-style for flexible work",
+                ].map((text, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-emerald-400 flex-shrink-0 mt-0.5">✓</span>
+                    <span className="text-slate-100 text-sm font-medium leading-snug">{text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1581,7 +1592,7 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
             <ProfessionalMap
               key={`map-picker-${mapPickerKey}`}
               professionals={[]}
-              center={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : { lat: 51.5074, lon: -0.1278 }}
+              center={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : { lat: 50.8058, lon: -1.0872 }}
               zoom={8}
               height="100%"
               showRadius={!!mapPickerLocation}
@@ -1835,7 +1846,7 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
           <DialogFooter className="flex gap-2">
             <Button
               onClick={() => {
-                setDistance("10")
+                setDistance("5")
                 setTradeCategory("all")
                 setUrgency("all")
                 setIs24_7(false)

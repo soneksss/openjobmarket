@@ -34,7 +34,8 @@ import {
   Maximize,
   ChevronLeft,
   ChevronRight,
-  ChevronUp
+  ChevronUp,
+  SlidersHorizontal
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -242,7 +243,7 @@ export default function ContractorMapView({
   const [selfEmployedFilter, setSelfEmployedFilter] = useState(searchParams.self_employed === "true")
   const [companyFilter, setCompanyFilter] = useState(searchParams.company === "true")
   const [service24_7Filter, setService24_7Filter] = useState(searchParams.service_24_7 === "true")
-  const [radius, setRadius] = useState("25")
+  const [radius, setRadius] = useState("5")
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [sendingMessage, setSendingMessage] = useState<string | null>(null)
   const [selectedContractor, setSelectedContractor] = useState<Contractor | null>(null)
@@ -1029,176 +1030,15 @@ export default function ContractorMapView({
 
       {/* Full-Screen Map Mode */}
       {isFullScreenMode && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+        <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col">
           {/* Site Header */}
-          <Header user={user} />
+          <Header user={user} dark={true} />
 
-          {/* Top Search Bar (Fixed) */}
-          <div className="sticky top-0 z-20 bg-white shadow-lg border-b">
-            <div className="container mx-auto px-4 py-4">
-              {/* Compact Search Bar */}
-              <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2 md:gap-3">
-                {/* Search Input */}
-                <Input
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="e.g. Electrician, Plumber"
-                  className="h-10 md:h-12 flex-1 bg-white/95 shadow-lg border-2 font-medium text-sm md:text-base"
-                />
+          {/* Map + Floating Search Overlay */}
+          <div className="flex-1 relative overflow-hidden">
 
-                {/* Location Input */}
-                <div className="flex-1 flex gap-2">
-                  <div className="flex-1">
-                    <LocationInput
-                      value={locationFilter}
-                      onChange={setLocationFilter}
-                      onLocationSelect={handleLocationSelect}
-                      placeholder={t('contractors.locationPlaceholder')}
-                      error=""
-                      className="h-10 md:h-12 text-sm md:text-base"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleMapPickerClick}
-                    className="h-10 md:h-12 px-2 md:px-4 bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
-                    title="Pick location on map"
-                  >
-                    <Map className="h-4 w-4 md:h-5 md:w-5" />
-                  </Button>
-                </div>
-
-                <div className="flex gap-2">
-                  {/* Radius Select - Hidden on mobile */}
-                  <Select value={radius} onValueChange={setRadius}>
-                    <SelectTrigger className="hidden md:flex w-32 h-12">
-                      <SelectValue placeholder="Radius" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[10, 20, 25, 50, 100].map((miles) => (
-                        <SelectItem key={miles} value={miles.toString()}>
-                          {miles} miles
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {/* Filters Dropdown Button */}
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                    className="h-10 md:h-12 px-3 md:px-4 flex-1 md:flex-none"
-                  >
-                    <Filter className="h-4 w-4 md:mr-2" />
-                    <span className="hidden md:inline">Filters</span>
-                  </Button>
-
-                  {/* Search Button */}
-                  <Button
-                    onClick={handleSearch}
-                    className="bg-orange-500 hover:bg-orange-600 h-10 md:h-12 px-4 md:px-6 flex-1 md:flex-none"
-                  >
-                    <Search className="h-4 w-4 md:mr-2" />
-                    <span className="hidden md:inline">Search</span>
-                  </Button>
-
-                  {/* Close Button */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setIsFullScreenMode(false)
-                      setShowAdvancedFilters(false)
-                    }}
-                    className="h-10 md:h-12 px-2 md:px-3"
-                    title="Exit full-screen"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              {/* Advanced Filters Dropdown */}
-              {showAdvancedFilters && (
-                <div className="mt-4 bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Language */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Language</label>
-                      <Input
-                        value={languageFilter}
-                        onChange={(e) => setLanguageFilter(e.target.value)}
-                        placeholder="e.g., English, Spanish"
-                        className="h-10"
-                      />
-                    </div>
-
-                    {/* Contractor Type Checkboxes */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Contractor Type</label>
-                      <div className="space-y-2">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="selfEmployed"
-                            checked={selfEmployedFilter}
-                            onChange={(e) => setSelfEmployedFilter(e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                          />
-                          <label htmlFor="selfEmployed" className="text-sm text-gray-700">
-                            Self-employed
-                          </label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="company"
-                            checked={companyFilter}
-                            onChange={(e) => setCompanyFilter(e.target.checked)}
-                            className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                          />
-                          <label htmlFor="company" className="text-sm text-gray-700">
-                            Company
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Service Options */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Service Options</label>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="checkbox"
-                          id="service24_7"
-                          checked={service24_7Filter}
-                          onChange={(e) => setService24_7Filter(e.target.checked)}
-                          className="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                        />
-                        <label htmlFor="service24_7" className="text-sm text-gray-700">
-                          24/7 Service
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Clear Filters Button */}
-                    <div className="flex items-end">
-                      <Button
-                        variant="outline"
-                        onClick={clearFilters}
-                        className="w-full h-10"
-                      >
-                        Clear All Filters
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Desktop Layout: Fullscreen Map with Resizable Panels (hidden - using bottom sheet for all) */}
-          <PanelGroup direction="horizontal" className="hidden flex-1">
+          {/* Desktop Layout hidden */}
+          <PanelGroup direction="horizontal" className="hidden">
             {/* Map Panel */}
             <Panel defaultSize={60} minSize={30}>
               <div className="h-full relative">
@@ -1512,8 +1352,8 @@ export default function ContractorMapView({
             </Panel>
           </PanelGroup>
 
-          {/* Full-screen Map with Bottom Sheet (like Google Maps/Idealista/Rightmove) - ALL SCREENS */}
-          <div className="flex-1 relative">
+          {/* Full-screen Map with Bottom Sheet - ALL SCREENS */}
+          <div className="absolute inset-0">
             {/* Full Screen Map */}
             <div className="absolute inset-0">
               <ProfessionalMap
@@ -1763,6 +1603,156 @@ export default function ContractorMapView({
               </div>
             </div>
           </div>
+
+          {/* ── Floating Search Overlay (Airbnb-style) ── */}
+          <div className="absolute top-4 inset-x-3 z-30 flex justify-center pointer-events-none">
+            <div className="w-full max-w-xl pointer-events-auto">
+
+              {/* Search pill */}
+              <div className="flex items-center bg-slate-950/95 backdrop-blur-xl rounded-full border border-slate-700/50 shadow-[0_8px_40px_rgba(0,0,0,0.6)] px-2 py-1.5 gap-1">
+                {/* Back */}
+                <button
+                  onClick={() => { setIsFullScreenMode(false); setShowAdvancedFilters(false) }}
+                  className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  title="Back"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div className="w-px h-4 bg-slate-700/80 flex-shrink-0" />
+
+                {/* Keyword */}
+                <input
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  placeholder="Electrician, Plumber…"
+                  className="flex-1 min-w-0 bg-transparent text-white placeholder:text-slate-500 text-sm font-medium outline-none px-2"
+                />
+
+                {/* Location — desktop only */}
+                <div className="hidden md:flex items-center gap-1 max-w-[210px] min-w-0">
+                  <div className="w-px h-4 bg-slate-700/80 flex-shrink-0" />
+                  <MapPin className="h-3.5 w-3.5 text-slate-500 flex-shrink-0 ml-1" />
+                  <div className="flex-1 min-w-0">
+                    <LocationInput
+                      value={locationFilter}
+                      onChange={setLocationFilter}
+                      onLocationSelect={handleLocationSelect}
+                      placeholder="Location"
+                      error=""
+                      className="h-7"
+                    />
+                  </div>
+                  <button
+                    onClick={handleMapPickerClick}
+                    className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-slate-500 hover:text-orange-400 transition-colors"
+                    title="Pick on map"
+                  >
+                    <Map className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+
+                {/* Search */}
+                <button
+                  onClick={handleSearch}
+                  className="flex-shrink-0 h-8 px-4 rounded-full bg-orange-500 hover:bg-orange-600 text-white font-semibold text-sm flex items-center gap-1.5 transition-colors"
+                >
+                  <Search className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Search</span>
+                </button>
+
+                {/* Filter toggle */}
+                <button
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ml-0.5 ${
+                    showAdvancedFilters
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 border border-slate-700'
+                  }`}
+                  title="Filters"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Mobile: Location row */}
+              <div className="mt-2 md:hidden flex items-center bg-slate-950/95 backdrop-blur-xl rounded-full border border-slate-700/50 shadow-lg px-3 py-1.5 gap-2">
+                <MapPin className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <LocationInput
+                    value={locationFilter}
+                    onChange={setLocationFilter}
+                    onLocationSelect={handleLocationSelect}
+                    placeholder="Location"
+                    error=""
+                    className="h-7"
+                  />
+                </div>
+                <button
+                  onClick={handleMapPickerClick}
+                  className="flex-shrink-0 w-6 h-6 flex items-center justify-center text-slate-500 hover:text-orange-400 transition-colors"
+                >
+                  <Map className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Filter popup card */}
+              {showAdvancedFilters && (
+                <div className="mt-3 bg-slate-950/98 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-[0_12px_40px_rgba(0,0,0,0.6)] p-5 max-h-[70vh] overflow-y-auto">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-white font-bold text-base">Filters</h3>
+                    <button
+                      onClick={() => setShowAdvancedFilters(false)}
+                      className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+                      title="Close filters"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                      <label className="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wide">Language</label>
+                      <Input
+                        value={languageFilter}
+                        onChange={(e) => setLanguageFilter(e.target.value)}
+                        placeholder="e.g., English"
+                        className="h-9 text-sm bg-slate-700 border-slate-600 text-white font-medium placeholder:text-slate-400"
+                      />
+                    </div>
+                    <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                      <label className="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wide">Type</label>
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 cursor-pointer bg-slate-700 rounded-xl px-3 py-2 hover:bg-slate-600 transition-colors">
+                          <input type="checkbox" checked={selfEmployedFilter} onChange={(e) => setSelfEmployedFilter(e.target.checked)} className="h-4 w-4 rounded border-slate-500 text-orange-500 focus:ring-orange-500" />
+                          <span className="text-sm text-white font-medium">Self-employed</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer bg-slate-700 rounded-xl px-3 py-2 hover:bg-slate-600 transition-colors">
+                          <input type="checkbox" checked={companyFilter} onChange={(e) => setCompanyFilter(e.target.checked)} className="h-4 w-4 rounded border-slate-500 text-orange-500 focus:ring-orange-500" />
+                          <span className="text-sm text-white font-medium">Company</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60">
+                      <label className="block text-slate-400 text-xs font-semibold mb-2 uppercase tracking-wide">Service</label>
+                      <label className="flex items-center gap-2 cursor-pointer bg-slate-700 rounded-xl px-3 py-2 hover:bg-slate-600 transition-colors">
+                        <input type="checkbox" checked={service24_7Filter} onChange={(e) => setService24_7Filter(e.target.checked)} className="h-4 w-4 rounded border-slate-500 text-orange-500 focus:ring-orange-500" />
+                        <span className="text-sm text-white font-medium">24/7 Available</span>
+                      </label>
+                    </div>
+                    <div className="p-3 bg-slate-800/80 rounded-2xl border border-slate-700/60 flex items-end">
+                      <button onClick={clearFilters} className="w-full h-9 rounded-xl border border-slate-600 text-slate-300 hover:text-white hover:bg-slate-700 text-sm font-medium transition-colors">
+                        Clear All
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+          {/* ── End Floating Search Overlay ── */}
+
+          </div>{/* flex-1 relative overflow-hidden */}
         </div>
       )}
 

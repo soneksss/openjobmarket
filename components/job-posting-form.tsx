@@ -845,7 +845,7 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
                 <ProfessionalMap
                   key={`picker-${Date.now()}`}
                   professionals={[]}
-                  center={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : { lat: 51.5074, lon: -0.1278 }}
+                  center={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : { lat: 50.8058, lon: -1.0872 }}
                   zoom={10}
                   height="100%"
                   onMapClick={handleMapLocationPick}

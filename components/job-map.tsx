@@ -15,6 +15,7 @@ const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLa
 const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false })
 const Popup = dynamic(() => import("react-leaflet").then((mod) => mod.Popup), { ssr: false })
 const Circle = dynamic(() => import("react-leaflet").then((mod) => mod.Circle), { ssr: false })
+const ZoomControl = dynamic(() => import("react-leaflet").then((mod) => mod.ZoomControl), { ssr: false })
 
 // Helper function to create custom marker icon with scaling for selection
 function createCustomIcon(isSelected: boolean) {
@@ -282,7 +283,8 @@ export function JobMap({
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
         crossOrigin=""
       />
-      <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%" }} className="rounded-lg" {...({} as any)}>
+      <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%" }} className="rounded-lg" zoomControl={false} {...({} as any)}>
+        <ZoomControl position="bottomleft" {...({} as any)} />
         <MapSizeHandler />
         <JobCenterer selectedJob={selectedJobId ? jobs.find(j => j.id === selectedJobId) : null} />
         <TileLayer

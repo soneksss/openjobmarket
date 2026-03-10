@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { User, Building2, ArrowRight, ArrowLeft, Loader2, Check } from "lucide-react"
+import { User, Building2, HardHat, ArrowRight, ArrowLeft, Loader2, Check } from "lucide-react"
 import Link from "next/link"
 import { useTranslation } from "@/lib/i18n/context"
 
@@ -403,7 +403,7 @@ export default function MultiStepSignup() {
                 <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-3 ${
                   signupData.accountType === "company" ? "bg-orange-500" : "bg-slate-700"
                 }`}>
-                  <Building2 className={`h-7 w-7 ${signupData.accountType === "company" ? "text-white" : "text-slate-400"}`} />
+                  <HardHat className={`h-7 w-7 ${signupData.accountType === "company" ? "text-white" : "text-slate-400"}`} />
                 </div>
                 <h4 className="font-semibold text-base mb-1 text-white">{t('signup.business')}</h4>
                 <p className="text-xs text-slate-400 leading-tight">

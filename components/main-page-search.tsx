@@ -92,7 +92,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [mapResults, setMapResults] = useState<any[]>([])
   const [searchType, setSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
   const [modalSearchType, setModalSearchType] = useState<"vacancies" | "jobs_tasks" | "talents" | "traders" | null>(null)
-  const [mapCenter, setMapCenter] = useState<[number, number]>([51.5074, -0.1278])
+  const [mapCenter, setMapCenter] = useState<[number, number]>([50.8058, -1.0872])
   const [resultLimitReached, setResultLimitReached] = useState(false)
 
   // State for restoring search from "Back to Search"
@@ -945,6 +945,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     setSearchResultCount(0)
     setResultLimitReached(false) // Reset limit warning
     setSearchError(null) // Clear any previous error
+    setModalSearchType(type)
+    setShowMapModal(true) // Open modal immediately so user sees map while query runs
 
     // Always show modal for all users (registered and unregistered)
     try {
@@ -2150,7 +2152,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       setSearchProgress("Preparing results...")
 
       // Set center from selected location or first result
-      let center: [number, number] = [51.5074, -0.1278]
+      let center: [number, number] = [50.8058, -1.0872]
       if (selectedLocation) {
         center = [selectedLocation.lat, selectedLocation.lon]
       } else if (results.length > 0) {
@@ -3501,7 +3503,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               <ProfessionalMap
                 key={`map-picker-${mapPickerKey}`}
                 professionals={[]}
-                center={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : { lat: 51.5074, lon: -0.1278 }}
+                center={selectedLocation ? { lat: selectedLocation.lat, lon: selectedLocation.lon } : { lat: 50.8058, lon: -1.0872 }}
                 zoom={8}
                 height="100%"
                 showRadius={!!mapPickerLocation}

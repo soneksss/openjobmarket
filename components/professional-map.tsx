@@ -17,6 +17,7 @@ const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.Map
 const TileLayer = dynamic(() => import("react-leaflet").then((mod) => mod.TileLayer), { ssr: false })
 const Marker = dynamic(() => import("react-leaflet").then((mod) => mod.Marker), { ssr: false })
 const Circle = dynamic(() => import("react-leaflet").then((mod) => mod.Circle), { ssr: false })
+const ZoomControl = dynamic(() => import("react-leaflet").then((mod) => mod.ZoomControl), { ssr: false })
 
 // Helper function to create custom marker icon with default Leaflet appearance
 function createCustomIcon(isSelected: boolean) {
@@ -265,8 +266,10 @@ export function ProfessionalMap({
         zoom={zoom}
         style={{ height: "100%", width: "100%" }}
         className="rounded-lg"
+        zoomControl={false}
         {...({} as any)}
       >
+        <ZoomControl position="bottomleft" {...({} as any)} />
         <MapSizeHandler />
         <ProfessionalCenterer selectedProfessional={selectedProfessionalId ? professionals.find(p => p.id === selectedProfessionalId) : null} />
         <TileLayer

@@ -50,8 +50,8 @@ export default async function SelectTradePage({ params }: PageProps) {
 
   if (!isOwner) redirect("/dashboard")
 
-  const jobLat = job.latitude  ?? 51.5074
-  const jobLon = job.longitude ?? -0.1278
+  const jobLat = job.latitude  ?? 50.8058
+  const jobLon = job.longitude ?? -1.0872
   const radiusLimit = 25 // max miles to fetch
 
   /* ── poster display name ── */

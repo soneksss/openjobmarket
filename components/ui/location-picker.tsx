@@ -268,8 +268,8 @@ export function LocationPicker({
               <LocationMap
                 ref={mapRef}
                 onLocationSelect={handleLocationSelect}
-                initialLat={51.5074} // Default to London
-                initialLng={-0.1278}
+                initialLat={50.8058} // Default to Portsmouth
+                initialLng={-1.0872}
               />
               {/* Locate Me button overlay on map */}
               <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">

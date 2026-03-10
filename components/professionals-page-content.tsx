@@ -37,6 +37,7 @@ import {
   Eye,
   HardHat,
   ArrowLeft,
+  SlidersHorizontal,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -296,7 +297,7 @@ export default function ProfessionalsPageContent({
   const [sortBy, setSortBy] = useState<"nearest" | "salary" | "best_match">("best_match")
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null)
   const professionalCardRefs = useRef<{[key: string]: HTMLElement | null}>({})
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(isModal)
   const [tradeSuggestions, setTradeSuggestions] = useState<string[]>([])
   const [showTradeSuggestions, setShowTradeSuggestions] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -727,7 +728,7 @@ export default function ProfessionalsPageContent({
   console.log("[PROFESSIONALS-PAGE] Data with coordinates:", dataWithCoordinates.length, "out of", data.length)
 
   // Always show map in modal mode; otherwise show only when we have data or a non-default center
-  const shouldShowMap = isModal || center[0] !== 51.5074 || center[1] !== -0.1278 || dataWithCoordinates.length > 0
+  const shouldShowMap = isModal || center[0] !== 50.8058 || center[1] !== -1.0872 || dataWithCoordinates.length > 0
 
   console.log("[PROFESSIONALS-PAGE] Should show map:", shouldShowMap, "Center:", center)
 
@@ -2300,7 +2301,7 @@ export default function ProfessionalsPageContent({
               <ProfessionalMap
                 key={`picker-${Date.now()}`}
                 professionals={[]}
-                center={selectedLocationCoords ? { lat: selectedLocationCoords.lat, lon: selectedLocationCoords.lon } : { lat: 51.5074, lon: -0.1278 }}
+                center={selectedLocationCoords ? { lat: selectedLocationCoords.lat, lon: selectedLocationCoords.lon } : { lat: 50.8058, lon: -1.0872 }}
                 zoom={8}
                 height="100%"
                 showRadius={!!mapPickerLocation}
@@ -2514,11 +2515,15 @@ export default function ProfessionalsPageContent({
       {(isFullScreenMode || isModal) && (
         <div className={`fixed inset-0 z-[9999] flex flex-col overflow-hidden h-screen max-h-screen ${isModal ? 'bg-slate-900' : 'bg-white'}`}>
           {/* Site Header - show in both full-screen and modal mode */}
-          <Header user={currentUser} isModal={isModal} onModalClose={onModalClose} />
+          <Header user={currentUser} isModal={isModal} onModalClose={onModalClose} dark={true} />
 
-          {/* Top Search Bar (Fixed) - show in both full-screen and modal, but smaller in modal */}
-          {(isFullScreenMode || isModal) && <div className={`sticky top-0 z-20 shadow-lg border-b overflow-visible ${isModal ? 'bg-slate-800 border-slate-700' : 'bg-white'}`}>
-            <div className={`container mx-auto ${isModal ? 'px-2 py-2' : 'px-4 py-4'} overflow-visible`}>
+          {/* ── Map fills full remaining height, search floats over it ── */}
+          <div className="flex-1 relative overflow-hidden flex flex-col">
+
+          {/* Floating Search Overlay (Airbnb-style popup card) */}
+          {(isFullScreenMode || isModal) && <div className="absolute top-4 inset-x-3 z-[1001] overflow-visible pointer-events-none">
+            <div className={`overflow-visible pointer-events-auto max-w-xl mx-auto ${isModal && !searchApplied ? 'bg-slate-950/98 backdrop-blur-xl rounded-3xl border border-slate-700/50 shadow-[0_16px_48px_rgba(0,0,0,0.9)] p-4' : ''}`}>
+            <div className="overflow-visible">
               {/* ── Compact bar (Airbnb-style) shown after first search in modal ── */}
               {isModal && searchApplied ? (
                 <div className="flex items-center gap-2">
@@ -2535,34 +2540,21 @@ export default function ProfessionalsPageContent({
                     <ArrowLeft className="h-4 w-4" />
                   </button>
 
-                  {/* Search summary pill — click to re-edit */}
+                  {/* Search summary pill — click to expand search + filters */}
                   <button
-                    onClick={() => setSearchApplied(false)}
+                    onClick={() => { setSearchApplied(false); setShowAdvancedFilters(true) }}
                     className="flex-1 flex items-center gap-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-full px-4 py-2 min-w-0 transition-colors shadow-sm"
                   >
                     <Search className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                      <span className="text-white text-sm font-semibold truncate">
+                      <span className="flex-1 min-w-0 text-white text-sm font-semibold truncate">
                         {searchTerm || (isShowingJobs ? "All jobs" : "All trades")}
                       </span>
                       <span className="text-slate-600 flex-shrink-0">·</span>
-                      <span className="text-slate-400 text-sm truncate">
+                      <span className="flex-1 min-w-0 text-slate-400 text-sm truncate text-right">
                         {locationFilter || "Any location"}
                       </span>
                     </div>
-                  </button>
-
-                  {/* Close modal */}
-                  <button
-                    onClick={() => {
-                      setIsFullScreenMode(false)
-                      if (isModal && onModalClose) onModalClose()
-                      else router.push('/professionals')
-                    }}
-                    className="h-9 w-9 flex items-center justify-center rounded-full bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white flex-shrink-0 transition-colors"
-                    title="Close"
-                  >
-                    <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
@@ -2677,39 +2669,60 @@ export default function ProfessionalsPageContent({
                   </div>
 
 
-                  {/* Action Buttons: non-modal only — in modal, no buttons here (search+filter are one block) */}
+                  {/* Action Buttons: non-modal only */}
                   {!isModal && (
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <Button
-                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                        variant="outline"
-                        size="sm"
-                        className="h-12 px-4 bg-white shadow-sm flex-shrink-0"
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Search button */}
+                      <button
+                        onClick={handleSearch}
+                        className="flex-shrink-0 h-10 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm flex items-center gap-1.5 transition-colors"
                       >
-                        <Filter className="h-4 w-4 mr-1.5" />
-                        Filters
-                      </Button>
-                      <Button
+                        <Search className="h-3.5 w-3.5" />
+                        <span className="hidden md:inline">Search</span>
+                      </button>
+                      {/* Back button */}
+                      <button
                         onClick={() => {
                           setIsFullScreenMode(false)
                           router.push('/professionals')
                         }}
-                        variant="outline"
-                        size="default"
-                        className="h-12 px-3 bg-red-600 hover:bg-red-700 border-red-600 text-white shadow-lg flex-shrink-0"
-                        title="Exit"
+                        className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
+                        title="Back"
                       >
-                        <X className="h-5 w-5" />
-                      </Button>
+                        <ArrowLeft className="h-4 w-4" />
+                      </button>
+                      {/* Round filter toggle */}
+                      <button
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                        className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                          showAdvancedFilters
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+                        }`}
+                        title="Filters"
+                      >
+                        <SlidersHorizontal className="h-4 w-4" />
+                      </button>
                     </div>
                   )}
                 </div>
               )}
 
 
-              {/* Filters — always visible in modal full mode; toggle-controlled in non-modal */}
-              {(isModal && !searchApplied ? true : showAdvancedFilters) && (
-                <div className={`mt-3 p-4 rounded-lg shadow-md border-2 ${isModal ? 'bg-slate-700 border-slate-600' : 'bg-white border-gray-200'}`}>
+              {/* Filters — toggle-controlled by showAdvancedFilters */}
+              {showAdvancedFilters && (
+                <div className={`mt-3 p-4 rounded-2xl shadow-xl border ${isModal ? 'bg-slate-700 border-slate-600' : 'bg-slate-800 border-slate-700'}`}>
+                  {/* Filter header with X button */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-white font-semibold text-sm tracking-wide">Filters</h3>
+                    <button
+                      onClick={() => { setShowAdvancedFilters(false); if (isModal) setSearchApplied(true) }}
+                      className="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                      title="Close filters"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                   <div className="space-y-4">
                     {/* Modal Mode: Simplified filters for Traders/Trade Jobs */}
                     {isModal ? (
@@ -3096,6 +3109,7 @@ export default function ProfessionalsPageContent({
                   </div>
                 </div>
               )}
+            </div>
             </div>
           </div>}
 
@@ -4136,6 +4150,7 @@ export default function ProfessionalsPageContent({
             </Panel>
           </PanelGroup>
           </>
+          </div>{/* flex-1 relative overflow-hidden wrapper */}
         </div>
       )}
     </div>

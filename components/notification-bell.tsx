@@ -157,11 +157,23 @@ export function NotificationBell({ iconClassName }: { iconClassName?: string } =
 
     try {
       const supabase = createClient()
-      await supabase.rpc('delete_notification', { p_notification_id: notificationId })
-      console.log('[NOTIFICATION-BELL] Notification deleted:', notificationId)
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId)
+        .eq('user_id', user.id)
+
+      if (error) {
+        console.error('Error deleting notification:', error)
+        await loadNotifications()
+      } else {
+        console.log('[NOTIFICATION-BELL] Notification deleted:', notificationId)
+      }
     } catch (error) {
       console.error('Error deleting notification:', error)
-      // Reload notifications to restore state on error
       await loadNotifications()
     }
   }
@@ -196,7 +208,7 @@ export function NotificationBell({ iconClassName }: { iconClassName?: string } =
   }
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (open) loadNotifications() }}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="icon" className={`relative ${iconClassName ? "h-auto w-auto p-1" : ""}`}>
           <Bell className={iconClassName ?? "h-5 w-5"} />

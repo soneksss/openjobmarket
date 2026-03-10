@@ -27,7 +27,9 @@ import {
   Languages as LanguagesIcon,
   TrendingUp,
   Car,
-  Clock
+  Clock,
+  Bookmark,
+  BookmarkCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -98,6 +100,40 @@ export default function ProfessionalDetailView({ professional, user, userType, i
 
   const isEmployer = userType === "company"
   const isOwnProfile = user?.id === professional.user_id
+  const isHomeowner = userType === "homeowner"
+
+  const [isSaved, setIsSaved] = useState(false)
+  const [isSavingToggle, setIsSavingToggle] = useState(false)
+
+  // Check if homeowner has saved this tradesperson
+  useEffect(() => {
+    if (!user || !isHomeowner) return
+    const checkSaved = async () => {
+      const { data: hp } = await supabase.from("homeowner_profiles").select("id").eq("user_id", user.id).single()
+      if (!hp) return
+      const { data } = await supabase.from("saved_traders").select("id").eq("homeowner_id", hp.id).eq("professional_id", professional.id).maybeSingle()
+      setIsSaved(!!data)
+    }
+    checkSaved()
+  }, [user, isHomeowner, professional.id])
+
+  const handleToggleSave = async () => {
+    if (!user) { onSignUpPrompt?.(); return }
+    setIsSavingToggle(true)
+    try {
+      const { data: hp } = await supabase.from("homeowner_profiles").select("id").eq("user_id", user.id).single()
+      if (!hp) return
+      if (isSaved) {
+        await supabase.from("saved_traders").delete().eq("homeowner_id", hp.id).eq("professional_id", professional.id)
+        setIsSaved(false)
+      } else {
+        await supabase.from("saved_traders").insert({ homeowner_id: hp.id, professional_id: professional.id })
+        setIsSaved(true)
+      }
+    } finally {
+      setIsSavingToggle(false)
+    }
+  }
 
   // Track where the user came from on component mount
   useEffect(() => {
@@ -186,8 +222,8 @@ export default function ProfessionalDetailView({ professional, user, userType, i
       return
     }
 
-    // Only companies and contractors/traders can contact professionals
-    if (userType === "company" || userType === "contractor") {
+    // Companies, contractors, and homeowners can contact professionals
+    if (userType === "company" || userType === "contractor" || userType === "homeowner") {
       setShowMessageModal(true)
     }
   }
@@ -369,17 +405,33 @@ export default function ProfessionalDetailView({ professional, user, userType, i
           {!isOwnProfile && (
             <button
               onClick={handleContact}
-              disabled={!!user && !canContactModal}
+              disabled={!!user && !canContactModal && !isHomeowner}
               className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
             >
               <MessageCircle className="h-4 w-4" />
               {user
-                ? canContactModal ? (userType === "company" ? "Send Inquiry" : "Send Message") : "Contact Restricted"
+                ? (canContactModal || isHomeowner) ? "Send Message" : "Contact Restricted"
                 : "Sign Up to Contact"}
             </button>
           )}
 
-          {user && !isOwnProfile && !canContactModal && (
+          {/* Save Tradesperson — homeowners only */}
+          {!isOwnProfile && (isHomeowner || !user) && (
+            <button
+              onClick={handleToggleSave}
+              disabled={isSavingToggle}
+              className={`w-full font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm border ${
+                isSaved
+                  ? "bg-emerald-900/40 border-emerald-600 text-emerald-400 hover:bg-red-900/20 hover:border-red-600 hover:text-red-400"
+                  : "bg-slate-800 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+              }`}
+            >
+              {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+              {isSaved ? "Saved" : "Save Tradesperson"}
+            </button>
+          )}
+
+          {user && !isOwnProfile && !canContactModal && !isHomeowner && (
             <p className="text-xs text-slate-500 text-center">Only employers and tradespeople can contact professionals</p>
           )}
         </div>

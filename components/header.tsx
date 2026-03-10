@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info, Lightbulb } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
 import { NotificationBell } from "@/components/notification-bell"
 import { useRouter, usePathname } from "next/navigation"
@@ -237,7 +237,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   const logoEl = (
     <div
       onClick={handleLogoClick}
-      className="cursor-pointer rounded-2xl overflow-hidden shadow-lg ring-1 ring-white/10 hover:opacity-90 hover:shadow-xl hover:scale-[1.03] transition-all duration-200"
+      className="cursor-pointer hover:opacity-90 hover:scale-[1.03] transition-all duration-200"
     >
       <Image
         src="/Logo.png"
@@ -253,7 +253,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
   // ─── Header: dark slate bg on mobile home page, default everywhere else ─────
   return (
-    <header className={`border-b ${dark ? "bg-slate-900 border-slate-700/50 md:bg-background md:border-border" : "bg-background"}`}>
+    <header className={`${dark ? "bg-slate-900 border-b border-slate-700/50" : "bg-background border-b"}`}>
       <div className="container mx-auto px-2 py-1">
 
         <div className="flex justify-between items-center">
@@ -276,12 +276,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href={getLocalePath("/useful-info")} className="flex items-center">
-                      <Lightbulb className="h-4 w-4 mr-2" />
-                      {t('header.usefulInfo')}
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
                     <Link href={getLocalePath("/help")} className="flex items-center">
                       <HelpCircle className="h-4 w-4 mr-2" />
                       {t('header.help')}
@@ -293,19 +287,13 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
             <nav className="hidden md:flex items-center space-x-2">
               <Link href={getLocalePath("/about")}>
-                <Button variant="ghost">
+                <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
                   {t('header.about')}
                 </Button>
               </Link>
 
-              <Link href={getLocalePath("/useful-info")}>
-                <Button variant="ghost">
-                  {t('header.usefulInfo')}
-                </Button>
-              </Link>
-
               <Link href={getLocalePath("/help")}>
-                <Button variant="ghost">
+                <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
                   {t('header.help')}
                 </Button>
               </Link>
@@ -334,12 +322,12 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                   variant="ghost"
                   size="sm"
                   onClick={openLanguageModal}
-                  className="flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-2 hover:bg-accent"
+                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-2 ${dark ? "hover:bg-white/10" : "hover:bg-accent"}`}
                   aria-label="Change language and region"
                 >
-                  <Globe className="h-4 w-4 text-gray-600" />
+                  <Globe className={`h-4 w-4 ${dark ? "text-slate-300" : "text-gray-600"}`} />
                   {isMounted && (
-                    <span className="hidden sm:inline text-xs sm:text-sm text-gray-700">
+                    <span className={`hidden sm:inline text-xs sm:text-sm ${dark ? "text-slate-300" : "text-gray-700"}`}>
                       {getDisplayText(languageRegionState)}
                     </span>
                   )}
@@ -358,9 +346,16 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     <NotificationBell iconClassName="h-9 w-9" />
                   </div>
                   {/* Desktop: Full navigation */}
-                  <div className="hidden md:flex items-center space-x-4">
+                  <div className={`hidden md:flex items-center space-x-4 ${dark ? "text-slate-200" : ""}`}>
                     <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-xs">
-                      <Link href={getLocalePath("/dashboard")}>{t('header.dashboard')}</Link>
+                      <Link href={getLocalePath(
+                        currentUserType === "homeowner"    ? "/dashboard/homeowner" :
+                        currentUserType === "professional" ? "/dashboard/professional" :
+                        currentUserType === "contractor"   ? "/dashboard/contractor" :
+                        currentUserType === "jobseeker"    ? "/dashboard/jobseeker" :
+                        currentUserType === "company" || currentUserType === "employer" ? "/dashboard/company" :
+                        "/dashboard"
+                      )}>{t('header.dashboard')}</Link>
                     </Button>
                     {/* Message Icon */}
                     <MessageIcon user={currentUser} />
@@ -371,7 +366,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="flex items-center space-x-1 px-1 py-1 hover:bg-accent"
+                        className={`flex items-center space-x-1 px-1 py-1 ${dark ? "text-slate-200 hover:text-white hover:bg-white/10" : "hover:bg-accent"}`}
                       >
                         {profilePhotoUrl ? (
                           <Avatar className="h-6 w-6 rounded-full">
@@ -642,7 +637,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 bg-transparent ${dark ? "border-slate-500 text-slate-200 hover:bg-white/10 hover:text-white md:border-input md:text-foreground md:hover:bg-accent" : ""}`}
+                      className={`text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 bg-transparent ${dark ? "border-slate-600 text-slate-200 hover:bg-white/10 hover:text-white" : ""}`}
                     >
                       {t('header.signIn')}
                     </Button>
@@ -713,17 +708,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                   className="block w-full text-left font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                 >
                   {t('header.about')}
-                </Link>
-              </div>
-
-              {/* Useful Info */}
-              <div>
-                <Link
-                  href={getLocalePath("/useful-info")}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="block w-full text-left font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-                >
-                  {t('header.usefulInfo')}
                 </Link>
               </div>
 

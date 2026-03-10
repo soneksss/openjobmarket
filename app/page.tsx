@@ -5,6 +5,11 @@ import { createClient } from "@/lib/server"
 import Link from "next/link"
 import { generateSEO } from "@/lib/seo"
 import { HomeClientWrapper } from "@/components/home-client-wrapper"
+import { redirect } from "next/navigation"
+
+const ROLE_DASHBOARDS: Record<string, string> = {
+  homeowner: "/dashboard/homeowner",
+}
 
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
@@ -42,6 +47,11 @@ export default async function HomePage() {
       .single()
 
     userType = userData?.user_type || null
+
+    // Redirect logged-in non-admin users to their role dashboard
+    if (userType && userType !== "admin" && ROLE_DASHBOARDS[userType]) {
+      redirect(ROLE_DASHBOARDS[userType])
+    }
   }
 
   return (
