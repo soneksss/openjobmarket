@@ -225,24 +225,19 @@ export default function MultiStepSignup() {
       const supabase = createClient()
 
       // Determine user_type based on account type
-      // Individual → professional, Business → company
-      const userType = signupData.accountType === "individual" ? "professional" : "company"
+      // Individual (Homeowner) → homeowner, Business (Tradesperson) → company
+      const userType = signupData.accountType === "individual" ? "homeowner" : "company"
 
       // Map accountType to database values: 'individual' stays as is, 'company' becomes 'business'
       const dbAccountType = signupData.accountType === 'company' ? 'business' : 'individual'
 
-      // Auto-set roles based on account type
-      // Individual: jobseeker + homeowner capabilities (can look for jobs AND hire tradespeople)
-      // Business: employer + tradespeople capabilities (can hire AND offer services)
       const isIndividual = signupData.accountType === "individual"
 
       const metadata: Record<string, any> = {
         user_type: userType,
         account_type: dbAccountType,
-        // Individual accounts are jobseekers who can also hire (homeowner capabilities built-in)
-        is_jobseeker: isIndividual,
-        is_homeowner: isIndividual, // Individuals can hire tradespeople
-        // Business accounts can both hire and offer services
+        is_jobseeker: false,
+        is_homeowner: isIndividual,
         is_employer: !isIndividual,
         is_tradespeople: !isIndividual,
       }
