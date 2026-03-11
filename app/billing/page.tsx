@@ -1,18 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { CreditCard, Building2, ArrowLeft, AlertCircle } from "lucide-react"
+import { CreditCard, Building2, ArrowLeft, AlertCircle, Check } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 
 export default function BillingPage() {
   const pathname = usePathname()
-
-  // Locale-aware sign-up URL
   const isOnBrRoute = pathname?.startsWith('/br')
   const signUpUrl = isOnBrRoute
     ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
@@ -23,188 +18,171 @@ export default function BillingPage() {
   const supabase = createClient()
 
   useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      try {
+        const { data, error } = await supabase.rpc('get_public_admin_settings')
+        if (!error && data) setSubscriptionsEnabled(data.subscriptions_enabled)
+      } catch {
+        setSubscriptionsEnabled(true)
+      } finally {
+        setLoading(false)
+      }
+    }
     checkSubscriptionStatus()
   }, [])
 
-  const checkSubscriptionStatus = async () => {
-    try {
-      const { data, error } = await supabase.rpc('get_public_admin_settings')
+  const starterFeatures = [
+    "Post 1 job at a time",
+    "Send up to 5 messages per month",
+    "Limited search filters",
+    "Standard visibility",
+    "Basic support",
+  ]
 
-      if (!error && data) {
-        setSubscriptionsEnabled(data.subscriptions_enabled)
-      }
-    } catch (err) {
-      console.error("Error checking subscription status:", err)
-      // Default to enabled if there's an error
-      setSubscriptionsEnabled(true)
-    } finally {
-      setLoading(false)
-    }
-  }
+  const premiumFeatures = [
+    "Unlimited job postings",
+    "Unlimited professional contacts",
+    "Advanced search filters",
+    "Priority job placement",
+    "Analytics dashboard",
+    "Priority support",
+  ]
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
-      <div className="mb-6">
-        <Link
-          href="/"
-          className="inline-flex items-center text-primary hover:text-primary/80 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Open Job Market
+    <div className="min-h-screen bg-slate-900 text-white">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors mb-6">
+          <ArrowLeft className="h-4 w-4" />Back to Open Job Market
         </Link>
-      </div>
 
-      <Card>
-        <CardHeader className="text-center">
-          <CardTitle className="text-4xl flex items-center justify-center">
-            <CreditCard className="h-10 w-10 mr-3 text-primary" />
-            Company Subscription Plans
-          </CardTitle>
-          <p className="text-muted-foreground text-lg">
-            Choose the perfect plan to find and hire the best talent
-          </p>
-        </CardHeader>
-        <CardContent className="space-y-8">
-          {/* Subscription Disabled Notice */}
-          {!loading && !subscriptionsEnabled && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <div className="flex items-start space-x-3">
-                <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="font-medium text-blue-800">Platform is Currently Free</h3>
-                  <p className="text-sm text-blue-700 mt-1">
-                    Premium subscriptions are currently disabled. All platform features are available for free to all users.
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Company Plans */}
-          <div>
-            <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold flex items-center justify-center mb-2">
-                <Building2 className="h-6 w-6 mr-2 text-blue-600" />
-                For Companies
-              </h2>
-              <p className="text-muted-foreground">Find and hire the best talent</p>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6 mb-8 max-w-2xl mx-auto">
-              <Card className="border-2 border-gray-300 bg-gray-50/50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Starter Plan</CardTitle>
-                    <Badge variant="secondary">Auto-Assigned</Badge>
-                  </div>
-                  <p className="text-2xl font-bold">
-                    £0<span className="text-sm font-normal">/month</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {subscriptionsEnabled
-                      ? 'Automatically applied to all companies when subscriptions are enabled'
-                      : 'Default plan for all companies'}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm mb-4">
-                    <li>• Post 1 job at a time</li>
-                    <li>• Send up to 5 messages per month</li>
-                    <li>• Limited search filters</li>
-                    <li>• Standard visibility</li>
-                    <li>• Basic support</li>
-                  </ul>
-                  <Button variant="outline" className="w-full" disabled>
-                    Automatically Applied
-                  </Button>
-                  <p className="text-xs text-center text-muted-foreground mt-2">
-                    This plan is automatically assigned to all new companies
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className={`border-2 ${!subscriptionsEnabled ? 'border-gray-200 opacity-60' : 'border-primary'}`}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Premium Plan</CardTitle>
-                    {subscriptionsEnabled ? (
-                      <Badge className="bg-primary">Recommended</Badge>
-                    ) : (
-                      <Badge variant="secondary">Disabled</Badge>
-                    )}
-                  </div>
-                  <p className="text-2xl font-bold">
-                    £10<span className="text-sm font-normal">/month</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {subscriptionsEnabled ? '3 months free for all new signups!' : 'Currently unavailable'}
-                  </p>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2 text-sm mb-4">
-                    <li>• Unlimited job postings</li>
-                    <li>• Unlimited professional contacts</li>
-                    <li>• Advanced search filters</li>
-                    <li>• Priority job placement</li>
-                    <li>• Analytics dashboard</li>
-                    <li>• Priority support</li>
-                  </ul>
-                  <Button
-                    className="w-full"
-                    disabled={!subscriptionsEnabled}
-                    asChild={subscriptionsEnabled}
-                  >
-                    {subscriptionsEnabled ? (
-                      <Link href={signUpUrl}>Start Premium Trial</Link>
-                    ) : (
-                      <span>Currently Unavailable</span>
-                    )}
-                  </Button>
-                  {!subscriptionsEnabled && (
-                    <p className="text-xs text-center text-muted-foreground mt-2">
-                      Premium features are currently available for free
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center gap-3 mb-2">
+            <CreditCard className="h-8 w-8 text-emerald-400" />
+            <h1 className="text-3xl font-bold text-white">Company Subscription Plans</h1>
           </div>
+          <p className="text-slate-400">Choose the perfect plan to connect with homeowners near you</p>
+        </div>
 
-          {/* Call to Action for Existing Users */}
-          <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-lg p-6">
-            <div className="text-center">
-              <h3 className="text-xl font-semibold mb-2">Already have an account?</h3>
-              <p className="text-muted-foreground mb-4">
-                Sign in to manage your subscription and view billing history
-              </p>
-              <div className="flex justify-center gap-3">
-                <Button asChild>
-                  <Link href="/auth/login">Sign In</Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link href="/dashboard">Go to Dashboard</Link>
-                </Button>
+        {!loading && !subscriptionsEnabled && (
+          <div className="mb-6 p-4 bg-blue-900/20 border border-blue-700/40 rounded-xl">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+              <div>
+                <h3 className="font-medium text-blue-300">Platform is Currently Free</h3>
+                <p className="text-sm text-blue-400/80 mt-0.5">
+                  Premium subscriptions are currently disabled. All platform features are available for free to all users.
+                </p>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Support Section */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-medium text-blue-800 mb-2">Need help with billing?</h3>
-            <p className="text-sm text-blue-700">
-              Contact our billing support team at{" "}
-              <a href="mailto:info@openjobmarket.com" className="underline">
-                info@openjobmarket.com
-              </a>{" "}
-              or visit our{" "}
-              <Link href="/contact" className="underline">
-                help center
-              </Link>{" "}
-              for common billing questions.
+        <div className="mb-6 flex items-center justify-center gap-2">
+          <Building2 className="h-5 w-5 text-slate-400" />
+          <h2 className="text-lg font-semibold text-white">For Tradespeople & Companies</h2>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-5 max-w-2xl mx-auto mb-8">
+          {/* Starter */}
+          <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-white">Starter Plan</h3>
+              <span className="text-xs bg-slate-700 text-slate-300 border border-slate-600 px-2 py-0.5 rounded-full">Auto-Assigned</span>
+            </div>
+            <div className="mb-1">
+              <span className="text-3xl font-bold text-white">£0</span>
+              <span className="text-slate-400 text-sm">/month</span>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              {subscriptionsEnabled
+                ? 'Automatically applied to all companies when subscriptions are enabled'
+                : 'Default plan for all companies'}
             </p>
+            <ul className="space-y-2 mb-5">
+              {starterFeatures.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-slate-400">
+                  <Check className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />{f}
+                </li>
+              ))}
+            </ul>
+            <button disabled className="w-full py-2.5 rounded-xl border border-slate-600 text-slate-500 text-sm font-medium cursor-not-allowed">
+              Automatically Applied
+            </button>
           </div>
-        </CardContent>
-      </Card>
+
+          {/* Premium */}
+          <div className={`bg-slate-800 rounded-xl border p-6 ${!subscriptionsEnabled ? 'border-slate-700/50 opacity-60' : 'border-emerald-600/60'}`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-white">Premium Plan</h3>
+              {subscriptionsEnabled ? (
+                <span className="text-xs bg-emerald-900/50 text-emerald-400 border border-emerald-700/50 px-2 py-0.5 rounded-full">Recommended</span>
+              ) : (
+                <span className="text-xs bg-slate-700 text-slate-400 border border-slate-600 px-2 py-0.5 rounded-full">Disabled</span>
+              )}
+            </div>
+            <div className="mb-1">
+              <span className="text-3xl font-bold text-white">£10</span>
+              <span className="text-slate-400 text-sm">/month</span>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              {subscriptionsEnabled ? '3 months free for all new signups!' : 'Currently unavailable'}
+            </p>
+            <ul className="space-y-2 mb-5">
+              {premiumFeatures.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-slate-300">
+                  <Check className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />{f}
+                </li>
+              ))}
+            </ul>
+            {subscriptionsEnabled ? (
+              <Link
+                href={signUpUrl}
+                className="block w-full text-center py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors"
+              >
+                Start Premium Trial
+              </Link>
+            ) : (
+              <button disabled className="w-full py-2.5 rounded-xl bg-slate-700 text-slate-500 text-sm font-medium cursor-not-allowed">
+                Currently Unavailable
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Already have an account */}
+        <div className="bg-gradient-to-br from-blue-950 to-slate-800 rounded-xl border border-blue-800/40 p-6 text-center mb-5">
+          <h3 className="text-lg font-semibold text-white mb-1">Already have an account?</h3>
+          <p className="text-slate-400 text-sm mb-4">Sign in to manage your subscription and view billing history</p>
+          <div className="flex justify-center gap-3">
+            <Link
+              href="/auth/login"
+              className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold transition-colors"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/dashboard"
+              className="px-5 py-2 rounded-xl border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white text-sm font-medium transition-colors"
+            >
+              Go to Dashboard
+            </Link>
+          </div>
+        </div>
+
+        {/* Support */}
+        <div className="p-4 bg-slate-800 rounded-xl border border-slate-700/50 text-sm text-slate-400">
+          <span className="font-medium text-slate-300">Need help with billing? </span>
+          Contact us at{" "}
+          <a href="mailto:info@openjobmarket.com" className="text-emerald-400 hover:text-emerald-300">
+            info@openjobmarket.com
+          </a>
+          {" "}or visit our{" "}
+          <Link href="/contact" className="text-emerald-400 hover:text-emerald-300">
+            contact page
+          </Link>
+          .
+        </div>
+      </div>
     </div>
   )
 }

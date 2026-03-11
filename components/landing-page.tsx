@@ -1536,6 +1536,7 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
       <div className="border-t border-slate-800 pt-5 pb-24 px-4">
         <div className="flex flex-wrap justify-center gap-x-6 gap-y-2 mb-3">
           {[
+            { href: "/site-map", label: "Sitemaps" },
             { href: "/about",   label: "About" },
             { href: "/contact", label: "Contact" },
             { href: "/terms",   label: "Terms" },

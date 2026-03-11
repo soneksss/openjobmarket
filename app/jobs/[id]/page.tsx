@@ -1,23 +1,35 @@
 import { createClient } from "@/lib/server"
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { Metadata } from "next"
 import JobDetailView from "@/components/job-detail-view"
 import { generateJobPostingSchema } from "@/lib/schema-markup"
 import { requireVacancyEnabledForJob } from "@/lib/vacancy-guard"
+import { isUUID } from "@/lib/slug"
+
+/** Resolve a URL param (UUID or slug) to a job row */
+async function resolveJob(supabase: Awaited<ReturnType<typeof createClient>>, param: string) {
+  if (isUUID(param)) {
+    const { data } = await supabase
+      .from("jobs")
+      .select(`*, company_profiles (company_name, location), homeowner_profiles (first_name, last_name)`)
+      .eq("id", param)
+      .single()
+    return data
+  }
+  // Slug lookup
+  const { data } = await supabase
+    .from("jobs")
+    .select(`*, company_profiles (company_name, location), homeowner_profiles (first_name, last_name)`)
+    .eq("slug", param)
+    .single()
+  return data
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const supabase = await createClient()
   const { id } = await params
 
-  const { data: job } = await supabase
-    .from("jobs")
-    .select(`
-      *,
-      company_profiles (company_name, location),
-      homeowner_profiles (first_name, last_name)
-    `)
-    .eq("id", id)
-    .single()
+  const job = await resolveJob(supabase, id)
 
   if (!job) {
     return {
@@ -46,14 +58,13 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       job.job_type,
       job.work_location,
       posterName,
-      "jobs",
-      "vacancies",
-      "careers",
+      "trade jobs",
+      "local tradespeople",
     ].filter(Boolean),
     openGraph: {
       title: `${job.title} at ${posterName}`,
       description: job.description?.substring(0, 200),
-      url: `${baseUrl}/jobs/${id}`,
+      url: `${baseUrl}/jobs/${job.slug ?? job.id}`,
       type: "website",
       siteName: "OpenJobMarket",
     },
@@ -80,66 +91,60 @@ export default async function JobDetailPage({
   params: Promise<{ id: string }>
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
-  const { id } = await params
-  await requireVacancyEnabledForJob(id)
-
+  const { id: rawParam } = await params
   const supabase = await createClient()
   const search = await searchParams
 
-  console.log("[JOB-DETAIL] Loading job detail page:", {
-    jobId: id,
-    searchParams: search,
-    searchParamsKeys: Object.keys(search),
-    query: search.query,
-    location: search.location,
-    lat: search.lat,
-    lon: search.lon
-  })
+  console.log("[JOB-DETAIL] Loading job detail page:", { param: rawParam })
 
-  // Get job details with company and homeowner information
-  const { data: job, error: jobError } = await supabase
-    .from("jobs")
-    .select(`
-      *,
-      company_profiles (
-        id,
-        company_name,
-        description,
-        industry,
-        company_size,
-        website_url,
-        location,
-        logo_url,
-        user_id
-      ),
-      homeowner_profiles (
-        id,
-        user_id,
-        first_name,
-        last_name,
-        profile_photo_url
-      )
-    `)
-    .eq("id", id)
-    .single()
+  let job: any = null
 
-  if (jobError) {
-    console.error("[JOB-DETAIL] Error fetching job:", jobError)
-    notFound()
+  if (isUUID(rawParam)) {
+    // Legacy UUID URL — look up by id, then redirect to slug URL
+    const { data, error } = await supabase
+      .from("jobs")
+      .select(`
+        *,
+        company_profiles (id, company_name, description, industry, company_size, website_url, location, logo_url, user_id),
+        homeowner_profiles (id, user_id, first_name, last_name, profile_photo_url)
+      `)
+      .eq("id", rawParam)
+      .single()
+
+    if (error || !data) {
+      console.log("[JOB-DETAIL] Job not found by UUID:", rawParam)
+      notFound()
+    }
+
+    job = data
+
+    // Permanently redirect to slug URL so Google indexes the keyword-rich URL
+    if (job.slug) {
+      permanentRedirect(`/jobs/${job.slug}`)
+    }
+  } else {
+    // Slug URL — look up by slug
+    const { data, error } = await supabase
+      .from("jobs")
+      .select(`
+        *,
+        company_profiles (id, company_name, description, industry, company_size, website_url, location, logo_url, user_id),
+        homeowner_profiles (id, user_id, first_name, last_name, profile_photo_url)
+      `)
+      .eq("slug", rawParam)
+      .single()
+
+    if (error || !data) {
+      console.log("[JOB-DETAIL] Job not found by slug:", rawParam)
+      notFound()
+    }
+
+    job = data
   }
 
-  if (!job) {
-    console.log("[JOB-DETAIL] Job not found:", id)
-    notFound()
-  }
+  await requireVacancyEnabledForJob(job.id)
 
-  console.log("[JOB-DETAIL] Job loaded successfully:", {
-    jobId: job.id,
-    title: job.title,
-    companyId: job.company_profiles?.id,
-    hasJobPhoto: !!job.job_photo_url,
-    jobPhotoUrl: job.job_photo_url
-  })
+  console.log("[JOB-DETAIL] Job loaded:", { jobId: job.id, slug: job.slug, title: job.title })
 
   // Get current user to check if they can apply
   let user = null
@@ -180,10 +185,8 @@ export default async function JobDetailPage({
       } else {
         console.log("[JOB-DETAIL] User type:", userData?.user_type, "Job is task:", job.is_tradespeople_job)
 
-        // For tasks (is_tradespeople_job = true), companies AND contractors apply
-        // For regular jobs (is_tradespeople_job = false), professionals apply
-        if (job.is_tradespeople_job && userData?.user_type === "company") {
-          // Fetch company profile for task applications
+        // In the 2-role model, only company (tradesperson) users can apply to trade jobs
+        if (userData?.user_type === "company") {
           const { data: profile, error: profileError } = await supabase
             .from("company_profiles")
             .select("*")
@@ -193,133 +196,40 @@ export default async function JobDetailPage({
           if (profileError) {
             console.error("[JOB-DETAIL] Error fetching company profile:", profileError)
           } else if (profile) {
-            // Transform company profile to match UserProfile interface expected by JobApplicationForm
-            // Use user.email since we already have the authenticated user object
             userProfile = {
               ...profile,
               email: user.email || "",
               phone: profile.phone_number || null,
-              // Map company fields to professional fields for compatibility
               first_name: profile.company_name || "Company",
-              last_name: "", // Companies don't have last names
+              last_name: "",
               title: profile.industry || "Company",
               bio: profile.description || "",
-              skills: [], // Companies don't have skills array
+              skills: [],
               location: profile.location || "",
               full_address: profile.location || "",
               nickname: profile.nickname || profile.company_name,
               hide_email: false,
               hide_personal_name: false,
-              // IMPORTANT: Preserve company_name for company applicant detection in JobApplicationForm
               company_name: profile.company_name,
             }
-            console.log("[JOB-DETAIL] Company profile loaded and transformed for task:", profile?.id)
+            console.log("[JOB-DETAIL] Company profile loaded:", profile?.id)
 
-            // Check if company has already applied using company_id
-            if (profile) {
-              const { data: application, error: applicationError } = await supabase
-                .from("job_applications")
-                .select("id")
-                .eq("job_id", job.id)
-                .eq("company_id", profile.id) // Company applications use company_id
-                .single()
+            const { data: application, error: applicationError } = await supabase
+              .from("job_applications")
+              .select("id")
+              .eq("job_id", job.id)
+              .eq("company_id", profile.id)
+              .single()
 
-              if (applicationError && applicationError.code !== 'PGRST116') {
-                console.error("[JOB-DETAIL] Error checking company application status:", applicationError)
-              } else {
-                hasApplied = !!application
-                console.log("[JOB-DETAIL] Company application status:", { hasApplied, applicationId: application?.id })
-              }
-            }
-          }
-        } else if (job.is_tradespeople_job && userData?.user_type === "contractor") {
-          // Fetch contractor profile for trade job applications
-          const { data: profile, error: profileError } = await supabase
-            .from("contractor_profiles")
-            .select("*")
-            .eq("user_id", user.id)
-            .single()
-
-          if (profileError) {
-            console.error("[JOB-DETAIL] Error fetching contractor profile:", profileError)
-          } else if (profile) {
-            // Transform contractor profile to match UserProfile interface expected by JobApplicationForm
-            userProfile = {
-              ...profile,
-              email: user.email || "",
-              phone: profile.phone || null,
-              // Map contractor fields to professional fields for compatibility
-              first_name: profile.business_name || "Contractor",
-              last_name: "", // Contractors use business_name
-              title: profile.trade_specialties?.join(", ") || "Contractor",
-              bio: profile.bio || "",
-              skills: profile.trade_specialties || [],
-              location: profile.location || "",
-              full_address: profile.location || "",
-              nickname: profile.business_name,
-              hide_email: false,
-              hide_personal_name: false,
-              // Mark as contractor for detection
-              business_name: profile.business_name,
-              is_contractor: true,
-            }
-            console.log("[JOB-DETAIL] Contractor profile loaded and transformed for trade job:", profile?.id)
-
-            // Check if contractor has already applied using contractor_id
-            if (profile) {
-              const { data: application, error: applicationError } = await supabase
-                .from("job_applications")
-                .select("id")
-                .eq("job_id", job.id)
-                .eq("contractor_id", profile.id) // Contractor applications use contractor_id
-                .single()
-
-              if (applicationError && applicationError.code !== 'PGRST116') {
-                console.error("[JOB-DETAIL] Error checking contractor application status:", applicationError)
-              } else {
-                hasApplied = !!application
-                console.log("[JOB-DETAIL] Contractor application status:", { hasApplied, applicationId: application?.id })
-              }
-            }
-          }
-        } else if (!job.is_tradespeople_job && userData?.user_type === "professional") {
-          // Fetch professional profile for regular job applications
-          const { data: profile, error: profileError} = await supabase
-            .from("professional_profiles")
-            .select("*")
-            .eq("user_id", user.id)
-            .single()
-
-          if (profileError) {
-            console.error("[JOB-DETAIL] Error fetching professional profile:", profileError)
-          } else if (profile) {
-            // Add email from authenticated user object
-            userProfile = {
-              ...profile,
-              email: user.email || "",
-              phone: profile.phone
-            }
-            console.log("[JOB-DETAIL] Professional profile loaded:", profile?.id)
-
-            // Check if user has already applied
-            if (profile) {
-              const { data: application, error: applicationError } = await supabase
-                .from("job_applications")
-                .select("id")
-                .eq("job_id", job.id)
-                .eq("professional_id", profile.id)
-                .single()
-
-              if (applicationError && applicationError.code !== 'PGRST116') {
-                console.error("[JOB-DETAIL] Error checking application status:", applicationError)
-              } else {
-                hasApplied = !!application
-                console.log("[JOB-DETAIL] Application status:", { hasApplied, applicationId: application?.id })
-              }
+            if (applicationError && applicationError.code !== 'PGRST116') {
+              console.error("[JOB-DETAIL] Error checking application status:", applicationError)
+            } else {
+              hasApplied = !!application
+              console.log("[JOB-DETAIL] Application status:", { hasApplied, applicationId: application?.id })
             }
           }
         } else {
-          console.log("[JOB-DETAIL] User type doesn't match job type - no profile loaded")
+          console.log("[JOB-DETAIL] User type is not company — no profile loaded")
         }
       }
     } catch (error) {
@@ -398,57 +308,31 @@ export default async function JobDetailPage({
     }
 
     if (reviewsData) {
-      // Fetch reviewer names and avatars from all possible profile types
+      // Fetch reviewer names — 2-role model: company_profiles (tradespeople) or homeowner_profiles
       const reviewsWithNames = await Promise.all(
         reviewsData.map(async (review) => {
           let reviewerName = "Anonymous"
           let reviewerAvatar: string | null = null
 
-          // Try professional profile first
-          const { data: profProfile } = await supabase
-            .from("professional_profiles")
-            .select("first_name, last_name, profile_photo_url")
+          const { data: companyProfile } = await supabase
+            .from("company_profiles")
+            .select("company_name, logo_url")
             .eq("user_id", review.reviewer_id)
             .single()
 
-          if (profProfile) {
-            reviewerName = `${profProfile.first_name} ${profProfile.last_name}`
-            reviewerAvatar = profProfile.profile_photo_url
+          if (companyProfile) {
+            reviewerName = companyProfile.company_name
+            reviewerAvatar = companyProfile.logo_url
           } else {
-            // Try company profile
-            const { data: companyProfile } = await supabase
-              .from("company_profiles")
-              .select("company_name, logo_url")
+            const { data: homeownerProfile } = await supabase
+              .from("homeowner_profiles")
+              .select("first_name, last_name, profile_photo_url")
               .eq("user_id", review.reviewer_id)
               .single()
 
-            if (companyProfile) {
-              reviewerName = companyProfile.company_name
-              reviewerAvatar = companyProfile.logo_url
-            } else {
-              // Try contractor profile
-              const { data: contractorProfile } = await supabase
-                .from("contractor_profiles")
-                .select("business_name, profile_picture")
-                .eq("user_id", review.reviewer_id)
-                .single()
-
-              if (contractorProfile) {
-                reviewerName = contractorProfile.business_name
-                reviewerAvatar = contractorProfile.profile_picture
-              } else {
-                // Fallback to user email
-                const { data: userData } = await supabase
-                  .from("users")
-                  .select("email")
-                  .eq("id", review.reviewer_id)
-                  .single()
-
-                if (userData?.email) {
-                  // Use email username as name (before @)
-                  reviewerName = userData.email.split('@')[0]
-                }
-              }
+            if (homeownerProfile) {
+              reviewerName = `${homeownerProfile.first_name} ${homeownerProfile.last_name}`.trim()
+              reviewerAvatar = homeownerProfile.profile_photo_url ?? null
             }
           }
 
@@ -464,9 +348,10 @@ export default async function JobDetailPage({
     }
   }
 
-  // Generate schema markup for SEO
-  const posterName = job.company_profiles?.company_name ||
-    (job.homeowner_profiles ? `${job.homeowner_profiles.first_name} ${job.homeowner_profiles.last_name}` : "Poster")
+  // Generate schema markup for SEO — trade jobs are posted by homeowners
+  const posterName = job.homeowner_profiles
+    ? `${job.homeowner_profiles.first_name} ${job.homeowner_profiles.last_name}`.trim()
+    : "Open Job Market"
 
   const schemaMarkup = generateJobPostingSchema({
     id: job.id,

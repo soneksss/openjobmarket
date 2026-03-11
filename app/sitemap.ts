@@ -29,11 +29,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: page.priority,
   }))
 
-  // Fetch all active job postings
+  // Fetch all real active job postings (must have title and location — excludes test/demo rows)
   const { data: jobs } = await supabase
     .from("jobs")
     .select("id, updated_at")
     .eq("is_active", true)
+    .not("title", "is", null)
+    .not("location", "is", null)
     .limit(5000)
 
   const jobPages: MetadataRoute.Sitemap =
@@ -44,16 +46,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     })) || []
 
-  // Fetch all tradesperson (professional) profiles
-  const { data: professionals } = await supabase
-    .from("professional_profiles")
+  // Fetch real tradesperson profiles from company_profiles (post-2-role migration)
+  const { data: tradespeople } = await supabase
+    .from("company_profiles")
     .select("id, updated_at")
+    .not("company_name", "is", null)
+    .not("company_name", "eq", "Tradesperson")
     .limit(5000)
 
-  const professionalPages: MetadataRoute.Sitemap =
-    professionals?.map((prof) => ({
-      url: `${baseUrl}/professionals/${prof.id}`,
-      lastModified: prof.updated_at ? new Date(prof.updated_at) : new Date(),
+  const tradespeoplePages: MetadataRoute.Sitemap =
+    tradespeople?.map((t) => ({
+      url: `${baseUrl}/professionals/${t.id}`,
+      lastModified: t.updated_at ? new Date(t.updated_at) : new Date(),
       changeFrequency: "weekly" as const,
       priority: 0.6,
     })) || []
@@ -62,6 +66,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...enPages,
     ...ptPages,
     ...jobPages,
-    ...professionalPages,
+    ...tradespeoplePages,
   ]
 }

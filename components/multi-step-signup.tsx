@@ -172,8 +172,8 @@ export default function MultiStepSignup() {
       return false
     }
 
-    // Location is required for all user types
-    if (!signupData.latitude || !signupData.longitude) {
+    // Postcode is required (used as location fallback even if geocoding didn't complete)
+    if (!signupData.postcode) {
       setError(t('signup.selectLocationRequired') || 'Please enter your postcode')
       return false
     }
@@ -257,6 +257,7 @@ export default function MultiStepSignup() {
         metadata.phone_number = signupData.phone
       }
       if (signupData.location) metadata.location = signupData.location
+      else if (signupData.postcode) metadata.location = signupData.postcode
       if (signupData.latitude !== undefined) metadata.latitude = signupData.latitude
       if (signupData.longitude !== undefined) metadata.longitude = signupData.longitude
 

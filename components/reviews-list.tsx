@@ -149,121 +149,89 @@ export function ReviewsList({
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-500">Loading reviews...</p>
-        </CardContent>
-      </Card>
+      <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">{title}</p>
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="animate-pulse h-16 bg-slate-700 rounded-lg" />
+          ))}
+        </div>
+      </div>
     )
   }
 
   if (reviews.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-gray-500">No reviews yet.</p>
-        </CardContent>
-      </Card>
+      <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+        <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">{title}</p>
+        <p className="text-sm text-slate-500 italic">No reviews yet.</p>
+      </div>
     )
   }
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>{title}</CardTitle>
-            {showViewAll && reviews.length > 0 && (
-              <Button variant="link" size="sm">
-                View All ({reviews.length})
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">{title}</p>
+          {showViewAll && (
+            <span className="text-xs text-slate-500">{reviews.length} review{reviews.length !== 1 ? "s" : ""}</span>
+          )}
+        </div>
+
+        <div className="space-y-4">
           {reviews.map((review) => (
-            <div
-              key={review.id}
-              className="border-b last:border-b-0 pb-4 last:pb-0"
-            >
+            <div key={review.id} className="border-b border-slate-700/50 last:border-0 pb-4 last:pb-0">
               <div className="flex items-start gap-3">
-                {/* Reviewer Avatar */}
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-9 w-9 flex-shrink-0">
                   <AvatarImage src={review.reviewer_photo} />
-                  <AvatarFallback>
+                  <AvatarFallback className="bg-slate-700 text-slate-300 text-sm">
                     {review.reviewer_name?.charAt(0) || "U"}
                   </AvatarFallback>
                 </Avatar>
 
-                <div className="flex-1">
-                  {/* Reviewer Name and Rating */}
-                  <div className="flex items-center justify-between mb-1">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 mb-1">
                     <div>
-                      <p className="font-medium text-sm">
-                        {review.reviewer_name || "Anonymous"}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <RatingDisplay
-                          rating={review.rating}
-                          reviewsCount={0}
-                          showCount={false}
-                          size="sm"
-                        />
-                        <span className="text-xs text-gray-500">
-                          {formatDate(review.created_at)}
-                        </span>
+                      <p className="text-sm font-medium text-white">{review.reviewer_name || "Anonymous"}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <RatingDisplay rating={review.rating} reviewsCount={0} showCount={false} size="sm" />
+                        <span className="text-xs text-slate-500">{formatDate(review.created_at)}</span>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedReview(review)
-                        setShowFlagDialog(true)
-                      }}
-                      className="text-gray-400 hover:text-red-600"
+                    <button
+                      onClick={() => { setSelectedReview(review); setShowFlagDialog(true) }}
+                      className="text-slate-600 hover:text-red-400 transition-colors p-1 rounded"
                     >
-                      <Flag className="h-4 w-4" />
-                    </Button>
+                      <Flag className="h-3.5 w-3.5" />
+                    </button>
                   </div>
 
-                  {/* Job Title */}
                   {review.job_title && (
-                    <p className="text-xs text-gray-600 mb-2">
-                      Job: {review.job_title}
-                    </p>
+                    <p className="text-xs text-slate-500 mb-1.5">Job: {review.job_title}</p>
                   )}
 
-                  {/* Review Comment */}
-                  <p className="text-sm text-gray-700">{review.comment}</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">{review.comment}</p>
 
-                  {/* Flagged Badge */}
                   {review.is_flagged && (
-                    <Badge variant="destructive" className="mt-2">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      Flagged for Review
-                    </Badge>
+                    <span className="inline-flex items-center gap-1 mt-2 text-xs text-red-400 border border-red-800/50 bg-red-900/20 px-2 py-0.5 rounded-full">
+                      <AlertTriangle className="h-3 w-3" />Flagged
+                    </span>
                   )}
                 </div>
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Flag Review Dialog */}
       <Dialog open={showFlagDialog} onOpenChange={setShowFlagDialog}>
-        <DialogContent>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white">
           <DialogHeader>
-            <DialogTitle>Flag Review</DialogTitle>
-            <DialogDescription>
-              Please provide a reason for flagging this review. Our admin team will review it shortly.
+            <DialogTitle className="text-white">Flag Review</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Please provide a reason. Our admin team will review it shortly.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -271,27 +239,16 @@ export function ReviewsList({
               placeholder="Reason for flagging (e.g., inappropriate content, fake review, spam)"
               value={flagReason}
               onChange={(e) => setFlagReason(e.target.value)}
-              rows={4}
+              rows={3}
+              className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
             />
-            <div className="text-sm text-gray-600">
-              <p className="font-medium mb-1">Common reasons for flagging:</p>
-              <ul className="list-disc list-inside space-y-1 text-xs">
-                <li>Inappropriate or offensive language</li>
-                <li>Suspected fake or fraudulent review</li>
-                <li>Spam or promotional content</li>
-                <li>Contains personal information</li>
-                <li>Unrelated to the job or service</li>
-              </ul>
-            </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => {
-                setShowFlagDialog(false)
-                setFlagReason("")
-              }}
+              onClick={() => { setShowFlagDialog(false); setFlagReason("") }}
               disabled={flagging}
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
             >
               Cancel
             </Button>

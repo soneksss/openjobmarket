@@ -375,224 +375,178 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
   }
 
   return (
-    <div className={isModal ? "" : "min-h-screen bg-gradient-to-b from-gray-50 to-white"}>
-      {/* Header */}
-      {!isModal && (
-        <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
-          <div className="container mx-auto px-4 py-4">
-            <Button
-              variant="ghost"
-              onClick={handleBack}
-              className="hover:bg-gray-100"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
-            </Button>
-          </div>
+    <div className="min-h-screen bg-slate-900 text-white">
+      {/* Sticky back bar */}
+      <div className="sticky top-0 z-10 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800">
+        <div className="container mx-auto px-4 py-3 max-w-5xl">
+          <button
+            onClick={handleBack}
+            className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
         </div>
-      )}
+      </div>
 
-      <div className={isModal ? "px-4 py-4 max-w-5xl" : "container mx-auto px-4 py-4 max-w-5xl"}>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Company Header Card */}
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-start gap-4">
-                  <Avatar className="w-16 h-16 ring-2 ring-gray-100 flex-shrink-0">
-                    <AvatarImage src={company.logo_url} alt={company.company_name} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-xl font-bold">
-                      {getCompanyInitials()}
-                    </AvatarFallback>
-                  </Avatar>
+      {/* Hero */}
+      <div className="bg-gradient-to-br from-blue-950 via-slate-800 to-slate-900 border-b border-slate-700/50">
+        <div className="container mx-auto px-4 py-8 max-w-5xl">
+          <div className="flex items-start gap-5">
+            <Avatar className="h-20 w-20 ring-2 ring-blue-500/30 flex-shrink-0">
+              <AvatarImage src={company.logo_url} alt={company.company_name} />
+              <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-700 text-white font-bold text-2xl">
+                {getCompanyInitials()}
+              </AvatarFallback>
+            </Avatar>
 
-                  <div className="flex-1 min-w-0">
-                    <h1 className="text-2xl font-bold text-gray-900 mb-1">
-                      {company.company_name}
-                    </h1>
-                    <p className="text-sm text-gray-600 mb-2">{company.industry}</p>
-
-                    <div className="flex flex-wrap gap-3 text-sm text-gray-600 mb-2">
-                      <div className="flex items-center gap-1.5">
-                        <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="truncate">{formatAddress(company.location)}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-bold text-white">{company.company_name}</h1>
+                  {company.industry && (
+                    <p className="text-sm text-slate-300 mt-0.5">{company.industry}</p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-slate-400">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
+                      {formatAddress(company.location)}
+                    </span>
+                    {company.company_size && (
+                      <span className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />
                         {company.company_size}
-                      </div>
-                      {company.service_24_7 && (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-xs py-0">
-                          24/7
-                        </Badge>
-                      )}
-                      {activeJobs.length > 0 && (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 flex items-center gap-1 text-xs py-0">
-                          <Sparkles className="h-3 w-3" />
-                          Hiring
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="mt-2">
-                      <RatingDisplay
-                        rating={company.average_rating || 0}
-                        reviewsCount={company.reviews_count || 0}
-                        size="sm"
-                      />
-                    </div>
+                      </span>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Since {new Date(company.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                    </span>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
 
-            {/* About Company */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Building2 className="h-4 w-4" />
-                  About
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
-                  {company.description || "No description provided."}
-                </p>
-              </CardContent>
-            </Card>
+                {isOwnProfile && (
+                  <button
+                    onClick={() => router.push("/company/profile/edit")}
+                    className="text-xs text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    Edit Profile
+                  </button>
+                )}
+              </div>
 
-            {/* Languages */}
-            {company.spoken_languages && company.spoken_languages.length > 0 && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Globe2 className="h-4 w-4" />
-                    Languages
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-wrap gap-1.5">
-                    {company.spoken_languages.map((lang) => (
-                      <Badge key={lang} variant="secondary" className="text-xs">
-                        {lang}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {company.service_24_7 && (
+                  <span className="text-xs bg-emerald-900/50 text-emerald-300 border border-emerald-700/50 px-2.5 py-1 rounded-full">24/7 Service</span>
+                )}
+                {activeJobs.length > 0 && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-blue-900/50 text-blue-300 border border-blue-700/50 px-2.5 py-1 rounded-full">
+                    <Sparkles className="h-3 w-3" />Hiring
+                  </span>
+                )}
+              </div>
+
+              <div className="mt-3">
+                <RatingDisplay rating={company.average_rating || 0} reviewsCount={company.reviews_count || 0} size="sm" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="container mx-auto px-4 py-6 max-w-5xl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+          {/* Main column */}
+          <div className="lg:col-span-2 space-y-5">
+
+            {/* About */}
+            {company.description && (
+              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">About</p>
+                <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{company.description}</p>
+              </div>
             )}
 
             {/* Services */}
             {company.services && company.services.length > 0 && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Briefcase className="h-4 w-4" />
-                    Services
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="flex flex-wrap gap-1.5">
-                    {company.services.map((service) => (
-                      <Badge key={service} variant="secondary" className="text-xs">
-                        {service}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
+                  <Briefcase className="h-3.5 w-3.5" />Services
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {company.services.map((s) => (
+                    <span key={s} className="text-xs bg-slate-700 text-slate-200 border border-slate-600 px-2.5 py-1 rounded-lg">{s}</span>
+                  ))}
+                </div>
+              </div>
             )}
 
-            {/* Price List */}
+            {/* Pricing */}
             {company.price_list && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <DollarSign className="h-4 w-4" />
-                    Pricing
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
-                    {company.price_list}
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5" />Pricing
+                </p>
+                <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{company.price_list}</p>
+              </div>
             )}
 
-            {/* Active Job Openings */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Briefcase className="h-4 w-4" />
-                  Job Openings
-                  {activeJobs.length > 0 && (
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800 ml-auto text-xs">
-                      {activeJobs.length}
-                    </Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                {loadingJobs ? (
-                  <div className="space-y-2">
-                    {[1, 2].map((i) => (
-                      <div key={i} className="animate-pulse">
-                        <div className="h-3 bg-gray-200 rounded w-3/4 mb-1"></div>
-                        <div className="h-2 bg-gray-200 rounded w-1/2"></div>
-                      </div>
-                    ))}
-                  </div>
-                ) : activeJobs.length > 0 ? (
-                  <div className="space-y-2">
-                    {activeJobs.map((job) => (
-                      <Link
-                        key={job.id}
-                        href={`/jobs/${job.id}`}
-                        className="block p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:shadow-sm transition-all group"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors mb-1 truncate">
-                              {job.title}
-                            </h3>
-                            <div className="flex flex-wrap gap-2 text-xs text-gray-600">
-                              <div className="flex items-center gap-1">
-                                <MapPin className="h-3 w-3 flex-shrink-0" />
-                                <span className="truncate">{job.location}</span>
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3 flex-shrink-0" />
-                                {new Date(job.created_at).toLocaleDateString('en-GB', {
-                                  day: 'numeric',
-                                  month: 'short'
-                                })}
-                              </div>
-                            </div>
-                          </div>
-                          <ExternalLink className="h-3.5 w-3.5 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0" />
-                        </div>
-                      </Link>
-                    ))}
-                    {activeJobs.length === 5 && (
-                      <Link
-                        href="/jobs"
-                        className="block text-center text-sm text-blue-600 hover:text-blue-700 font-medium py-1"
-                      >
-                        View All →
-                      </Link>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-gray-500">
-                    <Briefcase className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                    <p className="text-sm">No active openings</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Languages */}
+            {company.spoken_languages && company.spoken_languages.length > 0 && (
+              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
+                  <Globe2 className="h-3.5 w-3.5" />Languages
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {company.spoken_languages.map((lang) => (
+                    <span key={lang} className="text-xs bg-slate-700 text-slate-300 border border-slate-600 px-2.5 py-1 rounded-lg">{lang}</span>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            {/* Reviews Section */}
+            {/* Active trade jobs */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
+                <Briefcase className="h-3.5 w-3.5" />Trade Jobs Posted
+                {activeJobs.length > 0 && (
+                  <span className="ml-auto text-xs bg-blue-900/50 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded-full">{activeJobs.length}</span>
+                )}
+              </p>
+              {loadingJobs ? (
+                <div className="space-y-2">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="animate-pulse h-10 bg-slate-700 rounded-lg" />
+                  ))}
+                </div>
+              ) : activeJobs.length > 0 ? (
+                <div className="space-y-2">
+                  {activeJobs.map((job) => (
+                    <Link
+                      key={job.id}
+                      href={`/jobs/${job.id}`}
+                      className="flex items-center justify-between p-3 bg-slate-700/50 border border-slate-600 hover:border-emerald-500/50 rounded-lg group transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-200 group-hover:text-white truncate font-medium">{job.title}</p>
+                        {job.location && (
+                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                            <MapPin className="h-3 w-3 flex-shrink-0" />{job.location}
+                          </p>
+                        )}
+                      </div>
+                      <ExternalLink className="h-3.5 w-3.5 text-slate-500 group-hover:text-emerald-400 flex-shrink-0 ml-3" />
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500 italic">No active trade jobs at the moment.</p>
+              )}
+            </div>
+
+            {/* Reviews */}
             <ReviewsList
               userId={company.user_id}
               userType="company"
@@ -604,76 +558,61 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
 
           {/* Sidebar */}
           <div className="space-y-4">
-            {/* Contact Card */}
+            {/* Contact */}
             {!isOwnProfile && (
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Contact</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <Button
-                    onClick={handleContactClick}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                    size="sm"
-                  >
-                    <MessageCircle className="h-4 w-4 mr-2" />
-                    Send Message
-                  </Button>
-                </CardContent>
-              </Card>
+              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">Contact</p>
+                <button
+                  onClick={handleContactClick}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  {user ? "Send Message" : "Sign Up to Contact"}
+                </button>
+              </div>
             )}
 
-            {/* Company Info */}
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Information</CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0 space-y-3">
-                <div>
-                  <div className="text-xs text-gray-500 mb-0.5">Industry</div>
-                  <div className="text-sm font-medium">{company.industry}</div>
-                </div>
+            {/* Info */}
+            <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5 space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Information</p>
 
+              {company.industry && (
                 <div>
-                  <div className="text-xs text-gray-500 mb-0.5">Size</div>
-                  <div className="text-sm font-medium">{company.company_size}</div>
+                  <p className="text-[11px] text-slate-500 mb-0.5">Industry</p>
+                  <p className="text-sm text-white font-medium">{company.industry}</p>
                 </div>
+              )}
 
+              {company.company_size && (
                 <div>
-                  <div className="text-xs text-gray-500 mb-0.5">Location</div>
-                  <div className="text-sm font-medium flex items-start gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5 flex-shrink-0" />
-                    <span className="break-words">{formatAddress(company.location)}</span>
-                  </div>
+                  <p className="text-[11px] text-slate-500 mb-0.5">Company size</p>
+                  <p className="text-sm text-white font-medium">{company.company_size}</p>
                 </div>
+              )}
 
-                {company.website_url && (
-                  <div>
-                    <div className="text-xs text-gray-500 mb-0.5">Website</div>
-                    <a
-                      href={company.website_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium text-blue-600 hover:underline flex items-center gap-1.5 break-all"
-                    >
-                      <Globe className="h-3.5 w-3.5 flex-shrink-0" />
-                      <span className="truncate">Visit Website</span>
-                    </a>
-                  </div>
-                )}
+              <div>
+                <p className="text-[11px] text-slate-500 mb-0.5">Location</p>
+                <p className="text-sm text-white font-medium flex items-start gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
+                  {formatAddress(company.location)}
+                </p>
+              </div>
 
+              {company.website_url && (
                 <div>
-                  <div className="text-xs text-gray-500 mb-0.5">Member Since</div>
-                  <div className="text-sm font-medium flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-gray-400" />
-                    {new Date(company.created_at).toLocaleDateString('en-GB', {
-                      month: 'short',
-                      year: 'numeric'
-                    })}
-                  </div>
+                  <p className="text-[11px] text-slate-500 mb-0.5">Website</p>
+                  <a
+                    href={company.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition-colors"
+                  >
+                    <Globe className="h-3.5 w-3.5 flex-shrink-0" />
+                    Visit Website
+                  </a>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
           </div>
         </div>
       </div>

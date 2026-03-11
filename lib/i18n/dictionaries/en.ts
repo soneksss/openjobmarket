@@ -304,7 +304,7 @@ export const en = {
     enterProfessionalTitle: 'Please enter your professional title',
     enterIndustry: 'Please enter your industry',
     enterTrade: 'Please enter your trade or service',
-    selectLocationRequired: 'Please select your location on the map. This is required for jobseekers and tradespeople to be found by employers.',
+    selectLocationRequired: 'Please enter a valid postcode so we can find your location.',
     selectAtLeastOneRole: 'Please select at least one role',
   },
   dashboard: {
