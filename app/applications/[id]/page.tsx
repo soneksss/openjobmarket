@@ -101,7 +101,7 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
     .single()
 
   if (error || !application) {
-    console.error("Application not found:", error)
+    console.warn("Application not found:", error)
     notFound()
   }
 
@@ -271,7 +271,7 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
       console.log("[CV-LOAD] No CV record found")
       return null
     } catch (error) {
-      console.error("[CV-LOAD] Error loading CV data:", error)
+      console.warn("[CV-LOAD] Error loading CV data:", error)
       return null
     }
   }

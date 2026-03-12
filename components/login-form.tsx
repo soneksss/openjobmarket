@@ -3,15 +3,12 @@
 import type React from "react"
 
 import { createClient } from "@/lib/client"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Loader2, X } from "lucide-react"
+import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/context"
 
 export default function LoginForm() {
@@ -22,6 +19,7 @@ export default function LoginForm() {
   const [staySignedIn, setStaySignedIn] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -162,65 +160,22 @@ export default function LoginForm() {
         }
 
         if (!userData?.user_type) {
-          // User exists but no profile type set - redirect to onboarding
-          addLog('[LOGIN] No user type, redirecting to onboarding')
-          const onboardingUrl = isOnBrRoute
-            ? '/onboarding?locale=pt-BR&returnUrl=/br'
-            : '/onboarding'
-          router.push(onboardingUrl)
+          // No user type — send to home, they can choose from there
+          addLog('[LOGIN] No user type, redirecting to home')
+          router.push(isOnBrRoute ? "/br" : "/")
           return
         }
 
-        // Check if user has complete profile
-        let hasCompleteProfile = false
+        addLog('[LOGIN] User type: ' + userData.user_type)
 
-        if (userData.user_type === "professional") {
-          const { data: professionalProfile } = await supabase
-            .from("professional_profiles")
-            .select("id, first_name, last_name")
-            .eq("user_id", user.id)
-            .maybeSingle()
-
-          hasCompleteProfile = !!(professionalProfile?.first_name && professionalProfile?.last_name)
-
-          if (hasCompleteProfile) {
-            addLog('[LOGIN] Redirecting to search page')
-            router.push(isOnBrRoute ? "/br" : "/")
-          } else {
-            addLog('[LOGIN] Redirecting to onboarding (incomplete)')
-            const onboardingUrl = isOnBrRoute
-              ? '/onboarding?locale=pt-BR&returnUrl=/br'
-              : '/onboarding'
-            router.push(onboardingUrl)
-          }
-        } else if (userData.user_type === "company" || userData.user_type === "employer") {
-          const { data: companyProfile } = await supabase
-            .from("company_profiles")
-            .select("id, company_name")
-            .eq("user_id", user.id)
-            .maybeSingle()
-
-          hasCompleteProfile = !!companyProfile?.company_name
-
-          if (hasCompleteProfile) {
-            addLog('[LOGIN] Redirecting to search page')
-            router.push(isOnBrRoute ? "/br" : "/")
-          } else {
-            addLog('[LOGIN] Redirecting to onboarding (incomplete)')
-            const onboardingUrl = isOnBrRoute
-              ? '/onboarding?locale=pt-BR&returnUrl=/br'
-              : '/onboarding'
-            router.push(onboardingUrl)
-          }
-        } else if (userData.user_type === "admin") {
-          addLog('[LOGIN] Redirecting to admin dashboard')
-          router.push("/admin")
+        // Admins go to admin dashboard; all other users land on the home page
+        // where role-appropriate content is shown (For Homeowners / For Tradespeople)
+        if (userData.user_type === "admin") {
+          router.push("/admin/dashboard")
         } else {
-          addLog('[LOGIN] Unknown user type, redirecting to onboarding')
-          const onboardingUrl = isOnBrRoute
-            ? '/onboarding?locale=pt-BR&returnUrl=/br'
-            : '/onboarding'
-          router.push(onboardingUrl)
+          const home = isOnBrRoute ? "/br" : "/"
+          addLog('[LOGIN] Redirecting to home: ' + home)
+          router.push(home)
         }
       }
     } catch (error: unknown) {
@@ -258,110 +213,134 @@ export default function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md relative">
-      <Button
-        variant="ghost"
-        size="sm"
-        asChild
-        className="absolute top-2 right-2 h-8 w-8 p-0 hover:bg-muted z-10 rounded-full"
-      >
-        <Link href={getLocalePath("/")}>
-          <X className="h-4 w-4" />
-          <span className="sr-only">{t('common.close')}</span>
-        </Link>
-      </Button>
+    <div className="w-full max-w-sm mx-auto">
 
-      <CardHeader className="text-center pt-6">
-        <CardTitle className="text-2xl">{t('auth.welcomeBack')}</CardTitle>
-        <CardDescription>{t('auth.signInDescription')}</CardDescription>
-      </CardHeader>
-      <CardContent>
+      {/* Back link */}
+      <Link
+        href={getLocalePath("/")}
+        className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-8 transition-colors"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back to home
+      </Link>
+
+      {/* Logo */}
+      <div className="mb-8 text-center">
+        <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-emerald-500 mb-4">
+          <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" />
+          </svg>
+        </div>
+        <h1 className="text-2xl font-bold text-white">{t('auth.welcomeBack')}</h1>
+        <p className="text-slate-400 text-sm mt-1">{t('auth.signInDescription')}</p>
+      </div>
+
+      {/* Card */}
+      <div className="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-6 space-y-5">
         <form
           onSubmit={(e) => {
-            console.log('[FORM] Form submit event triggered')
             e.preventDefault()
             handleLogin(e)
           }}
+          className="space-y-5"
         >
-          <div className="flex flex-col gap-6">
-            <div className="grid gap-2">
-              <Label htmlFor="email">{t('common.email')}</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder={t('auth.emailPlaceholder')}
-                required
-                value={email}
-                onChange={(e) => {
-                  console.log('[LOGIN-INPUT] Email changed:', e.target.value)
-                  setEmail(e.target.value)
-                }}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="password">{t('common.password')}</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => {
-                  console.log('[LOGIN-INPUT] Password changed, length:', e.target.value.length)
-                  setPassword(e.target.value)
-                }}
-              />
-            </div>
-
-            {/* Stay signed in checkbox */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="stay-signed-in"
-                checked={staySignedIn}
-                onCheckedChange={(checked) => setStaySignedIn(checked === true)}
-                className="data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-              />
-              <Label
-                htmlFor="stay-signed-in"
-                className="text-sm font-normal cursor-pointer flex items-center gap-1"
-              >
-                {t('auth.staySignedIn')}
-                <span className="text-xs text-muted-foreground">{t('auth.recommended')}</span>
-              </Label>
-            </div>
-
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded-md p-3">
-                <p className="text-sm text-red-600 font-medium">{error}</p>
-              </div>
-            )}
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('auth.signingIn')}
-                </>
-              ) : (
-                t('auth.signIn')
-              )}
-            </Button>
+          {/* Email */}
+          <div className="space-y-1.5">
+            <label htmlFor="email" className="text-sm font-medium text-slate-300">
+              {t('common.email')}
+            </label>
+            <Input
+              id="email"
+              type="email"
+              placeholder={t('auth.emailPlaceholder')}
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-0 rounded-xl h-11"
+            />
           </div>
-          <div className="mt-4 text-center text-sm space-y-2">
-            <Link href="/auth/forgot-password" className="text-primary hover:underline block">
-              {t('auth.forgotPassword')}
-            </Link>
-            <div>
-              {t('auth.dontHaveAccount')}{" "}
-              <Link href={signUpUrl} className="underline underline-offset-4">
-                {t('auth.signUp')}
+
+          {/* Password */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="password" className="text-sm font-medium text-slate-300">
+                {t('common.password')}
+              </label>
+              <Link
+                href="/auth/forgot-password"
+                className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
+                {t('auth.forgotPassword')}
               </Link>
             </div>
+            <div className="relative">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-0 rounded-xl h-11 pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
+
+          {/* Stay signed in */}
+          <div className="flex items-center gap-2.5">
+            <Checkbox
+              id="stay-signed-in"
+              checked={staySignedIn}
+              onCheckedChange={(checked) => setStaySignedIn(checked === true)}
+              className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 border-slate-600 rounded"
+            />
+            <label
+              htmlFor="stay-signed-in"
+              className="text-sm text-slate-400 cursor-pointer select-none"
+            >
+              {t('auth.staySignedIn')}
+              <span className="text-xs text-slate-600 ml-1">{t('auth.recommended')}</span>
+            </label>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {t('auth.signingIn')}
+              </>
+            ) : (
+              t('auth.signIn')
+            )}
+          </button>
         </form>
-      </CardContent>
-    </Card>
+      </div>
+
+      {/* Sign up link */}
+      <p className="text-center text-sm text-slate-500 mt-6">
+        {t('auth.dontHaveAccount')}{" "}
+        <Link href={signUpUrl} className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+          {t('auth.signUp')}
+        </Link>
+      </p>
+    </div>
   )
 }

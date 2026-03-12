@@ -1,255 +1,223 @@
-// Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
 
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
-import { ArrowLeft, MapPin, Calendar, Plus, Briefcase } from "lucide-react"
+import {
+  ArrowLeft,
+  Briefcase,
+  MapPin,
+  MessageCircle,
+  Eye,
+  XCircle,
+  CheckCircle2,
+  ChevronRight,
+  Star,
+  Home,
+} from "lucide-react"
 
-export default async function HomeownerJobsPage() {
+export default async function HomeownerJobsPage({
+  searchParams,
+}: {
+  searchParams: { status?: string }
+}) {
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/auth/login")
 
-  // Get current user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  // Get homeowner profile
-  const { data: profile } = await supabase
+  const { data: hp } = await supabase
     .from("homeowner_profiles")
-    .select("*")
+    .select("id")
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle()
 
-  if (!profile) {
-    redirect("/onboarding")
-  }
+  if (!hp) redirect("/dashboard/homeowner")
 
-  // Get all jobs posted by this homeowner
-  const { data: jobs, error: jobsError } = await supabase
+  // Fetch all jobs with application counts
+  const { data: jobs } = await supabase
     .from("jobs")
-    .select(`
-      id,
-      title,
-      description,
-      short_description,
-      location,
-      salary_min,
-      salary_max,
-      salary_frequency,
-      is_active,
-      expires_at,
-      created_at,
-      updated_at,
-      is_tradespeople_job,
-      work_location,
-      job_type
-    `)
-    .eq("homeowner_id", profile.id)
+    .select("id, title, location, is_active, created_at, applications_count, views_count, status")
+    .eq("homeowner_id", hp.id)
     .order("created_at", { ascending: false })
 
-  if (jobsError) {
-    console.error("[HOMEOWNER-JOBS] Error fetching jobs:", jobsError)
-  }
-
   const allJobs = jobs || []
+  const showHistory = searchParams.status === "closed"
 
-  // Get application counts for each job
-  const jobIds = allJobs.map((job) => job.id)
-  const { data: applications } = await supabase
-    .from("job_applications")
-    .select("job_id")
-    .in("job_id", jobIds)
+  const activeJobs = allJobs.filter((j) => j.is_active)
+  const closedJobs = allJobs.filter((j) => !j.is_active)
+  const displayJobs = showHistory ? closedJobs : activeJobs
 
-  // Count applications per job
-  const applicationCountsMap = new Map()
-  applications?.forEach((app) => {
-    const count = applicationCountsMap.get(app.job_id) || 0
-    applicationCountsMap.set(app.job_id, count + 1)
-  })
+  const pageTitle = showHistory ? "Job History" : "My Jobs"
 
-  const getStatusInfo = (job: any) => {
-    const now = new Date()
-    const expiresAt = job.expires_at ? new Date(job.expires_at) : null
-    const isExpired = expiresAt && expiresAt < now
-
-    if (!job.is_active || isExpired) {
-      return { text: "Expired", color: "bg-gray-100 text-gray-800" }
-    }
-
-    return { text: "Active", color: "bg-green-100 text-green-800" }
-  }
-
-  const formatExpiryDate = (expiresAt: string | undefined) => {
-    if (!expiresAt) return null
-    const date = new Date(expiresAt)
-    const now = new Date()
-    const daysUntilExpiry = Math.ceil((date.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-
-    if (daysUntilExpiry < 0) {
-      return `Expired ${Math.abs(daysUntilExpiry)} days ago`
-    } else if (daysUntilExpiry === 0) {
-      return "Expires today"
-    } else if (daysUntilExpiry === 1) {
-      return "Expires tomorrow"
-    } else {
-      return `Expires in ${daysUntilExpiry} days`
-    }
+  // ── Status badge helper ──────────────────────────────────────────────────────
+  function StatusBadge({ job }: { job: any }) {
+    if (!job.is_active)
+      return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Closed</span>
+    const apps = job.applications_count ?? 0
+    if (apps > 0)
+      return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">Reviewing</span>
+    return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Open</span>
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Link href="/dashboard/homeowner">
-              <Button variant="ghost" className="mb-2">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Dashboard
-              </Button>
-            </Link>
-            <h1 className="text-3xl font-bold text-gray-900">Your Jobs</h1>
-            <p className="text-gray-600 mt-1">
-              Manage all your job postings and view applications
-            </p>
-          </div>
-          <Link href="/dashboard/homeowner/post-job">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Post New Job
-            </Button>
+    <div className="min-h-screen bg-slate-900 text-white pb-24">
+
+      {/* ── Header ── */}
+      <div className="bg-slate-800 border-b border-slate-700/50">
+        <div className="flex items-center gap-3 px-4 py-4">
+          <Link
+            href="/dashboard/homeowner"
+            className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-lg font-semibold text-white">{pageTitle}</h1>
+          <span className="ml-auto text-sm text-slate-500">{displayJobs.length} {showHistory ? "closed" : "active"}</span>
+        </div>
+
+        {/* Tab strip */}
+        <div className="flex border-t border-slate-700/50">
+          <Link
+            href="/dashboard/homeowner/jobs"
+            className={`flex-1 text-center py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              !showHistory
+                ? "border-emerald-500 text-emerald-400"
+                : "border-transparent text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            Active
+          </Link>
+          <Link
+            href="/dashboard/homeowner/jobs?status=closed"
+            className={`flex-1 text-center py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              showHistory
+                ? "border-slate-400 text-slate-300"
+                : "border-transparent text-slate-500 hover:text-slate-300"
+            }`}
+          >
+            History
           </Link>
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Jobs</p>
-                <h3 className="text-3xl font-bold text-gray-900 mt-2">{allJobs.length}</h3>
-              </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <Briefcase className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Active Jobs</p>
-                <h3 className="text-3xl font-bold text-gray-900 mt-2">
-                  {allJobs.filter((job) => getStatusInfo(job).text === "Active").length}
-                </h3>
-              </div>
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                <Briefcase className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Applications</p>
-                <h3 className="text-3xl font-bold text-gray-900 mt-2">{applications?.length || 0}</h3>
-              </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <Briefcase className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Jobs List */}
-        {allJobs.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Briefcase className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No jobs yet</h3>
-            <p className="text-gray-600 mb-6">
-              Post your first job to get started with finding help for your tasks
-            </p>
-            <Link href="/dashboard/homeowner/post-job">
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Post Your First Job
-              </Button>
-            </Link>
-          </Card>
-        ) : (
-          <div className="space-y-4">
-            {allJobs.map((job) => {
-              const statusInfo = getStatusInfo(job)
-              const expiryText = formatExpiryDate(job.expires_at)
-              const applicationCount = applicationCountsMap.get(job.id) || 0
-
-              return (
-                <Card key={job.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2 flex-wrap">
-                          <h3 className="text-lg font-semibold text-gray-900">{job.title}</h3>
-                          <Badge className={statusInfo.color}>{statusInfo.text}</Badge>
-                          {job.is_tradespeople_job && (
-                            <Badge className="bg-purple-100 text-purple-800">Tradespeople</Badge>
-                          )}
-                          {job.job_type && (
-                            <Badge variant="outline">
-                              {job.job_type.charAt(0).toUpperCase() + job.job_type.slice(1)}
-                            </Badge>
-                          )}
-                          {applicationCount > 0 && (
-                            <Badge variant="secondary">{applicationCount} applications</Badge>
-                          )}
-                        </div>
-                        <p className="text-gray-600 mb-3 line-clamp-2">
-                          {job.short_description || job.description}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            {job.location}
-                          </span>
-                          {job.salary_min && job.salary_max && (
-                            <span>
-                              £{job.salary_min} - £{job.salary_max}
-                              {job.salary_frequency && ` ${job.salary_frequency.replace("_", " ")}`}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4" />
-                            Posted {new Date(job.created_at).toLocaleDateString()}
-                          </span>
-                          {expiryText && (
-                            <span className={statusInfo.text === "Expired" ? "text-red-600 font-medium" : ""}>
-                              {expiryText}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <Link href={`/dashboard/homeowner/jobs/${job.id}`}>
-                        <Button variant="outline" size="sm" className="ml-4">
-                          Manage
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        )}
       </div>
+
+      {/* ── Job list ── */}
+      {allJobs.length === 0 ? (
+        /* No jobs at all */
+        <div className="mx-4 mt-8 bg-slate-800/80 border border-slate-700/50 rounded-2xl p-8 text-center">
+          <Briefcase className="h-12 w-12 mx-auto mb-3 text-slate-600" />
+          <h3 className="text-base font-semibold text-slate-300 mb-1">No jobs posted yet</h3>
+          <p className="text-sm text-slate-500 mb-5">
+            Post your first job from the home page or tap the&nbsp;
+            <span className="text-emerald-400 font-medium">+ button</span> in the navigation.
+          </p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-5 py-2.5 transition-colors"
+          >
+            <Home className="h-4 w-4" />
+            Go to Home
+          </Link>
+        </div>
+      ) : displayJobs.length === 0 ? (
+        /* Tab empty state */
+        <div className="mx-4 mt-8 bg-slate-800/50 border border-slate-700/40 rounded-2xl p-8 text-center">
+          {showHistory ? (
+            <>
+              <CheckCircle2 className="h-10 w-10 mx-auto mb-3 text-slate-600" />
+              <p className="text-sm font-medium text-slate-400 mb-1">No closed jobs yet</p>
+              <p className="text-xs text-slate-600">Closed and expired jobs will appear here.</p>
+            </>
+          ) : (
+            <>
+              <Briefcase className="h-10 w-10 mx-auto mb-3 text-slate-600" />
+              <p className="text-sm font-medium text-slate-400 mb-1">No active jobs</p>
+              <p className="text-xs text-slate-600 mb-4">All your jobs are closed. Post a new one from home.</p>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 rounded-xl px-4 py-2 transition-colors"
+              >
+                <Home className="h-3.5 w-3.5" />
+                Go to Home
+              </Link>
+            </>
+          )}
+        </div>
+      ) : (
+        <div className="divide-y divide-slate-800/80">
+          {displayJobs.map((job) => (
+            <div key={job.id} className="bg-slate-900 px-4 py-4">
+              {/* Title row */}
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {showHistory ? (
+                    <XCircle className="h-5 w-5 text-slate-600 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <Briefcase className="h-5 w-5 text-slate-400 flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-white truncate">{job.title}</p>
+                    {job.location && (
+                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
+                        <MapPin className="h-3 w-3 flex-shrink-0" />
+                        {job.location}
+                      </p>
+                    )}
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {new Date(job.created_at).toLocaleDateString("en-GB", {
+                        day: "numeric", month: "short", year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                </div>
+                <StatusBadge job={job} />
+              </div>
+
+              {/* Meta */}
+              {!showHistory && (
+                <div className="flex items-center gap-4 text-xs text-slate-500 mb-3 pl-8">
+                  <span className="flex items-center gap-1">
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    {job.applications_count ?? 0} applications
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Eye className="h-3.5 w-3.5" />
+                    {job.views_count ?? 0} views
+                  </span>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-2 pl-8">
+                <Link
+                  href={`/jobs/${job.id}`}
+                  className="flex-1 text-center text-xs font-medium py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
+                >
+                  View
+                </Link>
+                {showHistory ? (
+                  <Link
+                    href={`/reviews/new?job=${job.id}`}
+                    className="flex-1 text-center text-xs font-medium py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors border border-amber-500/20 flex items-center justify-center gap-1"
+                  >
+                    <Star className="h-3.5 w-3.5" />
+                    Leave Review
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      href={`/dashboard/homeowner/jobs/${job.id}`}
+                      className="flex-1 text-center text-xs font-medium py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700 flex items-center justify-center gap-1"
+                    >
+                      Manage
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

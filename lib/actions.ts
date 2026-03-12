@@ -570,3 +570,24 @@ export async function deleteCompanyAccount(companyProfileId: string) {
     return { error: "An unexpected error occurred while deleting your account. Please try again." }
   }
 }
+
+export async function updateCompanyProfile(updateData: Record<string, unknown>) {
+  const supabase = await createClient()
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { error: "Not authenticated" }
+  }
+
+  const { error } = await supabase
+    .from("company_profiles")
+    .update({ ...updateData, updated_at: new Date().toISOString() })
+    .eq("user_id", user.id)
+
+  if (error) {
+    console.warn("[UPDATE_COMPANY_PROFILE] Error:", error.message)
+    return { error: error.message }
+  }
+
+  return { success: true }
+}

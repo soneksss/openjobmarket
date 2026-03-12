@@ -10,28 +10,30 @@ import { cookies } from "next/headers"
 import { type Locale } from "@/lib/i18n/config"
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://openjobmarket.com'),
+  metadataBase: new URL("https://www.openjobmarket.com"),
   title: {
-    default: "OpenJobMarket - Find Jobs, Hire Talent & Connect with Tradespeople",
-    template: "%s | OpenJobMarket",
+    default: "Open Job Market - Find Local Tradespeople Fast",
+    template: "%s | Open Job Market",
   },
-  description:
-    "Find jobs, hire professionals, and connect with skilled tradespeople on OpenJobMarket. Post job listings, build your CV, and discover opportunities across the UK and Brazil.",
+  description: "Find local tradespeople fast. Connect homeowners with nearby plumbers, electricians, builders and more — powered by location and availability.",
   keywords: [
-    "job market",
-    "find jobs",
-    "hire talent",
-    "tradespeople",
-    "contractors",
-    "job listings",
-    "CV builder",
-    "professional profiles",
-    "UK jobs",
-    "Brazil jobs",
+    "find local tradespeople",
+    "hire tradespeople",
+    "local plumber",
+    "local electrician",
+    "local builder",
+    "trade jobs UK",
+    "homeowner jobs",
+    "trades near me",
+    "open job market",
   ],
-  authors: [{ name: "OpenJobMarket" }],
-  creator: "OpenJobMarket",
-  publisher: "OpenJobMarket",
+  authors: [{ name: "Open Job Market" }],
+  creator: "Open Job Market",
+  publisher: "Open Job Market",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
   robots: {
     index: true,
     follow: true,
@@ -46,34 +48,31 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_GB',
-    alternateLocale: ['pt_BR'],
-    url: process.env.NEXT_PUBLIC_SITE_URL || 'https://openjobmarket.com',
-    siteName: 'OpenJobMarket',
-    title: 'OpenJobMarket - Find Jobs, Hire Talent & Connect with Tradespeople',
-    description:
-      'Find jobs, hire professionals, and connect with skilled tradespeople on OpenJobMarket. Post job listings, build your CV, and discover opportunities across the UK and Brazil.',
+    url: 'https://www.openjobmarket.com',
+    siteName: 'Open Job Market',
+    title: 'Open Job Market - Find Local Tradespeople Fast',
+    description: 'Connect homeowners with nearby plumbers, electricians, builders and more. Powered by location and availability.',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'OpenJobMarket',
+        alt: 'Open Job Market',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'OpenJobMarket - Find Jobs, Hire Talent & Connect with Tradespeople',
-    description:
-      'Find jobs, hire professionals, and connect with skilled tradespeople on OpenJobMarket.',
+    title: 'Open Job Market - Find Local Tradespeople Fast',
+    description: 'Connect homeowners with nearby plumbers, electricians, builders and more.',
     images: ['/og-image.png'],
   },
   alternates: {
-    canonical: process.env.NEXT_PUBLIC_SITE_URL || 'https://openjobmarket.com',
+    canonical: 'https://www.openjobmarket.com',
     languages: {
-      'en': process.env.NEXT_PUBLIC_SITE_URL || 'https://openjobmarket.com',
-      'pt-BR': `${process.env.NEXT_PUBLIC_SITE_URL || 'https://openjobmarket.com'}/br`,
-      'x-default': process.env.NEXT_PUBLIC_SITE_URL || 'https://openjobmarket.com',
+      'en': 'https://www.openjobmarket.com',
+      'pt-BR': 'https://www.openjobmarket.com/br',
+      'x-default': 'https://www.openjobmarket.com',
     },
   },
   verification: {
@@ -122,6 +121,18 @@ export default async function RootLayout({
     <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "Open Job Market",
+              url: "https://www.openjobmarket.com",
+              logo: "https://www.openjobmarket.com/Logo.png"
+            })
+          }}
+        />
       </head>
       <body
         className="font-sans min-h-screen flex flex-col"

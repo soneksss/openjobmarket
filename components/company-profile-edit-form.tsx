@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select"
 import pica from "pica"
 import { LocationPicker } from "@/components/ui/location-picker"
-import { deleteCompanyAccount } from "@/lib/actions"
+import { deleteCompanyAccount, updateCompanyProfile } from "@/lib/actions"
 import LanguageSelector from "@/components/language-selector"
 import {
   AlertDialog,
@@ -140,7 +140,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
       // Add timeout to prevent hanging
       const timeoutId = setTimeout(() => {
-        console.error("[v0] resizeImage: Timeout reached after 15 seconds")
+        console.warn("[v0] resizeImage: Timeout reached after 15 seconds")
         reject(new Error('Image processing timeout'))
       }, 15000) // 15 second timeout (reduced from 30)
 
@@ -211,7 +211,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
           console.log("[v0] resizeImage: Resize complete, file size:", resizedFile.size)
           resolve(resizedFile)
         } catch (error) {
-          console.error("[v0] resizeImage: Error during resize:", error)
+          console.warn("[v0] resizeImage: Error during resize:", error)
           clearTimeout(timeoutId)
           URL.revokeObjectURL(img.src)
           reject(error)
@@ -219,7 +219,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       }
 
       img.onerror = (error) => {
-        console.error("[v0] resizeImage: Image load error:", error)
+        console.warn("[v0] resizeImage: Image load error:", error)
         clearTimeout(timeoutId)
         reject(new Error("Failed to load image"))
       }
@@ -284,7 +284,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         })
 
       if (uploadError) {
-        console.error("[v0] Upload error:", uploadError)
+        console.warn("[v0] Upload error:", uploadError)
 
         // Provide more specific error messages
         if (uploadError.message.includes('bucket')) {
@@ -358,7 +358,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         })
       }
     } catch (error) {
-      console.error("[v0] Unexpected error:", error)
+      console.warn("[v0] Unexpected error:", error)
       toast({
         title: "Upload Failed",
         description: "Unexpected error uploading logo. Please try again.",
@@ -410,11 +410,10 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         hide_contact_info: hideContactInfo,
         latitude: latitude,
         longitude: longitude,
-        logo_url: logoUrl || null,
+        logo_url: logoUrl ? logoUrl.split("?")[0] : null,
         spoken_languages: spokenLanguages,
         service_24_7: service24_7,
         price_list: priceList || null,
-        updated_at: new Date().toISOString(),
       }
 
       console.log("[COMPANY-EDIT] Update data:", {
@@ -427,24 +426,14 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         has_phone: !!updateData.phone_number,
       })
 
-      const { data, error } = await supabase
-        .from("company_profiles")
-        .update(updateData)
-        .eq("id", profile.id)
-        .select()
+      const result = await updateCompanyProfile(updateData)
 
-      if (error) {
-        console.error("[COMPANY-EDIT] ❌ Database error:", error)
-        console.error("[COMPANY-EDIT] Error details:", {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        })
-        throw error
+      if (result.error) {
+        console.warn("[COMPANY-EDIT] ❌ Server action error:", result.error)
+        throw new Error(result.error)
       }
 
-      console.log("[COMPANY-EDIT] ✅ Profile updated successfully:", data)
+      console.log("[COMPANY-EDIT] ✅ Profile updated successfully")
       console.log("[COMPANY-EDIT] Redirecting to dashboard...")
 
       toast({
@@ -456,9 +445,9 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       // Redirect back to dashboard
       router.push(locale === 'pt-BR' ? '/br/dashboard/company' : '/dashboard/company')
     } catch (error: any) {
-      console.error("[COMPANY-EDIT] ❌ Unexpected error:", error)
-      console.error("[COMPANY-EDIT] Error type:", error?.constructor?.name)
-      console.error("[COMPANY-EDIT] Error stack:", error?.stack)
+      console.warn("[COMPANY-EDIT] ❌ Unexpected error:", error)
+      console.warn("[COMPANY-EDIT] Error type:", error?.constructor?.name)
+      console.warn("[COMPANY-EDIT] Error stack:", error?.stack)
 
       toast({
         title: "Update Failed",
@@ -489,7 +478,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       const result = await deleteCompanyAccount(profile.id)
 
       if (result.error) {
-        console.error("[COMPANY_EDIT] Account deletion error:", result.error)
+        console.warn("[COMPANY_EDIT] Account deletion error:", result.error)
         toast({
           title: "Deletion Failed",
           description: `Error deleting account: ${result.error}`,
@@ -508,7 +497,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
       // manualLogout will redirect to "/" and clear all storage
     } catch (error) {
-      console.error("[COMPANY_EDIT] Unexpected error during account deletion:", error)
+      console.warn("[COMPANY_EDIT] Unexpected error during account deletion:", error)
       toast({
         title: "Unexpected Error",
         description: "An unexpected error occurred while deleting your account. Please try again.",
@@ -555,7 +544,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                         alt="Company logo"
                         className="max-h-full max-w-full object-contain"
                         onError={(e) => {
-                          console.error("[COMPANY-EDIT] Logo failed to load:", logoUrl)
+                          console.warn("[COMPANY-EDIT] Logo failed to load:", logoUrl)
                           setLogoError(true)
                         }}
                         onLoad={() => {
@@ -717,7 +706,9 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   {services.map((service) => (
                     <Badge key={service} variant="secondary" className="flex items-center gap-1 text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                       {service}
-                      <X className="h-3 w-3 cursor-pointer hover:text-white" onClick={() => removeService(service)} />
+                      <button type="button" onClick={() => removeService(service)} className="ml-0.5 hover:text-white transition-colors">
+                        <X className="h-3 w-3" />
+                      </button>
                     </Badge>
                   ))}
                 </div>

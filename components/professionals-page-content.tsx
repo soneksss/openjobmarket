@@ -297,7 +297,7 @@ export default function ProfessionalsPageContent({
   const [sortBy, setSortBy] = useState<"nearest" | "salary" | "best_match">("best_match")
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null)
   const professionalCardRefs = useRef<{[key: string]: HTMLElement | null}>({})
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(isModal)
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
   const [tradeSuggestions, setTradeSuggestions] = useState<string[]>([])
   const [showTradeSuggestions, setShowTradeSuggestions] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)

@@ -81,7 +81,7 @@ export default async function CompanyDashboardPage() {
     .order("created_at", { ascending: false })
 
   if (reviewsError) {
-    console.error("[COMPANY-DASHBOARD] Error fetching reviews:", reviewsError)
+    console.warn("[COMPANY-DASHBOARD] Error fetching reviews:", reviewsError)
   }
 
   if (reviewsData) {

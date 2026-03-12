@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from "react"
-import { ChevronDown, Mail, MessageCircle, HelpCircle } from "lucide-react"
+import { ChevronDown, Mail, MessageCircle, HelpCircle, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
 const FAQ_CATEGORIES = [
@@ -121,6 +121,19 @@ export default function HelpPage() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
+      {/* Header with back button */}
+      <div className="bg-slate-800 border-b border-slate-700/50">
+        <div className="flex items-center gap-3 px-4 py-4">
+          <Link
+            href="/dashboard/homeowner"
+            className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-lg font-semibold text-white">Help & FAQ</h1>
+        </div>
+      </div>
+
       {/* Hero */}
       <div className="bg-gradient-to-br from-blue-950 via-slate-800 to-slate-900 border-b border-slate-700/50">
         <div className="container mx-auto px-4 py-12 max-w-3xl text-center">

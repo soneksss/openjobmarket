@@ -1,62 +1,56 @@
 "use client"
 
-import { Card, CardHeader, CardContent, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { RatingDisplay } from "@/components/rating-display"
-import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { JobCentricDashboard } from "@/components/job-centric-dashboard"
-import ActivityTickerCard from "@/components/activity-ticker-card"
-import Link from "next/link"
-import Image from "next/image"
 import {
-  Briefcase,
-  CheckCircle2,
-  Clock,
   MapPin,
-  Plus,
-  Settings,
-  ToggleLeft,
-  ToggleRight,
   User,
-  Search,
-  Users,
-  Eye,
-  FileText,
-  BookmarkIcon,
-  Home,
-  Edit,
   Upload,
-  AlertTriangle
+  Briefcase,
+  BookmarkIcon,
+  Clock,
+  Bell,
+  Shield,
+  Trash2,
+  LogOut,
+  ChevronRight,
+  MessageCircle,
+  HelpCircle,
+  AlertTriangle,
 } from "lucide-react"
-import { useState } from "react"
 import { createClient } from "@/lib/client"
-import { useRouter } from "next/navigation"
-import { useTranslation } from "@/lib/i18n/context"
 import { useToast } from "@/hooks/use-toast"
 import pica from "pica"
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface HomeownerJob {
   id: string
   title: string
-  description: string
-  short_description?: string
   location: string
-  salary_min?: number
-  salary_max?: number
-  salary_frequency?: string
   is_active: boolean
-  expires_at?: string
-  urgency_type?: "asap" | "today" | "flexible" | null
   created_at: string
-  updated_at?: string
-  is_tradespeople_job?: boolean
-  work_location?: string
   applications_count?: number
   views_count?: number
+}
+
+interface SavedTradesperson {
+  id: string
+  professional_id: string
+  professional_profiles: {
+    id: string
+    user_id: string
+    first_name?: string
+    last_name?: string
+    nickname?: string
+    title?: string
+    location?: string
+    profile_photo_url?: string
+  }
 }
 
 interface HomeownerProfile {
@@ -64,536 +58,311 @@ interface HomeownerProfile {
   first_name: string
   last_name: string
   nickname?: string
-  title?: string
-  location: string
-  on_market: boolean
+  location?: string
   profile_photo_url?: string
-  average_rating?: number
-  reviews_count?: number
-  skills?: string[]
-  bio?: string
-  cv_url?: string
 }
 
 interface HomeownerDashboardProps {
   user?: any
   profile: HomeownerProfile
   jobs: HomeownerJob[]
-  stats: {
-    totalJobs: number
-    activeJobs: number
-    completedJobs: number
-  }
+  savedTradespeople?: SavedTradesperson[]
   isProfileComplete?: boolean
   missingFields?: string[]
 }
 
-export function HomeownerDashboard({ profile, jobs, stats, user, isProfileComplete = true, missingFields = [] }: HomeownerDashboardProps) {
-  const { t, locale } = useTranslation()
-  const [onMarket, setOnMarket] = useState(profile.on_market)
-  const [isTogglingMarket, setIsTogglingMarket] = useState(false)
-  const [profileVisible, setProfileVisible] = useState(true)
-  const [updatingVisibility, setUpdatingVisibility] = useState(false)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(profile.profile_photo_url || null)
+// ─── Image resize helper ───────────────────────────────────────────────────────
+
+async function resizeImage(file: File, maxSize = 300): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.onload = async () => {
+      try {
+        const size = Math.min(img.width, img.height)
+        const cropX = (img.width - size) / 2
+        const cropY = (img.height - size) / 2
+        const canvas = document.createElement("canvas")
+        canvas.width = maxSize
+        canvas.height = maxSize
+        let blob: Blob | null = null
+        try {
+          const p = pica()
+          const tmp = document.createElement("canvas")
+          tmp.width = size; tmp.height = size
+          const ctx = tmp.getContext("2d")!
+          ctx.drawImage(img, cropX, cropY, size, size, 0, 0, size, size)
+          await p.resize(tmp, canvas)
+          blob = await p.toBlob(canvas, "image/webp", 0.75)
+        } catch {
+          const ctx = canvas.getContext("2d")!
+          ctx.drawImage(img, cropX, cropY, size, size, 0, 0, maxSize, maxSize)
+          blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/webp", 0.75))
+        }
+        if (!blob) { reject(new Error("conversion failed")); return }
+        URL.revokeObjectURL(img.src)
+        resolve(new File([blob], "profile-photo.webp", { type: "image/webp" }))
+      } catch (e) { URL.revokeObjectURL(img.src); reject(e) }
+    }
+    img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error("load failed")) }
+    img.src = URL.createObjectURL(file)
+  })
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
+
+export function HomeownerDashboard({
+  profile,
+  jobs,
+  savedTradespeople = [],
+  user,
+  isProfileComplete = true,
+  missingFields = [],
+}: HomeownerDashboardProps) {
   const router = useRouter()
   const { toast } = useToast()
+  const supabase = createClient()
 
-  const handleToggleMarket = async () => {
-    setIsTogglingMarket(true)
-    const supabase = createClient()
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(profile.profile_photo_url || null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const [unreadMessages, setUnreadMessages] = useState(0)
 
-    try {
-      const { error } = await supabase
-        .from("homeowner_profiles")
-        .update({ on_market: !onMarket })
-        .eq("id", profile.id)
+  const displayName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Homeowner"
+  const initials = `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() || "HO"
+  const activeJobsCount = jobs.filter((j) => j.is_active).length
+  const closedJobsCount = jobs.filter((j) => !j.is_active).length
 
-      if (error) throw error
-
-      setOnMarket(!onMarket)
-      router.refresh()
-
-      if (!onMarket) {
-        router.push("/dashboard/homeowner/profile?setup_market=true")
-      }
-    } catch (err) {
-      console.error("Failed to toggle market status:", err)
-    } finally {
-      setIsTogglingMarket(false)
+  // ── Unread messages ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return
+    const fetch = async () => {
+      const { count } = await supabase
+        .from("messages")
+        .select("*", { count: "exact", head: true })
+        .eq("recipient_id", user.id)
+        .eq("is_read", false)
+      setUnreadMessages(count || 0)
     }
-  }
+    fetch()
+    const channel = supabase
+      .channel("homeowner-dash-msgs")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${user.id}` }, fetch)
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user?.id])
 
-  const handleToggleVisibility = async () => {
-    setUpdatingVisibility(true)
-    const supabase = createClient()
-
-    try {
-      const { error } = await supabase
-        .from("homeowner_profiles")
-        .update({ profile_visible: !profileVisible })
-        .eq("id", profile.id)
-
-      if (error) throw error
-
-      setProfileVisible(!profileVisible)
-    } catch (err) {
-      console.error("Failed to toggle visibility:", err)
-    } finally {
-      setUpdatingVisibility(false)
-    }
-  }
-
-  const resizeImage = async (file: File, maxSize: number = 300): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      const img = new window.Image()
-      img.onload = async () => {
-        try {
-          if (img.width === 0 || img.height === 0) {
-            reject(new Error("IMAGE_DIMENSIONS_INVALID: Image has invalid dimensions"))
-            return
-          }
-          if (img.width > 10000 || img.height > 10000) {
-            reject(new Error("IMAGE_TOO_LARGE: Image dimensions exceed 10000x10000 pixels"))
-            return
-          }
-
-          const canvas = document.createElement("canvas")
-          const size = Math.min(img.width, img.height)
-          const cropX = (img.width - size) / 2
-          const cropY = (img.height - size) / 2
-          canvas.width = maxSize
-          canvas.height = maxSize
-
-          let blob: Blob | null = null
-
-          try {
-            const picaInstance = pica()
-            const tempCanvas = document.createElement("canvas")
-            tempCanvas.width = size
-            tempCanvas.height = size
-            const tempCtx = tempCanvas.getContext("2d")
-            if (!tempCtx) throw new Error("Failed to get temp canvas context")
-
-            tempCtx.drawImage(img, cropX, cropY, size, size, 0, 0, size, size)
-            await picaInstance.resize(tempCanvas, canvas)
-            blob = await picaInstance.toBlob(canvas, "image/webp", 0.75)
-          } catch (picaError) {
-            const ctx = canvas.getContext("2d")
-            if (!ctx) {
-              reject(new Error("IMAGE_PROCESSING_FAILED: Failed to get canvas context"))
-              return
-            }
-            ctx.drawImage(img, cropX, cropY, size, size, 0, 0, maxSize, maxSize)
-            blob = await new Promise<Blob | null>((blobResolve) => {
-              canvas.toBlob(blobResolve, "image/webp", 0.75)
-            })
-          }
-
-          if (!blob || blob.size === 0) {
-            reject(new Error("IMAGE_CONVERSION_FAILED: Failed to convert image to WebP format"))
-            return
-          }
-
-          const resizedFile = new File([blob], "profile-photo.webp", { type: "image/webp" })
-          URL.revokeObjectURL(img.src)
-          resolve(resizedFile)
-        } catch (error) {
-          URL.revokeObjectURL(img.src)
-          if (error instanceof Error) {
-            reject(error)
-          } else {
-            reject(new Error("IMAGE_PROCESSING_FAILED: Unknown error during image processing"))
-          }
-        }
-      }
-      img.onerror = () => {
-        URL.revokeObjectURL(img.src)
-        reject(new Error("IMAGE_LOAD_FAILED: Unable to load image"))
-      }
-      const objectUrl = URL.createObjectURL(file)
-      img.src = objectUrl
-    })
-  }
-
-  const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (!user?.id) {
-      toast({
-        title: "Error",
-        description: "User not found. Please refresh the page.",
-        variant: "destructive",
-      })
+  // ── Photo upload ─────────────────────────────────────────────────────────────
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user?.id) return
+    const allowed = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"]
+    if (!allowed.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "JPG, PNG or WebP only", variant: "destructive" })
       return
     }
-
-    if (typeof window === 'undefined' || !window.Image) {
-      toast({
-        title: "Browser Not Supported",
-        description: "Your browser doesn't support image uploads",
-        variant: "destructive",
-      })
-      return
-    }
-
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
-    if (!allowedTypes.includes(file.type)) {
-      toast({
-        title: "Invalid File Type",
-        description: "Please upload a JPG, PNG, GIF, or WebP image",
-        variant: "destructive",
-      })
-      return
-    }
-
     if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File Too Large",
-        description: "Image must be smaller than 10MB",
-        variant: "destructive",
-      })
+      toast({ title: "File too large", description: "Max 10 MB", variant: "destructive" })
       return
     }
-
     setUploadingPhoto(true)
     try {
-      const resizedFile = await resizeImage(file, 300)
-      const supabase = createClient()
+      const resized = await resizeImage(file, 300)
       const fileName = `${user.id}/profile-photo.webp`
-
-      if (profilePhotoUrl) {
-        const oldFileName = profilePhotoUrl.split('/').pop()
-        if (oldFileName) {
-          await supabase.storage.from('profile-photos').remove([`${user.id}/${oldFileName}`])
-        }
-      }
-
-      const { error: uploadError } = await supabase.storage
-        .from('profile-photos')
-        .upload(fileName, resizedFile, {
-          upsert: true,
-          contentType: 'image/webp',
-        })
-
-      if (uploadError) {
-        toast({
-          title: "Upload Failed",
-          description: uploadError.message,
-          variant: "destructive",
-        })
-        return
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-photos')
-        .getPublicUrl(fileName)
-
-      const { error: updateError } = await supabase
-        .from("homeowner_profiles")
-        .update({ profile_photo_url: publicUrl })
-        .eq("id", profile.id)
-
-      if (updateError) {
-        toast({
-          title: "Update Failed",
-          description: updateError.message,
-          variant: "destructive",
-        })
-        return
-      }
-
+      const { error: upErr } = await supabase.storage.from("profile-photos").upload(fileName, resized, { upsert: true, contentType: "image/webp" })
+      if (upErr) throw upErr
+      const { data: { publicUrl } } = supabase.storage.from("profile-photos").getPublicUrl(fileName)
+      await supabase.from("homeowner_profiles").update({ profile_photo_url: publicUrl }).eq("id", profile.id)
       setProfilePhotoUrl(publicUrl)
-      toast({
-        title: "Success",
-        description: "Profile photo updated successfully!",
-      })
+      toast({ title: "Photo updated!" })
       router.refresh()
-    } catch (error) {
-      if (error instanceof Error) {
-        const errorMessage = error.message
-        if (errorMessage.includes('IMAGE_LOAD_FAILED')) {
-          toast({
-            title: "Failed to Load Image",
-            description: "Unable to load the image. Please try a different file.",
-            variant: "destructive",
-          })
-        } else if (errorMessage.includes('IMAGE_TOO_LARGE')) {
-          toast({
-            title: "Image Too Large",
-            description: "Image dimensions exceed 10000x10000 pixels",
-            variant: "destructive",
-          })
-        } else if (errorMessage.includes('IMAGE_DIMENSIONS_INVALID')) {
-          toast({
-            title: "Invalid Image",
-            description: "Image has invalid dimensions",
-            variant: "destructive",
-          })
-        } else if (errorMessage.includes('IMAGE_PROCESSING_FAILED')) {
-          toast({
-            title: "Processing Failed",
-            description: "Failed to process image. Please try again.",
-            variant: "destructive",
-          })
-        } else if (errorMessage.includes('IMAGE_CONVERSION_FAILED')) {
-          toast({
-            title: "Conversion Failed",
-            description: "Failed to convert image to WebP format",
-            variant: "destructive",
-          })
-        } else {
-          toast({
-            title: "Upload Error",
-            description: errorMessage,
-            variant: "destructive",
-          })
-        }
-      } else {
-        toast({
-          title: "Upload Error",
-          description: "An unexpected error occurred",
-          variant: "destructive",
-        })
-      }
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err?.message, variant: "destructive" })
     } finally {
       setUploadingPhoto(false)
     }
   }
 
-  const displayTitle = onMarket ? (profile.title || "Professional") : "Homeowner"
-  const displayName = onMarket && profile.nickname ? profile.nickname : `${profile.first_name} ${profile.last_name}`
+  // ── Log out ───────────────────────────────────────────────────────────────────
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    await supabase.auth.signOut()
+    router.push("/")
+    router.refresh()
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <>
-      {/* Full Dashboard */}
-      <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-4">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-          {/* Left Sidebar - Profile Card */}
-          <div className="lg:col-span-1">
-            <Card className="p-3">
-              <div className="relative">
-                <Link href="/dashboard/homeowner/profile" className="absolute top-0 right-0">
-                  <Button size="sm" variant="ghost" className="h-6 w-6 p-0">
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                </Link>
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="relative flex-shrink-0">
-                    <Avatar className="h-12 w-12 rounded-full">
-                      <AvatarImage
-                        src={profilePhotoUrl || "/placeholder.svg"}
-                        className="object-cover w-full h-full rounded-full"
-                      />
-                      <AvatarFallback className="text-sm rounded-full">
-                        {profile.first_name[0]}{profile.last_name[0]}
-                      </AvatarFallback>
-                    </Avatar>
-                    <Label
-                      htmlFor="homeowner-photo-upload"
-                      className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-1 cursor-pointer hover:bg-primary/90 transition-colors shadow-lg"
-                      title="Upload profile photo"
-                    >
-                      <Upload className="h-3 w-3" />
-                    </Label>
-                    <Input
-                      id="homeowner-photo-upload"
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handlePhotoUpload}
-                      disabled={uploadingPhoto}
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h2 className="text-sm font-bold truncate">{displayName}</h2>
-                    <p className="text-xs text-muted-foreground">{displayTitle}</p>
-                  </div>
-                </div>
+    <div className="min-h-screen bg-slate-900 text-white pb-24">
 
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center text-muted-foreground text-[0.65rem]">
-                    <MapPin className="h-2.5 w-2.5 mr-1 flex-shrink-0" />
-                    <span className="truncate">{profile.location}</span>
-                  </div>
-
-                  <RatingDisplay
-                    rating={profile.average_rating || 0}
-                    reviewsCount={profile.reviews_count || 0}
-                    size="sm"
-                  />
-
-                  <div className="flex items-center text-muted-foreground">
-                    <User className="h-3 w-3 mr-1 flex-shrink-0" />
-                    <span>Member {new Date().getFullYear()}</span>
-                  </div>
-
-                  {onMarket && (
-                    <>
-                      <div className="pt-2 border-t">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-medium">Visibility</span>
-                          <Switch
-                            checked={profileVisible}
-                            onCheckedChange={handleToggleVisibility}
-                            disabled={updatingVisibility}
-                            className="scale-75"
-                          />
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {profileVisible ? <><Eye className="h-2 w-2 inline mr-1" />Visible</> : "Hidden"}
-                        </p>
-                      </div>
-
-                      {profile.skills && profile.skills.length > 0 && (
-                        <div className="pt-1">
-                          <p className="text-xs font-medium mb-1">Skills</p>
-                          <div className="flex flex-wrap gap-1">
-                            {profile.skills.slice(0, 3).map((skill: string) => (
-                              <Badge key={skill} variant="secondary" className="text-xs px-1 py-0">
-                                {skill}
-                              </Badge>
-                            ))}
-                            {profile.skills.length > 3 && (
-                              <Badge variant="outline" className="text-xs px-1 py-0">
-                                +{profile.skills.length - 3}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  <Link href="/dashboard/homeowner/profile" className="block pt-2">
-                    <Button variant="outline" size="sm" className="w-full h-7 text-xs">
-                      <Settings className="h-3 w-3 mr-1" />
-                      Edit Profile
-                    </Button>
-                  </Link>
-
-                  <Link href="/account/settings" className="block">
-                    <Button variant="outline" size="sm" className="w-full h-7 text-xs">
-                      Settings
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            </Card>
-
-            {/* Recent Activity Ticker */}
-            <ActivityTickerCard className="mt-1" />
+      {/* ── Profile incomplete banner ── */}
+      {!isProfileComplete && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-3 flex items-center gap-3">
+          <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-300">Complete your profile</p>
+            <p className="text-xs text-amber-400/70">Missing: {missingFields.join(", ")}</p>
           </div>
+          <Link href="/dashboard/homeowner/profile" className="text-xs font-semibold text-amber-300 hover:text-amber-200 flex-shrink-0">
+            Fix →
+          </Link>
+        </div>
+      )}
 
-          {/* Main Content Area */}
-          <div className="lg:col-span-3 space-y-3">
-            {/* Put Me on the Market Toggle */}
-            <Card className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <h2 className="text-sm font-semibold flex items-center gap-1 mb-1">
-                    {onMarket ? (
-                      <ToggleRight className="w-4 h-4 text-green-600 flex-shrink-0" />
-                    ) : (
-                      <ToggleLeft className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    )}
-                    <span className="text-xs sm:text-sm">Put Me on the Market</span>
-                  </h2>
-                  <p className="text-xs text-gray-600 line-clamp-2">
-                    {onMarket ? (
-                      "✅ Visible as professional!"
-                    ) : (
-                      "Turn on to appear as professional"
-                    )}
-                  </p>
-                </div>
-                <Button
-                  onClick={handleToggleMarket}
-                  disabled={isTogglingMarket}
-                  size="sm"
-                  className={`${onMarket ? "bg-green-600 hover:bg-green-700" : ""} h-7 text-xs flex-shrink-0`}
-                >
-                  {isTogglingMarket ? "..." : onMarket ? "Off" : "On"}
-                </Button>
-              </div>
-            </Card>
-
-            {/* Professional Features - Only shown when on_market is true */}
-            {onMarket && (
-              <div className="grid grid-cols-2 gap-2">
-                <Card className="p-2">
-                  <div className="flex items-center gap-1 mb-1">
-                    <FileText className="h-3 w-3" />
-                    <h3 className="text-xs font-semibold">CV Builder</h3>
-                  </div>
-                  <Link href="/dashboard/homeowner/cv-builder">
-                    <Button variant="outline" size="sm" className="w-full h-7 text-xs">
-                      {profile.cv_url ? "Edit" : "Build"}
-                    </Button>
-                  </Link>
-                </Card>
-
-                <Card className="p-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1">
-                      <Briefcase className="h-3 w-3" />
-                      <h3 className="text-xs font-semibold">Applications</h3>
-                    </div>
-                    <Badge variant="secondary" className="text-xs px-1 py-0">0</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-1">No applications</p>
-                </Card>
-
-                <Card className="p-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-1">
-                      <BookmarkIcon className="h-3 w-3" />
-                      <h3 className="text-xs font-semibold">Saved</h3>
-                    </div>
-                    <Badge variant="secondary" className="text-xs px-1 py-0">0</Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-1">No saved jobs</p>
-                </Card>
-              </div>
-            )}
-
-            {/* Quick Actions */}
-            <Card className="p-3">
-              <div className="flex items-center gap-1 mb-2">
-                <Home className="h-4 w-4" />
-                <h2 className="text-sm font-bold">Quick Actions</h2>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button asChild size="sm" className="h-auto py-2 flex-col bg-blue-500 hover:bg-blue-600 text-xs">
-                  <Link href={locale === 'pt-BR' ? '/br' : '/'}>
-                    <Search className="h-4 w-4 mb-1" />
-                    <span className="font-semibold leading-tight">Find Contractors</span>
-                  </Link>
-                </Button>
-
-                <Button asChild size="sm" className="h-auto py-2 flex-col bg-purple-600 hover:bg-purple-700 text-xs">
-                  <Link href="/dashboard/homeowner/post-job">
-                    <Plus className="h-4 w-4 mb-1" />
-                    <span className="font-semibold leading-tight">Post New Job</span>
-                  </Link>
-                </Button>
-              </div>
-            </Card>
-
-            {/* Job-Centric Dashboard - Main Content */}
-            <JobCentricDashboard
-              jobs={jobs}
-              ownerId={profile.id}
-              ownerUserId={user?.id || ''}
-              userType="homeowner"
-              stats={stats}
+      {/* ── Profile header ── */}
+      <div className="bg-slate-800 px-4 py-5">
+        <Link href="/dashboard/homeowner/profile" className="flex items-center gap-4 hover:opacity-90 transition-opacity">
+          {/* Avatar with upload trigger */}
+          <div className="relative flex-shrink-0">
+            <Avatar className="h-16 w-16 border-2 border-slate-600">
+              <AvatarImage src={profilePhotoUrl || undefined} className="object-cover" />
+              <AvatarFallback className="bg-slate-700 text-emerald-400 font-bold text-xl">{initials}</AvatarFallback>
+            </Avatar>
+            {/* Camera overlay — stops propagation so it doesn't follow the Link */}
+            <Label
+              htmlFor="homeowner-photo-upload"
+              className="absolute -bottom-1 -right-1 bg-emerald-600 hover:bg-emerald-500 rounded-full p-1.5 cursor-pointer transition-colors shadow-lg"
+              onClick={(e) => e.preventDefault()}
+            >
+              <Upload className="h-3 w-3 text-white" />
+            </Label>
+            <Input
+              id="homeowner-photo-upload"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+              disabled={uploadingPhoto}
             />
           </div>
+
+          {/* Name & info */}
+          <div className="flex-1 min-w-0">
+            <p className="text-lg font-bold truncate">{displayName}</p>
+            <p className="text-sm text-slate-400 truncate">{user?.email}</p>
+            {profile.location && (
+              <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                <MapPin className="h-3 w-3" />
+                {profile.location}
+              </p>
+            )}
+          </div>
+
+          <ChevronRight className="h-5 w-5 text-slate-500 flex-shrink-0" />
+        </Link>
+      </div>
+
+      {/* ── Menu sections ── */}
+      <div className="divide-y divide-slate-800/80">
+
+        {/* Section 1 — Activity */}
+        <div className="py-1">
+          {[
+            {
+              icon: Briefcase,
+              label: "My Jobs",
+              href: "/dashboard/homeowner/jobs",
+              count: activeJobsCount,
+              countLabel: activeJobsCount === 1 ? "active" : "active",
+            },
+            {
+              icon: MessageCircle,
+              label: "Messages",
+              href: "/messages",
+              count: unreadMessages,
+              countLabel: unreadMessages === 1 ? "unread" : "unread",
+              highlight: unreadMessages > 0,
+            },
+            {
+              icon: BookmarkIcon,
+              label: "Saved Tradespeople",
+              href: "/dashboard/homeowner/saved",
+              count: savedTradespeople.length,
+              countLabel: "saved",
+            },
+            {
+              icon: Clock,
+              label: "Job History",
+              href: "/dashboard/homeowner/jobs?status=closed",
+              count: closedJobsCount,
+              countLabel: "closed",
+            },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 active:bg-slate-800 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <item.icon className="h-5 w-5 text-slate-400" />
+                <span className="font-medium text-white">{item.label}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {item.count > 0 && (
+                  <span className={`text-sm font-semibold ${item.highlight ? "text-emerald-400" : "text-slate-400"}`}>
+                    {item.count}
+                  </span>
+                )}
+                <ChevronRight className="h-5 w-5 text-slate-600" />
+              </div>
+            </Link>
+          ))}
         </div>
+
+        {/* Section 2 — Profile & Account */}
+        <div className="py-1">
+          {[
+            { icon: User,         label: "Edit Profile",    href: "/dashboard/homeowner/profile" },
+            { icon: Bell,         label: "Notifications",   href: "/notifications" },
+            { icon: HelpCircle,   label: "Help & Support",  href: "/help" },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 active:bg-slate-800 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <item.icon className="h-5 w-5 text-slate-400" />
+                <span className="font-medium text-white">{item.label}</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-slate-600" />
+            </Link>
+          ))}
+        </div>
+
+        {/* Section 3 — Settings & Legal */}
+        <div className="py-1">
+          {[
+            { icon: Shield, label: "Privacy Policy", href: "/privacy" },
+            { icon: Trash2, label: "Delete Account",  href: "/account/delete", danger: true },
+          ].map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 active:bg-slate-800 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <item.icon className={`h-5 w-5 ${item.danger ? "text-red-500/70" : "text-slate-400"}`} />
+                <span className={`font-medium ${item.danger ? "text-red-400" : "text-white"}`}>{item.label}</span>
+              </div>
+              <ChevronRight className="h-5 w-5 text-slate-600" />
+            </Link>
+          ))}
+        </div>
+
+        {/* Sign out */}
+        <div className="py-1">
+          <button
+            onClick={handleLogout}
+            disabled={loggingOut}
+            className="flex items-center gap-3 w-full px-4 py-3.5 hover:bg-slate-800 active:bg-slate-800 transition-colors text-red-400 disabled:opacity-50"
+          >
+            <LogOut className="h-5 w-5" />
+            <span className="font-medium">{loggingOut ? "Signing out…" : "Sign Out"}</span>
+          </button>
+        </div>
+
       </div>
-      </div>
-    </>
+    </div>
   )
 }

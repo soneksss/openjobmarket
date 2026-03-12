@@ -8,19 +8,40 @@ import { createClient } from "@/lib/client"
 import { useTranslation } from "@/lib/i18n/context"
 
 interface MobileBottomNavProps {
-  user?: { id: string } | null
+  user?: { id: string; user_metadata?: any } | null
   userType?: string | null
 }
 
-export function MobileBottomNav({ user, userType }: MobileBottomNavProps) {
-  const userId = user?.id
+export function MobileBottomNav({ user: serverUser, userType: serverUserType }: MobileBottomNavProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { locale } = useTranslation()
   const supabase = createClient()
 
+  // Client-side auth fallback — kicks in if server-side auth didn't find the user
+  const [clientUser, setClientUser] = useState<{ id: string; user_metadata?: any } | null>(null)
+  const [clientUserType, setClientUserType] = useState<string | null>(null)
+  const [authChecked, setAuthChecked] = useState(!!serverUser)
+
+  useEffect(() => {
+    if (serverUser) { setAuthChecked(true); return }
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (user) {
+        setClientUser(user)
+        const { data } = await supabase.from("users").select("user_type").eq("id", user.id).maybeSingle()
+        setClientUserType(data?.user_type ?? user.user_metadata?.user_type ?? null)
+      }
+      setAuthChecked(true)
+    })
+  }, [serverUser])
+
+  const user = serverUser ?? clientUser
+  const userType = serverUserType ?? clientUserType
+  const userId = user?.id
+
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [jobsSearchUrl, setJobsSearchUrl] = useState<string | null>(null)
 
   const base = locale === "pt-BR" ? "/br" : ""
 
@@ -71,6 +92,88 @@ export function MobileBottomNav({ user, userType }: MobileBottomNavProps) {
     return () => { supabase.removeChannel(channel) }
   }, [userId])
 
+  // Fetch tradesperson profile to build a personalised jobs search URL
+  useEffect(() => {
+    if (!userId) return
+    const isTrade = serverUserType === "professional" || serverUserType === "contractor" || serverUserType === "company" || serverUserType === "employer" || serverUserType === "jobseeker" || clientUserType === "professional" || clientUserType === "contractor" || clientUserType === "company" || clientUserType === "employer" || clientUserType === "jobseeker"
+    if (!isTrade) return
+
+    const buildUrl = (lat: number | null, lng: number | null, locationName: string | null, skills: string[]) => {
+      const params = new URLSearchParams()
+      params.set("tab", "jobs_tasks")
+      params.set("autoSearch", "true")
+      if (lat && lng) {
+        // Use "Near Me" — the actual lat/lng drives the search, not the label
+        params.set("location", "Near Me")
+        params.set("lat", lat.toString())
+        params.set("lng", lng.toString())
+        params.set("radius", "5")
+      } else {
+        params.set("location", "London, UK")
+        params.set("lat", "51.5074")
+        params.set("lng", "-0.1278")
+        params.set("radius", "10")
+      }
+      const cleanSkills = skills.filter(Boolean).slice(0, 3)
+      if (cleanSkills.length > 0) {
+        params.set("skills", cleanSkills.join(","))
+        params.set("search", cleanSkills[0]) // primary search term
+      }
+      return `/?${params.toString()}`
+    }
+
+    const effectiveUserType = userType
+    const isCompanyType = effectiveUserType === "company" || effectiveUserType === "employer"
+
+    if (isCompanyType) {
+      // Company/employer → use company_profiles (industry + services)
+      supabase.from("company_profiles")
+        .select("industry, services, location, latitude, longitude")
+        .eq("user_id", userId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data) {
+            const skills = [
+              data.industry,
+              ...(Array.isArray(data.services) ? data.services.slice(0, 2) : []),
+            ].filter(Boolean) as string[]
+            setJobsSearchUrl(buildUrl(data.latitude, data.longitude, data.location, skills))
+          } else {
+            setJobsSearchUrl("/?tab=jobs_tasks&autoSearch=true&location=London%2C+UK&lat=51.5074&lng=-0.1278&radius=10")
+          }
+        })
+    } else {
+      // Professional/contractor/jobseeker → use professional_profiles (title + skills)
+      supabase.from("professional_profiles")
+        .select("title, skills, location, latitude, longitude")
+        .eq("user_id", userId)
+        .maybeSingle()
+        .then(({ data: prof }) => {
+          if (prof) {
+            const skills = [
+              prof.title,
+              ...(Array.isArray(prof.skills) ? prof.skills.slice(0, 2) : []),
+            ].filter(Boolean) as string[]
+            setJobsSearchUrl(buildUrl(prof.latitude, prof.longitude, prof.location, skills))
+          } else {
+            // Fallback to company_profiles
+            supabase.from("company_profiles")
+              .select("industry, location, latitude, longitude")
+              .eq("user_id", userId)
+              .maybeSingle()
+              .then(({ data: comp }) => {
+                if (comp) {
+                  setJobsSearchUrl(buildUrl(comp.latitude, comp.longitude, comp.location, [comp.industry].filter(Boolean) as string[]))
+                } else {
+                  setJobsSearchUrl("/?tab=jobs_tasks&autoSearch=true&location=London%2C+UK&lat=51.5074&lng=-0.1278&radius=10")
+                }
+              })
+          }
+        })
+    }
+  }, [userId, userType])
+
+  if (!authChecked) return null
   if (!user) return null
 
   const getDashboardUrl = () => {
@@ -96,7 +199,8 @@ export function MobileBottomNav({ user, userType }: MobileBottomNavProps) {
 
   // ── Tradesperson nav ───────────────────────────────────────────────────────
   if (isTradesperson) {
-    const jobsUrl = `${base}/?tab=jobs_tasks`
+    const defaultJobsUrl = "/?tab=jobs_tasks&autoSearch=true&location=London%2C+UK&lat=51.5074&lng=-0.1278&radius=10"
+    const jobsUrl = `${base}${(jobsSearchUrl || defaultJobsUrl)}`
     const items = [
       { key: "home",          icon: Home,          label: "Home",          href: `${base}/`,              isActive: pathname === "/" || pathname === "/br" },
       { key: "messages",      icon: MessageCircle, label: "Messages",      href: `${base}/messages`,      isActive: !!pathname?.includes("/messages"), badge: unreadMessages },

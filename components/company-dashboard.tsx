@@ -1124,7 +1124,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               { icon: FileText, label: 'My Job Listings', href: '/dashboard/company/jobs', count: stats.totalJobs },
               { icon: MessageCircle, label: 'Messages', href: '/messages', count: unreadMessagesCount },
             ].map(item => (
-              <Link key={item.href} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 transition-colors">
+              <Link key={item.label} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 transition-colors">
                 <div className="flex items-center gap-3">
                   <item.icon className="h-5 w-5 text-slate-400" />
                   <span className="font-medium text-white">{item.label}</span>

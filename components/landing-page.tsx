@@ -523,11 +523,11 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
 
         {/* Main Search Component with results */}
         <div className="container mx-auto px-2 sm:px-4">
-          <MainPageSearch />
+          <MainPageSearch initialUser={user} initialUserType={userType} />
         </div>
 
-        {/* Mobile Bottom Nav */}
-        <MobileBottomNavLanding isSignedIn={isSignedIn} userType={userType} onNavClick={handleNavClick} />
+        {/* Mobile Bottom Nav — only for logged-out users; logged-in users use global MobileBottomNav */}
+        {!isSignedIn && <MobileBottomNavLanding isSignedIn={isSignedIn} userType={userType} onNavClick={handleNavClick} />}
       </div>
     )
   }
@@ -1870,8 +1870,8 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Mobile Bottom Nav */}
-      <MobileBottomNavLanding isSignedIn={isSignedIn} userType={userType} onNavClick={handleNavClick} />
+      {/* Mobile Bottom Nav — only for logged-out users; logged-in users use global MobileBottomNav */}
+      {!isSignedIn && <MobileBottomNavLanding isSignedIn={isSignedIn} userType={userType} onNavClick={handleNavClick} />}
     </div>
   )
 }

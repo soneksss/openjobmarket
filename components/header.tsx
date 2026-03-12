@@ -237,17 +237,21 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   const logoEl = (
     <div
       onClick={handleLogoClick}
-      className="cursor-pointer hover:opacity-90 hover:scale-[1.03] transition-all duration-200"
+      className="flex items-center gap-2 cursor-pointer hover:opacity-90 hover:scale-[1.03] transition-all duration-200"
     >
-      <Image
-        src="/Logo.png"
-        alt="Open Job Market"
-        width={180}
-        height={40}
-        className="h-10 w-auto block"
-        style={{ width: "auto" }}
-        priority
-      />
+      <div className="rounded-xl overflow-hidden flex-shrink-0">
+        <Image
+          src="/Logo.png"
+          alt="Open Job Market"
+          width={40}
+          height={40}
+          className="h-9 w-9 block"
+          priority
+        />
+      </div>
+      <span className={`font-semibold text-sm sm:text-base leading-tight ${dark ? "text-white" : "text-slate-900"}`}>
+        Open Job Market
+      </span>
     </div>
   )
 

@@ -22,18 +22,36 @@ export default async function HomeownerDashboardPage() {
   console.log("[HOMEOWNER] User found:", user.id)
 
   // Get homeowner profile
-  const { data: profile, error: profileError } = await supabase
-    .from("homeowner_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single()
+  let profile: any = null
+  {
+    const { data: profileData, error: profileError } = await supabase
+      .from("homeowner_profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle()
 
-  if (profileError) {
-    console.log("[HOMEOWNER] Profile error:", profileError)
+    if (profileError) {
+      console.warn("[HOMEOWNER] Profile error:", profileError)
+    }
+
+    if (!profileData) {
+      // Profile missing — try to create it from auth metadata on the fly
+      console.log("[HOMEOWNER] No profile found, attempting to create from signup data")
+      await supabase.rpc("complete_user_profile_after_verification", { p_user_id: user.id })
+      // Re-fetch after creation attempt
+      const { data: retryData } = await supabase
+        .from("homeowner_profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle()
+      profile = retryData
+    } else {
+      profile = profileData
+    }
   }
 
   if (!profile) {
-    console.log("[HOMEOWNER] No homeowner profile found, redirecting to home with complete_profile prompt")
+    console.log("[HOMEOWNER] Could not create homeowner profile, redirecting to home")
     redirect("/?complete_profile=true")
   }
 
@@ -82,35 +100,38 @@ export default async function HomeownerDashboardPage() {
 
   console.log("[HOMEOWNER] Jobs found:", jobs?.length || 0)
 
-  // Get stats
-  const { count: totalJobs } = await supabase
-    .from("jobs")
-    .select("*", { count: "exact", head: true })
+  // Get saved tradespeople
+  const { data: savedRaw } = await supabase
+    .from("saved_traders")
+    .select(`
+      id,
+      professional_id,
+      professional_profiles (
+        id,
+        user_id,
+        first_name,
+        last_name,
+        nickname,
+        title,
+        location,
+        profile_photo_url,
+        skills,
+        average_rating,
+        reviews_count
+      )
+    `)
     .eq("homeowner_id", profile.id)
+    .order("created_at", { ascending: false })
+    .limit(5)
 
-  const { count: activeJobs } = await supabase
-    .from("jobs")
-    .select("*", { count: "exact", head: true })
-    .eq("homeowner_id", profile.id)
-    .eq("is_active", true)
-
-  // Get completed jobs count
-  const { count: completedJobs } = await supabase
-    .from("jobs")
-    .select("*", { count: "exact", head: true })
-    .eq("homeowner_id", profile.id)
-    .eq("status", "completed")
+  const savedTradespeople = (savedRaw || []).filter((s: any) => s.professional_profiles)
 
   return (
     <HomeownerDashboard
       user={user}
       profile={profile}
       jobs={jobs || []}
-      stats={{
-        totalJobs: totalJobs || 0,
-        activeJobs: activeJobs || 0,
-        completedJobs: completedJobs || 0,
-      }}
+      savedTradespeople={savedTradespeople}
       isProfileComplete={isProfileComplete}
       missingFields={missingFields}
     />

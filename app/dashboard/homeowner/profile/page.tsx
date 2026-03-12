@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
-import { HomeownerProfileForm } from "@/components/homeowner-profile-form"
+import Link from "next/link"
+import { ArrowLeft } from "lucide-react"
+import { HomeownerProfileEditForm } from "@/components/homeowner-profile-edit-form"
+
+export const dynamic = 'force-dynamic'
 
 export default async function HomeownerProfilePage() {
   const supabase = await createClient()
@@ -8,28 +12,40 @@ export default async function HomeownerProfilePage() {
   const { data: { user }, error: userError } = await supabase.auth.getUser()
 
   if (userError || !user) {
-    redirect("/auth/sign-in")
+    redirect("/auth/login")
   }
 
-  console.log("[HOMEOWNER-PROFILE] Fetching profile for user:", user.id, "Email:", user.email)
-
-  // Get homeowner profile
   const { data: profile, error: profileError } = await supabase
     .from("homeowner_profiles")
     .select("*")
     .eq("user_id", user.id)
-    .single()
+    .maybeSingle()
 
   if (profileError) {
-    console.error("[HOMEOWNER-PROFILE] Error fetching profile:", profileError)
+    console.warn("[HOMEOWNER-PROFILE] Error fetching profile:", profileError)
   }
 
   if (!profile) {
-    console.log("[HOMEOWNER-PROFILE] No profile found for user:", user.id)
-    redirect("/onboarding/homeowner")
+    redirect("/dashboard/homeowner")
   }
 
-  console.log("[HOMEOWNER-PROFILE] Profile loaded:", profile.first_name, profile.last_name, "Profile ID:", profile.id, "User ID:", user.id, "Photo URL:", profile.profile_photo_url ? "exists" : "missing")
+  return (
+    <div className="min-h-screen bg-slate-900 text-white pb-24">
+      {/* Header */}
+      <div className="bg-slate-800 border-b border-slate-700/50">
+        <div className="flex items-center gap-3 px-4 py-4">
+          <Link
+            href="/dashboard/homeowner"
+            className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <h1 className="text-lg font-semibold text-white">Edit Profile</h1>
+        </div>
+      </div>
 
-  return <HomeownerProfileForm profile={profile} userId={user.id} />
+      {/* Form */}
+      <HomeownerProfileEditForm profile={profile} userId={user.id} />
+    </div>
+  )
 }

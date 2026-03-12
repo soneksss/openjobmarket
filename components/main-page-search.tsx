@@ -34,9 +34,32 @@ const RESULT_LIMIT = 100
 interface MainPageSearchProps {
   onSearchStateChange?: (hasResults: boolean) => void
   externalSearchQuery?: string
+  initialUser?: any
+  initialUserType?: string | null
 }
 
-export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: MainPageSearchProps = {}) {
+// Maps a specific trade title to a broader related search term for stage-2 fallback.
+// Returns null if no related trade is known (stage 2 will be skipped).
+function getRelatedTrade(query: string): string | null {
+  const q = (query || '').toLowerCase().trim()
+  const map: Record<string, string> = {
+    electrician: 'Electrical', 'electrical engineer': 'Electrical',
+    plumber: 'Plumbing', 'plumbing engineer': 'Plumbing',
+    carpenter: 'Carpentry', joiner: 'Joinery',
+    painter: 'Painting', decorator: 'Painting', 'painter and decorator': 'Painting',
+    plasterer: 'Plastering', roofer: 'Roofing', tiler: 'Tiling',
+    bricklayer: 'Bricklaying', builder: 'Construction', 'general builder': 'Construction',
+    scaffolder: 'Scaffolding', welder: 'Welding', fabricator: 'Fabrication',
+    'gas engineer': 'Gas', 'heating engineer': 'Heating', 'hvac engineer': 'HVAC',
+    handyman: 'Maintenance', 'maintenance engineer': 'Maintenance',
+    landscaper: 'Landscaping', groundworker: 'Groundworks',
+    floorer: 'Flooring', 'flooring fitter': 'Flooring',
+    glazier: 'Glazing', insulator: 'Insulation',
+  }
+  return map[q] ?? null
+}
+
+export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initialUser, initialUserType }: MainPageSearchProps = {}) {
   const { t, locale } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -49,8 +72,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   const [searchProgress, setSearchProgress] = useState<string>("")
   const [searchResultCount, setSearchResultCount] = useState<number>(0)
   const [locationError, setLocationError] = useState("")
-  const [user, setUser] = useState<any>(null)
-  const [userType, setUserType] = useState<"professional" | "company" | "contractor" | "homeowner" | null>(null)
+  const [user, setUser] = useState<any>(initialUser ?? null)
+  const [userType, setUserType] = useState<"professional" | "company" | "contractor" | "homeowner" | null>((initialUserType as any) ?? null)
   const [userProfile, setUserProfile] = useState<any>(null)
   // Default to "traders" (Tradespeople) for unregistered users
   const { searchType: contextSearchType, setSearchType: setContextSearchType } = useSearchType()
@@ -111,6 +134,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
   // Ref to track processed restoration URLs (prevent infinite loop)
   const processedRestorationRef = useRef<string | null>(null)
+
+  // Skills-based auto-search (from nav Jobs button)
+  const [autoSearchSkillsLabel, setAutoSearchSkillsLabel] = useState<string | null>(null)
+  // Multi-stage fallback: 0=initial skill search, 1=related trade, 2=any nearby, 3=all exhausted
+  const autoSearchFallbackStageRef = useRef<number>(0)
+  const autoSearchOriginalQueryRef = useRef<string>('')
+  // No-jobs overlay shown when all fallback stages are exhausted
+  const [showNoJobsOverlay, setShowNoJobsOverlay] = useState(false)
 
   // AbortController to cancel ongoing searches when a new search is triggered
   const searchAbortControllerRef = useRef<AbortController | null>(null)
@@ -535,6 +566,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     // Handle autoSearch from dashboard navigation (e.g., Trade Jobs button)
     const autoSearch = searchParams?.get('autoSearch')
     if (autoSearch === 'true') {
+      // Always close filters when the Jobs nav button is used (even on dedup skip)
+      setShowFilters(false)
+
       const urlSignature = `autoSearch:${searchParams?.toString() || ''}`
 
       // Check if we've already processed this exact URL
@@ -548,6 +582,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
       // Read search params from dashboard
       const searchParam = searchParams?.get('search')
+      const skillsParam = searchParams?.get('skills')
       const locationParam = searchParams?.get('location')
       const latParam = searchParams?.get('lat')
       const lngParam = searchParams?.get('lng')
@@ -559,6 +594,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
       console.log("[MAIN-PAGE-SEARCH] Dashboard search params:", {
         search: searchParam,
+        skills: skillsParam,
         location: locationParam,
         lat: latParam,
         lng: lngParam,
@@ -571,7 +607,24 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       })
 
       // Set the search state
-      if (searchParam) setSearchQuery(searchParam)
+      // Skills-based nav search: use first skill as query, store all for indicator label
+      if (skillsParam) {
+        const skillsList = skillsParam.split(',').map(s => s.trim()).filter(Boolean)
+        if (skillsList.length > 0) {
+          setSearchQuery(skillsList[0])
+          setAutoSearchSkillsLabel(skillsList.join(', '))
+          // Reset multi-stage fallback for fresh autoSearch
+          autoSearchFallbackStageRef.current = 0
+          autoSearchOriginalQueryRef.current = skillsList[0]
+          setShowNoJobsOverlay(false)
+        }
+      } else if (searchParam) {
+        setSearchQuery(searchParam)
+        setAutoSearchSkillsLabel(null)
+        autoSearchFallbackStageRef.current = 0
+        autoSearchOriginalQueryRef.current = searchParam
+        setShowNoJobsOverlay(false)
+      }
       if (locationParam) setLocation(locationParam)
       if (latParam && lngParam) {
         setSelectedLocation({
@@ -594,13 +647,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       // Check if we should open map or filters specifically
       const openFiltersParam = searchParams?.get('openFilters')
 
-      // Open the map modal and trigger search
-      setShowMapModal(true)
-
-      // If openFilters=true, also show the filter panel
+      // If openFilters=true, show filter panel; otherwise always start with filters CLOSED
       if (openFiltersParam === 'true') {
         setShowFilters(true)
+      } else {
+        setShowFilters(false)
       }
+
+      // Open the map modal immediately for autoSearch — user should see the map, not the search card.
+      // The modal renders with empty data while the search runs, then updates when results arrive.
+      setShowMapModal(true)
 
       // Trigger search after state is set
       if (latParam && lngParam) {
@@ -643,7 +699,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         console.log("[MAIN-PAGE-SEARCH] ⏳ Waiting for location coordinates to restore search")
       }
     }
-  }, [restoreSearch, searchQuery, location, selectedLocation])
+  // Only re-run when restoreSearch or selectedLocation changes.
+  // searchQuery/location are read from current state inside the effect (set in same batch).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreSearch, selectedLocation])
 
   // Utility function to format address in short format
   const formatShortAddress = (suggestion: any): string => {
@@ -844,7 +903,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
   }
 
   const handleSearch = async (type: "vacancies" | "jobs_tasks" | "talents" | "traders") => {
-    console.log(`[MAIN-PAGE-SEARCH] handleSearch called with type: ${type}`)
+    const effectiveDistance = distance
+
+    console.log(`[MAIN-PAGE-SEARCH] handleSearch called with type: ${type}, radius: ${effectiveDistance}`)
 
     // CRITICAL: Prevent duplicate searches - if search is already running, ignore this call
     if (isSearching) {
@@ -946,14 +1007,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
     setResultLimitReached(false) // Reset limit warning
     setSearchError(null) // Clear any previous error
     setModalSearchType(type)
-    setShowMapModal(true) // Open modal immediately so user sees map while query runs
 
-    // Always show modal for all users (registered and unregistered)
     try {
       let results: any[] = []
 
       // Get radius value in miles
-      const radiusMiles = parseInt(distance) || 10
+      const radiusMiles = parseInt(effectiveDistance) || 10
 
       if (type === "traders") {
         console.log(`[MAIN-PAGE-SEARCH] Fetching traders/contractors`)
@@ -968,7 +1027,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         // Use selectedLocation if set, otherwise fall back to the current map centre.
         const contractorLat = selectedLocation?.lat ?? mapCenter[0]
         const contractorLon = selectedLocation?.lon ?? mapCenter[1]
-        const contractorRadiusMiles = parseInt(distance) || 25
+        const contractorRadiusMiles = parseInt(effectiveDistance) || 25
         const contractorRadiusKm = contractorRadiusMiles * 1.60934
         const contractorLatDelta = contractorRadiusKm / 111.0
         const contractorLngDelta = contractorRadiusKm / (111.0 * Math.cos(contractorLat * Math.PI / 180))
@@ -1073,12 +1132,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         }
 
         if (contractorError) {
-          console.error(`[MAIN-PAGE-SEARCH] Contractor query error:`, contractorError)
-          // Don't fail the entire search on contractor timeout - just skip contractors
-          if (contractorError.type === 'timeout' || contractorError.message?.includes('timeout')) {
-            console.warn(`[MAIN-PAGE-SEARCH] Contractor query timed out - continuing with other results`)
-            contractorData = [] // Continue with empty contractor results
-          }
+          console.warn(`[MAIN-PAGE-SEARCH] Contractor query error (non-fatal):`, contractorError)
+          // Don't fail the entire search on any contractor error - just skip contractors
+          contractorData = [] // Continue with empty contractor results
         } else {
           console.log(`[MAIN-PAGE-SEARCH] Contractor query returned ${contractorData?.length || 0} results`)
         }
@@ -1088,7 +1144,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           let filteredContractors = contractorData.filter(item => item.latitude && item.longitude)
 
           if (selectedLocation) {
-            const radiusMiles = parseInt(distance) || 10
+            const radiusMiles = parseInt(effectiveDistance) || 10
             console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredContractors.length} contractors (${radiusMiles} miles)`)
             filteredContractors = filterByRadius(filteredContractors, selectedLocation.lat, selectedLocation.lon, radiusMiles)
             console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredContractors.length} contractors`)
@@ -1204,7 +1260,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (selectedLocation) {
           const lat = selectedLocation.lat
           const lon = selectedLocation.lon
-          const radiusMiles = parseInt(distance) || 10
+          const radiusMiles = parseInt(effectiveDistance) || 10
           const radiusKm = radiusMiles * 1.60934
           const latDelta = radiusKm / 111.0
           const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
@@ -1275,7 +1331,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           let filteredProfessionals = profData.filter(item => item.latitude && item.longitude)
 
           if (selectedLocation) {
-            const radiusMiles = parseInt(distance) || 10
+            const radiusMiles = parseInt(effectiveDistance) || 10
             console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredProfessionals.length} professionals (${radiusMiles} miles)`)
             filteredProfessionals = filterByRadius(filteredProfessionals, selectedLocation.lat, selectedLocation.lon, radiusMiles)
             console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredProfessionals.length} professionals`)
@@ -1359,7 +1415,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (selectedLocation) {
           const lat = selectedLocation.lat
           const lon = selectedLocation.lon
-          const radiusMiles = parseInt(distance) || 10
+          const radiusMiles = parseInt(effectiveDistance) || 10
           const radiusKm = radiusMiles * 1.60934
           const latDelta = radiusKm / 111.0
           const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
@@ -1438,7 +1494,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           let filteredCompanies = companyData.filter(item => item.latitude && item.longitude)
 
           if (selectedLocation) {
-            const radiusMiles = parseInt(distance) || 10
+            const radiusMiles = parseInt(effectiveDistance) || 10
             console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredCompanies.length} companies (${radiusMiles} miles)`)
             filteredCompanies = filterByRadius(filteredCompanies, selectedLocation.lat, selectedLocation.lon, radiusMiles)
             console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredCompanies.length} companies`)
@@ -1632,7 +1688,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
         if (selectedLocation && distance !== "remote") {
           const lat = selectedLocation.lat
           const lon = selectedLocation.lon
-          const radiusMiles = parseInt(distance) || 10
+          const radiusMiles = parseInt(effectiveDistance) || 10
           const radiusKm = radiusMiles * 1.60934 // Convert miles to km
 
           console.log(`[MAIN-PAGE-SEARCH] Applying location filter: ${radiusMiles} miles radius`)
@@ -1691,6 +1747,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               type: 'timeout',
               message: t('mainSearch.searchTimeout') || 'Search is taking longer than expected. Please try again.'
             })
+            return // finally block handles cleanup; do not open modal
           } else if (error.type === 'network') {
             setSearchError({
               type: 'network',
@@ -1702,8 +1759,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               message: t('mainSearch.searchFailed') || 'Search failed. Please try again.'
             })
           }
-          // DON'T call setIsSearching(false) here or return - let finally block handle cleanup
-          // This ensures AbortController is always cleaned up properly
+          return // let finally block handle cleanup
         }
 
         if (!error && data) {
@@ -1723,7 +1779,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           let filteredTalents = data.filter(item => item.latitude && item.longitude)
 
           if (selectedLocation && distance !== "remote") {
-            const radiusMiles = parseInt(distance) || 10
+            const radiusMiles = parseInt(effectiveDistance) || 10
             console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredTalents.length} talents (${radiusMiles} miles)`)
             filteredTalents = filterByRadius(filteredTalents, selectedLocation.lat, selectedLocation.lon, radiusMiles)
             console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredTalents.length} talents`)
@@ -1923,9 +1979,22 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           }
         }
 
-        // NOTE: Location filtering is done client-side after fetching results
-        // to avoid excluding jobs without coordinates (which is common for vacancies)
-        // Database-level filtering would exclude ALL jobs missing lat/lon values
+        // Server-side bounding box filter: keeps jobs without coordinates (they pass through)
+        // AND limits jobs WITH coordinates to a ~4x radius box before precise client-side filtering.
+        // This dramatically reduces how many rows are returned, preventing timeouts.
+        if (selectedLocation && workLocation !== "remote") {
+          const radiusMiles = (parseInt(effectiveDistance) || 10) * 4 // generous 4x multiplier
+          const latDelta = radiusMiles / 69
+          const lngDelta = radiusMiles / (69 * Math.cos((selectedLocation.lat * Math.PI) / 180))
+          const latMin = selectedLocation.lat - latDelta
+          const latMax = selectedLocation.lat + latDelta
+          const lngMin = selectedLocation.lon - lngDelta
+          const lngMax = selectedLocation.lon + lngDelta
+          // Include jobs with no coordinates OR jobs within the bounding box
+          query = query.or(
+            `latitude.is.null,longitude.is.null,and(latitude.gte.${latMin},latitude.lte.${latMax},longitude.gte.${lngMin},longitude.lte.${lngMax})`
+          )
+        }
 
         if (searchQuery.trim()) {
           console.log(`[MAIN-PAGE-SEARCH] Applying search filter: ${searchQuery.trim()}`)
@@ -2070,12 +2139,13 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
 
         if (error) {
           console.warn(`[MAIN-PAGE-SEARCH] Query error:`, error)
-          // Set error state instead of using alert()
+          // Set error state; finally block handles cleanup
           if (error.type === 'timeout' || error.message?.includes('timeout')) {
             setSearchError({
               type: 'timeout',
               message: t('mainSearch.searchTimeout') || 'Search is taking longer than expected. Please try again.'
             })
+            return // do not open modal on timeout
           } else if (error.type === 'network') {
             setSearchError({
               type: 'network',
@@ -2087,8 +2157,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               message: t('mainSearch.searchFailed') || 'Search failed. Please try again.'
             })
           }
-          // DON'T call setIsSearching(false) or return here - let finally block handle cleanup
-          // This ensures AbortController is always cleaned up and UI state is always reset
+          return // let finally block handle cleanup; do not open modal on error
         }
 
         if (!error && data) {
@@ -2104,7 +2173,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
           // Skip filtering if workLocation is "remote" (for vacancies/trade jobs)
           let filteredData = data
           if (selectedLocation && workLocation !== "remote") {
-            const radiusMiles = parseInt(distance) || 10
+            const radiusMiles = parseInt(effectiveDistance) || 10
             const jobsWithCoordsArray = data.filter((item: any) => item.latitude && item.longitude)
             const jobsWithoutCoordsArray = data.filter((item: any) => !item.latitude || !item.longitude)
 
@@ -2188,13 +2257,55 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       setMapCenter(center)
       setSearchType(type)
       setModalSearchType(type)  // Store the type specifically for modal display
-      console.log(`[MAIN-PAGE-SEARCH] About to show modal, showMapModal will be set to true`)
-      setShowMapModal(true)
-      console.log(`[MAIN-PAGE-SEARCH] setShowMapModal(true) called, modal should now be visible`)
+
+      // Multi-stage fallback for autoSearch (only when triggered from nav Jobs button)
+      if (type === "jobs_tasks" && results.length === 0 && autoSearchSkillsLabel !== null) {
+        const stage = autoSearchFallbackStageRef.current
+
+        if (stage === 0) {
+          // Stage 1 done (user skills) → try Stage 2: related trade
+          const related = getRelatedTrade(autoSearchOriginalQueryRef.current)
+          if (related && related.toLowerCase() !== autoSearchOriginalQueryRef.current.toLowerCase()) {
+            console.log(`[MAIN-PAGE-SEARCH] Fallback stage 2: trying related trade "${related}"`)
+            autoSearchFallbackStageRef.current = 1
+            setSearchQuery(related)
+            setTimeout(() => handleSearch("jobs_tasks"), 250)
+            return
+          }
+          // No related trade known → skip straight to stage 3
+          autoSearchFallbackStageRef.current = 1
+        }
+
+        if (autoSearchFallbackStageRef.current === 1) {
+          // Stage 2 done (related trade) → try Stage 3: any nearby trade jobs (empty query)
+          console.log(`[MAIN-PAGE-SEARCH] Fallback stage 3: searching any nearby trade jobs`)
+          autoSearchFallbackStageRef.current = 2
+          setSearchQuery("")
+          setTimeout(() => handleSearch("jobs_tasks"), 250)
+          return
+        }
+
+        // All stages exhausted → show no-jobs overlay
+        console.log(`[MAIN-PAGE-SEARCH] All fallback stages exhausted - showing no-jobs overlay`)
+        autoSearchFallbackStageRef.current = 3
+        setShowNoJobsOverlay(true)
+        return
+      }
+
+      // Clear overlay if this search found results
+      if (results.length > 0) {
+        setShowNoJobsOverlay(false)
+      }
+
+      // Only open the modal if search succeeded and returned results
+      if (results.length > 0) {
+        console.log(`[MAIN-PAGE-SEARCH] Search succeeded with ${results.length} results - opening modal`)
+        setShowMapModal(true)
+      } else {
+        console.log(`[MAIN-PAGE-SEARCH] Search returned 0 results - modal will not open`)
+      }
     } catch (error) {
-      console.error("[MAIN-PAGE-SEARCH] Search error:", error)
-      // Ensure loading state is reset even on error
-      alert(t('mainSearch.searchFailed'))
+      console.warn("[MAIN-PAGE-SEARCH] Search error:", error)
     } finally {
       // Clean up AbortController
       if (searchAbortControllerRef.current) {
@@ -2205,6 +2316,38 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
       console.log(`[MAIN-PAGE-SEARCH] Search completed, isSearching set to false`)
     }
   }
+
+  // ── No-jobs overlay action handlers ──────────────────────────────────────────
+
+  const handleExpandRadius = () => {
+    const doubled = Math.min((parseInt(distance) || 5) * 2, 50).toString()
+    setShowNoJobsOverlay(false)
+    setShowFilters(false)
+    // Reset fallback so a fresh skill search runs with expanded radius
+    autoSearchFallbackStageRef.current = 0
+    setSearchQuery(autoSearchOriginalQueryRef.current || "")
+    setAutoSearchSkillsLabel(autoSearchOriginalQueryRef.current || null)
+    setDistance(doubled)
+    // Trigger search via restoreSearch effect — runs after state commits, avoids stale closures
+    setRestoreSearch("jobs_tasks")
+  }
+
+  const handleShowAllConstruction = () => {
+    setShowNoJobsOverlay(false)
+    setShowFilters(false)
+    // Skip fallback stages — just search "Construction" in same area
+    autoSearchFallbackStageRef.current = 3
+    setSearchQuery("Construction")
+    setAutoSearchSkillsLabel(null)
+    setRestoreSearch("jobs_tasks")
+  }
+
+  const handleOpenFiltersFromOverlay = () => {
+    setShowNoJobsOverlay(false)
+    setShowFilters(true)
+  }
+
+  // ── Map picker ───────────────────────────────────────────────────────────────
 
   const handleMapPickerClick = () => {
     // Dispatch event to hide banners when map picker opens
@@ -2825,6 +2968,23 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               <SlidersHorizontal className="h-4 w-4" />
             </Button>
           </div>
+
+          {/* Skills-based search indicator — shown when nav "Jobs" button was used */}
+          {autoSearchSkillsLabel && selectedSearchType === "jobs_tasks" && !showFilters && (
+            <div className="mt-2 flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 border border-white/10">
+              <span className="text-xs text-slate-300">
+                Showing jobs for:{" "}
+                <span className="text-emerald-400 font-medium">{autoSearchSkillsLabel}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => { setShowFilters(true); setAutoSearchSkillsLabel(null) }}
+                className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors font-medium ml-3 shrink-0"
+              >
+                Change
+              </button>
+            </div>
+          )}
 
           {/* Filter Panel - shows when showFilters is true */}
           {showFilters && (
@@ -3555,6 +3715,43 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery }: Mai
               <p className="text-sm text-orange-300">
                 <span className="font-semibold">{t('mainSearch.moreThan100Results')}</span> {t('mainSearch.showing100Results')}
               </p>
+            </div>
+          )}
+
+          {/* No-jobs overlay — shown when all fallback stages are exhausted */}
+          {showNoJobsOverlay && modalSearchType === "jobs_tasks" && (
+            <div className="absolute inset-0 z-[10000] flex items-center justify-center bg-slate-900/75 backdrop-blur-sm">
+              <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-sm w-full mx-4 text-center shadow-2xl">
+                <div className="text-4xl mb-3">🗺️</div>
+                <h3 className="text-white font-bold text-lg mb-1">No jobs found nearby</h3>
+                <p className="text-slate-400 text-sm mb-5">
+                  No trade jobs matching your skills were found in this area.
+                  Try expanding your radius, viewing all construction jobs, or adjusting filters.
+                </p>
+                <div className="space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={handleExpandRadius}
+                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <span>🔍</span> Expand search radius (×2)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShowAllConstruction}
+                    className="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-xl transition-colors border border-slate-500 flex items-center justify-center gap-2"
+                  >
+                    <span>🏗️</span> Show all construction jobs
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleOpenFiltersFromOverlay}
+                    className="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-xl transition-colors border border-slate-500 flex items-center justify-center gap-2"
+                  >
+                    <span>⚙️</span> Open filters
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
