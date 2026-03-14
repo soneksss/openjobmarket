@@ -7,6 +7,8 @@ export interface ActiveSearch {
   jobTitle: string
   tradesCount: number
   phase: string
+  startedAt: number   // Date.now() when the job was posted — survives page reload
+  notifiedCount: number
 }
 
 interface ActiveSearchContextType {

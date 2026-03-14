@@ -43,11 +43,10 @@ interface HomeownerJobActionsProps {
     location: string
     latitude?: number
     longitude?: number
-    salary_min?: number
-    salary_max?: number
-    salary_frequency?: string
+    budget_min?: number
+    budget_max?: number
+    budget_period?: string
     work_location?: string
-    job_type?: string
     job_photo_url?: string | null
   }
 }
@@ -86,11 +85,10 @@ export function HomeownerJobActions({
     description: currentJob.description,
     short_description: currentJob.short_description || "",
     location: currentJob.location,
-    salary_min: currentJob.salary_min?.toString() || "",
-    salary_max: currentJob.salary_max?.toString() || "",
-    salary_frequency: currentJob.salary_frequency || "one_time",
+    budget_min: currentJob.budget_min?.toString() || "",
+    budget_max: currentJob.budget_max?.toString() || "",
+    budget_period: currentJob.budget_period || "one_time",
     work_location: currentJob.work_location || "on-site", // Use hyphen, not underscore
-    job_type: currentJob.job_type || "contract",
   })
 
   const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -375,24 +373,20 @@ export function HomeownerJobActions({
         updateData.short_description = editForm.short_description
       }
 
-      if (editForm.salary_min) {
-        updateData.salary_min = parseInt(editForm.salary_min)
+      if (editForm.budget_min) {
+        updateData.budget_min = parseInt(editForm.budget_min)
       }
 
-      if (editForm.salary_max) {
-        updateData.salary_max = parseInt(editForm.salary_max)
+      if (editForm.budget_max) {
+        updateData.budget_max = parseInt(editForm.budget_max)
       }
 
-      if (editForm.salary_frequency) {
-        updateData.salary_frequency = editForm.salary_frequency
+      if (editForm.budget_period) {
+        updateData.budget_period = editForm.budget_period
       }
 
       if (editForm.work_location) {
         updateData.work_location = editForm.work_location
-      }
-
-      if (editForm.job_type) {
-        updateData.job_type = editForm.job_type
       }
 
       // Add photo URL if it was changed
@@ -673,30 +667,30 @@ export function HomeownerJobActions({
             {/* Budget */}
             <div className="grid grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-salary-min">Min Budget (£)</Label>
+                <Label htmlFor="edit-budget-min">Min Budget (£)</Label>
                 <Input
-                  id="edit-salary-min"
+                  id="edit-budget-min"
                   type="number"
-                  value={editForm.salary_min}
-                  onChange={(e) => setEditForm({ ...editForm, salary_min: e.target.value })}
+                  value={editForm.budget_min}
+                  onChange={(e) => setEditForm({ ...editForm, budget_min: e.target.value })}
                   placeholder="500"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-salary-max">Max Budget (£)</Label>
+                <Label htmlFor="edit-budget-max">Max Budget (£)</Label>
                 <Input
-                  id="edit-salary-max"
+                  id="edit-budget-max"
                   type="number"
-                  value={editForm.salary_max}
-                  onChange={(e) => setEditForm({ ...editForm, salary_max: e.target.value })}
+                  value={editForm.budget_max}
+                  onChange={(e) => setEditForm({ ...editForm, budget_max: e.target.value })}
                   placeholder="1000"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-salary-freq">Period</Label>
+                <Label htmlFor="edit-budget-period">Period</Label>
                 <Select
-                  value={editForm.salary_frequency}
-                  onValueChange={(value) => setEditForm({ ...editForm, salary_frequency: value })}
+                  value={editForm.budget_period}
+                  onValueChange={(value) => setEditForm({ ...editForm, budget_period: value })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -728,19 +722,6 @@ export function HomeownerJobActions({
               </Select>
             </div>
 
-            {/* Job Type */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-job-type">Job Type</Label>
-              <Select value={editForm.job_type} onValueChange={(value) => setEditForm({ ...editForm, job_type: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="contract">Contract</SelectItem>
-                  <SelectItem value="freelance">Freelance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEditDialog(false)}>

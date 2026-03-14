@@ -9,10 +9,9 @@ interface JobPostingSchema {
   description: string
   company_name: string
   location: string
-  job_type: string
   work_location: string
-  salary_min?: number
-  salary_max?: number
+  budget_min?: number
+  budget_max?: number
   created_at: string
   expires_at?: string
   is_tradespeople_job?: boolean
@@ -50,7 +49,7 @@ interface LocalBusinessSchema {
 export function generateJobPostingSchema(job: JobPostingSchema): string {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://openjobmarket.com"
 
-  const employmentType = job.is_tradespeople_job ? "CONTRACTOR" : mapJobTypeToEmploymentType(job.job_type)
+  const employmentType = job.is_tradespeople_job ? "CONTRACTOR" : "OTHER"
 
   const schema = {
     "@context": "https://schema.org/",
@@ -81,15 +80,15 @@ export function generateJobPostingSchema(job: JobPostingSchema): string {
     ...(job.work_location && {
       "jobLocationType": mapWorkLocationType(job.work_location),
     }),
-    ...(job.salary_min &&
-      job.salary_max && {
+    ...(job.budget_min &&
+      job.budget_max && {
         "baseSalary": {
           "@type": "MonetaryAmount",
           "currency": "GBP",
           "value": {
             "@type": "QuantitativeValue",
-            "minValue": job.salary_min,
-            "maxValue": job.salary_max,
+            "minValue": job.budget_min,
+            "maxValue": job.budget_max,
             "unitText": "YEAR",
           },
         },

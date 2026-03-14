@@ -36,9 +36,8 @@ export default async function ProfessionalApplicationsPageBR() {
         id,
         title,
         location,
-        job_type,
-        salary_min,
-        salary_max,
+        budget_min,
+        budget_max,
         company_profiles (
           company_name,
           logo_url

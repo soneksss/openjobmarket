@@ -345,10 +345,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                 </div>
               ) : currentUser ? (
                 <>
-                  {/* Mobile: Notification Bell only */}
-                  <div className="flex md:hidden items-center gap-2">
-                    <NotificationBell iconClassName="h-9 w-9" />
-                  </div>
                   {/* Desktop: Full navigation */}
                   <div className={`hidden md:flex items-center space-x-4 ${dark ? "text-slate-200" : ""}`}>
                     <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-xs">

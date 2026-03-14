@@ -86,7 +86,6 @@ interface SavedJob {
     id: string
     title: string
     location: string
-    job_type: string
     company_profiles: {
       company_name: string
     }
@@ -1466,7 +1465,6 @@ export default function ProfessionalDashboard({ user, profile, applications, sav
                             <span className="truncate">{savedJob.jobs.location}</span>
                           </div>
                           <div className="col-span-1 sm:col-span-1 flex items-center">
-                            <Badge variant="outline" className="text-xs px-2 py-0.5">{savedJob.jobs.job_type}</Badge>
                           </div>
                           <div className="col-span-1 sm:col-span-1 flex items-center text-xs text-gray-500">
                             <Clock className="h-3 w-3 text-gray-400 flex-shrink-0 mr-1" />

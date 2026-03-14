@@ -37,6 +37,7 @@ interface JobContext {
   id: string
   title: string
   location?: string
+  created_at?: string
   status?: string
   matching_status?: string
   is_tradespeople_job?: boolean
@@ -52,9 +53,11 @@ export default function ConversationPage() {
   const searchParams = useSearchParams()
   const supabase = createClient()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const prefillApplied = useRef(false)
 
   const conversationId = params.id as string
   const returnUrl = searchParams.get('returnUrl') ? decodeURIComponent(searchParams.get('returnUrl')!) : null
+  const jobParam = searchParams.get('job')
 
   console.log('[CONVERSATION] Params:', params, 'conversationId:', conversationId)
   console.log('[CONVERSATION] Return URL:', returnUrl)
@@ -86,6 +89,19 @@ export default function ConversationPage() {
     // Scroll to bottom when messages change
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  // Prefill message on first open when navigated from a job context
+  useEffect(() => {
+    if (prefillApplied.current) return
+    if (!jobContext || messages.length > 0 || !jobParam) return
+    prefillApplied.current = true
+    setNewMessage(
+      jobContext.urgency_type !== 'flexible'
+        ? "Hi, I can take this job today."
+        : "Hi, I can help with this job."
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobContext, messages])
 
   const fetchConversation = async () => {
     updatePresence() // best-effort, fire-and-forget
@@ -153,8 +169,11 @@ export default function ConversationPage() {
           console.log('[CONVERSATION] Step 4.7: Conversation created/retrieved:', actualConversationId)
 
           // Update URL to use the real conversation ID (for bookmarking/refresh)
-          const newUrl = returnUrl
-            ? `/messages/${realConversationId}?returnUrl=${encodeURIComponent(returnUrl)}`
+          const qs = new URLSearchParams()
+          if (returnUrl) qs.set('returnUrl', returnUrl)
+          if (jobParam) qs.set('job', jobParam)
+          const newUrl = qs.toString()
+            ? `/messages/${realConversationId}?${qs.toString()}`
             : `/messages/${realConversationId}`
           window.history.replaceState({}, '', newUrl)
           console.log('[CONVERSATION] URL updated to:', newUrl)
@@ -358,13 +377,13 @@ export default function ConversationPage() {
       setMessages(messagesData || [])
       console.log('[CONVERSATION] Step 17: Messages state set')
 
-      // Fetch job context if any message has a job_id
-      const jobId = messagesData?.find(msg => msg.job_id)?.job_id
+      // Fetch job context if any message has a job_id, or if navigated here with ?job=
+      const jobId = messagesData?.find(msg => msg.job_id)?.job_id ?? jobParam
       if (jobId) {
         console.log('[CONVERSATION] Step 17.5: Fetching job context for:', jobId)
         const { data: jobData, error: jobError } = await supabase
           .from('jobs')
-          .select('id, title, location, status, matching_status, is_tradespeople_job, urgency_type, max_responses')
+          .select('id, title, location, created_at, status, matching_status, is_tradespeople_job, urgency_type, max_responses')
           .eq('id', jobId)
           .maybeSingle()
 
@@ -651,6 +670,12 @@ export default function ConversationPage() {
                         <span className="truncate">{jobContext.location}</span>
                       </div>
                     )}
+                    {jobContext.created_at && (
+                      <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5">
+                        <Clock className="h-2.5 w-2.5" />
+                        <span>Posted {new Date(jobContext.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                    )}
                     {/* Response cap counter for flexible jobs */}
                     {jobContext.urgency_type === 'flexible' && jobContext.max_responses && (
                       <div className="text-[10px] mt-0.5 font-medium">
@@ -794,6 +819,24 @@ export default function ConversationPage() {
               >
                 ✕
               </Button>
+            </div>
+          )}
+
+          {/* Quick suggestion chips — shown only on first message when job context is known */}
+          {messages.length === 0 && jobContext?.urgency_type && (
+            <div className="flex flex-wrap gap-1.5 mb-2">
+              {(jobContext.urgency_type !== 'flexible'
+                ? ["Available now", "I can come today", "What time works for you?"]
+                : ["When would you like this done?", "Happy to provide a quote"]
+              ).map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => setNewMessage(chip)}
+                  className="text-xs px-2.5 py-1 rounded-full bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white border border-slate-600 transition-colors"
+                >
+                  {chip}
+                </button>
+              ))}
             </div>
           )}
 

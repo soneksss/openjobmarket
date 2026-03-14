@@ -43,19 +43,18 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://openjobmarket.com"
   const salaryText =
-    job.salary_min && job.salary_max
-      ? `£${job.salary_min.toLocaleString()} - £${job.salary_max.toLocaleString()}`
+    job.budget_min && job.budget_max
+      ? `£${job.budget_min.toLocaleString()} - £${job.budget_max.toLocaleString()}`
       : ""
 
   return {
     title: `${job.title} at ${posterName} | OpenJobMarket`,
-    description: `${job.title} job in ${job.location}. ${job.job_type} position${
+    description: `${job.title} job in ${job.location}. ${
       salaryText ? ` - ${salaryText}` : ""
     }. ${job.description?.substring(0, 150)}...`,
     keywords: [
       job.title,
       job.location,
-      job.job_type,
       job.work_location,
       posterName,
       "trade jobs",
@@ -359,10 +358,9 @@ export default async function JobDetailPage({
     description: job.description,
     company_name: posterName,
     location: job.location,
-    job_type: job.job_type,
     work_location: job.work_location,
-    salary_min: job.salary_min,
-    salary_max: job.salary_max,
+    budget_min: job.budget_min,
+    budget_max: job.budget_max,
     created_at: job.created_at,
     expires_at: job.expires_at,
     is_tradespeople_job: job.is_tradespeople_job,

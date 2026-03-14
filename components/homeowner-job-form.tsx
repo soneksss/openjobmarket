@@ -94,9 +94,8 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
         description: formData.description,
         short_description: formData.description.substring(0, 200), // Auto-generate short description
         location: formData.location,
-        // Map budget fields to salary fields (jobs table uses salary_min/max)
-        salary_min: formData.budgetMin ? parseInt(formData.budgetMin) : null,
-        salary_max: formData.budgetMax ? parseInt(formData.budgetMax) : null,
+        budget_min: formData.budgetMin ? parseInt(formData.budgetMin) : null,
+        budget_max: formData.budgetMax ? parseInt(formData.budgetMax) : null,
         // Mark as tradespeople job (homeowner looking for services)
         is_tradespeople_job: true,
         is_active: true,

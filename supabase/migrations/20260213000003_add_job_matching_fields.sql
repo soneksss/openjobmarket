@@ -102,12 +102,14 @@ COMMENT ON COLUMN jobs.longitude IS
 -- PART 5: MIGRATE EXISTING TRADE JOBS
 -- ============================================================================
 
--- Set existing trade jobs to appropriate defaults
+-- Set existing trade jobs to appropriate defaults.
+-- Use status::text to handle both old lowercase enum (open/closed) and
+-- new uppercase enum (POSTED/CONFIRMED/ACTIVE/COMPLETED/CANCELLED).
 UPDATE jobs
 SET
   matching_status = CASE
-    WHEN status = 'open' AND is_active = true THEN 'searching'
-    WHEN status = 'closed' OR is_active = false THEN 'closed'
+    WHEN is_active = false THEN 'closed'
+    WHEN status::text IN ('COMPLETED', 'CANCELLED', 'closed') THEN 'closed'
     ELSE 'searching'
   END,
   max_applications = 5,

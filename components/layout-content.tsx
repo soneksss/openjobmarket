@@ -14,6 +14,7 @@ import { LanguageRegionModal } from "@/components/language-region-modal"
 import { parseLanguageRegionCookie, LANGUAGE_REGION_COOKIE, DEFAULT_STATE } from "@/lib/i18n/language-region"
 import { ActiveSearchProvider } from "@/lib/contexts/active-search-context"
 import { ActiveSearchBar } from "@/components/active-search-bar"
+import { UrgentJobNotifier } from "@/components/urgent-job-notifier"
 
 interface LayoutContentProps {
   children: React.ReactNode
@@ -91,6 +92,10 @@ function LayoutInner({ children, user, userType, serverLocale }: LayoutContentPr
         <Header user={user} userType={(userType as "company" | "professional" | undefined) || undefined} dark={true} />
         {/* Sticky bar shown when user has minimised an active trade search */}
         <ActiveSearchBar />
+        {/* Live urgent job banner for company (tradesperson) users */}
+        {userType === "company" && user?.id && (
+          <UrgentJobNotifier userId={user.id} />
+        )}
         <main className={`flex-1 ${user ? 'pb-20 md:pb-0' : ''}`}>{children}</main>
         {/* Hide footer completely on homepage and dashboard pages */}
         {!isHomePage && !isDashboardPage && (

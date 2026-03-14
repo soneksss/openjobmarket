@@ -12,7 +12,7 @@ export function getAccountTypeLabel(roles: UserRoles): {
   const { account_type, user_type } = roles
 
   // Business accounts
-  if (account_type === 'business' || user_type === 'company' || user_type === 'contractor') {
+  if (account_type === 'business' || user_type === 'company') {
     return {
       type: 'Business',
       description: 'Can post jobs, offer services, and hire staff'

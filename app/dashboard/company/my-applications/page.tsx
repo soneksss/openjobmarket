@@ -38,9 +38,8 @@ export default async function CompanyMyApplicationsPage() {
         id,
         title,
         location,
-        job_type,
-        salary_min,
-        salary_max,
+        budget_min,
+        budget_max,
         is_tradespeople_job,
         company_profiles (
           company_name,
@@ -205,19 +204,16 @@ export default async function CompanyMyApplicationsPage() {
                               </Badge>
                             </div>
 
-                            {/* Salary */}
-                            {formatSalary(job.salary_min, job.salary_max) && (
+                            {/* Budget */}
+                            {formatSalary(job.budget_min, job.budget_max) && (
                               <div className="flex items-center gap-2 text-emerald-400 md:text-green-600 font-semibold mb-3">
                                 <DollarSign className="h-4 w-4" />
-                                {formatSalary(job.salary_min, job.salary_max)}
+                                {formatSalary(job.budget_min, job.budget_max)}
                               </div>
                             )}
 
                             {/* Job Type Badges */}
                             <div className="flex flex-wrap gap-2 mb-3">
-                              <Badge variant="outline" className="bg-slate-700/50 md:bg-blue-50 text-slate-300 md:text-blue-700 border-slate-600 md:border-blue-200">
-                                {job.job_type}
-                              </Badge>
                               {job.is_tradespeople_job && (
                                 <Badge variant="outline" className="bg-amber-900/30 md:bg-orange-50 text-amber-400 md:text-orange-700 border-amber-700/50 md:border-orange-200">
                                   Task

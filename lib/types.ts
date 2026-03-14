@@ -35,17 +35,12 @@ export interface Job {
   id: string
   title: string
   description: string
-  requirements: string[]
-  responsibilities: string[]
-  job_type: string
-  experience_level: string
   work_location: string
   location: string
-  salary_min?: number
-  salary_max?: number
+  budget_min?: number
+  budget_max?: number
   skills_required: string[]
   languages?: string[]
-  benefits: string[]
   is_active: boolean
   applications_count: number
   views_count: number

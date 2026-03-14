@@ -377,7 +377,7 @@ export default function JobApplicationForm({
       const applicationData: any = {
         job_id: job.id,
         cover_letter: coverLetter || null,
-        status: "pending",
+        status: "PENDING",
       }
 
       // Use company_id for company applicants, professional_id for professional applicants

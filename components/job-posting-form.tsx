@@ -313,19 +313,14 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
         company_id: companyProfile.id,
         title: formData.title,
         description: formData.description,
-        requirements: formData.requirements,
-        responsibilities: formData.responsibilities,
-        job_type: formData.jobTypes[0] || "full-time", // Use first selected or default
-        experience_level: formData.experienceLevels[0] || "mid", // Use first selected or default
         work_location: formData.workLocations[0] || "hybrid", // Use first selected or default
         location: formData.location,
         latitude: selectedLocation?.lat || null,
         longitude: selectedLocation?.lon || null,
-        salary_min: formData.salaryMin ? Number.parseInt(formData.salaryMin) : null,
-        salary_max: formData.salaryMax ? Number.parseInt(formData.salaryMax) : null,
-        salary_period: formData.salaryPeriod || null,
+        budget_min: formData.salaryMin ? Number.parseInt(formData.salaryMin) : null,
+        budget_max: formData.salaryMax ? Number.parseInt(formData.salaryMax) : null,
+        budget_period: formData.salaryPeriod || null,
         skills_required: formData.skillsRequired,
-        benefits: formData.benefits,
         is_active: formData.isActive,
         status: 'open', // Set status to 'open' so job appears in search immediately
       }

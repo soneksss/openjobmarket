@@ -35,17 +35,12 @@ export default async function DashboardPage() {
     redirect("/?complete_profile=true")
   }
 
-  if (userData.user_type === "professional") {
-    redirect("/dashboard/professional")
-  } else if (userData.user_type === "company") {
+  if (userData.user_type === "company") {
     redirect("/dashboard/company")
   } else if (userData.user_type === "homeowner") {
     redirect("/dashboard/homeowner")
-  } else if (userData.user_type === "contractor") {
-    redirect("/dashboard/contractor")
   } else {
-    // User is authenticated but hasn't set user type - redirect to home where they can browse
-    console.log("[DASHBOARD] User type not set, redirecting to home")
-    redirect("/?complete_profile=true")
+    // Legacy or unset type — default to homeowner dashboard
+    redirect("/dashboard/homeowner")
   }
 }

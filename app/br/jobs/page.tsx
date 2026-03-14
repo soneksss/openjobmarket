@@ -67,8 +67,8 @@ export default async function JobsPageBR() {
   // Convert jobs to expected format with annual salary
   const formattedJobs = (jobs || []).map(job => ({
     ...job,
-    annualSalary: job.salary_min && job.salary_frequency
-      ? convertToAnnualSalary(job.salary_min, job.salary_frequency as SalaryFrequency)
+    annualSalary: job.budget_min && job.budget_period
+      ? convertToAnnualSalary(job.budget_min, job.budget_period as SalaryFrequency)
       : null,
   }))
 

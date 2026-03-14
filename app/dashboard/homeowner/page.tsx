@@ -44,7 +44,28 @@ export default async function HomeownerDashboardPage() {
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle()
-      profile = retryData
+
+      if (!retryData) {
+        // RPC failed — insert minimal profile directly from auth metadata
+        console.log("[HOMEOWNER] RPC failed, inserting minimal profile directly")
+        const metadata = user.user_metadata || {}
+        const { data: insertedProfile, error: insertError } = await supabase
+          .from("homeowner_profiles")
+          .insert({
+            user_id: user.id,
+            first_name: metadata.first_name || metadata.name?.split(" ")[0] || "User",
+            last_name: metadata.last_name || metadata.name?.split(" ").slice(1).join(" ") || user.email?.split("@")[0] || "User",
+            location: metadata.location || null,
+          })
+          .select()
+          .single()
+        if (insertError) {
+          console.error("[HOMEOWNER] Direct insert failed:", insertError)
+        }
+        profile = insertedProfile
+      } else {
+        profile = retryData
+      }
     } else {
       profile = profileData
     }
@@ -79,9 +100,9 @@ export default async function HomeownerDashboardPage() {
       description,
       short_description,
       location,
-      salary_min,
-      salary_max,
-      salary_frequency,
+      budget_min,
+      budget_max,
+      budget_period,
       is_active,
       expires_at,
       created_at,

@@ -41,16 +41,15 @@ export default async function HomeownerJobsPageBR() {
       description,
       short_description,
       location,
-      salary_min,
-      salary_max,
-      salary_frequency,
+      budget_min,
+      budget_max,
+      budget_period,
       is_active,
       expires_at,
       created_at,
       updated_at,
       is_tradespeople_job,
-      work_location,
-      job_type
+      work_location
     `)
     .eq("homeowner_id", profile.id)
     .order("created_at", { ascending: false })
@@ -203,11 +202,6 @@ export default async function HomeownerJobsPageBR() {
                           {job.is_tradespeople_job && (
                             <Badge className="bg-purple-100 text-purple-800">Tradespeople</Badge>
                           )}
-                          {job.job_type && (
-                            <Badge variant="outline">
-                              {job.job_type.charAt(0).toUpperCase() + job.job_type.slice(1)}
-                            </Badge>
-                          )}
                           {applicationCount > 0 && (
                             <Badge variant="secondary">{applicationCount} applications</Badge>
                           )}
@@ -220,10 +214,10 @@ export default async function HomeownerJobsPageBR() {
                             <MapPin className="w-4 h-4" />
                             {job.location}
                           </span>
-                          {job.salary_min && job.salary_max && (
+                          {job.budget_min && job.budget_max && (
                             <span>
-                              £{job.salary_min} - £{job.salary_max}
-                              {job.salary_frequency && ` ${job.salary_frequency.replace("_", " ")}`}
+                              £{job.budget_min} - £{job.budget_max}
+                              {job.budget_period && ` ${job.budget_period.replace("_", " ")}`}
                             </span>
                           )}
                           <span className="flex items-center gap-1">

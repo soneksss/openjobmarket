@@ -35,6 +35,23 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     })
   }, [serverUser])
 
+  // Listen for auth state changes (sign-in/sign-out) — mirrors what the Header does
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        const { data } = await supabase.from("users").select("user_type").eq("id", session.user.id).maybeSingle()
+        setClientUser(session.user)
+        setClientUserType(data?.user_type ?? session.user.user_metadata?.user_type ?? null)
+        setAuthChecked(true)
+      } else if (event === 'SIGNED_OUT') {
+        setClientUser(null)
+        setClientUserType(null)
+        setAuthChecked(true)
+      }
+    })
+    return () => { subscription.unsubscribe() }
+  }, [])
+
   const user = serverUser ?? clientUser
   const userType = serverUserType ?? clientUserType
   const userId = user?.id
@@ -95,7 +112,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   // Fetch tradesperson profile to build a personalised jobs search URL
   useEffect(() => {
     if (!userId) return
-    const isTrade = serverUserType === "professional" || serverUserType === "contractor" || serverUserType === "company" || serverUserType === "employer" || serverUserType === "jobseeker" || clientUserType === "professional" || clientUserType === "contractor" || clientUserType === "company" || clientUserType === "employer" || clientUserType === "jobseeker"
+    const isTrade = serverUserType === "company" || clientUserType === "company"
     if (!isTrade) return
 
     const buildUrl = (lat: number | null, lng: number | null, locationName: string | null, skills: string[]) => {
@@ -123,10 +140,8 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     }
 
     const effectiveUserType = userType
-    const isCompanyType = effectiveUserType === "company" || effectiveUserType === "employer"
-
-    if (isCompanyType) {
-      // Company/employer → use company_profiles (industry + services)
+    if (effectiveUserType === "company") {
+      // Company (tradesperson) → use company_profiles (industry + services)
       supabase.from("company_profiles")
         .select("industry, services, location, latitude, longitude")
         .eq("user_id", userId)
@@ -143,7 +158,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
           }
         })
     } else {
-      // Professional/contractor/jobseeker → use professional_profiles (title + skills)
+      // Fallback — try professional_profiles for any legacy users
       supabase.from("professional_profiles")
         .select("title, skills, location, latitude, longitude")
         .eq("user_id", userId)
@@ -177,13 +192,13 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   if (!user) return null
 
   const getDashboardUrl = () => {
-    if (!userType) return `${base}/dashboard`
-    if (userType === "employer") return `${base}/dashboard/company`
-    return `${base}/dashboard/${userType}`
+    if (userType === "company") return `${base}/dashboard/company`
+    if (userType === "homeowner") return `${base}/dashboard/homeowner`
+    return `${base}/dashboard`
   }
 
   const isHomeowner = userType === "homeowner"
-  const isTradesperson = userType === "professional" || userType === "contractor" || userType === "company" || userType === "employer" || userType === "jobseeker"
+  const isTradesperson = userType === "company"
 
   // ── Homeowner nav ──────────────────────────────────────────────────────────
   if (isHomeowner) {

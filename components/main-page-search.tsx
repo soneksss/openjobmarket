@@ -1906,19 +1906,19 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             console.log(`[MAIN-PAGE-SEARCH] Filtering by salary range: ${salaryRange}`)
             switch (salaryRange) {
               case "0-30k":
-                query = query.lte("salary_max", 30000)
+                query = query.lte("budget_max", 30000)
                 break
               case "30-50k":
-                query = query.gte("salary_min", 30000).lte("salary_max", 50000)
+                query = query.gte("budget_min", 30000).lte("budget_max", 50000)
                 break
               case "50-75k":
-                query = query.gte("salary_min", 50000).lte("salary_max", 75000)
+                query = query.gte("budget_min", 50000).lte("budget_max", 75000)
                 break
               case "75-100k":
-                query = query.gte("salary_min", 75000).lte("salary_max", 100000)
+                query = query.gte("budget_min", 75000).lte("budget_max", 100000)
                 break
               case "100k+":
-                query = query.gte("salary_min", 100000)
+                query = query.gte("budget_min", 100000)
                 break
             }
           }

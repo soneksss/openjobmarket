@@ -7,19 +7,14 @@ interface JobData {
   company_id: string
   title: string
   description: string
-  requirements: string[]
-  responsibilities: string[]
-  job_type: string
-  experience_level: string
   work_location: string
   location: string
   latitude: number | null
   longitude: number | null
-  salary_min: number | null
-  salary_max: number | null
-  salary_period: string | null
+  budget_min: number | null
+  budget_max: number | null
+  budget_period: string | null
   skills_required: string[]
-  benefits: string[]
   is_active: boolean
   status: string
 }

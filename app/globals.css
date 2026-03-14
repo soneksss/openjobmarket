@@ -40,6 +40,9 @@ html {
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Prevent white flash before CSS loads — matches app's primary dark background */
+  background-color: #0f172a;
+  color: #f1f5f9;
 }
 
 body {

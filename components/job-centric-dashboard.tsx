@@ -58,9 +58,9 @@ interface HomeownerJob {
   description: string
   short_description?: string
   location: string
-  salary_min?: number
-  salary_max?: number
-  salary_frequency?: string
+  budget_min?: number
+  budget_max?: number
+  budget_period?: string
   is_active: boolean
   expires_at?: string
   urgency_type?: "asap" | "today" | "flexible" | null
@@ -397,8 +397,8 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
       // Create notification and message
       if (professionalData?.user_id) {
         const budget = formatBudget(
-          jobs.find(j => j.id === jobId)?.salary_min,
-          jobs.find(j => j.id === jobId)?.salary_max
+          jobs.find(j => j.id === jobId)?.budget_min,
+          jobs.find(j => j.id === jobId)?.budget_max
         )
 
         // Create notification
@@ -674,7 +674,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
               const isExpanded = expandedJobIds.has(job.id)
               const applications = jobApplications[job.id] || []
               const isLoadingApps = loadingApplications.has(job.id)
-              const budget = formatBudget(job.salary_min, job.salary_max)
+              const budget = formatBudget(job.budget_min, job.budget_max)
 
               return (
                 <Collapsible key={job.id} open={isExpanded} onOpenChange={() => toggleJobExpanded(job.id)}>

@@ -189,12 +189,13 @@ export default async function HomeownerJobsPage({
               {/* Actions */}
               <div className="flex gap-2 pl-8">
                 <Link
-                  href={`/jobs/${job.id}`}
-                  className="flex-1 text-center text-xs font-medium py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700"
+                  href={`/dashboard/homeowner/jobs/${job.id}`}
+                  className="flex-1 text-center text-xs font-medium py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700 flex items-center justify-center gap-1"
                 >
                   View
+                  <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
-                {showHistory ? (
+                {showHistory && (
                   <Link
                     href={`/reviews/new?job=${job.id}`}
                     className="flex-1 text-center text-xs font-medium py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors border border-amber-500/20 flex items-center justify-center gap-1"
@@ -202,16 +203,6 @@ export default async function HomeownerJobsPage({
                     <Star className="h-3.5 w-3.5" />
                     Leave Review
                   </Link>
-                ) : (
-                  <>
-                    <Link
-                      href={`/dashboard/homeowner/jobs/${job.id}`}
-                      className="flex-1 text-center text-xs font-medium py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700 flex items-center justify-center gap-1"
-                    >
-                      Manage
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </>
                 )}
               </div>
             </div>

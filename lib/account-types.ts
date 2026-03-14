@@ -12,7 +12,7 @@ export interface AccountTypePermissions {
   canPostVacancies: boolean
   canPostTradeJobs: boolean
   canHireProfessionals: boolean
-  profileTable: 'professional_profiles' | 'company_profiles' | 'contractor_profiles' | 'homeowner_profiles'
+  profileTable: 'company_profiles' | 'homeowner_profiles'
 }
 
 /**
@@ -28,19 +28,17 @@ export function getAccountPermissions(
       canPostVacancies: true,
       canPostTradeJobs: true,
       canHireProfessionals: true,
-      profileTable: userType === 'company' ? 'company_profiles' :
-                    userType === 'contractor' ? 'contractor_profiles' :
-                    'professional_profiles'
+      profileTable: 'company_profiles'
     }
   }
 
-  // Individual account
+  // Individual / homeowner account
   return {
     canApplyToTradeJobs: false,
     canPostVacancies: false,
     canPostTradeJobs: false,
-    canHireProfessionals: userType === 'homeowner',
-    profileTable: userType === 'homeowner' ? 'homeowner_profiles' : 'professional_profiles'
+    canHireProfessionals: true,
+    profileTable: 'homeowner_profiles'
   }
 }
 
@@ -58,8 +56,8 @@ export function determineAccountTypeFromFlags(flags: {
     return 'business'
   }
 
-  // Business if company or contractor
-  if (flags.user_type === 'company' || flags.user_type === 'contractor') {
+  // Business if company
+  if (flags.user_type === 'company') {
     return 'business'
   }
 

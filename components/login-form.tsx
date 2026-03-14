@@ -7,12 +7,11 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/context"
 
 export default function LoginForm() {
-  console.log('[LOGIN-FORM] Component is rendering')
   const { t } = useTranslation()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -29,71 +28,30 @@ export default function LoginForm() {
     ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
     : '/auth/sign-up'
 
-  console.log('[LOGIN-FORM] State:', { email, password, isLoading, hasError: !!error })
-
-  // Verify component mounted
-  useEffect(() => {
-    console.log('[LOGIN-FORM] Component MOUNTED')
-
-    // Display previous login attempt logs in console only
-    const storedLogs = localStorage.getItem('loginDebugLog')
-    if (storedLogs) {
-      console.log('=== PREVIOUS LOGIN ATTEMPT LOGS ===')
-      try {
-        const logs = JSON.parse(storedLogs)
-        logs.forEach((log: string) => console.log(log))
-        console.log('=== END PREVIOUS LOGIN LOGS ===')
-      } catch (e) {
-        console.error('Failed to parse login logs:', e)
-      }
-      // Clear the logs after displaying
-      localStorage.removeItem('loginDebugLog')
-    }
-  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
-    console.log('[LOGIN] handleLogin FIRED - event type:', e.type, 'preventDefault exists:', !!e.preventDefault)
     e.preventDefault()
-    console.log('[LOGIN] preventDefault called successfully')
-    console.log('[LOGIN] Email state:', email, 'length:', email?.length)
-    console.log('[LOGIN] Password state length:', password?.length)
-    console.log('[LOGIN] Stay signed in:', staySignedIn)
-
-    // Create debug log array
-    const debugLog: string[] = []
-    const addLog = (msg: string) => {
-      console.log(msg)
-      debugLog.push(`${new Date().toISOString()}: ${msg}`)
-      localStorage.setItem('loginDebugLog', JSON.stringify(debugLog))
-    }
 
     const supabase = createClient()
     setIsLoading(true)
     setError(null)
 
     try {
-      addLog('[LOGIN] Starting authentication with email: ' + email)
-
-      // Validate inputs before sending
       if (!email || !password) {
         throw new Error(t('auth.errorMissingBoth'))
       }
 
-      // Store the stay signed in preference
       if (staySignedIn) {
         localStorage.setItem('staySignedIn', 'true')
       } else {
         localStorage.removeItem('staySignedIn')
       }
 
-      addLog('[LOGIN] Calling signInWithPassword...')
       const { data: authData, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
-      addLog('[LOGIN] signInWithPassword returned, error: ' + (error?.message || 'none') + ', has data: ' + !!authData)
       if (error) throw error
-      addLog('[LOGIN] Authentication successful, has session: ' + !!authData.session)
 
       // Set custom session duration preferences
       if (staySignedIn) {
@@ -105,20 +63,15 @@ export default function LoginForm() {
       }
 
       // Check user type and redirect appropriately
-      addLog('[LOGIN] Fetching user data...')
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      addLog('[LOGIN] User fetched: ' + user?.id + ', email: ' + user?.email)
       if (user) {
         const { data: userData } = await supabase
           .from("users")
           .select("user_type, is_banned, ban_reason, ban_expires_at")
           .eq("id", user.id)
           .maybeSingle()
-        addLog('[LOGIN] User type: ' + userData?.user_type)
-        addLog('[LOGIN] Ban status: ' + userData?.is_banned)
-
         // Check if user is banned
         if (userData?.is_banned) {
           // Check if ban has expired
@@ -135,7 +88,6 @@ export default function LoginForm() {
                   ban_expires_at: null
                 })
                 .eq("id", user.id)
-              addLog('[LOGIN] Ban expired, user automatically unbanned')
             } else {
               // Ban is still active
               await supabase.auth.signOut()
@@ -160,30 +112,24 @@ export default function LoginForm() {
         }
 
         if (!userData?.user_type) {
-          // No user type — send to home, they can choose from there
-          addLog('[LOGIN] No user type, redirecting to home')
+          router.refresh()
           router.push(isOnBrRoute ? "/br" : "/")
           return
         }
 
-        addLog('[LOGIN] User type: ' + userData.user_type)
-
         // Admins go to admin dashboard; all other users land on the home page
         // where role-appropriate content is shown (For Homeowners / For Tradespeople)
         if (userData.user_type === "admin") {
+          router.refresh()
           router.push("/admin/dashboard")
         } else {
           const home = isOnBrRoute ? "/br" : "/"
-          addLog('[LOGIN] Redirecting to home: ' + home)
+          router.refresh()
           router.push(home)
         }
       }
     } catch (error: unknown) {
-      const errorMsg = error instanceof Error ? error.message : String(error)
-      addLog('[LOGIN] ERROR: ' + errorMsg)
-      addLog('[LOGIN] Error type: ' + typeof error)
       console.error('[LOGIN] Error during login:', error)
-      console.error('[LOGIN] Error stack:', error instanceof Error ? error.stack : 'N/A')
 
       // Provide user-friendly error messages
       let errorMessage = error instanceof Error ? error.message : String(error)
@@ -199,11 +145,8 @@ export default function LoginForm() {
         }
       }
 
-      addLog('[LOGIN] Setting error message: ' + errorMessage)
       setError(errorMessage)
       setIsLoading(false)
-    } finally {
-      addLog('[LOGIN] Login process finished')
     }
   }
 

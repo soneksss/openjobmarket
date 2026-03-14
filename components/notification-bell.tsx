@@ -31,46 +31,20 @@ export function NotificationBell({ iconClassName }: { iconClassName?: string } =
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const setupRealtimeSubscription = async () => {
+    let intervalId: ReturnType<typeof setInterval> | null = null
+
+    const init = async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
-
-      if (!user) {
-        console.log('[NOTIFICATION-BELL] No user, skipping realtime subscription')
-        setIsLoading(false)
-        return
-      }
+      if (!user) { setIsLoading(false); return }
 
       loadNotifications()
-
-      // Set up real-time subscription for new notifications WITH user filter
-      const channel = supabase
-        .channel('notifications_channel')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${user.id}`, // CRITICAL: Filter by user_id
-          },
-          (payload) => {
-            console.log('[NOTIFICATION-BELL] New notification received:', payload)
-            loadNotifications()
-          }
-        )
-        .subscribe((status) => {
-          console.log('[NOTIFICATION-BELL] Subscription status:', status)
-        })
-
-      // Cleanup subscription on unmount
-      return () => {
-        console.log('[NOTIFICATION-BELL] Cleaning up subscription')
-        supabase.removeChannel(channel)
-      }
+      // Poll every 30 s — avoids Realtime CHANNEL_ERROR on free tier
+      intervalId = setInterval(loadNotifications, 30_000)
     }
 
-    setupRealtimeSubscription()
+    init()
+    return () => { if (intervalId) clearInterval(intervalId) }
   }, [])
 
   const loadNotifications = async () => {
@@ -190,6 +164,8 @@ export function NotificationBell({ iconClassName }: { iconClassName?: string } =
         return '❌'
       case 'trade_job_match':
         return '🔧'
+      case 'urgent_job_dispatch':
+        return '⚡'
       default:
         return '🔔'
     }

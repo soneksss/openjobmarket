@@ -6,6 +6,7 @@ import MapLocationPicker from "./map-location-picker"
 import { X, ArrowLeft, ArrowRight, Eye, Briefcase, Hammer, Zap, Clock, Calendar, ChevronDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
+import { useActiveSearch } from "@/lib/contexts/active-search-context"
 
 type Props = {
   companyProfile: any
@@ -19,7 +20,7 @@ type JobFormData = {
   // Step 2: Job posting type
   postingType: "employee" | "tradespeople"
   // Step 2b: Urgency for tradespeople jobs
-  urgencyType: "asap" | "today" | "flexible" | ""
+  urgencyType: "asap" | "flexible" | ""
   flexibleDays: number
   // Step 3: Job details
   profession: string
@@ -321,6 +322,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
   const router = useRouter()
   const { toast } = useToast()
   const { locale } = useTranslation()
+  const { setActiveSearch } = useActiveSearch()
 
   const [open, setOpen] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
@@ -339,6 +341,30 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
   const [err, setErr] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [locationChoice, setLocationChoice] = useState<"myLocation" | "differentLocation" | null>(null)
+  const [isGeocodingPostcode, setIsGeocodingPostcode] = useState(false)
+
+  const geocodeProfileLocation = async (locationText: string) => {
+    setIsGeocodingPostcode(true)
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationText)}&limit=1&countrycodes=gb,us,de,fr,br&addressdetails=1`
+      )
+      if (!res.ok) return
+      const data = await res.json()
+      if (data.length > 0) {
+        const result = data[0]
+        setFormData((prev) => ({
+          ...prev,
+          locationCoords: { lat: parseFloat(result.lat), lon: parseFloat(result.lon) },
+          fullAddress: prev.fullAddress || result.display_name,
+        }))
+      }
+    } catch {
+      // Silent fail — user can still click the map manually
+    } finally {
+      setIsGeocodingPostcode(false)
+    }
+  }
 
   // Autocomplete state
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -558,13 +584,17 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         }
         break
       case 3: // Location
-        const hasProfileLocation = companyProfile?.latitude && companyProfile?.longitude
+        const hasProfileLocation = !!(companyProfile?.location || (companyProfile?.latitude && companyProfile?.longitude))
         if (hasProfileLocation && !locationChoice) {
           setErr("Please choose whether this job is at your location or a different location.")
           return false
         }
+        if (isGeocodingPostcode) {
+          setErr("Please wait — finding your location…")
+          return false
+        }
         if (!formData.locationCoords) {
-          setErr("Please select a location. This is mandatory.")
+          setErr("Please select a location on the map.")
           return false
         }
         break
@@ -587,48 +617,46 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
     if (!validateStep(3)) return
 
     setLoading(true)
-    console.log("[JOB-WIZARD] Starting job submission...")
 
     // Timeout protection - automatically reset loading after 30 seconds
     const timeoutId = setTimeout(() => {
-      console.error("[JOB-WIZARD] Submission timeout after 30 seconds")
       setLoading(false)
       setErr("Request timed out. Please check your connection and try again.")
     }, 30000)
 
     try {
-      // Check subscription limits
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      // Use the already-loaded profile to get user ID — no auth network call needed.
+      // RLS on the jobs table will enforce auth on the actual INSERT.
+      const userId: string | undefined = companyProfile?.user_id
+      if (!userId) {
         clearTimeout(timeoutId)
         setErr("Authentication required.")
         setLoading(false)
         return
       }
+      const user = { id: userId }
 
-      const { data: canPost, error: checkError } = await supabase
-        .rpc("can_user_post_job", { user_id_param: user.id })
+      // Homeowners don't have subscriptions — they can always post trade jobs
+      if (userType !== "homeowner") {
+        const { data: canPost, error: checkError } = await supabase
+          .rpc("can_user_post_job", { user_id_param: user.id })
 
-      if (checkError) {
-        clearTimeout(timeoutId)
-        console.error("[JOB-WIZARD] Error checking job posting permission:", checkError)
-        setErr("Failed to verify posting permissions.")
-        setLoading(false)
-        return
-      }
-
-      if (!canPost.can_post) {
-        clearTimeout(timeoutId)
-        if (canPost.reason === 'no_subscription') {
-          setErr("You need an active subscription to post jobs. Please visit the Subscription page.")
+        if (checkError) {
+          clearTimeout(timeoutId)
+          setErr("Failed to verify posting permissions.")
           setLoading(false)
           return
-        } else if (canPost.reason === 'job_limit_exceeded') {
-          setErr(`You have reached your job posting limit (${canPost.jobs_used}/${canPost.jobs_limit}). Please upgrade your subscription.`)
-          setLoading(false)
-          return
-        } else {
-          setErr("You are not authorized to post jobs at this time.")
+        }
+
+        if (!canPost.can_post) {
+          clearTimeout(timeoutId)
+          if (canPost.reason === 'no_subscription') {
+            setErr("You need an active subscription to post jobs. Please visit the Subscription page.")
+          } else if (canPost.reason === 'job_limit_exceeded') {
+            setErr(`You have reached your job posting limit (${canPost.jobs_used}/${canPost.jobs_limit}). Please upgrade your subscription.`)
+          } else {
+            setErr("You are not authorized to post jobs at this time.")
+          }
           setLoading(false)
           return
         }
@@ -670,43 +698,40 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         expirationDate.setDate(expirationDate.getDate() + daysToAdd)
       }
 
-      // Upload job photo if provided
+      // Upload job photo if provided (5 s timeout — non-blocking if storage unavailable)
       let jobPhotoPublicUrl: string | null = null
       if (formData.jobPhoto && formData.postingType === "tradespeople") {
         try {
-          console.log("[Job Wizard] Uploading job photo...")
-          console.log("[Job Wizard] File details:", {
-            name: formData.jobPhoto.name,
-            type: formData.jobPhoto.type,
-            size: (formData.jobPhoto.size / 1024 / 1024).toFixed(2) + " MB"
-          })
-          // Always use .jpg extension since we convert all images to JPEG
-          // Use folder structure to match RLS policy: {userId}/filename.jpg
           const fileName = `${user.id}/${Date.now()}.jpg`
-          const filePath = fileName
+          const photoAbort = new AbortController()
+          const photoTimeout = setTimeout(() => photoAbort.abort(), 5000)
 
-          const { error: uploadError } = await supabase.storage
+          const uploadPromise = supabase.storage
             .from('job-photos')
-            .upload(filePath, formData.jobPhoto, {
+            .upload(fileName, formData.jobPhoto, {
               cacheControl: '3600',
               upsert: false,
-              contentType: 'image/jpeg'
+              contentType: 'image/jpeg',
             })
 
-          if (uploadError) {
-            console.error("[Job Wizard] Photo upload error:", uploadError)
-            // Don't fail the entire job posting if photo upload fails
-            console.warn("[Job Wizard] Continuing without photo")
-          } else {
-            const { data: urlData } = supabase.storage
-              .from('job-photos')
-              .getPublicUrl(filePath)
+          // Race upload against 5-second abort
+          const { error: uploadError } = await Promise.race([
+            uploadPromise,
+            new Promise<{ data: null; error: Error }>((resolve) =>
+              photoAbort.signal.addEventListener("abort", () =>
+                resolve({ data: null, error: new Error("upload_timeout") })
+              )
+            ),
+          ])
 
+          clearTimeout(photoTimeout)
+
+          if (!uploadError) {
+            const { data: urlData } = supabase.storage.from('job-photos').getPublicUrl(fileName)
             jobPhotoPublicUrl = urlData.publicUrl
-            console.log("[Job Wizard] Photo uploaded successfully:", jobPhotoPublicUrl)
           }
-        } catch (photoError) {
-          console.error("[Job Wizard] Photo upload exception:", photoError)
+          // If upload failed or timed out, continue without photo (non-fatal)
+        } catch {
           // Continue without photo
         }
       }
@@ -724,8 +749,6 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         description: fullDescription,
         short_description: formData.shortDescription,
         country: "United Kingdom",
-        job_type: formData.postingType === "tradespeople" ? "contract" : "full-time",
-        experience_level: "entry", // Default to entry level (field will be made optional in SQL)
         is_tradespeople_job: formData.postingType === "tradespeople",
         // Flexible jobs use classic marketplace (no dispatch, no 15-min window, no reliability penalties)
         is_urgent: formData.postingType === "tradespeople" && formData.urgencyType !== "flexible",
@@ -742,9 +765,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         max_radius: formData.postingType === "tradespeople" ? 50.0 : null,
         last_broadcast_at: formData.postingType === "tradespeople" ? new Date().toISOString() : null,
         homeowner_notified: false,
-        salary_min: formData.payMin ? Number.parseInt(formData.payMin) : null,
-        salary_max: formData.payMax ? Number.parseInt(formData.payMax) : null,
-        salary_period: formData.payFrequency,
+        budget_min: formData.payMin ? Number.parseInt(formData.payMin) : null,
+        budget_max: formData.payMax ? Number.parseInt(formData.payMax) : null,
+        budget_period: formData.payFrequency,
         languages: formData.languages.length > 0 ? formData.languages : null,
         is_active: true,
         expires_at: expirationDate.toISOString(),
@@ -756,77 +779,76 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         payload.job_photo_url = jobPhotoPublicUrl
       }
 
-      console.log("[Job Wizard] Submitting job:", payload)
+      // Generate UUID client-side so we know the job ID without needing SELECT to return it.
+      // This avoids the common hang where INSERT succeeds but the postgrest RETURNING query stalls.
+      const jobId = crypto.randomUUID()
+      payload.id = jobId
 
-      const { data, error } = await supabase.from("jobs").insert(payload).select().limit(1).single()
+      console.log("[Job Wizard] Submitting job:", { id: jobId, ...payload })
 
-      if (error) {
-        clearTimeout(timeoutId)
-        console.error("[JOB-WIZARD] Insert job error:", error)
-        console.error("[JOB-WIZARD] Error details:", {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
+      // Use the server-side API route (admin/service_role) to avoid
+      // client-side RLS subquery hangs. 15-second abort for safety.
+      const insertAbort = new AbortController()
+      const insertAbortId = setTimeout(() => insertAbort.abort(), 15_000)
+
+      let insertErrMsg: string | null = null
+      try {
+        const res = await fetch("/api/jobs", {
+          method:      "POST",
+          headers:     { "Content-Type": "application/json" },
+          body:        JSON.stringify(payload),
+          credentials: "include",
+          signal:      insertAbort.signal,
         })
-        setErr(`Failed to post job: ${error.message}`)
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          insertErrMsg = body?.error ?? `HTTP ${res.status}`
+        }
+        console.log("[JOB-WIZARD] API response:", res.status)
+      } catch (fetchErr: any) {
+        insertErrMsg = fetchErr?.message ?? String(fetchErr)
+        console.error("[JOB-WIZARD] API fetch threw:", fetchErr)
+      } finally {
+        clearTimeout(insertAbortId)
+      }
+
+      if (insertErrMsg) {
+        clearTimeout(timeoutId)
+        console.error("[JOB-WIZARD] Insert error:", insertErrMsg)
+        setErr(`Failed to post job: ${insertErrMsg}`)
         setLoading(false)
         return
       }
 
-      console.log("[JOB-WIZARD] Job posted successfully:", data)
+      console.log("[JOB-WIZARD] Job posted successfully:", jobId)
       clearTimeout(timeoutId)
 
-      // Send trade job notifications to matching companies
-      if (formData.postingType === "tradespeople" && data && formData.locationCoords) {
-        try {
-          // Get poster name based on user type
-          const posterName = userType === "homeowner"
-            ? `${companyProfile.first_name || ''} ${companyProfile.last_name || ''}`.trim() || "A homeowner"
-            : companyProfile.company_name || "A company"
+      // ── Everything below is fire-and-forget. ─────────────────
+      // The job exists in the DB. Redirect immediately; never block on these.
+      if (formData.postingType === "tradespeople" && formData.locationCoords) {
+        const posterName = userType === "homeowner"
+          ? `${companyProfile.first_name || ""} ${companyProfile.last_name || ""}`.trim() || "A homeowner"
+          : companyProfile.company_name || "A company"
 
-          console.log("[JOB-WIZARD] Sending trade job notifications...")
-          const notifResponse = await fetch("/api/notifications/send-trade-job-notification", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jobId: data.id,
-              jobTitle: formData.profession.trim(),
-              jobLat: formData.locationCoords.lat,
-              jobLon: formData.locationCoords.lon,
-              jobSkills: [formData.profession.trim()], // Use profession as a skill for matching
-              posterName,
-              urgencyType: formData.urgencyType, // Pass urgency type (ASAP jobs skip email notifications)
-            }),
-          })
+        fetch("/api/notifications/send-trade-job-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobId: jobId,
+            jobTitle: formData.profession.trim(),
+            jobLat: formData.locationCoords.lat,
+            jobLon: formData.locationCoords.lon,
+            jobSkills: [formData.profession.trim()],
+            posterName,
+            urgencyType: formData.urgencyType,
+          }),
+        }).catch(() => {})
 
-          const notifResult = await notifResponse.json()
-          console.log("[JOB-WIZARD] Trade job notification result:", notifResult)
-        } catch (notifError) {
-          // Don't fail the job posting if notifications fail
-          console.error("[JOB-WIZARD] Failed to send trade job notifications:", notifError)
+        if (formData.urgencyType === "asap" || formData.urgencyType === "today") {
+          fetch(`/api/jobs/${jobId}/dispatch-urgent`, { method: "POST" }).catch(() => {})
         }
       }
-
-      // Dispatch ranked top-5 contractors for urgent jobs (always auto)
-      const isUrgentAuto =
-        formData.postingType === "tradespeople" &&
-        (formData.urgencyType === "asap" || formData.urgencyType === "today") &&
-        data
-
-      if (isUrgentAuto) {
-        // Fire-and-forget — don't block the redirect or show an error to the user
-        fetch(`/api/jobs/${data.id}/dispatch-urgent`, { method: "POST" })
-          .then((r) => r.json())
-          .then((result) => {
-            console.log("[JOB-WIZARD] Urgent dispatch result:", result)
-          })
-          .catch((err) => {
-            console.error("[JOB-WIZARD] Urgent dispatch failed (non-fatal):", err)
-          })
-      }
-
-      const redirectUrl = `/jobs/${data.id}/live`
+      // ─────────────────────────────────────────────────────────
 
       toast({
         title: "✅ Job Posted Successfully!",
@@ -834,22 +856,25 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         variant: "default",
       })
 
+      // Persist active search so the bar shows on all pages until cancelled
+      setActiveSearch({
+        jobId,
+        jobTitle: formData.profession.trim() || "Job",
+        tradesCount:   0,
+        notifiedCount: 0,
+        phase:         "searching",
+        startedAt:     Date.now(),
+      })
+
       setLoading(false)
-
-      console.log("[JOB-WIZARD] Redirecting to:", redirectUrl)
-
-      setTimeout(() => {
-        try {
-          router.push(redirectUrl)
-        } catch (pushError) {
-          console.error("[JOB-WIZARD] Router push failed:", pushError)
-          window.location.href = redirectUrl
-        }
-      }, 1000)
+      router.push(`/jobs/${jobId}/live`)
     } catch (err: any) {
       clearTimeout(timeoutId)
       console.error("[JOB-WIZARD] Unexpected error:", err)
-      setErr(err?.message || "An unexpected error occurred. Please try again.")
+      const isAbort = err?.name === "AbortError" || err?.message?.includes("aborted")
+      setErr(isAbort
+        ? "Job posting timed out. Please check your connection and try again."
+        : (err?.message || "An unexpected error occurred. Please try again."))
       setLoading(false)
     } finally {
       // Ensure timeout is always cleared
@@ -987,7 +1012,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
             {/* Budget */}
             <div>
               <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">Budget (optional)</label>
-              <div className="grid grid-cols-3 gap-2 md:gap-4">
+              <div className="grid grid-cols-2 gap-2 md:gap-4">
                 <div>
                   <label className="block text-xs text-slate-400 md:text-gray-600 mb-1">Min £</label>
                   <input
@@ -1007,18 +1032,6 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                     className="w-full border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400"
                     placeholder="0"
                   />
-                </div>
-                <div>
-                  <label className="block text-xs text-slate-400 md:text-gray-600 mb-1">Per</label>
-                  <select
-                    value={formData.payFrequency}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, payFrequency: e.target.value }))}
-                    className="w-full border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900"
-                  >
-                    {getPayFrequencyOptions(isPtBR)
-                      .filter((o) => ["per_job", "per_hour", "per_day"].includes(o.value))
-                      .map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
                 </div>
               </div>
             </div>
@@ -1100,43 +1113,16 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                   </div>
                 </label>
 
-                {/* Today Option */}
-                <label
-                  className={`flex items-center justify-between p-4 border-2 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${
-                    formData.urgencyType === "today"
-                      ? "border-orange-500 bg-orange-500/20 md:bg-orange-50 shadow-md"
-                      : "border-slate-700 md:border-gray-200 hover:border-orange-400 md:hover:border-orange-300 hover:bg-slate-800 md:hover:bg-gray-50"
-                  }`}
-                >
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      name="urgencyType"
-                      value="today"
-                      checked={formData.urgencyType === "today"}
-                      onChange={() => {
-                        setFormData((prev) => ({
-                          ...prev,
-                          urgencyType: "today",
-                          activeDuration: "today",
-                        }))
-                      }}
-                      className="w-4 h-4 text-orange-600"
-                    />
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-orange-500/20 md:bg-orange-100 rounded-full">
-                        <Clock className="w-5 h-5 text-orange-400 md:text-orange-600" />
-                      </div>
-                      <div>
-                        <span className="font-semibold text-white md:text-gray-900">Today</span>
-                        <p className="text-sm text-slate-400 md:text-gray-500">Get responses within a few hours</p>
-                      </div>
-                    </div>
+                {/* ASAP info banner — shown immediately below when selected */}
+                {formData.urgencyType === "asap" && (
+                  <div className="flex items-start gap-3 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                    <Zap className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-300 leading-snug">
+                      We will notify nearby tradespeople immediately.<br />
+                      You may start receiving responses within minutes.
+                    </p>
                   </div>
-                  <div className="px-3 py-1 bg-orange-500/20 md:bg-orange-100 text-orange-400 md:text-orange-700 text-sm font-medium rounded-full">
-                    Same Day
-                  </div>
-                </label>
+                )}
 
                 {/* Flexible Option */}
                 <label
@@ -1207,18 +1193,21 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                 )}
               </div>
 
-              {/* Info box about urgency */}
-              <div className="mt-4 p-4 bg-slate-800 md:bg-gray-50 border border-slate-700/50 md:border-gray-200 rounded-xl">
-                <p className="text-sm text-slate-300 md:text-gray-600">
-                  <strong className="text-white md:text-gray-900">Note:</strong> Tradespeople will see a countdown timer showing how much time they have left to apply. More urgent jobs appear higher in search results.
-                </p>
-              </div>
+              {/* Info box — only shown for flexible (ASAP has its own banner above) */}
+              {formData.urgencyType === "flexible" && (
+                <div className="mt-4 p-4 bg-slate-800 md:bg-gray-50 border border-slate-700/50 md:border-gray-200 rounded-xl">
+                  <p className="text-sm text-slate-300 md:text-gray-600">
+                    <strong className="text-white md:text-gray-900">Note:</strong> Your job will be visible on the map to nearby tradespeople for the selected number of days.
+                  </p>
+                </div>
+              )}
             </div>
           )
         }
 
       case 3:
-        const hasProfileLocation = companyProfile?.latitude && companyProfile?.longitude
+        const hasProfileLocation = !!(companyProfile?.location || (companyProfile?.latitude && companyProfile?.longitude))
+        const hasProfileCoords = !!(companyProfile?.latitude && companyProfile?.longitude)
 
         return (
           <div className="space-y-4">
@@ -1230,7 +1219,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
             {/* Location Choice Radio Buttons */}
             {hasProfileLocation && (
               <div className="space-y-3 mb-6">
-                <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">Is this job at your location?</label>
+                <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">Where is this job?</label>
                 <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <label
                     className={`flex items-center justify-center p-3 md:p-4 border-2 rounded-xl cursor-pointer transition-all text-sm md:text-base ${
@@ -1245,21 +1234,22 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                       checked={locationChoice === "myLocation"}
                       onChange={() => {
                         setLocationChoice("myLocation")
-                        // Auto-populate from profile
-                        if (companyProfile?.latitude && companyProfile?.longitude) {
+                        if (hasProfileCoords) {
+                          // Profile has exact coords — use them directly
                           setFormData((prev) => ({
                             ...prev,
-                            locationCoords: {
-                              lat: companyProfile.latitude,
-                              lon: companyProfile.longitude
-                            },
-                            fullAddress: companyProfile.location || ""
+                            fullAddress: companyProfile.location || "",
+                            locationCoords: { lat: companyProfile.latitude, lon: companyProfile.longitude },
                           }))
+                        } else if (companyProfile?.location) {
+                          // Profile has text/postcode only — geocode it
+                          setFormData((prev) => ({ ...prev, fullAddress: companyProfile.location, locationCoords: null }))
+                          geocodeProfileLocation(companyProfile.location)
                         }
                       }}
                       className="mr-2"
                     />
-                    <span className="font-medium text-white md:text-gray-900">Yes, at my location</span>
+                    <span className="font-medium text-white md:text-gray-900">At my location</span>
                   </label>
 
                   <label
@@ -1284,97 +1274,110 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                       }}
                       className="mr-2"
                     />
-                    <span className="font-medium text-white md:text-gray-900">No, different location</span>
+                    <span className="font-medium text-white md:text-gray-900">Other location</span>
                   </label>
                 </div>
               </div>
             )}
 
-            {/* Show location confirmation if "myLocation" selected */}
-            {locationChoice === "myLocation" && hasProfileLocation && (
-              <div className="p-4 bg-emerald-500/20 md:bg-green-50 border border-emerald-500/30 md:border-green-200 rounded-xl">
-                <p className="text-sm text-emerald-300 md:text-green-800 font-medium mb-1">✓ Using your business location:</p>
-                <p className="text-sm text-emerald-200 md:text-green-700">{companyProfile.location || "Location set from your profile"}</p>
-                <p className="text-xs text-emerald-400 md:text-green-600 mt-1">
-                  Coordinates: {companyProfile.latitude.toFixed(4)}, {companyProfile.longitude.toFixed(4)}
-                </p>
+            {/* Show location confirmation if "myLocation" selected with coords */}
+            {locationChoice === "myLocation" && hasProfileCoords && (
+              <div className="flex items-center gap-2.5 px-3 py-2.5 bg-emerald-500/10 border border-emerald-500/25 rounded-xl">
+                <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                <p className="text-sm text-emerald-300 truncate">{companyProfile.location || "Using your saved location"}</p>
               </div>
             )}
 
-            {/* Show map picker if "differentLocation" selected OR no profile location */}
-            {(locationChoice === "differentLocation" || !hasProfileLocation) && (
-              <>
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">Full Address (optional)</label>
-                  <input
-                    type="text"
-                    value={formData.fullAddress}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, fullAddress: e.target.value }))}
-                    className="w-full border rounded-xl p-3 focus:ring-2 focus:ring-emerald-500 md:focus:ring-blue-500 focus:border-transparent mb-4 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400"
-                    placeholder="Enter full street address (optional)"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">
-                    Location on Map <span className="text-red-400">*</span>
+            {/* Show map picker if "differentLocation" selected, OR no profile location, OR myLocation with no stored coords */}
+            {(locationChoice === "differentLocation" || !hasProfileLocation || (locationChoice === "myLocation" && !hasProfileCoords)) && (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium text-white md:text-gray-900">
+                    Pin your location
+                    {locationChoice !== "myLocation" && <span className="text-red-400"> *</span>}
                   </label>
-                  <MapLocationPicker
-                    value={formData.locationCoords ? {
-                      latitude: formData.locationCoords.lat,
-                      longitude: formData.locationCoords.lon,
-                      address: formData.fullAddress
-                    } : null}
-                    onChange={handleMapLocationSelect}
-                    height="400px"
-                    placeholder="Click on the map to select your job location (mandatory)"
-                  />
                   {formData.locationCoords && (
-                    <p className="text-sm text-emerald-400 md:text-green-600 mt-2">
-                      ✓ Location selected: {formData.locationCoords.lat.toFixed(4)}, {formData.locationCoords.lon.toFixed(4)}
-                    </p>
+                    <span className="text-xs text-emerald-400 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                      Location set
+                    </span>
                   )}
                 </div>
-              </>
+
+                {/* Compact address input */}
+                <input
+                  type="text"
+                  value={formData.fullAddress}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, fullAddress: e.target.value }))}
+                  className="w-full border rounded-lg px-3 py-2 text-sm mb-2 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  placeholder="Street address or postcode (optional)"
+                />
+
+                {isGeocodingPostcode ? (
+                  <div className="flex items-center justify-center gap-2 h-16 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-400 text-xs">
+                    <svg className="animate-spin h-4 w-4 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    Finding your location…
+                  </div>
+                ) : (
+                  <>
+                    {locationChoice === "myLocation" && !formData.locationCoords && !isGeocodingPostcode && (
+                      <p className="text-xs text-amber-400 mb-1.5">Postcode not found — tap the map to set your location</p>
+                    )}
+                    <div className="rounded-xl overflow-hidden border border-slate-700/60">
+                      <MapLocationPicker
+                        value={formData.locationCoords ? {
+                          latitude: formData.locationCoords.lat,
+                          longitude: formData.locationCoords.lon,
+                          address: formData.fullAddress
+                        } : null}
+                        onChange={handleMapLocationSelect}
+                        height="210px"
+                        placeholder={locationChoice === "myLocation" ? "Adjust pin if needed" : "Tap to set location"}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             )}
 
-            {/* Job Summary */}
-            <div className="mt-6 p-4 bg-slate-800 md:bg-blue-50 border border-slate-700/50 md:border-blue-200 rounded-xl">
-              <h4 className="font-semibold text-emerald-400 md:text-blue-900 mb-3 flex items-center gap-2">
-                <Eye className="w-5 h-5" />
-                Job Summary
-              </h4>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-400 md:text-gray-600">Job Title:</span>
-                  <span className="font-medium text-white md:text-gray-900">{formData.profession || "Not set"}</span>
+            {/* Compact Job Summary */}
+            <div className="mt-4 rounded-xl border border-slate-700/60 bg-slate-800/60 overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-700/40">
+                <Eye className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">Summary</span>
+              </div>
+              <div className="px-3 py-2.5 space-y-1.5 text-xs">
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-500">Job</span>
+                  <span className="font-medium text-white text-right truncate max-w-[60%]">{formData.profession || "—"}</span>
                 </div>
                 {formData.payMin && formData.payMax && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 md:text-gray-600">Budget:</span>
-                    <span className="font-medium text-white md:text-gray-900">
-                      £{formData.payMin} - £{formData.payMax} {formData.payFrequency.replace('_', ' ')}
-                    </span>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">Budget</span>
+                    <span className="font-medium text-white">£{formData.payMin}–£{formData.payMax}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-slate-400 md:text-gray-600">Description:</span>
-                  <span className="font-medium text-white md:text-gray-900 text-right max-w-[200px] truncate">
-                    {formData.shortDescription || "Not set"}
+                {formData.shortDescription && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">Details</span>
+                    <span className="font-medium text-white text-right truncate max-w-[60%]">{formData.shortDescription}</span>
+                  </div>
+                )}
+                <div className="flex justify-between gap-2">
+                  <span className="text-slate-500">Urgency</span>
+                  <span className={`font-medium ${formData.urgencyType === "asap" ? "text-red-400" : "text-blue-400"}`}>
+                    {formData.urgencyType === "asap" ? "ASAP" : formData.urgencyType === "flexible" ? `Flexible · ${formData.flexibleDays}d` : "—"}
                   </span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 md:text-gray-600">Photo Attached:</span>
-                  <span className={`font-medium ${formData.jobPhotoUrl ? "text-emerald-400 md:text-green-600" : "text-slate-500 md:text-gray-400"}`}>
-                    {formData.jobPhotoUrl ? "✓ Yes" : "✗ No"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400 md:text-gray-600">Active Duration:</span>
-                  <span className="font-medium text-white md:text-gray-900">
-                    {formData.activeDuration.replace('_', ' ')}
-                  </span>
-                </div>
+                {formData.jobPhotoUrl && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">Photo</span>
+                    <span className="font-medium text-emerald-400">Attached</span>
+                  </div>
+                )}
               </div>
             </div>
 

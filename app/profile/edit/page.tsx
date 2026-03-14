@@ -17,33 +17,11 @@ export default async function ProfileEditPage() {
   // Get user data from users table
   const { data: userData } = await supabase.from("users").select("*").eq("id", user.id).single()
 
-  // Redirect homeowners to their specific profile page
+  // Route to correct profile edit page based on role
   if (userData?.user_type === "homeowner") {
     redirect("/dashboard/homeowner/profile")
   }
 
-  // Redirect contractors to their specific profile page
-  if (userData?.user_type === "contractor") {
-    redirect("/contractor/profile/edit")
-  }
-
-  // Redirect companies to their specific profile page
-  if (userData?.user_type === "company") {
-    redirect("/company/profile/edit")
-  }
-
-  // Get professional profile if user is a professional
-  let professionalProfile = null
-  if (userData?.user_type === "professional") {
-    const { data } = await supabase.from("professional_profiles").select("*").eq("user_id", user.id).single()
-    professionalProfile = data
-  }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-800">
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <ProfileEditForm user={user as any} userData={userData} professionalProfile={professionalProfile} />
-      </div>
-    </div>
-  )
+  // company (tradesperson) — and all legacy types
+  redirect("/company/profile/edit")
 }

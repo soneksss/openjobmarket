@@ -28,40 +28,57 @@ export async function POST(
     const admin = createAdminClient()
 
     // ── 1. Call the ranking RPC ─────────────────────────────────────
+    // If the RPC fails (e.g. migration not yet applied, no geom on profile,
+    // or job doesn't have coordinates), fall back to a broader search.
+    let profileIds: string[] = []
+
     const { data: top5, error: rpcError } = await admin.rpc(
       "select_top_tradespeople_for_urgent_job",
       { p_job_id: jobId }
     )
 
     if (rpcError) {
-      // RPC raises an exception for non-POSTED / non-urgent jobs — surface it
-      console.error("[DISPATCH-URGENT] RPC error:", rpcError.message)
-      return NextResponse.json(
-        { error: rpcError.message },
-        { status: 422 }
-      )
+      console.warn("[DISPATCH-URGENT] RPC unavailable, using fallback:", rpcError.message)
+    } else if (top5 && top5.length > 0) {
+      profileIds = top5.map((c: { tradesperson_id: string }) => c.tradesperson_id)
+      console.log(`[DISPATCH-URGENT] RPC returned ${profileIds.length} candidate(s)`)
     }
 
-    if (!top5 || top5.length === 0) {
+    // ── 1b. Fallback: query company_profiles directly ───────────────
+    // Used when the geospatial RPC finds 0 candidates (no geom set on profiles)
+    // or when the RPC itself errors. Selects companies that have opted in to
+    // trade job notifications and are open for business (up to 10).
+    if (profileIds.length === 0) {
+      console.log("[DISPATCH-URGENT] Falling back to direct company_profiles query")
+      const { data: fallback } = await admin
+        .from("company_profiles")
+        .select("id")
+        .eq("open_for_business", true)
+        .eq("trade_job_notifications", true)
+        .limit(10)
+
+      if (fallback && fallback.length > 0) {
+        profileIds = fallback.map((p: { id: string }) => p.id)
+        console.log(`[DISPATCH-URGENT] Fallback found ${profileIds.length} opted-in company(s)`)
+      }
+    }
+
+    if (profileIds.length === 0) {
       console.log("[DISPATCH-URGENT] No candidates found for job:", jobId)
       return NextResponse.json({ success: true, dispatched: 0, message: "No candidates in radius" })
     }
 
-    console.log(`[DISPATCH-URGENT] RPC returned ${top5.length} candidate(s) for job ${jobId}`)
-
-    // ── 2. Fetch user_ids for the selected contractors ──────────────
-    // The RPC returns tradesperson_id (= contractor_profiles.id) + total_score.
-    // We need user_id to create notifications.
-    const contractorProfileIds: string[] = top5.map((c: { tradesperson_id: string }) => c.tradesperson_id)
+    // ── 2. Fetch user_ids for the selected tradespeople ─────────────
+    // profileIds are company_profiles.id values.
 
     const { data: profiles, error: profilesError } = await admin
-      .from("contractor_profiles")
+      .from("company_profiles")
       .select("id, user_id")
-      .in("id", contractorProfileIds)
+      .in("id", profileIds)
 
     if (profilesError) {
-      console.error("[DISPATCH-URGENT] Error fetching contractor user_ids:", profilesError.message)
-      return NextResponse.json({ error: "Failed to resolve contractor profiles" }, { status: 500 })
+      console.error("[DISPATCH-URGENT] Error fetching company user_ids:", profilesError.message)
+      return NextResponse.json({ error: "Failed to resolve company profiles" }, { status: 500 })
     }
 
     const userIdByContractorId = new Map<string, string>(
@@ -73,7 +90,7 @@ export async function POST(
       .from("jobs")
       .select("title, location")
       .eq("id", jobId)
-      .single()
+      .maybeSingle()
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://openjobmarket.com"
     const jobUrl  = `${baseUrl}/jobs/${jobId}`
@@ -82,52 +99,31 @@ export async function POST(
     let dispatched = 0
     let skipped    = 0
 
-    for (const candidate of top5) {
-      const contractorId: string = candidate.tradesperson_id
-      const userId = userIdByContractorId.get(contractorId)
+    for (const companyProfileId of profileIds) {
+      const userId = userIdByContractorId.get(companyProfileId)
 
       if (!userId) {
-        console.warn("[DISPATCH-URGENT] No user_id for contractor:", contractorId)
+        console.warn("[DISPATCH-URGENT] No user_id for company profile:", companyProfileId)
         skipped++
         continue
       }
 
       try {
-        // 4a. Create job application — PENDING, not auto-confirmed.
-        //     ON CONFLICT DO NOTHING: safe to re-run (idempotent).
-        const { error: appError } = await admin
-          .from("job_applications")
-          .insert({
-            job_id:        jobId,
-            contractor_id: contractorId,
-            status:        "PENDING",
-          })
-
-        if (appError) {
-          // Unique violation = already applied — skip silently
-          if (appError.code === "23505") {
-            console.log("[DISPATCH-URGENT] Already has application, skipping:", contractorId)
-            skipped++
-            continue
-          }
-          console.error("[DISPATCH-URGENT] Error creating application:", appError.message)
-        }
-
-        // 4b. Record dispatch alert (for tracking & the urgent-responses API)
+        // 4a. Record dispatch alert (for tracking & the urgent-responses API)
         const { error: alertError } = await admin
           .from("urgent_job_dispatch_alerts")
           .insert({
             job_id:        jobId,
-            contractor_id: contractorId,
+            company_id:    companyProfileId,
             dispatch_type: "push",
           })
 
         if (alertError) {
+          // Non-fatal — alert tracking is best-effort
           console.error("[DISPATCH-URGENT] Error recording dispatch alert:", alertError.message)
-          // Non-fatal — continue
         }
 
-        // 4c. In-app notification to the contractor
+        // 4c. In-app notification to the tradesperson
         const { error: notifError } = await admin
           .from("notifications")
           .insert({
@@ -141,13 +137,11 @@ export async function POST(
 
         if (notifError) {
           console.error("[DISPATCH-URGENT] Error creating notification:", notifError.message)
-          // Non-fatal — application already created
         }
 
         dispatched++
-        console.log(`[DISPATCH-URGENT] Dispatched to contractor ${contractorId} (score: ${candidate.total_score})`)
       } catch (err) {
-        console.error("[DISPATCH-URGENT] Unexpected error for contractor:", contractorId, err)
+        console.error("[DISPATCH-URGENT] Unexpected error for company profile:", companyProfileId, err)
         skipped++
       }
     }
@@ -158,7 +152,7 @@ export async function POST(
       success:    true,
       dispatched,
       skipped,
-      total:      top5.length,
+      total:      profileIds.length,
     })
 
   } catch (error) {

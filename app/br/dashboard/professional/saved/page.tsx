@@ -247,7 +247,7 @@ export default async function SavedJobsPageBR() {
                           <span className="truncate">{posterLocation || job.location}</span>
                         </div>
                         <span>•</span>
-                        <span>{job.job_type}</span>
+                        <span>{job.work_location}</span>
                       </div>
 
                       {/* Badges */}
@@ -257,9 +257,9 @@ export default async function SavedJobsPageBR() {
                             Trade Job
                           </Badge>
                         )}
-                        {formatSalary(job.salary_min, job.salary_max) && (
+                        {formatSalary(job.budget_min, job.budget_max) && (
                           <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] px-1.5 py-0">
-                            {formatSalary(job.salary_min, job.salary_max)}
+                            {formatSalary(job.budget_min, job.budget_max)}
                           </Badge>
                         )}
                         {isHomeownerJob && (

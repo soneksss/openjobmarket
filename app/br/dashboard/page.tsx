@@ -21,13 +21,11 @@ export default async function DashboardPageBR() {
     .eq("id", user.id)
     .single()
 
-  if (userData?.user_type === "professional") {
-    redirect("/br/dashboard/professional")
-  } else if (userData?.user_type === "company") {
+  if (userData?.user_type === "company") {
     redirect("/br/dashboard/company")
   } else if (userData?.user_type === "homeowner") {
     redirect("/br/dashboard/homeowner")
   } else {
-    redirect("/br/onboarding")
+    redirect("/br/dashboard/homeowner")
   }
 }

@@ -31,16 +31,11 @@ interface Job {
   id: string
   title: string
   description: string
-  requirements: string[]
-  responsibilities: string[]
-  job_type: string
-  experience_level: string
   work_location: string
   location: string
-  salary_min?: number
-  salary_max?: number
+  budget_min?: number
+  budget_max?: number
   skills_required: string[]
-  benefits: string[]
   is_active: boolean
   is_tradespeople_job: boolean
   applications_count: number
@@ -601,14 +596,8 @@ export default function JobDetailView({
                         <MapPin className="h-3.5 w-3.5 mr-1" />
                         {formatDisplayAddress(job.location)}
                       </span>
-                      <Badge variant="secondary" className="bg-blue-500/15 text-blue-400 border-0 text-xs">
-                        {job.job_type}
-                      </Badge>
                       <Badge variant="secondary" className="bg-slate-700 text-slate-300 border-0 text-xs">
                         {job.work_location}
-                      </Badge>
-                      <Badge variant="secondary" className="bg-purple-500/15 text-purple-400 border-0 capitalize text-xs">
-                        {job.experience_level.replace("_", " ")}
                       </Badge>
                     </div>
                   </div>
@@ -620,7 +609,7 @@ export default function JobDetailView({
                   <div className="flex flex-wrap items-center gap-4 text-sm">
                     <span className="flex items-center text-emerald-400 font-semibold">
                       <DollarSign className="h-4 w-4 mr-1" />
-                      {formatSalary(job.salary_min, job.salary_max)}
+                      {formatSalary(job.budget_min, job.budget_max)}
                     </span>
                     <span className="flex items-center text-slate-500 text-xs">
                       <Calendar className="h-3.5 w-3.5 mr-1" />
@@ -682,43 +671,6 @@ export default function JobDetailView({
               </CardContent>
             </Card>
 
-            {/* Responsibilities */}
-            {job.responsibilities && job.responsibilities.length > 0 && (
-              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-white">Responsibilities</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {job.responsibilities.map((responsibility, index) => (
-                      <li key={index} className="flex items-start">
-                        <span className="text-emerald-400 mr-2.5 mt-0.5 text-base leading-5">•</span>
-                        <span className="text-slate-300 leading-relaxed text-sm">{responsibility}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Requirements */}
-            {job.requirements && job.requirements.length > 0 && (
-              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-white">Requirements</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ul className="space-y-2">
-                    {job.requirements.map((requirement, index) => (
-                      <li key={index} className="flex items-start">
-                        <span className="text-emerald-400 mr-2.5 mt-0.5 text-base leading-5">•</span>
-                        <span className="text-slate-300 leading-relaxed text-sm">{requirement}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
 
             {/* Skills */}
             {job.skills_required && job.skills_required.length > 0 && (
@@ -742,24 +694,6 @@ export default function JobDetailView({
               </Card>
             )}
 
-            {/* Benefits */}
-            {job.benefits && job.benefits.length > 0 && (
-              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base text-white">Benefits & Perks</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {job.benefits.map((benefit, index) => (
-                      <div key={index} className="flex items-center">
-                        <span className="text-emerald-400 mr-2 text-sm">✓</span>
-                        <span className="text-slate-300 text-sm">{benefit}</span>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
 
             {/* Apply CTA */}
             {user && (

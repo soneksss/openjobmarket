@@ -55,15 +55,14 @@ interface CompanyProfile {
 interface Job {
   id: string
   title: string
-  job_type: string
   work_location: string
   location: string
   is_active: boolean
   applications_count: number
   views_count: number
   created_at: string
-  salary_min?: number
-  salary_max?: number
+  budget_min?: number
+  budget_max?: number
   recruitment_timeline: string
   price: number
   expires_at?: string
@@ -499,9 +498,8 @@ export default function CompanyJobsManager({ profile, jobs }: CompanyJobsManager
                             <MapPin className="h-3 w-3 md:h-4 md:w-4 mr-1" />
                             <span className="truncate max-w-[120px] md:max-w-none">{job.location}</span>
                           </span>
-                          <Badge variant="secondary" className="text-xs bg-slate-700 md:bg-gray-100 text-slate-300 md:text-gray-700">{job.job_type}</Badge>
                           <Badge variant="secondary" className="text-xs bg-slate-700 md:bg-gray-100 text-slate-300 md:text-gray-700">{job.work_location}</Badge>
-                          <span className="hidden sm:inline">{formatSalary(job.salary_min, job.salary_max)}</span>
+                          <span className="hidden sm:inline">{formatSalary(job.budget_min, job.budget_max)}</span>
                         </div>
 
                         {/* Stats - simplified on mobile */}

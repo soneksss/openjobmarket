@@ -55,58 +55,24 @@ export function MessageIcon({ user }: MessageIconProps) {
   const pathname = usePathname()
   const supabase = createClient()
 
-  // Debug: Log user prop changes
   useEffect(() => {
-    console.log('[MESSAGE-ICON] User prop changed:', {
-      hasUser: !!user,
-      userId: user?.id,
-      userEmail: user?.email,
-      userType: typeof user,
-      userKeys: user ? Object.keys(user) : []
-    })
-  }, [user])
-
-  // Debug: Log unread count changes
-  useEffect(() => {
-    console.log('[MESSAGE-ICON] Unread count changed to:', unreadCount)
-  }, [unreadCount])
-
-  useEffect(() => {
-    console.log('[MESSAGE-ICON] useEffect triggered, user?.id:', user?.id, 'pathname:', pathname)
-
-    // Don't fetch on messages page - it has its own fetch
-    if (pathname?.startsWith('/messages')) {
-      console.log('[MESSAGE-ICON] ⏭️  Skipping fetch on messages page')
-      return
-    }
+    if (pathname?.startsWith('/messages')) return
 
     if (user?.id) {
-      console.log('[MESSAGE-ICON] ✅ User has ID, calling fetchConversations')
       fetchConversations()
 
-      // Set up real-time subscription for new messages
       const subscription = supabase
         .channel('messages_channel')
         .on('postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient_id=eq.${user.id}` },
-          () => {
-            console.log('[MESSAGE-ICON] Real-time update: New message received')
-            fetchConversations()
-          }
+          () => fetchConversations()
         )
         .subscribe()
 
-      // Listen for message-sent events from floating modal
-      const handleMessageSent = (e: any) => {
-        console.log('[MESSAGE-ICON] ✅ Message sent event received:', e.detail)
-        console.log('[MESSAGE-ICON] Current user:', user.id)
-        console.log('[MESSAGE-ICON] Refreshing conversations now...')
-        fetchConversations()
-      }
+      const handleMessageSent = () => fetchConversations()
 
       if (typeof window !== 'undefined') {
         window.addEventListener('message-sent', handleMessageSent)
-        console.log('[MESSAGE-ICON] ✅ Event listener registered for message-sent')
       }
 
       return () => {
@@ -115,8 +81,6 @@ export function MessageIcon({ user }: MessageIconProps) {
           window.removeEventListener('message-sent', handleMessageSent)
         }
       }
-    } else {
-      console.log('[MESSAGE-ICON] ❌ No user.id, skipping fetchConversations')
     }
   }, [user?.id, pathname])
 
@@ -125,13 +89,10 @@ export function MessageIcon({ user }: MessageIconProps) {
 
     setLoading(true)
     try {
-      console.log('[MESSAGE-ICON] Fetching conversations for user:', user.id)
-
       // Add timeout protection - reduced to 5 seconds for faster response
       const controller = new AbortController()
       const timeoutId = setTimeout(() => {
         controller.abort()
-        console.log('[MESSAGE-ICON] Fetch aborted after 5 seconds (expected for new users)')
       }, 5000)
 
       // Fetch recent messages where user is sender or recipient (limit to last 100 for performance)
@@ -155,19 +116,13 @@ export function MessageIcon({ user }: MessageIconProps) {
       clearTimeout(timeoutId)
 
       if (error) {
-        console.log('[MESSAGE-ICON] Error fetching messages (normal for new users):', error.message)
-        // Don't throw - fail gracefully for new users
         setConversations([])
         setUnreadCount(0)
         setLoading(false)
         return
       }
 
-      console.log('[MESSAGE-ICON] Fetched', messages?.length || 0, 'messages')
-
-      // New users with no messages - exit early
       if (!messages || messages.length === 0) {
-        console.log('[MESSAGE-ICON] No messages found - new user')
         setConversations([])
         setUnreadCount(0)
         setLoading(false)
@@ -199,34 +154,18 @@ export function MessageIcon({ user }: MessageIconProps) {
       if (userIds.length === 0) {
         setConversations([])
         setUnreadCount(0)
-        console.log('[MESSAGE-ICON] No valid user IDs found')
         return
       }
 
-      console.log('[MESSAGE-ICON] Batch fetching', userIds.length, 'users')
-
-      // Fetch all users at once (1 query instead of N queries)
+      // Fetch all conversation partner users in one query
       const { data: users } = await supabase
         .from("users")
         .select("id, user_type, full_name, nickname, profile_photo_url, email")
         .in("id", userIds)
 
       const usersMap = new Map(users?.map(u => [u.id, u]) || [])
-      console.log('[MESSAGE-ICON] Fetched', usersMap.size, 'user records')
 
-      // Fetch all professional profiles at once (1 query instead of N queries)
-      const professionalIds = users?.filter(u => u.user_type === 'professional').map(u => u.id) || []
-      const { data: professionalProfiles } = professionalIds.length > 0
-        ? await supabase
-            .from('professional_profiles')
-            .select('user_id, first_name, last_name, profile_photo_url')
-            .in('user_id', professionalIds)
-        : { data: [] }
-
-      const proProfilesMap = new Map(professionalProfiles?.map(p => [p.user_id, p]) || [])
-      console.log('[MESSAGE-ICON] Fetched', proProfilesMap.size, 'professional profiles')
-
-      // Fetch all company profiles at once (1 query instead of N queries)
+      // Fetch company profiles for company-type users
       const companyIds = users?.filter(u => u.user_type === 'company').map(u => u.id) || []
       const { data: companyProfiles } = companyIds.length > 0
         ? await supabase
@@ -236,7 +175,6 @@ export function MessageIcon({ user }: MessageIconProps) {
         : { data: [] }
 
       const compProfilesMap = new Map(companyProfiles?.map(c => [c.user_id, c]) || [])
-      console.log('[MESSAGE-ICON] Fetched', compProfilesMap.size, 'company profiles')
 
       // Now process all conversations with cached data (no more queries)
       const conversationsData: Conversation[] = []
@@ -253,14 +191,7 @@ export function MessageIcon({ user }: MessageIconProps) {
         let photoUrl = otherUser.profile_photo_url
 
         // Get profile-specific data from cached maps
-        if (otherUser.user_type === 'professional') {
-          const profData = proProfilesMap.get(otherUserId)
-          if (profData) {
-            const fullName = [profData.first_name, profData.last_name].filter(Boolean).join(' ')
-            displayName = fullName || displayName
-            photoUrl = profData.profile_photo_url || photoUrl
-          }
-        } else if (otherUser.user_type === 'company') {
+        if (otherUser.user_type === 'company') {
           const compData = compProfilesMap.get(otherUserId)
           if (compData) {
             displayName = compData.company_name || displayName
@@ -300,22 +231,10 @@ export function MessageIcon({ user }: MessageIconProps) {
 
       setConversations(conversationsData)
       setUnreadCount(totalUnread)
-      console.log('[MESSAGE-ICON] Set', conversationsData.length, 'conversations with', totalUnread, 'unread')
-      console.log('[MESSAGE-ICON] Conversations data:', conversationsData.map(c => ({
-        id: c.id,
-        name: c.other_user.name,
-        unread: c.unread_count,
-        lastMessage: c.last_message.content.substring(0, 30)
-      })))
-      console.log('[MESSAGE-ICON] Unread count updated to:', totalUnread)
     } catch (error: any) {
-      // Gracefully handle errors for new users
-      if (error?.name === 'AbortError') {
-        console.log('[MESSAGE-ICON] Request timed out - this is normal for new users with no messages')
-      } else {
+      if (error?.name !== 'AbortError') {
         console.error("[MESSAGE-ICON] Error fetching conversations:", error)
       }
-      // Clear conversations on error to show clean state for new users
       setConversations([])
       setUnreadCount(0)
     } finally {
@@ -344,12 +263,7 @@ export function MessageIcon({ user }: MessageIconProps) {
     router.push(`/messages?with=${otherUserId}`)
   }
 
-  if (!user) {
-    console.log('[MESSAGE-ICON] No user, not rendering')
-    return null
-  }
-
-  console.log('[MESSAGE-ICON] Rendering with unreadCount:', unreadCount, 'conversations:', conversations.length)
+  if (!user) return null
 
   return (
     <div className="relative">
@@ -357,10 +271,7 @@ export function MessageIcon({ user }: MessageIconProps) {
         variant="ghost"
         size="sm"
         className="relative p-2"
-        onClick={() => {
-          console.log('[MESSAGE-ICON] Button clicked, current unread:', unreadCount)
-          setIsOpen(!isOpen)
-        }}
+        onClick={() => setIsOpen(!isOpen)}
       >
         <MessageCircle className="h-5 w-5" />
         {unreadCount > 0 && (
@@ -390,23 +301,8 @@ export function MessageIcon({ user }: MessageIconProps) {
                   <p className="text-xs text-gray-500">
                     {conversations.length} conversations, {unreadCount} unread
                   </p>
-                  <p className="text-xs text-gray-400">
-                    User: {user?.id ? user.id.substring(0, 8) : 'Not set'}
-                  </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs"
-                    onClick={() => {
-                      console.log('[MESSAGE-ICON] Manual refresh triggered, user:', user)
-                      fetchConversations()
-                    }}
-                    title="Refresh"
-                  >
-                    🔄
-                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"

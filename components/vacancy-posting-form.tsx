@@ -372,13 +372,6 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
       const daysToAdd = planDays[formData.activeDuration as keyof typeof planDays] || 7
       expirationDate.setDate(expirationDate.getDate() + daysToAdd)
 
-      // Map salary period to salary_frequency format (database constraint: per_hour, per_day, per_year)
-      const salaryFrequencyMap: Record<string, string> = {
-        hourly: "per_hour",
-        daily: "per_day",
-        yearly: "per_year"
-      }
-
       const payload = {
         company_id: companyProfile.id,
         homeowner_id: null,
@@ -392,19 +385,12 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         work_location: formData.jobType === "remote" ? "remote" : "onsite",
         description: formData.description.trim(),
         short_description: formData.description.trim().substring(0, 200),
-        job_type: formData.jobType,
-        experience_level: formData.experienceLevels.length > 0 ? formData.experienceLevels[0] : null,
-        no_experience_required: formData.noExperienceRequired,
         is_tradespeople_job: false,
-        salary_min: formData.salaryMin ? Number.parseInt(formData.salaryMin) : null,
-        salary_max: formData.salaryMax ? Number.parseInt(formData.salaryMax) : null,
-        salary_period: formData.salaryPeriod,
-        salary_frequency: salaryFrequencyMap[formData.salaryPeriod] || null,
-        responsibilities: formData.responsibilities.length > 0 ? formData.responsibilities : null,
-        requirements: formData.requirements.length > 0 ? formData.requirements : null,
+        budget_min: formData.salaryMin ? Number.parseInt(formData.salaryMin) : null,
+        budget_max: formData.salaryMax ? Number.parseInt(formData.salaryMax) : null,
+        budget_period: formData.salaryPeriod,
         skills_required: formData.skills.length > 0 ? formData.skills : null,
         languages: formData.languages.length > 0 ? formData.languages : null,
-        benefits: formData.benefits.length > 0 ? formData.benefits : null,
         is_active: true,
         status: 'open',  // Set status to 'open' so job appears in search
         expires_at: expirationDate.toISOString(),

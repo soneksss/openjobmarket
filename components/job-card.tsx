@@ -22,13 +22,11 @@ interface Job {
   description: string
   short_description?: string
   long_description?: string
-  job_type: string
-  experience_level: string
   work_location: string
   location: string
   full_address?: string
-  salary_min?: number
-  salary_max?: number
+  budget_min?: number
+  budget_max?: number
   skills_required: string[]
   applications_count: number
   created_at: string
@@ -234,7 +232,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
     return street || fullAddress
   }
 
-  const salary = formatSalary(job.salary_min, job.salary_max)
+  const salary = formatSalary(job.budget_min, job.budget_max)
   const topSkills = job.skills_required?.slice(0, 3) || []
 
   // Determine poster information
@@ -823,17 +821,10 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                     <span className="line-clamp-2">{displayAddress}</span>
                   </div>
 
-                  {/* Job Type Badges */}
+                  {/* Location Type Badge */}
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs">
-                      <Briefcase className="h-3 w-3 mr-1" />
-                      {job.job_type}
-                    </Badge>
                     <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs">
                       {job.work_location}
-                    </Badge>
-                    <Badge variant="secondary" className="bg-purple-50 text-purple-700 hover:bg-purple-100 text-xs">
-                      {job.experience_level}
                     </Badge>
                   </div>
 

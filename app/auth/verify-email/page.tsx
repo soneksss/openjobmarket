@@ -40,13 +40,14 @@ export default function VerifyEmailPage() {
   }, [resendCooldown])
 
   const dashboardMap: Record<string, string> = {
-    admin:        "/admin/dashboard",
-    homeowner:    "/dashboard/homeowner",
-    company:      "/dashboard/company",
+    admin:     "/admin/dashboard",
+    homeowner: "/dashboard/homeowner",
+    company:   "/dashboard/company",
+    // legacy — kept only as fallback redirects
     employer:     "/dashboard/company",
-    professional: "/dashboard/professional",
-    jobseeker:    "/dashboard/professional",
-    contractor:   "/dashboard/contractor",
+    professional: "/dashboard/company",
+    jobseeker:    "/dashboard/homeowner",
+    contractor:   "/dashboard/company",
   }
 
   const handleVerifyOTP = async (e: React.FormEvent) => {
@@ -94,7 +95,7 @@ export default function VerifyEmailPage() {
 
         setRedirectLabel("Taking you to your dashboard…")
         const dest = userType ? (dashboardMap[userType] ?? "/dashboard") : "/"
-        setTimeout(() => router.push(dest), 800)
+        setTimeout(() => { router.refresh(); router.push(dest) }, 800)
       }
     } catch (err: any) {
       setError(err.message || "An error occurred during verification")
@@ -190,7 +191,7 @@ export default function VerifyEmailPage() {
                 "We sent a 6-digit code to your email"
               )}
             </p>
-            <p className="text-xs text-slate-500 mt-1.5">Code expires in 10 minutes · Check your spam folder</p>
+            <p className="text-xs text-red-500 mt-1.5">Code expires in 10 minutes · Check your spam folder</p>
           </div>
 
           <form onSubmit={handleVerifyOTP} className="space-y-4">

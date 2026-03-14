@@ -59,16 +59,15 @@ export default async function CompanyJobDetailsPage({ params }: PageProps) {
       location,
       latitude,
       longitude,
-      salary_min,
-      salary_max,
-      salary_frequency,
+      budget_min,
+      budget_max,
+      budget_period,
       is_active,
       expires_at,
       created_at,
       updated_at,
       is_tradespeople_job,
       work_location,
-      job_type,
       company_id,
       job_photo_url,
       accepted_contractor_id,
@@ -185,11 +184,6 @@ export default async function CompanyJobDetailsPage({ params }: PageProps) {
                       {job.work_location.charAt(0).toUpperCase() + job.work_location.slice(1)}
                     </Badge>
                   )}
-                  {job.job_type && (
-                    <Badge variant="outline">
-                      {job.job_type.charAt(0).toUpperCase() + job.job_type.slice(1)}
-                    </Badge>
-                  )}
                 </div>
               </div>
             </div>
@@ -205,15 +199,15 @@ export default async function CompanyJobDetailsPage({ params }: PageProps) {
                 </div>
               </div>
 
-              {/* Salary */}
-              {job.salary_min && job.salary_max && (
+              {/* Budget */}
+              {job.budget_min && job.budget_max && (
                 <div className="flex items-start gap-3">
                   <DollarSign className="w-5 h-5 text-gray-500 mt-0.5" />
                   <div>
                     <p className="text-sm font-medium text-gray-700">Budget</p>
                     <p className="text-gray-900">
-                      £{job.salary_min} - £{job.salary_max}
-                      {job.salary_frequency && ` ${job.salary_frequency.replace("_", " ")}`}
+                      £{job.budget_min} - £{job.budget_max}
+                      {job.budget_period && ` ${job.budget_period.replace("_", " ")}`}
                     </p>
                   </div>
                 </div>
@@ -255,11 +249,10 @@ export default async function CompanyJobDetailsPage({ params }: PageProps) {
                   location: job.location,
                   latitude: job.latitude,
                   longitude: job.longitude,
-                  salary_min: job.salary_min,
-                  salary_max: job.salary_max,
-                  salary_frequency: job.salary_frequency,
+                  budget_min: job.budget_min,
+                  budget_max: job.budget_max,
+                  budget_period: job.budget_period,
                   work_location: job.work_location,
-                  job_type: job.job_type,
                   job_photo_url: job.job_photo_url,
                 }}
               />

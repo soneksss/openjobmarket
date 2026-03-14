@@ -43,6 +43,12 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
       return
     }
 
+    // Timeout protection — prevents stuck "Saving…" if Supabase hangs
+    const timeoutId = setTimeout(() => {
+      setIsLoading(false)
+      setError("Request timed out. Please check your connection and try again.")
+    }, 15000)
+
     try {
       const { error: updateError } = await supabase
         .from("homeowner_profiles")
@@ -55,16 +61,23 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
         })
         .eq("user_id", userId)
 
-      if (updateError) throw updateError
+      clearTimeout(timeoutId)
+
+      if (updateError) {
+        console.error("Update error:", updateError)
+        throw new Error(updateError.message || `DB error (${updateError.code})`)
+      }
 
       setSuccess(true)
       setTimeout(() => {
         router.push("/dashboard/homeowner")
       }, 1500)
     } catch (err: any) {
+      clearTimeout(timeoutId)
       console.error("Update error:", err)
       setError(err.message || "Failed to update profile")
     } finally {
+      clearTimeout(timeoutId)
       setIsLoading(false)
     }
   }

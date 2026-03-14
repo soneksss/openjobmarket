@@ -3,6 +3,7 @@ import { Suspense } from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
+import NextTopLoader from "nextjs-toploader"
 import "./globals.css"
 import { LayoutContent } from "@/components/layout-content"
 import { createClient } from "@/lib/server"
@@ -135,10 +136,21 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className="font-sans min-h-screen flex flex-col"
+        className="font-sans min-h-screen flex flex-col bg-slate-900"
         suppressHydrationWarning
       >
-        <Suspense fallback={<div className="flex-1" />}>
+        {/* Thin top progress bar on every navigation — industry standard (GitHub / Vercel style) */}
+        <NextTopLoader
+          color="#10b981"
+          height={2}
+          showSpinner={false}
+          shadow="0 0 8px #10b981,0 0 4px #10b981"
+        />
+        <Suspense fallback={
+          <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full border-2 border-slate-700 border-t-emerald-500 animate-spin" />
+          </div>
+        }>
           <LayoutContent user={user} userType={userType} serverLocale={serverLocale}>
             {children}
           </LayoutContent>

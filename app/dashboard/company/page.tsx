@@ -22,17 +22,55 @@ export default async function CompanyDashboardPage() {
   console.log("[v0] User found:", user.id)
 
   // Get company profile
-  const { data: profile, error: profileError } = await supabase
-    .from("company_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single()
+  let profile: any = null
+  {
+    const { data: profileData, error: profileError } = await supabase
+      .from("company_profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle()
 
-  if (profileError) {
-    console.log("[v0] Profile error:", profileError)
+    if (profileError) {
+      console.log("[v0] Profile error:", profileError)
+    }
+
+    if (!profileData) {
+      // Profile missing — try RPC first
+      console.log("[v0] No company profile found, attempting to create from signup data")
+      await supabase.rpc("complete_user_profile_after_verification", { p_user_id: user.id })
+      const { data: retryData } = await supabase
+        .from("company_profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (!retryData) {
+        // RPC failed — insert minimal profile directly from auth metadata
+        console.log("[v0] RPC failed, inserting minimal company profile directly")
+        const metadata = user.user_metadata || {}
+        const { data: insertedProfile, error: insertError } = await supabase
+          .from("company_profiles")
+          .insert({
+            user_id: user.id,
+            company_name: metadata.company_name || metadata.first_name || user.email?.split("@")[0] || "My Business",
+            industry: metadata.industry || metadata.trade || "General",
+            location: metadata.location || null,
+          })
+          .select()
+          .single()
+        if (insertError) {
+          console.error("[v0] Direct insert failed:", insertError)
+        }
+        profile = insertedProfile
+      } else {
+        profile = retryData
+      }
+    } else {
+      profile = profileData
+    }
   }
 
-  // If no profile exists at all, redirect to complete profile
+  // If still no profile after all attempts, redirect
   if (!profile) {
     console.log("[v0] No company profile found, redirecting to home with complete_profile prompt")
     redirect("/?complete_profile=true")

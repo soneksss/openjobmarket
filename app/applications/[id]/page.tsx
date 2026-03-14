@@ -53,9 +53,8 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
         company_id,
         homeowner_id,
         location,
-        job_type,
-        salary_min,
-        salary_max,
+        budget_min,
+        budget_max,
         company_profiles (
           company_name,
           user_id
@@ -453,16 +452,12 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
                       <span>{application.jobs.location}</span>
                     </div>
                     <div className="flex items-center">
-                      <Briefcase className="h-4 w-4 mr-2 text-muted-foreground" />
-                      <span className="capitalize">{application.jobs.job_type.replace("_", " ")}</span>
-                    </div>
-                    <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
                       <span>Applied {formatDate(application.applied_at)}</span>
                     </div>
                     <div>
                       <span className="font-medium">Wages: </span>
-                      {formatSalary(application.jobs.salary_min, application.jobs.salary_max)}
+                      {formatSalary(application.jobs.budget_min, application.jobs.budget_max)}
                     </div>
                   </div>
                 </div>
@@ -627,7 +622,7 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
                     applicantEmail={displayEmail !== "Hidden (privacy settings)" ? displayEmail : undefined}
                     applicantName={displayName}
                     jobTitle={application.jobs.title}
-                    jobBudget={formatSalary(application.jobs.salary_min, application.jobs.salary_max)}
+                    jobBudget={formatSalary(application.jobs.budget_min, application.jobs.budget_max)}
                     jobId={application.jobs.id}
                   />
                 </CardContent>
