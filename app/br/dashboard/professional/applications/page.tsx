@@ -38,7 +38,7 @@ export default async function ProfessionalApplicationsPageBR() {
         location,
         budget_min,
         budget_max,
-        company_profiles (
+        company_profiles!company_id (
           company_name,
           logo_url
         )

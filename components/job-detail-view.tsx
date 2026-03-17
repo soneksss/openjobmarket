@@ -19,11 +19,16 @@ import {
   BookmarkIcon,
   ArrowLeft,
   Star,
+  CheckCircle,
+  XCircle,
+  MessageCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import JobApplicationForm from "./job-application-form"
+import { UrgentJobApplySection } from "./urgent-job-apply-section"
+import FloatingMessageModal from "./floating-message-modal"
 import { useTranslation } from "@/lib/i18n/context"
 import { formatDisplayAddress } from "@/lib/utils"
 
@@ -41,6 +46,7 @@ interface Job {
   applications_count: number
   views_count: number
   created_at: string
+  status?: string
   job_photo_url?: string
   company_profiles?: {
     id: string
@@ -88,18 +94,39 @@ interface Review {
   reviewer_avatar: string | null
 }
 
+interface ApplicationRecord {
+  id: string
+  status: string
+  applied_at: string
+  cover_letter?: string | null
+  tradesperson_id: string
+  company_id: string
+  company_profiles?: {
+    id: string
+    user_id: string
+    company_name: string
+    logo_url?: string | null
+    location?: string
+    industry?: string
+  } | null
+}
+
 interface JobDetailViewProps {
   job: Job
   user: User | null
   userProfile: UserProfile | null
   hasApplied: boolean
   companyStatus: CompanyStatus | null
+  applicationStatus?: string | null
   searchParams?: { [key: string]: string | string[] | undefined }
   companyRating: {
     average_rating: number
     total_reviews: number
   }
   companyReviews: Review[]
+  isJobOwner?: boolean
+  jobApplications?: ApplicationRecord[]
+  serverUserType?: string | null
 }
 
 export default function JobDetailView({
@@ -108,9 +135,13 @@ export default function JobDetailView({
   userProfile,
   hasApplied,
   companyStatus,
+  applicationStatus = null,
   searchParams,
   companyRating,
-  companyReviews
+  companyReviews,
+  isJobOwner = false,
+  jobApplications = [],
+  serverUserType = null,
 }: JobDetailViewProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -132,8 +163,102 @@ export default function JobDetailView({
   const [showBlockedModal, setShowBlockedModal] = useState(false)
   const [blockedReason, setBlockedReason] = useState<'own_job' | 'wrong_type' | null>(null)
   const [showProfileRequiredModal, setShowProfileRequiredModal] = useState(false)
-  const [userType, setUserType] = useState<string | null>(null)
+  const [userType, setUserType] = useState<string | null>(serverUserType)
+  // if no user, or server already provided the type, no need to load
+  const [userTypeLoaded, setUserTypeLoaded] = useState(!user || serverUserType !== null)
   const [applicationSubmitted, setApplicationSubmitted] = useState(hasApplied)
+  // Tradesperson's own application status — updated via realtime when homeowner confirms
+  const [myApplicationStatus, setMyApplicationStatus] = useState<string | null>(applicationStatus)
+
+  // Applications panel state (homeowner view)
+  const [applications, setApplications] = useState<ApplicationRecord[]>(jobApplications)
+  const [actionLoading, setActionLoading] = useState<string | null>(null) // appId being processed
+  const [jobConfirmed, setJobConfirmed] = useState(job.status === "CONFIRMED")
+  const [messageModal, setMessageModal] = useState<{
+    isOpen: boolean
+    recipientId: string
+    recipientName: string
+    recipientAvatar?: string
+    conversationId: string
+  } | null>(null)
+  const showApplicationsTab = isJobOwner && searchParams?.tab === "applications"
+
+  // Realtime: stream new applications to the homeowner without page refresh
+  useEffect(() => {
+    if (!showApplicationsTab) return
+
+    const channel = supabase
+      .channel(`job-applications-${job.id}`)
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "job_applications",
+          filter: `job_id=eq.${job.id}`,
+        },
+        (payload: any) => {
+          const newApp = payload.new as ApplicationRecord
+          // Avoid duplicates (server-side render may already include it)
+          setApplications(prev =>
+            prev.some(a => a.id === newApp.id) ? prev : [newApp, ...prev]
+          )
+        }
+      )
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "job_applications",
+          filter: `job_id=eq.${job.id}`,
+        },
+        (payload: any) => {
+          const updated = payload.new as ApplicationRecord
+          setApplications(prev =>
+            prev.map(a => a.id === updated.id ? { ...a, status: updated.status } : a)
+          )
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [showApplicationsTab, job.id])
+
+  // Realtime: tradesperson watches their own application status (e.g. CONFIRMED when homeowner picks them)
+  useEffect(() => {
+    if (!user || !hasApplied || isJobOwner) return
+    const channel = supabase
+      .channel(`my-application-${job.id}-${user.id}`)
+      .on(
+        "postgres_changes" as any,
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "job_applications",
+          filter: `job_id=eq.${job.id}`,
+        },
+        (payload: any) => {
+          // Only update if this row belongs to the current user's company profile
+          // We can't filter by company_id here (no user_id on the row directly),
+          // but the status change is enough — if CONFIRMED it means we were selected
+          const updated = payload.new
+          if (updated?.status) setMyApplicationStatus(updated.status)
+        }
+      )
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [user, hasApplied, isJobOwner, job.id])
+
+  // Response speed: minutes between job.created_at and application.created_at
+  const getResponseMinutes = (appliedAt: string) => {
+    const jobMs   = new Date(job.created_at).getTime()
+    const appMs   = new Date(appliedAt).getTime()
+    const mins    = Math.max(0, Math.round((appMs - jobMs) / 60000))
+    if (mins < 60)   return `${mins}m`
+    if (mins < 1440) return `${Math.round(mins / 60)}h`
+    return `${Math.round(mins / 1440)}d`
+  }
 
   // Debug: Log if job photo exists
   useEffect(() => {
@@ -262,6 +387,57 @@ export default function JobDetailView({
       }
     } catch (error) {
       console.error("[JOB-DETAIL-VIEW] Error fetching user type:", error)
+    } finally {
+      setUserTypeLoaded(true)
+    }
+  }
+
+  const handleAccept = async (app: ApplicationRecord) => {
+    setActionLoading(app.id)
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/applications/${app.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept", tradesperson_id: app.tradesperson_id }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error ?? `HTTP ${res.status}`)
+      }
+      // Mark accepted tradesperson's application visually; mark others auto-cancelled
+      setJobConfirmed(true)
+      setApplications(prev =>
+        prev.map(a => ({
+          ...a,
+          status: a.tradesperson_id === app.tradesperson_id ? "CONFIRMED" : "AUTO_CANCELLED",
+        }))
+      )
+    } catch (err: any) {
+      console.error("[JOB-DETAIL-VIEW] Accept error:", err.message)
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  const handleDecline = async (app: ApplicationRecord) => {
+    setActionLoading(app.id)
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/applications/${app.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "decline" }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error ?? `HTTP ${res.status}`)
+      }
+      setApplications(prev =>
+        prev.map(a => a.id === app.id ? { ...a, status: "AUTO_CANCELLED" } : a)
+      )
+    } catch (err: any) {
+      console.error("[JOB-DETAIL-VIEW] Decline error:", err.message)
+    } finally {
+      setActionLoading(null)
     }
   }
 
@@ -472,7 +648,7 @@ export default function JobDetailView({
         </div>
       )}
 
-      <div className="relative container mx-auto px-4 py-6 max-w-4xl">
+      <div className="relative container mx-auto px-4 py-6 max-w-4xl overflow-x-hidden">
         {/* Back Button */}
         <div className="mb-5">
           <Button
@@ -573,7 +749,7 @@ export default function JobDetailView({
 
                     {/* Job Title */}
                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                      <h1 className="text-2xl font-bold text-white leading-tight">{job.title}</h1>
+                      <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight break-words">{job.title}</h1>
                       {job.is_tradespeople_job ? (
                         <Badge className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-xs">
                           {t('jobs.tradeJob')}
@@ -695,8 +871,176 @@ export default function JobDetailView({
             )}
 
 
-            {/* Apply CTA */}
-            {user && (
+            {/* Applications panel — visible to homeowner when tab=applications */}
+            {showApplicationsTab && (
+              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base text-white flex items-center gap-2">
+                    <Users className="h-4 w-4 text-emerald-400" />
+                    Applications
+                    <Badge className="bg-slate-700 text-slate-300 border-slate-600 text-xs ml-1">
+                      {applications.filter(a => a.status === "PENDING").length} pending
+                    </Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {jobConfirmed && (
+                    <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-600/30 rounded-lg px-3 py-2 mb-1">
+                      <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                      Job confirmed — waiting for tradesperson to accept.
+                    </div>
+                  )}
+
+                  {applications.length === 0 ? (
+                    <p className="text-slate-400 text-sm text-center py-4">No applications yet.</p>
+                  ) : (
+                    applications.map(app => {
+                      const cp = app.company_profiles
+                      const isPending = app.status === "PENDING"
+                      const isConfirmed = app.status === "CONFIRMED"
+                      const isProcessing = actionLoading === app.id
+                      // Disable Accept/Decline if job already confirmed OR this app not PENDING
+                      const actionsDisabled = jobConfirmed || !isPending || isProcessing
+
+                      return (
+                        <div
+                          key={app.id}
+                          className={`rounded-lg p-3 border transition-opacity ${
+                            isConfirmed
+                              ? "bg-emerald-900/20 border-emerald-600/40"
+                              : !isPending
+                              ? "bg-slate-700/30 border-slate-700/50 opacity-50"
+                              : "bg-slate-700/50 border-slate-600/50"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            {/* Avatar */}
+                            <div className="h-9 w-9 rounded-full bg-slate-600 flex-shrink-0 overflow-hidden flex items-center justify-center text-sm font-bold text-white">
+                              {cp?.logo_url ? (
+                                <img src={cp.logo_url} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                (cp?.company_name || "?").substring(0, 2).toUpperCase()
+                              )}
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2">
+                                <div>
+                                  <p className="text-sm font-semibold text-white truncate">
+                                    {cp?.company_name || "Unknown"}
+                                  </p>
+                                  {cp?.industry && (
+                                    <p className="text-xs text-slate-400">{cp.industry}</p>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  {/* Response speed */}
+                                  <span className="text-[11px] text-slate-500">
+                                    Responded in {getResponseMinutes(app.applied_at)}
+                                  </span>
+                                  {isConfirmed && (
+                                    <Badge className="bg-emerald-600/20 text-emerald-400 border-emerald-600/30 text-xs">
+                                      Confirmed
+                                    </Badge>
+                                  )}
+                                  {!isPending && !isConfirmed && (
+                                    <Badge className="bg-slate-600/20 text-slate-400 border-slate-600/30 text-xs">
+                                      Declined
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+
+                              {app.cover_letter && (
+                                <p className="text-sm text-slate-300 mt-2 leading-relaxed bg-slate-800/60 rounded p-2 border border-white/5">
+                                  &ldquo;{app.cover_letter}&rdquo;
+                                </p>
+                              )}
+
+                              {/* Action buttons */}
+                              {(isPending || isConfirmed) && (
+                                <div className="flex gap-2 mt-3">
+                                  {/* Message always available while pending */}
+                                  {isPending && (
+                                    <Button
+                                      size="sm"
+                                      disabled={isProcessing}
+                                      onClick={() => {
+                                        if (cp?.user_id && user) {
+                                          setMessageModal({
+                                            isOpen: true,
+                                            recipientId: cp.user_id,
+                                            recipientName: cp.company_name || "Tradesperson",
+                                            recipientAvatar: cp.logo_url ?? undefined,
+                                            conversationId: `job-${job.id}-${cp.user_id}`,
+                                          })
+                                        }
+                                      }}
+                                      className="h-8 px-3 bg-slate-600 hover:bg-slate-500 text-white text-xs"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                                      Message
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    disabled={actionsDisabled}
+                                    onClick={() => !actionsDisabled && handleAccept(app)}
+                                    className={`h-8 px-3 text-xs ${
+                                      actionsDisabled
+                                        ? "bg-slate-700 text-slate-500 cursor-not-allowed"
+                                        : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                    }`}
+                                  >
+                                    <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                    {isProcessing ? "..." : "Accept"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    disabled={actionsDisabled}
+                                    onClick={() => !actionsDisabled && handleDecline(app)}
+                                    variant="outline"
+                                    className={`h-8 px-3 text-xs ${
+                                      actionsDisabled
+                                        ? "border-slate-700 text-slate-600 cursor-not-allowed"
+                                        : "border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                                    }`}
+                                  >
+                                    <XCircle className="h-3.5 w-3.5 mr-1" />
+                                    {isProcessing ? "..." : "Decline"}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Floating message modal */}
+            {messageModal && user && (
+              <FloatingMessageModal
+                isOpen={messageModal.isOpen}
+                onClose={() => setMessageModal(null)}
+                recipientId={messageModal.recipientId}
+                recipientName={messageModal.recipientName}
+                recipientAvatar={messageModal.recipientAvatar}
+                userId={user.id}
+                conversationId={messageModal.conversationId}
+                jobId={job.id}
+              />
+            )}
+
+            {/* Apply CTA — wait for userType to resolve before rendering to avoid flicker */}
+            {/* Homeowners never see Apply — they post jobs, not apply to them */}
+            {userTypeLoaded && user && job.is_tradespeople_job && (userType === "company" || userType === "contractor") ? (
+              // Tradesperson viewing a trade job → inline apply with message
+              <UrgentJobApplySection jobId={job.id} hasApplied={applicationSubmitted} applicationStatus={myApplicationStatus} />
+            ) : userTypeLoaded && user && userType !== "homeowner" ? (
               <Card className="border border-emerald-500/20 bg-emerald-500/5 shadow-none">
                 <CardContent className="p-6 text-center">
                   <h3 className="text-base font-semibold mb-2 text-white">
@@ -724,7 +1068,7 @@ export default function JobDetailView({
                   )}
                 </CardContent>
               </Card>
-            )}
+            ) : null}
 
             {!user && (
               <Card className="border border-white/10 bg-slate-800/60 shadow-none">
@@ -741,8 +1085,8 @@ export default function JobDetailView({
             )}
           </div>
 
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
+          {/* Sidebar — hidden on mobile for homeowner trade jobs (no useful company info) */}
+          <div className={`lg:col-span-1 ${job.is_tradespeople_job && !job.company_profiles ? "hidden lg:block" : ""}`}>
             <Card className="sticky top-6 border border-white/10 bg-slate-800/60 shadow-none">
               <CardHeader className="pb-2">
                 <CardTitle className="flex items-center text-base text-white mb-2">

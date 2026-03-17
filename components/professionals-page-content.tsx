@@ -1,5 +1,8 @@
 "use client";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
+
 import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -164,6 +167,7 @@ interface ProfessionalsPageContentProps {
   isModal?: boolean
   onSearchUpdate?: (params: any) => void
   onModalClose?: () => void
+  onViewAllJobs?: () => void
 }
 
 export default function ProfessionalsPageContent({
@@ -176,13 +180,14 @@ export default function ProfessionalsPageContent({
   isModal = false,
   onSearchUpdate,
   onModalClose,
+  onViewAllJobs,
 }: ProfessionalsPageContentProps) {
   const router = useRouter()
   const currentSearchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState(searchParams.search || "")
 
   // Debug: Log user prop
-  console.log("[PROFESSIONALS-PAGE-CONTENT] User prop:", user, "UserType:", userType)
+  debug("[PROFESSIONALS-PAGE-CONTENT] User prop:", user, "UserType:", userType)
 
   // Local user state - falls back to fetching if prop is null
   const [currentUser, setCurrentUser] = useState<any>(user)
@@ -201,7 +206,7 @@ export default function ProfessionalsPageContent({
       }
 
       // Otherwise, fetch user data ourselves
-      console.log("[PROFESSIONALS-PAGE-CONTENT] User prop is null, fetching auth state...")
+      debug("[PROFESSIONALS-PAGE-CONTENT] User prop is null, fetching auth state...")
       const supabase = createBrowserClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -210,7 +215,7 @@ export default function ProfessionalsPageContent({
       const { data: { user: authUser } } = await supabase.auth.getUser()
 
       if (authUser) {
-        console.log("[PROFESSIONALS-PAGE-CONTENT] Found authenticated user:", authUser.id)
+        debug("[PROFESSIONALS-PAGE-CONTENT] Found authenticated user:", authUser.id)
         setCurrentUser(authUser)
 
         // Fetch user type
@@ -256,9 +261,9 @@ export default function ProfessionalsPageContent({
         }
 
         setCurrentUserProfile(profileData)
-        console.log("[PROFESSIONALS-PAGE-CONTENT] User data loaded:", { userId: authUser.id, userType: fetchedUserType })
+        debug("[PROFESSIONALS-PAGE-CONTENT] User data loaded:", { userId: authUser.id, userType: fetchedUserType })
       } else {
-        console.log("[PROFESSIONALS-PAGE-CONTENT] No authenticated user found")
+        debug("[PROFESSIONALS-PAGE-CONTENT] No authenticated user found")
       }
     }
 
@@ -290,7 +295,7 @@ export default function ProfessionalsPageContent({
     (searchParams as any).self_employed === "true" ? "self_employed" : "all"
   )
   const [filter247, setFilter247] = useState(false)
-  const [searchApplied, setSearchApplied] = useState(false)
+  const [searchApplied, setSearchApplied] = useState(isModal)
   const [showIndustryDropdown, setShowIndustryDropdown] = useState(false)
   const [customLanguage, setCustomLanguage] = useState("")
   const [sendingMessage, setSendingMessage] = useState<string | null>(null)
@@ -339,10 +344,10 @@ export default function ProfessionalsPageContent({
 
   // Debug: Log message modal state changes
   useEffect(() => {
-    console.log('[PROFESSIONALS-PAGE] 📬 Message modal state changed:', messageModal)
+    debug('[PROFESSIONALS-PAGE] 📬 Message modal state changed:', messageModal)
     if (messageModal?.isOpen) {
-      console.log('[PROFESSIONALS-PAGE] ✅ Message modal should now be visible')
-      console.log('[PROFESSIONALS-PAGE] User available?', !!currentUser, currentUser?.id)
+      debug('[PROFESSIONALS-PAGE] ✅ Message modal should now be visible')
+      debug('[PROFESSIONALS-PAGE] User available?', !!currentUser, currentUser?.id)
     }
   }, [messageModal, currentUser])
 
@@ -394,7 +399,12 @@ export default function ProfessionalsPageContent({
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 
-  const isEmployer = currentUserType === "company"
+  // Determine if we're showing jobs (vacancies or jobs/tasks) — must be defined before isEmployer
+  const isShowingJobs = searchParams.vacancies === "true" || searchParams.jobs_tasks === "true"
+
+  // A company/tradesperson looking at trade jobs (jobs_tasks) is a job-seeker, not an employer.
+  // isEmployer should only be true when a company searches for talent/professionals.
+  const isEmployer = currentUserType === "company" && !isShowingJobs
   const isEmployee = currentUserType === "professional"
 
   // Determine if we're showing companies (when professionals search with company filters)
@@ -403,9 +413,6 @@ export default function ProfessionalsPageContent({
 
   // Determine if we're showing traders (self-employed professionals + companies open for business)
   const isShowingTraders = searchParams.traders === "true"
-
-  // Determine if we're showing jobs (vacancies or jobs/tasks)
-  const isShowingJobs = searchParams.vacancies === "true" || searchParams.jobs_tasks === "true"
 
   // Auto-trigger full-screen mode when search params exist (from homepage redirect)
   useEffect(() => {
@@ -418,13 +425,16 @@ export default function ProfessionalsPageContent({
 
     if (hasSearchParams) {
       setIsFullScreenMode(true)
-      setShowAdvancedFilters(true)
+      // In modal mode the filters start collapsed — user opens them manually
+      if (!isModal) {
+        setShowAdvancedFilters(true)
+      }
     }
-  }, [searchParams.search, searchParams.location, searchParams.lat, searchParams.lng, searchParams.traders])
+  }, [searchParams.search, searchParams.location, searchParams.lat, searchParams.lng, searchParams.traders, isModal])
 
   // Debug: Monitor showMapPicker state changes
   useEffect(() => {
-    console.log('[MAP-PICKER] showMapPicker state changed to:', showMapPicker)
+    debug('[MAP-PICKER] showMapPicker state changed to:', showMapPicker)
   }, [showMapPicker])
 
   // Clear filter parameters for unregistered users
@@ -601,9 +611,9 @@ export default function ProfessionalsPageContent({
   }
 
   const handleMapPickerClick = () => {
-    console.log('[MAP-PICKER] Button clicked, opening map picker modal')
+    debug('[MAP-PICKER] Button clicked, opening map picker modal')
     setShowMapPicker(true)
-    console.log('[MAP-PICKER] showMapPicker state set to true')
+    debug('[MAP-PICKER] showMapPicker state set to true')
   }
 
   const handleMapLocationPick = (lat: number, lon: number) => {
@@ -714,8 +724,8 @@ export default function ProfessionalsPageContent({
   }
 
   // Debug logging for coordinate data
-  console.log("[PROFESSIONALS-PAGE] Data received:", data)
-  console.log("[PROFESSIONALS-PAGE] First item coordinates:", data[0] ? {
+  debug("[PROFESSIONALS-PAGE] Data received:", data)
+  debug("[PROFESSIONALS-PAGE] First item coordinates:", data[0] ? {
     latitude: data[0].latitude,
     longitude: data[0].longitude,
     location: data[0].location
@@ -725,12 +735,12 @@ export default function ProfessionalsPageContent({
     (item) => "latitude" in item && "longitude" in item && item.latitude && item.longitude,
   )
 
-  console.log("[PROFESSIONALS-PAGE] Data with coordinates:", dataWithCoordinates.length, "out of", data.length)
+  debug("[PROFESSIONALS-PAGE] Data with coordinates:", dataWithCoordinates.length, "out of", data.length)
 
   // Always show map in modal mode; otherwise show only when we have data or a non-default center
   const shouldShowMap = isModal || center[0] !== 50.8058 || center[1] !== -1.0872 || dataWithCoordinates.length > 0
 
-  console.log("[PROFESSIONALS-PAGE] Should show map:", shouldShowMap, "Center:", center)
+  debug("[PROFESSIONALS-PAGE] Should show map:", shouldShowMap, "Center:", center)
 
   // Sort data based on selected criteria
   const sortedData = [...data].sort((a, b) => {
@@ -798,7 +808,7 @@ export default function ProfessionalsPageContent({
       // If user_id not provided, fetch it from the profile
       let recipientUserId = professionalUserId
       if (!recipientUserId) {
-        console.log("[DEBUG] Fetching user_id for profile:", professionalProfileId)
+        debug("[DEBUG] Fetching user_id for profile:", professionalProfileId)
 
         // Try professional_profiles first
         let { data: profileData } = await supabase
@@ -809,7 +819,7 @@ export default function ProfessionalsPageContent({
 
         // If not found, try company_profiles
         if (!profileData) {
-          console.log("[DEBUG] Not found in professional_profiles, trying company_profiles")
+          debug("[DEBUG] Not found in professional_profiles, trying company_profiles")
           const { data: companyData } = await supabase
             .from('company_profiles')
             .select('user_id')
@@ -820,7 +830,7 @@ export default function ProfessionalsPageContent({
 
         if (profileData) {
           recipientUserId = profileData.user_id
-          console.log("[DEBUG] Found user_id:", recipientUserId)
+          debug("[DEBUG] Found user_id:", recipientUserId)
         } else {
           console.error("[ERROR] Could not find user_id for profile:", professionalProfileId)
           alert("Error: Could not find user. Please try again.")
@@ -829,17 +839,17 @@ export default function ProfessionalsPageContent({
       }
 
       // Skip subscription check - allow all messaging for now
-      console.log("[DEBUG] Skipping subscription check, allowing all messaging for user:", currentUser.id)
+      debug("[DEBUG] Skipping subscription check, allowing all messaging for user:", currentUser.id)
 
       // Skip block check - allow all messaging for now
-      console.log("[DEBUG] Skipping block check, proceeding to open conversation")
+      debug("[DEBUG] Skipping block check, proceeding to open conversation")
 
       // Generate new conversation ID (will be created when first message is sent)
       const conversationId = crypto.randomUUID()
-      console.log("[DEBUG] Creating new conversation:", conversationId)
+      debug("[DEBUG] Creating new conversation:", conversationId)
 
-      console.log("[DEBUG] Opening message modal for conversation:", conversationId)
-      console.log("[DEBUG] Recipient user_id:", recipientUserId)
+      debug("[DEBUG] Opening message modal for conversation:", conversationId)
+      debug("[DEBUG] Recipient user_id:", recipientUserId)
 
       // Open floating message modal instead of navigating
       setMessageModal({
@@ -849,12 +859,12 @@ export default function ProfessionalsPageContent({
         conversationId: conversationId
       })
 
-      console.log("[DEBUG] Message modal opened successfully")
+      debug("[DEBUG] Message modal opened successfully")
     } catch (error) {
       console.error("[ERROR] Error sending inquiry:", error)
       alert("Error sending message. Please try again.")
     } finally {
-      console.log("[DEBUG] Cleaning up sendingMessage state")
+      debug("[DEBUG] Cleaning up sendingMessage state")
       setSendingMessage(null)
     }
   }
@@ -872,7 +882,7 @@ export default function ProfessionalsPageContent({
       return
     }
 
-    console.log("[PROFESSIONALS-PAGE] Opening application modal for job:", jobId)
+    debug("[PROFESSIONALS-PAGE] Opening application modal for job:", jobId)
     setSelectedJobForApplication(job)
     setShowApplicationModal(true)
   }
@@ -883,7 +893,7 @@ export default function ProfessionalsPageContent({
       return
     }
     // Implementation for saving job
-    console.log("Saving job:", jobId)
+    debug("Saving job:", jobId)
   }
 
   // Helper function to convert data item to PreviewData for mobile preview card
@@ -1588,20 +1598,46 @@ export default function ProfessionalsPageContent({
 
                       <div className="flex-1 overflow-y-auto overflow-x-hidden pb-4">
                         {data.length === 0 ? (
-                          <div className="text-center py-12 px-4">
-                            <UserIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-lg font-semibold mb-2 text-gray-900">
-                              {isShowingJobs
-                                ? `No jobs found${locationFilter ? ` in ${locationFilter}` : ''}`
-                                : `No tradespeople found${locationFilter ? ` in ${locationFilter}` : ''}`
-                              }
-                            </h3>
-                            <p className="text-gray-600 mb-4">
-                              {isShowingJobs
-                                ? "Try expanding your search radius or adjusting your filters"
-                                : "Try expanding your search radius or searching for a different trade"
-                              }
-                            </p>
+                          <div className="py-8 px-5">
+                            {isShowingJobs ? (
+                              <>
+                                <p className="text-sm font-medium text-gray-800 mb-1">
+                                  No jobs matching your skills in this area right now.
+                                </p>
+                                <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Try:</p>
+                                <ul className="space-y-1.5 text-sm text-gray-600 mb-5">
+                                  <li className="flex items-start gap-2"><span className="text-blue-500 font-bold mt-0.5">•</span><span>Expanding your search radius</span></li>
+                                  <li className="flex items-start gap-2"><span className="text-blue-500 font-bold mt-0.5">•</span><span>Adding more skills to your profile</span></li>
+                                  <li className="flex items-start gap-2"><span className="text-blue-500 font-bold mt-0.5">•</span><span>Viewing all construction jobs nearby</span></li>
+                                </ul>
+                                {isModal && onViewAllJobs ? (
+                                  <button
+                                    type="button"
+                                    onClick={onViewAllJobs}
+                                    className="flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                  >
+                                    View all jobs nearby
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                  </button>
+                                ) : (
+                                  <a
+                                    href="/jobs"
+                                    className="flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                                  >
+                                    View all jobs nearby
+                                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                  </a>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <UserIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <h3 className="text-lg font-semibold mb-2 text-gray-900 text-center">
+                                  {`No tradespeople found${locationFilter ? ` in ${locationFilter}` : ''}`}
+                                </h3>
+                                <p className="text-gray-600 text-center">Try expanding your search radius or searching for a different trade</p>
+                              </>
+                            )}
                           </div>
                         ) : (
                           <div className="space-y-3 p-3 sm:p-4">
@@ -1639,8 +1675,8 @@ export default function ProfessionalsPageContent({
                                 ref={(el) => { professionalCardRefs.current[item.id] = el }}
                                 className={`cursor-pointer transition-all rounded-lg touch-manipulation ${
                                   isSelected
-                                    ? "shadow-xl border-2 border-blue-500 bg-blue-50"
-                                    : "hover:shadow-md border"
+                                    ? "shadow-xl border-2 border-emerald-500 bg-emerald-900/20"
+                                    : "hover:shadow-md border bg-slate-800 border-slate-700"
                                 }`}
                                 onClick={() => {
                                   // Toggle selection
@@ -1669,7 +1705,7 @@ export default function ProfessionalsPageContent({
                                     <div className="flex-1 min-w-0">
                                       {/* 1. Profession Title - Main heading */}
                                       <div className="flex items-center gap-2 mb-1">
-                                        <h3 className={`text-lg text-gray-900 font-bold truncate`}>
+                                        <h3 className="text-lg text-white font-bold truncate">
                                           {item.title || item.industry || 'Professional'}
                                         </h3>
                                         {item.isPremium && (
@@ -1681,7 +1717,7 @@ export default function ProfessionalsPageContent({
                                       </div>
 
                                       {/* 2. Nickname or Name - respects hide_personal_name privacy setting */}
-                                      <p className="text-sm text-gray-600 mb-2 font-medium">
+                                      <p className="text-sm text-slate-300 mb-2 font-medium">
                                         {!item.hide_personal_name && (item.first_name || item.last_name)
                                           ? `${item.first_name || ''} ${item.last_name || ''}`.trim()
                                           : (item.nickname || 'Anonymous')}
@@ -1721,7 +1757,7 @@ export default function ProfessionalsPageContent({
 
                                       {/* Bio/Description - Show short preview */}
                                       {(item.bio || item.description) && (
-                                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                                        <p className="text-sm text-slate-400 mb-2 line-clamp-2">
                                           {item.bio || item.description}
                                         </p>
                                       )}
@@ -1729,15 +1765,15 @@ export default function ProfessionalsPageContent({
                                       {/* Services for Companies (show in collapsed state) */}
                                       {isItemCompany && item.services && item.services.length > 0 && (
                                         <div className="mb-2">
-                                          <p className="text-xs font-semibold text-gray-700 mb-1">Services:</p>
+                                          <p className="text-xs font-semibold text-slate-300 mb-1">Services:</p>
                                           <div className="flex flex-wrap gap-1">
                                             {item.services.slice(0, 3).map((service: string, idx: number) => (
-                                              <Badge key={idx} variant="secondary" className="text-xs">
+                                              <Badge key={idx} className="text-xs bg-slate-700 text-slate-200 border-slate-600">
                                                 {service}
                                               </Badge>
                                             ))}
                                             {item.services.length > 3 && (
-                                              <Badge variant="outline" className="text-xs text-gray-500">
+                                              <Badge className="text-xs bg-transparent text-slate-400 border-slate-600">
                                                 +{item.services.length - 3} more
                                               </Badge>
                                             )}
@@ -1749,12 +1785,12 @@ export default function ProfessionalsPageContent({
                                       {isItemProfessional && item.skills && item.skills.length > 0 && (
                                         <div className="flex flex-wrap gap-1 mb-2">
                                           {item.skills.slice(0, 3).map((skill: string, idx: number) => (
-                                            <Badge key={idx} variant="secondary" className="text-xs">
+                                            <Badge key={idx} className="text-xs bg-slate-700 text-slate-200 border-slate-600">
                                               {skill}
                                             </Badge>
                                           ))}
                                           {item.skills.length > 3 && (
-                                            <Badge variant="outline" className="text-xs text-gray-500">
+                                            <Badge className="text-xs bg-transparent text-slate-400 border-slate-600">
                                               +{item.skills.length - 3} more
                                             </Badge>
                                           )}
@@ -1763,7 +1799,7 @@ export default function ProfessionalsPageContent({
 
                                       {/* Languages - Show with flags */}
                                       {item.spoken_languages && item.spoken_languages.length > 0 && (
-                                        <div className="text-xs text-gray-600 mb-2 flex items-center flex-wrap gap-1">
+                                        <div className="text-xs text-slate-400 mb-2 flex items-center flex-wrap gap-1">
                                           <Globe className="h-3 w-3 inline mr-1" />
                                           <span className="font-medium mr-1">Languages:</span>
                                           {item.spoken_languages.slice(0, 3).map((lang: string, idx: number) => (
@@ -1805,7 +1841,7 @@ export default function ProfessionalsPageContent({
                                       </div>
 
                                       <div className="flex items-center justify-between">
-                                        <span className="text-xs text-gray-500">
+                                        <span className="text-xs text-slate-500">
                                           {formatDate(item.created_at)}
                                         </span>
                                         <div className="flex gap-2">
@@ -2278,7 +2314,7 @@ export default function ProfessionalsPageContent({
 
       {/* Map Picker Modal */}
       {showMapPicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999999] flex items-center justify-center p-4" onClick={() => console.log('[MAP-PICKER] Modal backdrop clicked')}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999999] flex items-center justify-center p-4" onClick={() => debug('[MAP-PICKER] Modal backdrop clicked')}>
           <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col relative z-[1000000]">
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -2318,7 +2354,7 @@ export default function ProfessionalsPageContent({
                     <Target className="h-5 w-5 text-emerald-600 flex-shrink-0" />
                     <label className="text-sm font-semibold text-gray-900 whitespace-nowrap">Search Radius:</label>
                     <Select value={mapPickerRadius} onValueChange={(value) => {
-                      console.log('[MAP-PICKER] Radius changed to:', value)
+                      debug('[MAP-PICKER] Radius changed to:', value)
                       setMapPickerRadius(value)
                     }}>
                       <SelectTrigger className="w-28 h-9 text-sm font-medium border-gray-300 bg-white">
@@ -2392,7 +2428,7 @@ export default function ProfessionalsPageContent({
 
       {/* Floating Message Modal */}
       {(() => {
-        console.log('[PROFESSIONALS-PAGE] Modal render check:', {
+        debug('[PROFESSIONALS-PAGE] Modal render check:', {
           messageModalExists: !!messageModal,
           messageModalIsOpen: messageModal?.isOpen,
           userExists: !!currentUser,
@@ -2405,7 +2441,7 @@ export default function ProfessionalsPageContent({
         <FloatingMessageModal
           isOpen={messageModal.isOpen}
           onClose={() => {
-            console.log('[PROFESSIONALS-PAGE] Closing message modal')
+            debug('[PROFESSIONALS-PAGE] Closing message modal')
             setMessageModal(null)
           }}
           recipientId={messageModal.recipientId}
@@ -3199,6 +3235,46 @@ export default function ProfessionalsPageContent({
                   </h3>
 
                   <div className="space-y-2">
+                  {data.length === 0 && (
+                    <div className="py-6 px-2">
+                      {isShowingJobs ? (
+                        <>
+                          <p className="text-sm font-medium text-slate-200 mb-1">
+                            No jobs matching your skills in this area right now.
+                          </p>
+                          <p className="text-xs text-slate-500 font-medium uppercase tracking-wide mb-2">Try:</p>
+                          <ul className="space-y-1.5 text-sm text-slate-400 mb-5">
+                            <li className="flex items-start gap-2"><span className="text-blue-400 font-bold mt-0.5">•</span><span>Expanding your search radius</span></li>
+                            <li className="flex items-start gap-2"><span className="text-blue-400 font-bold mt-0.5">•</span><span>Adding more skills to your profile</span></li>
+                            <li className="flex items-start gap-2"><span className="text-blue-400 font-bold mt-0.5">•</span><span>Viewing all construction jobs nearby</span></li>
+                          </ul>
+                          {isModal && onViewAllJobs ? (
+                            <button
+                              type="button"
+                              onClick={onViewAllJobs}
+                              className="flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors"
+                            >
+                              View all jobs nearby
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                          ) : (
+                            <a
+                              href="/jobs"
+                              className="flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium border border-slate-600 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors"
+                            >
+                              View all jobs nearby
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            </a>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm text-slate-400 text-center">
+                          {`No tradespeople found${locationFilter ? ` in ${locationFilter}` : ''}. Try expanding your search radius.`}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {data.map((item: any) => {
                     const isExpanded = selectedProfessionalId === item.id
 
@@ -4128,20 +4204,46 @@ export default function ProfessionalsPageContent({
                     })}
 
                     {data.length === 0 && (
-                      <div className="p-8 text-center text-gray-500">
-                        <UserIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                        <p className="font-medium">
-                          {isShowingJobs
-                            ? `No jobs found${locationFilter ? ` in ${locationFilter}` : ''}`
-                            : `No tradespeople found${locationFilter ? ` in ${locationFilter}` : ''}`
-                          }
-                        </p>
-                        <p className="text-sm mt-1">
-                          {isShowingJobs
-                            ? "Try expanding your search radius or adjusting your filters"
-                            : "Try expanding your search radius or searching for a different trade"
-                          }
-                        </p>
+                      <div className="p-5">
+                        {isShowingJobs ? (
+                          <>
+                            <p className="text-sm font-medium text-gray-800 mb-1">
+                              No jobs matching your skills in this area right now.
+                            </p>
+                            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide mb-2">Try:</p>
+                            <ul className="space-y-1.5 text-sm text-gray-600 mb-5">
+                              <li className="flex items-start gap-2"><span className="text-blue-500 font-bold mt-0.5">•</span><span>Expanding your search radius</span></li>
+                              <li className="flex items-start gap-2"><span className="text-blue-500 font-bold mt-0.5">•</span><span>Adding more skills to your profile</span></li>
+                              <li className="flex items-start gap-2"><span className="text-blue-500 font-bold mt-0.5">•</span><span>Viewing all construction jobs nearby</span></li>
+                            </ul>
+                            {isModal && onViewAllJobs ? (
+                              <button
+                                type="button"
+                                onClick={onViewAllJobs}
+                                className="flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                View all jobs nearby
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                              </button>
+                            ) : (
+                              <a
+                                href="/jobs"
+                                className="flex items-center justify-between w-full px-4 py-2.5 text-sm font-medium border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                              >
+                                View all jobs nearby
+                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <UserIcon className="h-12 w-12 mx-auto mb-3 opacity-50 text-gray-400" />
+                            <p className="font-medium text-center text-gray-500">
+                              {`No tradespeople found${locationFilter ? ` in ${locationFilter}` : ''}`}
+                            </p>
+                            <p className="text-sm mt-1 text-center text-gray-400">Try expanding your search radius or searching for a different trade</p>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

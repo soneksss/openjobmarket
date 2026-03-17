@@ -44,11 +44,10 @@ export default async function NewJobPage() {
         redirect("/onboarding/homeowner")
       }
 
-      // Use JobWizardModal for consistent design across all user types
       const { default: JobWizardModal } = await import("@/components/job-wizard-modal")
 
       return (
-        <div className="min-h-screen bg-slate-900 md:bg-gray-50">
+        <div className="min-h-screen bg-slate-900">
           <JobWizardModal companyProfile={homeownerProfile} userType="homeowner" />
         </div>
       )
@@ -65,13 +64,13 @@ export default async function NewJobPage() {
       if (profileError) {
         console.error("Company profile fetch error:", profileError.message)
         return (
-          <div className="min-h-screen flex items-center justify-center bg-slate-900 md:bg-gray-50">
-            <div className="max-w-md w-full mx-4 bg-slate-800 md:bg-white rounded-xl border border-slate-700/50 md:border-0 md:shadow-lg p-6 text-center">
-              <h1 className="text-2xl font-bold text-white md:text-gray-900 mb-4">Company Profile Required</h1>
-              <p className="text-slate-400 md:text-gray-600 mb-6">You need to set up your company profile before posting jobs.</p>
+          <div className="min-h-screen flex items-center justify-center bg-slate-900">
+            <div className="max-w-md w-full mx-4 bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg p-6 text-center">
+              <h1 className="text-2xl font-bold text-white mb-4">Company Profile Required</h1>
+              <p className="text-slate-400 mb-6">You need to set up your company profile before posting jobs.</p>
               <a
                 href="/dashboard/company/setup"
-                className="inline-block bg-emerald-600 md:bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 md:hover:bg-blue-700 transition-colors"
+                className="inline-block bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors"
               >
                 Set Up Company Profile
               </a>
@@ -85,7 +84,7 @@ export default async function NewJobPage() {
       const { default: JobWizardModal } = await import("@/components/job-wizard-modal")
 
       return (
-        <div className="min-h-screen bg-slate-900 md:bg-gray-50">
+        <div className="min-h-screen bg-slate-900">
           <JobWizardModal companyProfile={profile} userType="company" />
         </div>
       )
@@ -93,15 +92,15 @@ export default async function NewJobPage() {
 
     // For unknown user types only, show an error
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 md:bg-gray-50">
-        <div className="max-w-md w-full mx-4 bg-slate-800 md:bg-white rounded-xl border border-slate-700/50 md:border-0 md:shadow-lg p-6 text-center">
-          <h1 className="text-2xl font-bold text-white md:text-gray-900 mb-4">Account Setup Required</h1>
-          <p className="text-slate-400 md:text-gray-600 mb-6">
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="max-w-md w-full mx-4 bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg p-6 text-center">
+          <h1 className="text-2xl font-bold text-white mb-4">Account Setup Required</h1>
+          <p className="text-slate-400 mb-6">
             Your account type ({userData?.user_type || 'unknown'}) needs to be set up before posting jobs.
           </p>
           <a
             href="/onboarding"
-            className="inline-block bg-emerald-600 md:bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 md:hover:bg-blue-700 transition-colors"
+            className="inline-block bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors"
           >
             Complete Setup
           </a>
@@ -111,13 +110,13 @@ export default async function NewJobPage() {
   } catch (error) {
     console.error("[v0] Error in NewJobPage:", error)
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-900 md:bg-gray-50">
-        <div className="max-w-md w-full mx-4 bg-slate-800 md:bg-white rounded-xl border border-slate-700/50 md:border-0 md:shadow-lg p-6 text-center">
-          <h1 className="text-2xl font-bold text-red-400 md:text-red-600 mb-4">Error</h1>
-          <p className="text-slate-400 md:text-gray-600 mb-6">There was an error loading the job posting form.</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="max-w-md w-full mx-4 bg-slate-800 rounded-xl border border-slate-700/50 shadow-lg p-6 text-center">
+          <h1 className="text-2xl font-bold text-red-400 mb-4">Error</h1>
+          <p className="text-slate-400 mb-6">There was an error loading the job posting form.</p>
           <a
             href="/dashboard"
-            className="inline-block bg-emerald-600 md:bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 md:hover:bg-blue-700 transition-colors"
+            className="inline-block bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors"
           >
             Back to Dashboard
           </a>

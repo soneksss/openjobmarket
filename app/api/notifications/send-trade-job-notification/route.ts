@@ -20,7 +20,7 @@ import { NextRequest, NextResponse } from "next/server"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { jobId, jobTitle, jobLat, jobLon, jobSkills, posterName, urgencyType } = body
+    const { jobId, jobTitle, jobLat, jobLon, jobSkills, posterName, urgencyType, jobIndustry, jobService } = body
 
     if (!jobId || !jobTitle || jobLat === undefined || jobLon === undefined) {
       return NextResponse.json(
@@ -65,6 +65,8 @@ export async function POST(request: NextRequest) {
         p_job_lat: jobLat,
         p_job_lon: jobLon,
         p_job_skills: jobSkills || [],
+        p_job_industry: jobIndustry || null,
+        p_job_service: jobService || null,
       }
     )
 
@@ -130,13 +132,21 @@ export async function POST(request: NextRequest) {
     for (const company of matchingCompanies) {
       try {
         // Create in-app notification
+        const isUrgent = urgencyType === "asap" || urgencyType === "today"
+        const notifTitle = isUrgent
+          ? `🚨 Urgent job nearby: ${jobTitle}`
+          : `🔔 New job nearby: ${jobTitle}`
+        const notifMessage = isUrgent
+          ? `${posterName} posted an urgent job within ${Math.round(company.distance_miles)} miles. Respond quickly!`
+          : `${posterName} posted a flexible job matching your trade within ${Math.round(company.distance_miles)} miles.`
+
         const { error: notifError } = await adminClient
           .from("notifications")
           .insert({
             user_id: company.user_id,
             type: "trade_job_match",
-            title: `New trade job nearby: ${jobTitle}`,
-            message: `${posterName} posted a trade job matching your services within ${Math.round(company.distance_miles)} miles.`,
+            title: notifTitle,
+            message: notifMessage,
             link_url: jobUrl,
             is_read: false,
           })

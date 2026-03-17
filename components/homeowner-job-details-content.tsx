@@ -1,17 +1,18 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import {
   MapPin,
-  Calendar,
-  Briefcase,
-  FileText,
+  ChevronDown,
+  ChevronUp,
+  Users,
+  MessageCircle,
   CheckCircle2,
+  Clock,
+  Building2,
 } from "lucide-react"
 import { HomeownerApplicationActions } from "./homeowner-application-actions"
 import { JobCompletionModal } from "./job-completion-modal"
@@ -21,270 +22,310 @@ interface Application {
   status: string
   applied_at: string
   cover_letter?: string
-  contractor_id: string
-  professional_id: string | null
+  contractor_id?: string
+  professional_id?: string | null
+  company_id?: string | null
   contractor_profiles?: any
   professional_profiles?: any
+  company_profiles?: any
 }
 
 interface JobDetailsContentProps {
   job: any
   applications: Application[]
-  homeownerUserId?: string // The homeowner's user_id for messaging
+  homeownerUserId?: string
 }
 
+const STATUS_STYLE: Record<string, string> = {
+  PENDING:        "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  pending:        "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  ACCEPTED:       "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  accepted:       "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  REJECTED:       "bg-red-500/20 text-red-400 border-red-500/30",
+  rejected:       "bg-red-500/20 text-red-400 border-red-500/30",
+  WITHDRAWN:      "bg-slate-500/20 text-slate-400 border-slate-500/30",
+  withdrawn:      "bg-slate-500/20 text-slate-400 border-slate-500/30",
+  reviewed:       "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  REVIEWED:       "bg-blue-500/20 text-blue-400 border-blue-500/30",
+}
+
+const INITIAL_SHOW = 3
+
 export function HomeownerJobDetailsContent({ job, applications, homeownerUserId }: JobDetailsContentProps) {
+  const [expanded, setExpanded]           = useState(false)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
-  const [selectedContractor, setSelectedContractor] = useState<{
-    id: string
-    name: string
-    profileId: string
+  const [selectedContractor, setSelectedContractor]   = useState<{
+    id: string; name: string; profileId: string
   } | null>(null)
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-slate-100 text-slate-800"
-      case "reviewed":
-        return "bg-blue-100 text-blue-800"
-      case "interview":
-        return "bg-purple-100 text-purple-800"
-      case "accepted":
-        return "bg-green-100 text-green-800"
-      case "rejected":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
+  const isJobAccepted  = job.completion_status === "accepted"
+  const isJobCompleted = job.completion_status === "completed"
+  const acceptedContractorId = job.accepted_contractor_id
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
-  }
+  const formatDate = (s: string) =>
+    new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
 
   const formatBudget = (min?: number, max?: number) => {
     if (!min && !max) return undefined
-    if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()}`
+    if (min && max) return `£${min.toLocaleString()}–£${max.toLocaleString()}`
     if (min) return `From £${min.toLocaleString()}`
     if (max) return `Up to £${max.toLocaleString()}`
-    return undefined
   }
 
-  const isJobAccepted = job.completion_status === 'accepted'
-  const isJobCompleted = job.completion_status === 'completed'
-  const acceptedContractorId = job.accepted_contractor_id
-
   const handleMarkComplete = () => {
-    // Find the accepted contractor's details
-    const acceptedApp = applications.find(app => app.contractor_id === acceptedContractorId)
-    if (acceptedApp && acceptedApp.contractor_profiles) {
+    const acceptedApp = applications.find(a => a.contractor_id === acceptedContractorId)
+    if (acceptedApp?.contractor_profiles) {
       setSelectedContractor({
-        id: acceptedApp.contractor_id,
-        name: acceptedApp.contractor_profiles.business_name,
+        id:        acceptedApp.contractor_id!,
+        name:      acceptedApp.contractor_profiles.business_name,
         profileId: acceptedApp.contractor_profiles.id,
       })
       setShowCompletionModal(true)
     }
   }
 
+  // ── Resolve applicant info regardless of profile type ──────────────────
+  const resolveApplicant = (app: Application) => {
+    if (app.company_profiles) {
+      const p = app.company_profiles
+      return {
+        name:      p.company_name || "Company",
+        title:     p.industry     || "Tradesperson",
+        photo:     p.logo_url     || null,
+        location:  p.location     || null,
+        profileId: p.id,
+        userId:    p.user_id,
+        profileUrl: `/companies/${p.id}`,
+        type:      "company" as const,
+        verified:  p.verified,
+      }
+    }
+    if (app.contractor_profiles) {
+      const p = app.contractor_profiles
+      return {
+        name:      p.business_name || "Contractor",
+        title:     p.trade_specialties?.[0] || "Contractor",
+        photo:     p.profile_picture || null,
+        location:  p.location || null,
+        profileId: p.id,
+        userId:    p.user_id,
+        profileUrl: `/contractors/${p.id}`,
+        type:      "contractor" as const,
+        verified:  false,
+      }
+    }
+    if (app.professional_profiles) {
+      const p = app.professional_profiles
+      return {
+        name:      `${p.first_name || ""} ${p.last_name || ""}`.trim() || "Professional",
+        title:     p.title || "Professional",
+        photo:     p.profile_photo_url || null,
+        location:  p.location || null,
+        profileId: p.id,
+        userId:    p.user_id,
+        profileUrl: `/professionals/${p.id}`,
+        type:      "professional" as const,
+        verified:  false,
+      }
+    }
+    return null
+  }
+
+  const visibleApps = expanded ? applications : applications.slice(0, INITIAL_SHOW)
+  const hiddenCount = applications.length - INITIAL_SHOW
+
   return (
     <>
-      {/* Job Completion Status Badge */}
+      {/* ── Job completed banner ── */}
       {isJobCompleted && (
-        <Card className="mb-6 border-green-200 bg-green-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
-              <div>
-                <h3 className="text-sm font-medium text-green-900">Job Completed</h3>
-                <p className="text-sm text-green-700">
-                  This job was completed on {formatDate(job.completed_at)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/25">
+          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-emerald-300">Job Completed</p>
+            <p className="text-xs text-emerald-400/70 mt-0.5">
+              Completed on {formatDate(job.completed_at)}
+            </p>
+          </div>
+        </div>
       )}
 
-      {/* Mark as Completed Button */}
+      {/* ── Contractor accepted — mark complete CTA ── */}
       {isJobAccepted && !isJobCompleted && (
-        <Card className="mb-6 border-blue-200 bg-blue-50">
-          <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium text-blue-900 mb-1">Contractor Accepted</h3>
-                <p className="text-sm text-blue-700">
-                  Once the work is completed, mark this job as complete to finalize it
-                </p>
-              </div>
-              <Button
-                onClick={handleMarkComplete}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Mark as Completed
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <div className="flex items-center justify-between gap-3 p-4 rounded-2xl bg-blue-500/10 border border-blue-500/25">
+          <div>
+            <p className="text-sm font-semibold text-blue-300">Contractor Accepted</p>
+            <p className="text-xs text-blue-400/70 mt-0.5">Mark as complete once the work is done</p>
+          </div>
+          <button
+            onClick={handleMarkComplete}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors flex-shrink-0"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Mark Complete
+          </button>
+        </div>
       )}
 
-      {/* Applications Section */}
-      <Card className="mb-6">
-        <CardHeader>
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-            <FileText className="w-5 h-5 mr-2" />
-            Applications ({applications?.length || 0})
-          </h2>
-        </CardHeader>
-        <CardContent>
-          {!applications || applications.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">No applications yet</h3>
-              <p className="text-sm">
-                When contractors or professionals apply for this job, their applications will appear here.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {applications.map((application: Application) => {
-                // Determine if this is a contractor or professional application
-                const isContractor = !!application.contractor_profiles
-                const profile = isContractor
-                  ? application.contractor_profiles
-                  : application.professional_profiles
+      {/* ── Applications card ── */}
+      <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-700/60">
+          <Users className="w-4 h-4 text-slate-400" />
+          <h2 className="text-sm font-semibold text-slate-200">Applications</h2>
+          {applications.length > 0 && (
+            <span className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+              {applications.length}
+            </span>
+          )}
+        </div>
 
-                if (!profile) return null
+        {applications.length === 0 ? (
+          <div className="px-5 py-10 text-center">
+            <Users className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+            <p className="text-sm font-medium text-slate-400">No applications yet</p>
+            <p className="text-xs text-slate-600 mt-1">
+              When tradespeople apply, they'll appear here.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="divide-y divide-slate-700/50">
+              {visibleApps.map((app) => {
+                const applicant = resolveApplicant(app)
+                if (!applicant) return null
 
-                const applicantName = isContractor
-                  ? profile.business_name
-                  : `${profile.first_name} ${profile.last_name}`
+                const initials = applicant.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2)
 
-                const applicantTitle = isContractor ? profile.trade_specialties?.[0] : profile.title
-
-                const applicantPhoto = isContractor ? profile.profile_picture : profile.profile_photo_url
-
-                const isThisContractorAccepted = acceptedContractorId === application.contractor_id
+                const isAccepted = acceptedContractorId && acceptedContractorId === app.contractor_id
+                const statusStyle = STATUS_STYLE[app.status] ?? "bg-slate-500/20 text-slate-400 border-slate-500/30"
 
                 return (
                   <div
-                    key={application.id}
-                    className={`flex items-start justify-between p-4 border rounded-lg transition-colors ${
-                      isThisContractorAccepted ? 'bg-green-50 border-green-200' : 'hover:bg-gray-50'
-                    }`}
+                    key={app.id}
+                    className={`flex items-start gap-3 px-5 py-4 ${isAccepted ? "bg-emerald-500/5" : ""}`}
                   >
-                    <div className="flex items-start space-x-4 flex-1">
-                      <Avatar className="w-12 h-12">
-                        <AvatarImage src={applicantPhoto} alt={applicantName} />
-                        <AvatarFallback>
-                          {applicantName
-                            .split(" ")
-                            .map((n: string) => n[0])
-                            .join("")
-                            .toUpperCase()
-                            .slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h4 className="font-medium">{applicantName}</h4>
-                          <Badge className={getStatusColor(application.status)}>{application.status}</Badge>
-                          {isContractor && <Badge variant="outline">Contractor</Badge>}
-                          {isThisContractorAccepted && <Badge className="bg-green-600 text-white">Selected</Badge>}
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2">{applicantTitle || "Professional"}</p>
-                        <div className="flex items-center space-x-4 text-xs text-gray-500 mb-2 flex-wrap">
-                          <span className="flex items-center">
-                            <MapPin className="h-3 w-3 mr-1" />
-                            {profile.location || "Location not specified"}
-                          </span>
-                          <span className="flex items-center">
-                            <Calendar className="h-3 w-3 mr-1" />
-                            Applied {formatDate(application.applied_at)}
-                          </span>
-                          {isContractor && profile.experience_years && (
-                            <span className="flex items-center">
-                              <Briefcase className="h-3 w-3 mr-1" />
-                              {profile.experience_years} years experience
-                            </span>
-                          )}
-                          {!isContractor && profile.experience_level && (
-                            <span className="flex items-center">
-                              <Briefcase className="h-3 w-3 mr-1" />
-                              {profile.experience_level}
-                            </span>
-                          )}
-                        </div>
+                    {/* Avatar */}
+                    <Avatar className="h-9 w-9 flex-shrink-0 border border-white/10">
+                      <AvatarImage src={applicant.photo || undefined} alt={applicant.name} />
+                      <AvatarFallback className="bg-slate-700 text-slate-300 text-xs font-semibold">
+                        {initials}
+                      </AvatarFallback>
+                    </Avatar>
 
-                        {/* Skills/Specialties */}
-                        {isContractor && profile.trade_specialties && profile.trade_specialties.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-2">
-                            {profile.trade_specialties.slice(0, 5).map((specialty: string, idx: number) => (
-                              <Badge key={idx} variant="secondary" className="text-xs">
-                                {specialty}
-                              </Badge>
-                            ))}
-                            {profile.trade_specialties.length > 5 && (
-                              <span className="text-xs text-gray-500">
-                                +{profile.trade_specialties.length - 5} more
-                              </span>
-                            )}
-                          </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-white truncate">{applicant.name}</span>
+                        {applicant.verified && (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
                         )}
-
-                        {/* Cover Letter */}
-                        {application.cover_letter && (
-                          <div className="mt-3 p-3 bg-gray-100 rounded-md">
-                            <p className="text-sm font-medium mb-1">Cover Letter:</p>
-                            <p className="text-sm text-gray-700 line-clamp-3">{application.cover_letter}</p>
-                          </div>
+                        {isAccepted && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            Selected
+                          </span>
                         )}
                       </div>
-                    </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex flex-col space-y-2 ml-4">
-                      {isContractor && !isJobCompleted && (
-                        <HomeownerApplicationActions
-                          applicationId={application.id}
-                          contractorId={application.contractor_id}
-                          contractorName={applicantName}
-                          jobId={job.id}
-                          currentStatus={application.status}
-                          isJobAlreadyAccepted={!!acceptedContractorId}
-                          acceptedContractorId={acceptedContractorId}
-                          jobTitle={job.title}
-                          jobBudget={formatBudget(job.budget_min, job.budget_max)}
-                          homeownerUserId={homeownerUserId}
-                        />
+                      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                        <span className="text-xs text-slate-400 truncate">{applicant.title}</span>
+                        {applicant.location && (
+                          <span className="flex items-center gap-0.5 text-xs text-slate-500">
+                            <MapPin className="w-2.5 h-2.5" />
+                            {applicant.location}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-0.5 text-xs text-slate-600">
+                          <Clock className="w-2.5 h-2.5" />
+                          {formatDate(app.applied_at)}
+                        </span>
+                      </div>
+
+                      {/* Cover letter preview */}
+                      {app.cover_letter && (
+                        <p className="mt-1.5 text-xs text-slate-400 line-clamp-2 italic">
+                          "{app.cover_letter}"
+                        </p>
                       )}
-                      <Button size="sm" variant="outline" asChild>
-                        <Link href={`/contractors/${profile.id}`}>
-                          View Profile
+
+                      {/* Actions row */}
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusStyle}`}>
+                          {app.status.toUpperCase()}
+                        </span>
+
+                        <Link
+                          href={applicant.profileUrl}
+                          className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-white border border-white/10 hover:border-white/25 px-2 py-0.5 rounded-full transition-colors"
+                        >
+                          <Building2 className="w-2.5 h-2.5" />
+                          Profile
                         </Link>
-                      </Button>
+
+                        {homeownerUserId && applicant.userId && (
+                          <Link
+                            href={`/messages/new?recipient=${applicant.userId}`}
+                            className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-white border border-white/10 hover:border-white/25 px-2 py-0.5 rounded-full transition-colors"
+                          >
+                            <MessageCircle className="w-2.5 h-2.5" />
+                            Message
+                          </Link>
+                        )}
+
+                        {/* Accept/Reject controls (contractor only, from old system) */}
+                        {app.contractor_id && !isJobCompleted && (
+                          <HomeownerApplicationActions
+                            applicationId={app.id}
+                            contractorId={app.contractor_id}
+                            contractorName={applicant.name}
+                            jobId={job.id}
+                            currentStatus={app.status}
+                            isJobAlreadyAccepted={!!acceptedContractorId}
+                            acceptedContractorId={acceptedContractorId}
+                            jobTitle={job.title}
+                            jobBudget={formatBudget(job.budget_min, job.budget_max)}
+                            homeownerUserId={homeownerUserId}
+                          />
+                        )}
+                      </div>
                     </div>
                   </div>
                 )
               })}
             </div>
-          )}
-        </CardContent>
-      </Card>
+
+            {/* Show more / less toggle */}
+            {applications.length > INITIAL_SHOW && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="w-full flex items-center justify-center gap-1.5 py-3 text-xs font-semibold text-slate-400 hover:text-white border-t border-slate-700/60 hover:bg-slate-700/30 transition-colors"
+              >
+                {expanded ? (
+                  <>
+                    <ChevronUp className="w-3.5 h-3.5" />
+                    Show less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3.5 h-3.5" />
+                    Show {hiddenCount} more applicant{hiddenCount !== 1 ? "s" : ""}
+                  </>
+                )}
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Job Completion Modal */}
       {selectedContractor && (
         <JobCompletionModal
           isOpen={showCompletionModal}
-          onClose={() => {
-            setShowCompletionModal(false)
-            setSelectedContractor(null)
-          }}
+          onClose={() => { setShowCompletionModal(false); setSelectedContractor(null) }}
           jobId={job.id}
           jobTitle={job.title}
           contractorId={selectedContractor.id}

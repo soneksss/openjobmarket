@@ -52,26 +52,38 @@ export async function GET(
       return NextResponse.json({ error: "Not authorized" }, { status: 403 })
     }
 
+    // Use admin client for both queries — job_applications has no SELECT RLS
+    // policy for homeowners, and urgent_job_dispatch_alerts is service_role only.
+    let adminClient: ReturnType<typeof createAdminClient>
+    try {
+      adminClient = createAdminClient()
+    } catch {
+      // Fallback to user client if admin key not configured (dev only)
+      adminClient = supabase as any
+    }
+
     // Fetch PENDING applications from tradespeople (company accounts)
-    const { data: applications } = await supabase
+    const { data: applications, error: appsError } = await adminClient
       .from("job_applications")
       .select(`
-        id, status, created_at, company_id,
-        company_profiles (
-          id, user_id, company_name, logo_url, location, verified
+        id, status, applied_at, company_id, cover_letter,
+        company_profiles!company_id (
+          id, user_id, company_name, logo_url, location, latitude, longitude
         )
       `)
       .eq("job_id", jobId)
       .not("company_id", "is", null)
       .eq("status", "PENDING")
-      .order("created_at", { ascending: false })
+      .order("applied_at", { ascending: false })
 
-    // Notified count — must use admin client because urgent_job_dispatch_alerts
-    // has no RLS SELECT policy for authenticated users (service_role only).
+    if (appsError) {
+      console.error("[URGENT-RESPONSES GET] job_applications query error:", appsError.message, appsError)
+    }
+
+    // Notified count
     let notifiedCount = 0
     try {
-      const admin = createAdminClient()
-      const { count } = await admin
+      const { count } = await adminClient
         .from("urgent_job_dispatch_alerts")
         .select("*", { count: "exact", head: true })
         .eq("job_id", jobId)
@@ -92,9 +104,12 @@ export async function GET(
           review_count:   0,
           distance_miles: 0,
           response_time:  "Just now",
-          verified:       p.verified || false,
+          verified:       false,
           phone:          null,
           type:           "company",
+          message:        app.cover_letter || null,
+          lat:            p.latitude  ?? null,
+          lng:            p.longitude ?? null,
         }
       })
       .filter(Boolean)
@@ -115,7 +130,7 @@ export async function GET(
 
 // POST - Tradesperson applies to an urgent job
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -126,6 +141,13 @@ export async function POST(
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    // Read optional message from body
+    let message: string | undefined
+    try {
+      const body = await request.json()
+      message = typeof body?.message === "string" && body.message.trim() ? body.message.trim() : undefined
+    } catch {}
 
     const { error: applyError } = await supabase.rpc("apply_to_job", { p_job_id: jobId })
 
@@ -162,10 +184,117 @@ export async function POST(
       )
     }
 
+    // ── Store cover letter / message if provided ──────────────────────
+    if (message) {
+      try {
+        const admin = createAdminClient()
+        const { data: cp } = await admin
+          .from("company_profiles")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle()
+        if (cp?.id) {
+          await admin
+            .from("job_applications")
+            .update({ cover_letter: message })
+            .eq("job_id", jobId)
+            .eq("company_id", cp.id)
+        }
+      } catch {}
+    }
+
+    // ── Notify homeowner that a tradesperson applied ──────────────────
+    // Fire-and-forget — never block the response on this
+    notifyHomeownerOfApplication(jobId, user.id).catch((err) =>
+      console.error("[URGENT-RESPONSES POST] Notification error:", err)
+    )
+
     return NextResponse.json({ success: true, message: "Response submitted successfully" })
 
   } catch (error) {
     console.error("[URGENT-RESPONSES POST] Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/* Notify homeowner — uses admin client so it never blocks on RLS             */
+/* ─────────────────────────────────────────────────────────────────────────── */
+async function notifyHomeownerOfApplication(jobId: string, applicantUserId: string) {
+  const admin = createAdminClient()
+
+  // 1. Fetch the job to get homeowner_id + title
+  const { data: job } = await admin
+    .from("jobs")
+    .select("title, homeowner_id, company_id")
+    .eq("id", jobId)
+    .maybeSingle()
+
+  if (!job) return
+
+  // 2. Resolve the homeowner's user_id
+  let homeownerUserId: string | null = null
+  if (job.homeowner_id) {
+    const { data: hp } = await admin
+      .from("homeowner_profiles")
+      .select("user_id")
+      .eq("id", job.homeowner_id)
+      .maybeSingle()
+    homeownerUserId = hp?.user_id ?? null
+  } else if (job.company_id) {
+    const { data: cp } = await admin
+      .from("company_profiles")
+      .select("user_id")
+      .eq("id", job.company_id)
+      .maybeSingle()
+    homeownerUserId = cp?.user_id ?? null
+  }
+
+  if (!homeownerUserId) return
+
+  // 3. Get the tradesperson's display name (company account)
+  let applicantName = "A tradesperson"
+  const { data: cp } = await admin
+    .from("company_profiles")
+    .select("company_name")
+    .eq("user_id", applicantUserId)
+    .maybeSingle()
+  if (cp?.company_name) applicantName = cp.company_name
+
+  // 4. Get the job application ID that was just created
+  //    apply_to_job inserts via company_id (profile ID), not user_id directly
+  const { data: applicantProfile } = await admin
+    .from("company_profiles")
+    .select("id")
+    .eq("user_id", applicantUserId)
+    .maybeSingle()
+
+  let applicationId = jobId // fallback
+  if (applicantProfile?.id) {
+    const { data: application } = await admin
+      .from("job_applications")
+      .select("id")
+      .eq("job_id", jobId)
+      .eq("company_id", applicantProfile.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (application?.id) applicationId = application.id
+  }
+
+  // 5. Insert in-app notification for the homeowner
+  const { error } = await admin.from("notifications").insert({
+    user_id:  homeownerUserId,
+    type:     "job_application",
+    title:    `${applicantName} responded to your job`,
+    message:  `${applicantName} applied for "${job.title}". Tap to review their profile.`,
+    link_url: `/jobs/${jobId}?tab=applications`,
+    is_read:  false,
+  })
+
+  if (error) {
+    console.error("[URGENT-RESPONSES] Failed to insert homeowner notification:", error.message)
+  } else {
+    console.log("[URGENT-RESPONSES] Homeowner notified:", homeownerUserId)
   }
 }

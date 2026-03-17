@@ -55,11 +55,11 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
         location,
         budget_min,
         budget_max,
-        company_profiles (
+        company_profiles!company_id (
           company_name,
           user_id
         ),
-        homeowner_profiles (
+        homeowner_profiles!homeowner_id (
           first_name,
           last_name,
           user_id
@@ -444,7 +444,12 @@ export default async function ApplicationPage({ params }: ApplicationPageProps) 
                 <div className="space-y-2">
                   <div>
                     <h3 className="text-lg font-semibold">{application.jobs.title}</h3>
-                    <p className="text-sm text-muted-foreground">{application.jobs.company_profiles.company_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {application.jobs.company_profiles?.company_name ||
+                        (application.jobs.homeowner_profiles
+                          ? `${application.jobs.homeowner_profiles.first_name} ${application.jobs.homeowner_profiles.last_name}`
+                          : "Unknown")}
+                    </p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center">

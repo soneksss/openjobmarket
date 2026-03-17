@@ -1,6 +1,9 @@
 "use client"
 
-import { useEffect, useState } from "react"
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
+
+import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -53,26 +56,14 @@ const MapSizeHandler = dynamic(
       function MapSizeHandlerComponent() {
         const map = useMap()
 
-        // Fix map size after initial render (for resizable panels)
+        // Single invalidation on mount (300ms gives tiles time to settle)
         useEffect(() => {
+          if (!map) return
           const timer = setTimeout(() => {
-            if (map) {
-              console.log("[JobMap] Invalidating map size to fix tiles")
-              map.invalidateSize()
-            }
-          }, 500)
+            debug("[JobMap] Invalidating map size on mount")
+            map.invalidateSize({ pan: false })
+          }, 300)
           return () => clearTimeout(timer)
-        }, [map])
-
-        // Additional invalidation when map is first ready
-        useEffect(() => {
-          if (map) {
-            const timer = setTimeout(() => {
-              console.log("[JobMap] Force invalidating map size on mount")
-              map.invalidateSize({ pan: false })
-            }, 100)
-            return () => clearTimeout(timer)
-          }
         }, [map])
 
         // Watch for container size changes
@@ -81,7 +72,7 @@ const MapSizeHandler = dynamic(
 
           const container = map.getContainer()
           const resizeObserver = new ResizeObserver(() => {
-            console.log("[JobMap] Container resized, invalidating map size")
+            debug("[JobMap] Container resized, invalidating map size")
             map.invalidateSize()
           })
 
@@ -142,10 +133,10 @@ const JobCenterer = dynamic(
 
             // Only pan if job is not visible, keep current zoom
             if (!isVisible) {
-              console.log("[JobMap] Panning to job location:", jobLocation)
+              debug("[JobMap] Panning to job location:", jobLocation)
               map.panTo(jobLocation, { animate: true, duration: 0.5 })
             } else {
-              console.log("[JobMap] Job already visible, no pan needed")
+              debug("[JobMap] Job already visible, no pan needed")
             }
           }
         }, [map, selectedJob])
@@ -222,7 +213,7 @@ export function JobMap({
     // Load Leaflet if not already loaded
     const loadLeaflet = () => {
       if (typeof window !== 'undefined' && !(window as any).L) {
-        console.log('[JOB-MAP] Leaflet not loaded, loading now...')
+        debug('[JOB-MAP] Leaflet not loaded, loading now...')
 
         // Load Leaflet JS (CSS is loaded inline in the component)
         const script = document.createElement('script')
@@ -230,7 +221,7 @@ export function JobMap({
         script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='
         script.crossOrigin = ''
         script.onload = () => {
-          console.log('[JOB-MAP] Leaflet script loaded successfully')
+          debug('[JOB-MAP] Leaflet script loaded successfully')
           setLeafletLoaded(true)
         }
         script.onerror = () => {
@@ -238,7 +229,7 @@ export function JobMap({
         }
         document.head.appendChild(script)
       } else if ((window as any).L) {
-        console.log('[JOB-MAP] Leaflet already loaded')
+        debug('[JOB-MAP] Leaflet already loaded')
         setLeafletLoaded(true)
       }
     }
@@ -249,13 +240,14 @@ export function JobMap({
   const validCenter: [number, number] =
     center && center[0] && center[1] && !isNaN(center[0]) && !isNaN(center[1]) ? center : defaultCenter
 
-  console.log("[v0] JobMap using center coordinates:", validCenter, "for country:", languageRegionState.country)
+  debug("[v0] JobMap using center coordinates:", validCenter, "for country:", languageRegionState.country)
 
-  const jobsWithCoordinates = jobs.filter(
-    (job) => job.latitude && job.longitude && !isNaN(job.latitude) && !isNaN(job.longitude),
+  const jobsWithCoordinates = useMemo(
+    () => jobs.filter((job) => job.latitude && job.longitude && !isNaN(job.latitude) && !isNaN(job.longitude)),
+    [jobs],
   )
 
-  console.log("[v0] Jobs with valid coordinates:", jobsWithCoordinates.length, "out of", jobs.length)
+  debug("[v0] Jobs with valid coordinates:", jobsWithCoordinates.length, "out of", jobs.length)
 
   const formatSalary = (min?: number, max?: number) => {
     if (!min && !max) return "Salary not specified"

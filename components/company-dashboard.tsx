@@ -26,7 +26,6 @@ import {
   Edit,
   Plus,
   Users,
-  FileText,
   TrendingUp,
   ExternalLink,
   Eye,
@@ -68,7 +67,6 @@ import { AdminButton } from "@/components/admin-button"
 import { StarRating } from "@/components/star-rating"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
-import { JobCentricDashboard } from "@/components/job-centric-dashboard"
 import { DashboardInbox } from "@/components/dashboard-inbox"
 import ActivityTickerCard from "@/components/activity-ticker-card"
 import { JobConfirmationModal, type ConfirmedJobOffer } from "@/components/job-confirmation-modal"
@@ -273,6 +271,19 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
   // Combined for backward compat (mobile counter etc.)
   const activeJobApplications = useMemo(() => [...confirmedJobs, ...awaitingResponseJobs], [confirmedJobs, awaitingResponseJobs])
+
+  // Browse Jobs URL — includes profile coordinates so the map centres on the tradesperson's area
+  const browseJobsUrl = useMemo(() => {
+    const params = new URLSearchParams({ tab: 'jobs_tasks', autoSearch: 'true' })
+    if (profile.latitude != null && profile.longitude != null) {
+      params.set('lat', String(profile.latitude))
+      params.set('lng', String(profile.longitude))
+    }
+    if (profile.location) {
+      params.set('location', profile.location)
+    }
+    return `/?${params.toString()}`
+  }, [profile.latitude, profile.longitude, profile.location])
 
   // Fetch unread messages count and nearby jobs count
   useEffect(() => {
@@ -1119,9 +1130,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           {/* Main Actions */}
           <div className="py-1">
             {[
+              { icon: Map, label: 'Browse Trade Jobs', href: browseJobsUrl, count: undefined },
               { icon: Briefcase, label: 'Active Jobs (Confirmed)', href: '/dashboard/company/my-applications', count: confirmedJobs.length },
               { icon: Clock, label: 'Awaiting Response', href: '/dashboard/company/my-applications', count: awaitingResponseJobs.length },
-              { icon: FileText, label: 'My Job Listings', href: '/dashboard/company/jobs', count: stats.totalJobs },
               { icon: MessageCircle, label: 'Messages', href: '/messages', count: unreadMessagesCount },
             ].map(item => (
               <Link key={item.label} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 transition-colors">
@@ -1130,7 +1141,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   <span className="font-medium text-white">{item.label}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-slate-300">{item.count ?? 0}</span>
+                  {item.count !== undefined && (
+                    <span className="text-sm font-semibold text-slate-300">{item.count}</span>
+                  )}
                   <ChevronRight className="h-5 w-5 text-slate-600" />
                 </div>
               </Link>
@@ -1577,6 +1590,19 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   )}
                 </div>
               </Link>
+
+              {/* Browse trade jobs — takes tradesperson to the jobs_tasks map */}
+              <Link href={browseJobsUrl} className="flex-1">
+                <div className="flex items-center gap-2 px-3 py-2.5 bg-orange-500/20 rounded-xl border border-orange-500/30 hover:bg-orange-500/30 transition-colors cursor-pointer">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-orange-500 text-white">
+                    <Map className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-orange-300">Browse Jobs</div>
+                    <div className="text-xs text-orange-400/80">Find trade work near you</div>
+                  </div>
+                </div>
+              </Link>
             </div>
 
             {/* 1. Active Jobs (Confirmed) */}
@@ -1733,23 +1759,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               <AdminButton />
             </div>
 
-            {/* 3. My Job Listings */}
-            <div className="order-3 lg:order-none space-y-1.5 sm:space-y-4">
-            <JobCentricDashboard
-              jobs={jobs.map(job => ({
-                ...job,
-                description: '',
-                is_active: job.is_active ?? job.status === 'active',
-              }))}
-              ownerId={profile.id}
-              ownerUserId={user.id}
-              userType="company"
-              stats={{
-                totalJobs: stats.totalJobs,
-                activeJobs: stats.activeJobs,
-              }}
-            />
-            </div>
           </div>
         </div>
       </div>

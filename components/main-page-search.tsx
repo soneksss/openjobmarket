@@ -1,5 +1,8 @@
 "use client"
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
+
 import { useState, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -137,6 +140,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
   // Skills-based auto-search (from nav Jobs button)
   const [autoSearchSkillsLabel, setAutoSearchSkillsLabel] = useState<string | null>(null)
+  // Full skills list used as OR conditions in the job query (all user skills, not just first)
+  const autoSearchSkillsListRef = useRef<string[]>([])
+  // Industry/service-based auto-search (preferred over skills when available)
+  const autoSearchIndustryRef  = useRef<string | null>(null)
+  const autoSearchServicesRef  = useRef<string[]>([])
   // Multi-stage fallback: 0=initial skill search, 1=related trade, 2=any nearby, 3=all exhausted
   const autoSearchFallbackStageRef = useRef<number>(0)
   const autoSearchOriginalQueryRef = useRef<string>('')
@@ -155,7 +163,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
   // Debug: Component mount
   useEffect(() => {
-    console.log('[AUTOCOMPLETE] Component mounted, search type:', selectedSearchType)
+    debug('[AUTOCOMPLETE] Component mounted, search type:', selectedSearchType)
   }, [])
 
   // Fetch admin settings for vacancies/jobseekers toggle
@@ -183,7 +191,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
   // Debug: Monitor isSearching state changes
   useEffect(() => {
-    console.log('[MAIN-PAGE-SEARCH] isSearching state changed to:', isSearching)
+    debug('[MAIN-PAGE-SEARCH] isSearching state changed to:', isSearching)
   }, [isSearching])
 
   // Get suggestions - unified list for all search types
@@ -301,11 +309,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
   // Filter suggestions based on search query
   useEffect(() => {
-    console.log('[AUTOCOMPLETE] useEffect running - searchQuery:', searchQuery)
+    debug('[AUTOCOMPLETE] useEffect running - searchQuery:', searchQuery)
 
     // Skip autocomplete if flag is set (e.g., query came from category click)
     if (skipAutocompleteRef.current) {
-      console.log('[AUTOCOMPLETE] Skipping autocomplete - query from external source')
+      debug('[AUTOCOMPLETE] Skipping autocomplete - query from external source')
       skipAutocompleteRef.current = false // Reset the flag
       setShowSuggestions(false)
       setFilteredSuggestions([])
@@ -314,16 +322,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
     if (searchQuery.trim().length >= 1) {
       const suggestions = getSuggestions()
-      console.log('[AUTOCOMPLETE] Total suggestions available:', suggestions.length)
+      debug('[AUTOCOMPLETE] Total suggestions available:', suggestions.length)
       const filtered = suggestions.filter(suggestion =>
         suggestion.toLowerCase().includes(searchQuery.toLowerCase())
       )
-      console.log('[AUTOCOMPLETE] Filtered suggestions:', filtered.length, filtered)
+      debug('[AUTOCOMPLETE] Filtered suggestions:', filtered.length, filtered)
       setFilteredSuggestions(filtered.slice(0, 8)) // Show max 8 suggestions
       setShowSuggestions(filtered.length > 0)
-      console.log('[AUTOCOMPLETE] Setting showSuggestions to:', filtered.length > 0)
+      debug('[AUTOCOMPLETE] Setting showSuggestions to:', filtered.length > 0)
     } else {
-      console.log('[AUTOCOMPLETE] Search query empty, hiding suggestions')
+      debug('[AUTOCOMPLETE] Search query empty, hiding suggestions')
       setShowSuggestions(false)
       setFilteredSuggestions([])
     }
@@ -398,13 +406,6 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             .eq("user_id", user.id)
             .maybeSingle()
           profileData = data
-        } else if (fetchedUserType === 'contractor') {
-          const { data } = await supabase
-            .from("contractor_profiles")
-            .select("id, company_name")
-            .eq("user_id", user.id)
-            .maybeSingle()
-          profileData = data
         }
 
         setUserProfile(profileData)
@@ -462,13 +463,6 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             .eq("user_id", session.user.id)
             .maybeSingle()
           profileData = data
-        } else if (fetchedUserType === 'contractor') {
-          const { data } = await supabase
-            .from("contractor_profiles")
-            .select("id, company_name")
-            .eq("user_id", session.user.id)
-            .maybeSingle()
-          profileData = data
         }
 
         setUserProfile(profileData)
@@ -486,7 +480,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     const tab = searchParams?.get('tab')
     const returnToSearch = searchParams?.get('returnToSearch')
 
-    console.log("[MAIN-PAGE-SEARCH] URL changed, all searchParams:", {
+    debug("[MAIN-PAGE-SEARCH] URL changed, all searchParams:", {
       tab,
       returnToSearch,
       returnQuery: searchParams?.get('returnQuery'),
@@ -503,18 +497,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
       // CRITICAL: Check if we've already processed this exact URL
       if (processedRestorationRef.current === urlSignature) {
-        console.log("[MAIN-PAGE-SEARCH] ⏭️ Restoration already processed for this URL - skipping to prevent loop")
+        debug("[MAIN-PAGE-SEARCH] ⏭️ Restoration already processed for this URL - skipping to prevent loop")
         return // Exit early - already processed
       }
 
-      console.log("[MAIN-PAGE-SEARCH] 🔄 returnToSearch=true detected - forcing restoration (first time for this URL)")
+      debug("[MAIN-PAGE-SEARCH] 🔄 returnToSearch=true detected - forcing restoration (first time for this URL)")
 
       // Mark this URL as processed IMMEDIATELY to prevent re-entry
       processedRestorationRef.current = urlSignature
 
       // CRITICAL: Set restoration flag to skip auth checks
       setIsRestoringSearch(true)
-      console.log("[MAIN-PAGE-SEARCH] 🔒 isRestoringSearch set to TRUE - auth redirects will be skipped")
+      debug("[MAIN-PAGE-SEARCH] 🔒 isRestoringSearch set to TRUE - auth redirects will be skipped")
 
       // Read return params (allow partial - use whatever is available)
       const returnQuery = searchParams?.get('returnQuery')
@@ -523,7 +517,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       const returnLon = searchParams?.get('returnLon')
       const returnRadius = searchParams?.get('returnRadius')
 
-      console.log("[MAIN-PAGE-SEARCH] ✅ Restoring search from job detail return:", {
+      debug("[MAIN-PAGE-SEARCH] ✅ Restoring search from job detail return:", {
         returnQuery,
         returnLocation,
         returnLat,
@@ -551,7 +545,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
       // CRITICAL: Open the map modal
       setShowMapModal(true)
-      console.log("[MAIN-PAGE-SEARCH] 🗺️ Map modal opened")
+      debug("[MAIN-PAGE-SEARCH] 🗺️ Map modal opened")
 
       // Trigger search restoration (even with partial params)
       setRestoreSearch(searchType)
@@ -573,16 +567,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
       // Check if we've already processed this exact URL
       if (processedRestorationRef.current === urlSignature) {
-        console.log("[MAIN-PAGE-SEARCH] ⏭️ AutoSearch already processed - skipping")
+        debug("[MAIN-PAGE-SEARCH] ⏭️ AutoSearch already processed - skipping")
         return
       }
 
-      console.log("[MAIN-PAGE-SEARCH] 🚀 autoSearch=true detected from dashboard")
+      debug("[MAIN-PAGE-SEARCH] 🚀 autoSearch=true detected from dashboard")
       processedRestorationRef.current = urlSignature
 
       // Read search params from dashboard
-      const searchParam = searchParams?.get('search')
-      const skillsParam = searchParams?.get('skills')
+      const searchParam  = searchParams?.get('search')
+      const skillsParam  = searchParams?.get('skills')
+      const industryParam  = searchParams?.get('industry')
+      const servicesParam  = searchParams?.get('services')
       const locationParam = searchParams?.get('location')
       const latParam = searchParams?.get('lat')
       const lngParam = searchParams?.get('lng')
@@ -592,7 +588,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       const urgencyParam = searchParams?.get('urgency')
       const categoryParam = searchParams?.get('category')
 
-      console.log("[MAIN-PAGE-SEARCH] Dashboard search params:", {
+      debug("[MAIN-PAGE-SEARCH] Dashboard search params:", {
         search: searchParam,
         skills: skillsParam,
         location: locationParam,
@@ -606,20 +602,39 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         tab
       })
 
-      // Set the search state
-      // Skills-based nav search: use first skill as query, store all for indicator label
-      if (skillsParam) {
+      // Set the search state — industry/services matching takes priority over legacy skills
+      if (industryParam) {
+        // Industry + service exact matching (preferred)
+        const servicesList = servicesParam ? servicesParam.split(',').map(s => s.trim()).filter(Boolean) : []
+        setSearchQuery("")
+        autoSearchIndustryRef.current  = industryParam
+        autoSearchServicesRef.current  = servicesList
+        autoSearchSkillsListRef.current = []
+        const label = servicesList.length > 0
+          ? `${industryParam} › ${servicesList.slice(0, 2).join(', ')}${servicesList.length > 2 ? ` +${servicesList.length - 2}` : ''}`
+          : industryParam
+        setAutoSearchSkillsLabel(label)
+        autoSearchFallbackStageRef.current = 0
+        autoSearchOriginalQueryRef.current = industryParam
+        setShowNoJobsOverlay(false)
+      } else if (skillsParam) {
+        // Legacy skills-based OR ilike matching
         const skillsList = skillsParam.split(',').map(s => s.trim()).filter(Boolean)
         if (skillsList.length > 0) {
-          setSearchQuery(skillsList[0])
-          setAutoSearchSkillsLabel(skillsList.join(', '))
-          // Reset multi-stage fallback for fresh autoSearch
+          setSearchQuery("")
+          autoSearchIndustryRef.current  = null
+          autoSearchServicesRef.current  = []
+          autoSearchSkillsListRef.current = skillsList
+          setAutoSearchSkillsLabel(skillsList.slice(0, 3).join(', ') + (skillsList.length > 3 ? ` +${skillsList.length - 3} more` : ''))
           autoSearchFallbackStageRef.current = 0
           autoSearchOriginalQueryRef.current = skillsList[0]
           setShowNoJobsOverlay(false)
         }
       } else if (searchParam) {
         setSearchQuery(searchParam)
+        autoSearchIndustryRef.current  = null
+        autoSearchServicesRef.current  = []
+        autoSearchSkillsListRef.current = []
         setAutoSearchSkillsLabel(null)
         autoSearchFallbackStageRef.current = 0
         autoSearchOriginalQueryRef.current = searchParam
@@ -658,9 +673,41 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       // The modal renders with empty data while the search runs, then updates when results arrive.
       setShowMapModal(true)
 
-      // Trigger search after state is set
+      // Trigger search after state is set.
+      // For jobs_tasks: always prefer browser geolocation (actual current position)
+      // over profile coordinates. Profile coords (from URL) are used as fallback
+      // only if geolocation is denied or unavailable.
+      const searchTypeToUse = (tab === 'vacancies' || tab === 'jobs_tasks' || tab === 'talents' || tab === 'traders') ? tab : 'jobs_tasks'
+
       if (latParam && lngParam) {
-        const searchTypeToUse = (tab === 'vacancies' || tab === 'jobs_tasks' || tab === 'talents' || tab === 'traders') ? tab : 'jobs_tasks'
+        // Profile coords in URL — always use them (registered business location takes priority)
+        setSelectedLocation({ lat: parseFloat(latParam), lon: parseFloat(lngParam) })
+        setLocation(locationParam || "")
+        setDistance(radiusParam || "10")
+        setRestoreSearch(searchTypeToUse)
+      } else if (tab === 'jobs_tasks' && typeof navigator !== 'undefined' && navigator.geolocation) {
+        // No profile coords — try browser geolocation as fallback
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setSelectedLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+            setLocation("Near you")
+            setDistance(radiusParam || "25")
+            setRestoreSearch(searchTypeToUse)
+          },
+          () => {
+            // Denied / unavailable — UK-wide fallback
+            setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
+            setLocation("United Kingdom")
+            setDistance("150")
+            setRestoreSearch(searchTypeToUse)
+          },
+          { timeout: 5000, maximumAge: 60000 }
+        )
+      } else {
+        // No coords at all — UK-wide fallback
+        setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
+        setLocation(locationParam || "United Kingdom")
+        setDistance("150")
         setRestoreSearch(searchTypeToUse)
       }
 
@@ -669,10 +716,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
     // Fallback: Old tab-based logic (if no returnToSearch flag)
     if (tab) {
-      console.log("[MAIN-PAGE-SEARCH] Tab parameter detected:", tab)
+      debug("[MAIN-PAGE-SEARCH] Tab parameter detected:", tab)
       if (tab === 'vacancies' || tab === 'jobs_tasks' || tab === 'talents' || tab === 'traders') {
         setSelectedSearchType(tab)
-        console.log("[MAIN-PAGE-SEARCH] Selected search type set to:", tab)
+        debug("[MAIN-PAGE-SEARCH] Selected search type set to:", tab)
       }
     }
   }, [searchParams])
@@ -682,7 +729,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     if (restoreSearch) {
       // Allow restoration with partial params (at minimum, we need location coordinates)
       if (selectedLocation) {
-        console.log("[MAIN-PAGE-SEARCH] State restored, triggering search for:", restoreSearch, {
+        debug("[MAIN-PAGE-SEARCH] State restored, triggering search for:", restoreSearch, {
           hasQuery: !!searchQuery,
           hasLocation: !!location,
           hasCoordinates: !!selectedLocation
@@ -693,10 +740,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         // Clear restoration flag after a short delay to allow search to complete
         setTimeout(() => {
           setIsRestoringSearch(false)
-          console.log("[MAIN-PAGE-SEARCH] 🔓 isRestoringSearch cleared - auth checks re-enabled")
+          debug("[MAIN-PAGE-SEARCH] 🔓 isRestoringSearch cleared - auth checks re-enabled")
         }, 2000)
       } else {
-        console.log("[MAIN-PAGE-SEARCH] ⏳ Waiting for location coordinates to restore search")
+        debug("[MAIN-PAGE-SEARCH] ⏳ Waiting for location coordinates to restore search")
       }
     }
   // Only re-run when restoreSearch or selectedLocation changes.
@@ -811,7 +858,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       const distance = calculateDistance(centerLat, centerLon, item.latitude, item.longitude)
       const withinRadius = distance <= radiusKm
       if (!withinRadius) {
-        console.log(`[RADIUS-FILTER] Excluding item at ${item.latitude},${item.longitude} - distance: ${distance.toFixed(2)}km > radius: ${radiusKm.toFixed(2)}km`)
+        debug(`[RADIUS-FILTER] Excluding item at ${item.latitude},${item.longitude} - distance: ${distance.toFixed(2)}km > radius: ${radiusKm.toFixed(2)}km`)
       }
       return withinRadius
     })
@@ -820,12 +867,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   // Cancel any ongoing search - used when switching search type tabs
   const cancelOngoingSearch = () => {
     if (searchAbortControllerRef.current) {
-      console.log('[MAIN-PAGE-SEARCH] 🛑 Cancelling ongoing search due to tab switch')
+      debug('[MAIN-PAGE-SEARCH] 🛑 Cancelling ongoing search due to tab switch')
       searchAbortControllerRef.current.abort()
       searchAbortControllerRef.current = null
     }
     if (isSearching) {
-      console.log('[MAIN-PAGE-SEARCH] 🔄 Resetting isSearching state')
+      debug('[MAIN-PAGE-SEARCH] 🔄 Resetting isSearching state')
       setIsSearching(false)
       setSearchProgress("")
     }
@@ -841,11 +888,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   }
 
   const validateSearch = () => {
-    console.log(`[VALIDATE-SEARCH] Starting validation for ${selectedSearchType}`)
-    console.log(`[VALIDATE-SEARCH] searchQuery:`, searchQuery)
-    console.log(`[VALIDATE-SEARCH] location:`, location)
-    console.log(`[VALIDATE-SEARCH] selectedLocation:`, selectedLocation)
-    console.log(`[VALIDATE-SEARCH] workLocation:`, workLocation)
+    debug(`[VALIDATE-SEARCH] Starting validation for ${selectedSearchType}`)
+    debug(`[VALIDATE-SEARCH] searchQuery:`, searchQuery)
+    debug(`[VALIDATE-SEARCH] location:`, location)
+    debug(`[VALIDATE-SEARCH] selectedLocation:`, selectedLocation)
+    debug(`[VALIDATE-SEARCH] workLocation:`, workLocation)
 
     // Allow empty search query if filters are selected OR "No experience required" is checked
     const hasVacancyFilters = jobType !== "all" || experienceLevel !== "all" || workLocation !== "all" ||
@@ -855,7 +902,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     const hasTalentFilters = experienceLevel !== "all" || employmentStatus !== "all" || hasCVUploaded ||
                              hasDrivingLicense || hasOwnTransport || willingToRelocate
 
-    console.log(`[VALIDATE-SEARCH] hasTalentFilters:`, hasTalentFilters, {
+    debug(`[VALIDATE-SEARCH] hasTalentFilters:`, hasTalentFilters, {
       experienceLevel,
       employmentStatus,
       hasCVUploaded,
@@ -870,10 +917,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       (selectedSearchType === "traders" && (hasTraderFilters || selectedLocation)) ||
       (selectedSearchType === "talents" && (hasTalentFilters || selectedLocation))
 
-    console.log(`[VALIDATE-SEARCH] canSkipSearchQuery:`, canSkipSearchQuery)
+    debug(`[VALIDATE-SEARCH] canSkipSearchQuery:`, canSkipSearchQuery)
 
     if (!searchQuery.trim() && !canSkipSearchQuery) {
-      console.log(`[VALIDATE-SEARCH] FAILED: No search query and cannot skip`)
+      debug(`[VALIDATE-SEARCH] FAILED: No search query and cannot skip`)
       return t('mainSearch.enterSearchTerm')
     }
 
@@ -883,60 +930,60 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       (selectedSearchType === "jobs_tasks" && workLocation === "remote") ||
       (selectedSearchType === "talents" && distance === "remote")
 
-    console.log(`[VALIDATE-SEARCH] canSkipLocation:`, canSkipLocation, {
+    debug(`[VALIDATE-SEARCH] canSkipLocation:`, canSkipLocation, {
       selectedSearchType,
       workLocation,
       distance
     })
 
     if (!location.trim() && !canSkipLocation) {
-      console.log(`[VALIDATE-SEARCH] FAILED: No location and cannot skip`)
+      debug(`[VALIDATE-SEARCH] FAILED: No location and cannot skip`)
       return t('mainSearch.selectLocation')
     }
     if (!selectedLocation && !canSkipLocation) {
-      console.log(`[VALIDATE-SEARCH] FAILED: No selectedLocation and cannot skip`)
+      debug(`[VALIDATE-SEARCH] FAILED: No selectedLocation and cannot skip`)
       setLocationError(t('mainSearch.selectValidLocation'))
       return t('mainSearch.selectValidLocation')
     }
-    console.log(`[VALIDATE-SEARCH] PASSED: Validation successful`)
+    debug(`[VALIDATE-SEARCH] PASSED: Validation successful`)
     return null
   }
 
   const handleSearch = async (type: "vacancies" | "jobs_tasks" | "talents" | "traders") => {
     const effectiveDistance = distance
 
-    console.log(`[MAIN-PAGE-SEARCH] handleSearch called with type: ${type}, radius: ${effectiveDistance}`)
+    debug(`[MAIN-PAGE-SEARCH] handleSearch called with type: ${type}, radius: ${effectiveDistance}`)
 
     // CRITICAL: Prevent duplicate searches - if search is already running, ignore this call
     if (isSearching) {
-      console.log('[MAIN-PAGE-SEARCH] ⚠️ Search already in progress, ignoring duplicate search request')
+      debug('[MAIN-PAGE-SEARCH] ⚠️ Search already in progress, ignoring duplicate search request')
       return
     }
 
     // Cancel any previous ongoing search
     if (searchAbortControllerRef.current) {
-      console.log('[MAIN-PAGE-SEARCH] 🛑 Cancelling previous search')
+      debug('[MAIN-PAGE-SEARCH] 🛑 Cancelling previous search')
       searchAbortControllerRef.current.abort()
       searchAbortControllerRef.current = null
     }
 
     // Create new AbortController for this search
     searchAbortControllerRef.current = new AbortController()
-    console.log('[MAIN-PAGE-SEARCH] 🔄 Created new AbortController for search')
+    debug('[MAIN-PAGE-SEARCH] 🔄 Created new AbortController for search')
 
     // CRITICAL: Skip auth checks during search restoration or if user is already logged in
     if (isRestoringSearch) {
-      console.log('[MAIN-PAGE-SEARCH] 🔓 Skipping auth check - search restoration in progress')
+      debug('[MAIN-PAGE-SEARCH] 🔓 Skipping auth check - search restoration in progress')
     } else if (user) {
       // User is already logged in, skip the RPC check entirely
-      console.log('[MAIN-PAGE-SEARCH] 🔓 Skipping auth check - user already logged in')
+      debug('[MAIN-PAGE-SEARCH] 🔓 Skipping auth check - user already logged in')
     } else {
       // Check if sign-in is required to search (with caching and timeout)
       try {
         // Check cache first
         const now = Date.now()
         if (signinRequiredCacheRef.current && (now - signinRequiredCacheRef.current.timestamp) < SIGNIN_CACHE_TTL) {
-          console.log('[MAIN-PAGE-SEARCH] Using cached signin requirement:', signinRequiredCacheRef.current.value)
+          debug('[MAIN-PAGE-SEARCH] Using cached signin requirement:', signinRequiredCacheRef.current.value)
           if (signinRequiredCacheRef.current.value && !user) {
             const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
             const isOnBrRoute = pathname?.startsWith('/br')
@@ -947,7 +994,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             return
           }
         } else {
-          console.log('[MAIN-PAGE-SEARCH] Calling is_signin_required_to_search RPC...')
+          debug('[MAIN-PAGE-SEARCH] Calling is_signin_required_to_search RPC...')
 
           // Create a timeout promise that resolves after 2 seconds (reduced from 3s)
           const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
@@ -962,7 +1009,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           const result = await Promise.race([rpcPromise, timeoutPromise])
           const { data: signinRequired, error: signinError } = result
 
-          console.log('[MAIN-PAGE-SEARCH] RPC returned. signinRequired:', signinRequired, 'error:', signinError)
+          debug('[MAIN-PAGE-SEARCH] RPC returned. signinRequired:', signinRequired, 'error:', signinError)
 
           if (signinError) {
             // On error/timeout, cache as "not required" to avoid repeated failures
@@ -974,7 +1021,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             signinRequiredCacheRef.current = { value: signinRequired, timestamp: now }
 
             if (signinRequired && !user) {
-              console.log('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
+              debug('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
               const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
               const isOnBrRoute = pathname?.startsWith('/br')
               const signUpUrl = isOnBrRoute
@@ -985,22 +1032,22 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             }
           }
         }
-        console.log('[MAIN-PAGE-SEARCH] Sign-in check passed, continuing to validation...')
+        debug('[MAIN-PAGE-SEARCH] Sign-in check passed, continuing to validation...')
       } catch (err) {
         console.error('[MAIN-PAGE-SEARCH] Exception checking signin requirement:', err)
         // Continue with search on error (fail open for better UX)
       }
     }
 
-    console.log('[MAIN-PAGE-SEARCH] About to call validateSearch()')
+    debug('[MAIN-PAGE-SEARCH] About to call validateSearch()')
     const error = validateSearch()
-    console.log('[MAIN-PAGE-SEARCH] validateSearch returned:', error)
+    debug('[MAIN-PAGE-SEARCH] validateSearch returned:', error)
     if (error) {
-      console.log(`[MAIN-PAGE-SEARCH] Validation error: ${error}`)
+      debug(`[MAIN-PAGE-SEARCH] Validation error: ${error}`)
       return
     }
 
-    console.log(`[MAIN-PAGE-SEARCH] Starting search for ${type}`)
+    debug(`[MAIN-PAGE-SEARCH] Starting search for ${type}`)
     setIsSearching(true)
     setSearchProgress("Initializing search...")
     setSearchResultCount(0)
@@ -1015,311 +1062,82 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       const radiusMiles = parseInt(effectiveDistance) || 10
 
       if (type === "traders") {
-        console.log(`[MAIN-PAGE-SEARCH] Fetching traders/contractors`)
+        debug(`[MAIN-PAGE-SEARCH] Fetching traders/contractors`)
         setSearchProgress("Searching for traders and contractors...")
-        // Fetch traders: contractors AND self-employed professionals AND companies who trade
-        let contractorResults: any[] = []
+        // Fetch traders: self-employed professionals AND companies (tradespeople)
         let professionalResults: any[] = []
         let companyResults: any[] = []
 
-        // Fetch contractors (primary source for tradespeople)
-        // Always apply a location bounding box to avoid full table scans.
-        // Use selectedLocation if set, otherwise fall back to the current map centre.
-        const contractorLat = selectedLocation?.lat ?? mapCenter[0]
-        const contractorLon = selectedLocation?.lon ?? mapCenter[1]
-        const contractorRadiusMiles = parseInt(effectiveDistance) || 25
-        const contractorRadiusKm = contractorRadiusMiles * 1.60934
-        const contractorLatDelta = contractorRadiusKm / 111.0
-        const contractorLngDelta = contractorRadiusKm / (111.0 * Math.cos(contractorLat * Math.PI / 180))
-
-        let contractorQuery = supabase
-          .from("contractor_profiles")
-          .select("id,user_id,company_name,industry,location,latitude,longitude,services,languages,available_247,logo_url,profile_photo_url,description,bio,website_url,phone_number,company_size,price_list,created_at,average_rating,reviews_count")
-          .not("latitude", "is", null)
-          .not("longitude", "is", null)
-          .gte("latitude", contractorLat - contractorLatDelta)
-          .lte("latitude", contractorLat + contractorLatDelta)
-          .gte("longitude", contractorLon - contractorLngDelta)
-          .lte("longitude", contractorLon + contractorLngDelta)
-
-        if (searchQuery.trim()) {
-          const searchTerm = searchQuery.trim().toLowerCase()
-
-          // Expand search terms with synonyms
-          const searchTerms = [searchTerm]
-          if (searchTerm.includes('builder') || searchTerm.includes('building')) {
-            searchTerms.push('construction')
-          }
-          if (searchTerm.includes('plumber')) {
-            searchTerms.push('plumbing', 'heating')
-          }
-          if (searchTerm.includes('electrician')) {
-            searchTerms.push('electrical')
-          }
-          if (searchTerm.includes('carpenter')) {
-            searchTerms.push('carpentry', 'joinery')
-          }
-
-          // Build OR conditions for all search terms
-          const orConditions = searchTerms.flatMap(term => [
-            `company_name.ilike.%${term}%`,
-            `industry.ilike.%${term}%`
-          ]).join(',')
-
-          contractorQuery = contractorQuery.or(orConditions)
-        }
-
-        // Apply trader filters
-        console.log(`[MAIN-PAGE-SEARCH] Applying trader filters:`, { tradeCategory, availableForBusiness, distance })
-
-        // Trade Category filter
-        if (tradeCategory !== "all") {
-          let categoryValue = tradeCategory
-          if (tradeCategory === "construction") categoryValue = "Construction"
-          if (tradeCategory === "plumbing") categoryValue = "Plumbing"
-          if (tradeCategory === "electrical") categoryValue = "Electrical"
-          if (tradeCategory === "carpentry") categoryValue = "Carpentry"
-          if (tradeCategory === "painting") categoryValue = "Painting"
-          if (tradeCategory === "roofing") categoryValue = "Roofing"
-          if (tradeCategory === "landscaping") categoryValue = "Landscaping"
-
-          console.log(`[MAIN-PAGE-SEARCH] Filtering by industry: ${categoryValue}`)
-          contractorQuery = contractorQuery.ilike("industry", `%${categoryValue}%`)
-        }
-
-        // 24/7 Service filter
-        if (availableForBusiness) {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering by available_247: true`)
-          contractorQuery = contractorQuery.eq("available_247", true)
-        }
-
-        // Language filter for contractors (uses 'languages' column which is text[] array, not JSONB)
-        if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Applying language filter for contractors: ${spokenLanguage}`)
-          // Native text[] array - use contains() method
-          contractorQuery = contractorQuery.contains("languages", [spokenLanguage])
-        }
-
-        // Location bounding box already applied above (always, using mapCenter fallback).
-        // Reduce timeout - with bounded query this should complete much faster.
-        // Add timeout protection to contractor query (8 seconds)
-        const CONTRACTOR_TIMEOUT = 8000
-        console.log(`[MAIN-PAGE-SEARCH] Executing contractor query with ${CONTRACTOR_TIMEOUT/1000}s timeout...`)
-
-        let contractorData: any = null
-        let contractorError: any = null
-
-        try {
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('QUERY_TIMEOUT')), CONTRACTOR_TIMEOUT)
-          )
-
-          const queryPromise = contractorQuery.limit(RESULT_LIMIT + 1)
-          const result = await Promise.race([queryPromise, timeoutPromise])
-          contractorData = result.data
-          contractorError = result.error
-        } catch (err: any) {
-          if (err.message === 'QUERY_TIMEOUT') {
-            console.error(`[MAIN-PAGE-SEARCH] Contractor query timed out after ${CONTRACTOR_TIMEOUT/1000}s`)
-            contractorError = { type: 'timeout', message: 'Query timed out' }
-          } else if (err.message?.includes('fetch') || err.message?.includes('network')) {
-            console.error(`[MAIN-PAGE-SEARCH] Network error:`, err)
-            contractorError = { type: 'network', message: err.message }
-          } else {
-            console.error(`[MAIN-PAGE-SEARCH] Unexpected error:`, err)
-            contractorError = { message: err.message }
-          }
-        }
-
-        if (contractorError) {
-          console.warn(`[MAIN-PAGE-SEARCH] Contractor query error (non-fatal):`, contractorError)
-          // Don't fail the entire search on any contractor error - just skip contractors
-          contractorData = [] // Continue with empty contractor results
-        } else {
-          console.log(`[MAIN-PAGE-SEARCH] Contractor query returned ${contractorData?.length || 0} results`)
-        }
-
-        if (contractorData) {
-          // Apply radius filtering to contractor results
-          let filteredContractors = contractorData.filter(item => item.latitude && item.longitude)
-
-          if (selectedLocation) {
-            const radiusMiles = parseInt(effectiveDistance) || 10
-            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredContractors.length} contractors (${radiusMiles} miles)`)
-            filteredContractors = filterByRadius(filteredContractors, selectedLocation.lat, selectedLocation.lon, radiusMiles)
-            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredContractors.length} contractors`)
-          }
-
-          // Client-side services filter for contractors
-          if (searchQuery.trim() && filteredContractors.length > 0) {
-            const searchTerm = searchQuery.trim().toLowerCase()
-            const searchTerms = [searchTerm]
-
-            // Add synonyms for services search
-            if (searchTerm.includes('plumber')) {
-              searchTerms.push('plumbing', 'heating')
-            }
-            if (searchTerm.includes('gas')) {
-              searchTerms.push('heating', 'boiler')
-            }
-            if (searchTerm.includes('electrician') || searchTerm.includes('electric')) {
-              searchTerms.push('electrical', 'electric')
-            }
-            if (searchTerm.includes('carpenter')) {
-              searchTerms.push('carpentry', 'joinery')
-            }
-
-            console.log(`[SERVICES-DEBUG] === CONTRACTOR SERVICES FILTER ===`)
-            console.log(`[SERVICES-DEBUG] Search terms:`, searchTerms)
-            console.log(`[SERVICES-DEBUG] Contractors before services filter: ${filteredContractors.length}`)
-
-            // Filter contractors by services
-            const contractorsWithMatchingServices = filteredContractors.filter(contractor => {
-              // If contractor has no services, rely on previous company_name/industry match
-              if (!contractor.services || !Array.isArray(contractor.services) || contractor.services.length === 0) {
-                return true
-              }
-
-              // Check if ANY service contains ANY search term (case-insensitive)
-              const hasMatchingService = searchTerms.some(term =>
-                contractor.services.some((service: string) =>
-                  service.toLowerCase().includes(term)
-                )
-              )
-
-              if (hasMatchingService) {
-                console.log(`[SERVICES-DEBUG] Match: ${contractor.company_name} - services:`, contractor.services)
-              }
-
-              return hasMatchingService
-            })
-
-            console.log(`[SERVICES-DEBUG] Contractors after services filter: ${contractorsWithMatchingServices.length}`)
-            console.log(`[SERVICES-DEBUG] === END CONTRACTOR SERVICES FILTER ===`)
-
-            filteredContractors = contractorsWithMatchingServices
-          }
-
-          contractorResults = filteredContractors.map(item => ({
-            ...item,
-            id: item.id,
-            name: item.company_name || 'Contractor',
-            coordinates: {
-              lat: item.latitude!,
-              lon: item.longitude!
-            },
-            type: 'contractor'
-          }))
-        }
+        debug(`[MAIN-PAGE-SEARCH] Applying trader filters:`, { tradeCategory, availableForBusiness, distance })
 
         // Fetch self-employed professionals as well
         // Use inner join with users table to filter out deleted users (orphaned profiles)
+        // Always apply a bounding box — use selectedLocation or fall back to map centre
+        const profLat = selectedLocation?.lat ?? mapCenter[0]
+        const profLon = selectedLocation?.lon ?? mapCenter[1]
+        const profRadiusMiles = parseInt(effectiveDistance) || 25
+        const profRadiusKm = profRadiusMiles * 1.60934
+        const profLatDelta = profRadiusKm / 111.0
+        const profLngDelta = profRadiusKm / (111.0 * Math.cos(profLat * Math.PI / 180))
+
+        // No users!inner join — it caused a full users table scan and 10s timeout
         let profQuery = supabase
           .from("professional_profiles")
-          .select("*, users!inner(id)")
+          .select("*")
           .eq("profile_visible", true)
           .eq("available_for_work", true)
           .eq("is_self_employed", true)
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .gte("latitude", profLat - profLatDelta)
+          .lte("latitude", profLat + profLatDelta)
+          .gte("longitude", profLon - profLngDelta)
+          .lte("longitude", profLon + profLngDelta)
 
         if (searchQuery.trim()) {
-          // Get bilingual search terms for cross-language search
           const searchTerms = getBilingualSearchTerms(searchQuery.trim())
-
-          // Expand with synonyms
           const searchTerm = searchQuery.trim().toLowerCase()
-          if (searchTerm.includes('builder') || searchTerm.includes('building')) {
-            searchTerms.push('construction')
-          }
-          if (searchTerm.includes('plumber')) {
-            searchTerms.push('plumbing', 'heating')
-          }
-          if (searchTerm.includes('electrician')) {
-            searchTerms.push('electrical')
-          }
-          if (searchTerm.includes('carpenter')) {
-            searchTerms.push('carpentry', 'joinery')
-          }
+          if (searchTerm.includes('builder') || searchTerm.includes('building')) searchTerms.push('construction')
+          if (searchTerm.includes('plumber')) searchTerms.push('plumbing', 'heating')
+          if (searchTerm.includes('electrician')) searchTerms.push('electrical')
+          if (searchTerm.includes('carpenter')) searchTerms.push('carpentry', 'joinery')
 
           const orConditions = searchTerms.flatMap(term => [
             `first_name.ilike.%${term}%`,
             `last_name.ilike.%${term}%`,
             `title.ilike.%${term}%`
           ]).join(',')
-
           profQuery = profQuery.or(orConditions)
         }
 
-        // Language filter
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Applying language filter: ${spokenLanguage}`)
-          // Native text[] array - use contains() method
           profQuery = profQuery.contains("spoken_languages", [spokenLanguage])
         }
 
-        // Apply location-based radius filtering
-        if (selectedLocation) {
-          const lat = selectedLocation.lat
-          const lon = selectedLocation.lon
-          const radiusMiles = parseInt(effectiveDistance) || 10
-          const radiusKm = radiusMiles * 1.60934
-          const latDelta = radiusKm / 111.0
-          const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
-
-          profQuery = profQuery
-            .gte("latitude", lat - latDelta)
-            .lte("latitude", lat + latDelta)
-            .gte("longitude", lon - lngDelta)
-            .lte("longitude", lon + lngDelta)
-        }
-
-        // Add timeout protection to professional query (10 seconds)
-        const PROFESSIONAL_TIMEOUT = 10000
-        console.log(`[MAIN-PAGE-SEARCH] Executing professional query with ${PROFESSIONAL_TIMEOUT/1000}s timeout...`)
+        const PROFESSIONAL_TIMEOUT = 5000
+        debug(`[MAIN-PAGE-SEARCH] Executing professional query with ${PROFESSIONAL_TIMEOUT/1000}s timeout...`)
 
         let profData: any = null
-        let profError: any = null
 
         try {
-          const timeoutPromise = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('QUERY_TIMEOUT')), PROFESSIONAL_TIMEOUT)
-          )
-
-          const queryPromise = profQuery.limit(RESULT_LIMIT + 1)
-          const result = await Promise.race([queryPromise, timeoutPromise])
+          const result = await Promise.race([
+            profQuery.limit(RESULT_LIMIT + 1),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('QUERY_TIMEOUT')), PROFESSIONAL_TIMEOUT))
+          ])
           profData = result.data
-          profError = result.error
+          if (result.error) console.warn(`[MAIN-PAGE-SEARCH] Professional query error (non-fatal):`, result.error)
         } catch (err: any) {
-          if (err.message === 'QUERY_TIMEOUT') {
-            console.error(`[MAIN-PAGE-SEARCH] Professional query timed out after ${PROFESSIONAL_TIMEOUT/1000}s`)
-            profError = { type: 'timeout', message: 'Query timed out' }
-          } else if (err.message?.includes('fetch') || err.message?.includes('network')) {
-            console.error(`[MAIN-PAGE-SEARCH] Network error:`, err)
-            profError = { type: 'network', message: err.message }
-          } else {
-            console.error(`[MAIN-PAGE-SEARCH] Unexpected error:`, err)
-            profError = { message: err.message }
-          }
+          // Non-fatal — log and continue to company query
+          console.warn(`[MAIN-PAGE-SEARCH] Professional query failed (non-fatal):`, err.message)
+          profData = []
         }
 
-        if (profError) {
-          console.error(`[MAIN-PAGE-SEARCH] Professional query error:`, profError)
-          if (profError.type === 'timeout' || profError.message?.includes('timeout')) {
-            setSearchError({
-              type: 'timeout',
-              message: t('mainSearch.searchTimeout') || 'Search is taking longer than expected. Please try narrowing your search or try again.'
-            })
-            setIsSearching(false)
-            setSearchProgress("")
-            return
-          }
-        } else {
-          console.log(`[MAIN-PAGE-SEARCH] Professional query returned ${profData?.length || 0} results`)
-        }
+        debug(`[MAIN-PAGE-SEARCH] Professional query returned ${profData?.length || 0} results`)
 
         if (profData) {
           // DEBUG: Log first professional's language data
           if (profData.length > 0) {
-            console.log(`[LANGUAGE-DEBUG] First professional:`, {
+            debug(`[LANGUAGE-DEBUG] First professional:`, {
               name: profData[0].first_name,
               spoken_languages: profData[0].spoken_languages,
               type: typeof profData[0].spoken_languages,
@@ -1332,20 +1150,20 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
           if (selectedLocation) {
             const radiusMiles = parseInt(effectiveDistance) || 10
-            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredProfessionals.length} professionals (${radiusMiles} miles)`)
+            debug(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredProfessionals.length} professionals (${radiusMiles} miles)`)
             filteredProfessionals = filterByRadius(filteredProfessionals, selectedLocation.lat, selectedLocation.lon, radiusMiles)
-            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredProfessionals.length} professionals`)
+            debug(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredProfessionals.length} professionals`)
           }
 
           // Client-side language filter with detailed logging
           if (spokenLanguage && spokenLanguage !== "all") {
-            console.log(`[LANGUAGE-DEBUG] === STARTING LANGUAGE FILTER ===`)
-            console.log(`[LANGUAGE-DEBUG] Selected language: "${spokenLanguage}"`)
-            console.log(`[LANGUAGE-DEBUG] Total before filter: ${filteredProfessionals.length}`)
+            debug(`[LANGUAGE-DEBUG] === STARTING LANGUAGE FILTER ===`)
+            debug(`[LANGUAGE-DEBUG] Selected language: "${spokenLanguage}"`)
+            debug(`[LANGUAGE-DEBUG] Total before filter: ${filteredProfessionals.length}`)
 
             // Sample first 5 professionals
             filteredProfessionals.slice(0, 5).forEach((item, idx) => {
-              console.log(`[LANGUAGE-DEBUG] Professional ${idx + 1}:`, {
+              debug(`[LANGUAGE-DEBUG] Professional ${idx + 1}:`, {
                 name: item.first_name,
                 languages: item.spoken_languages
               })
@@ -1355,8 +1173,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               const languages = item.spoken_languages || []
               return Array.isArray(languages) && languages.includes(spokenLanguage)
             })
-            console.log(`[LANGUAGE-DEBUG] After filter: ${filteredProfessionals.length} professionals`)
-            console.log(`[LANGUAGE-DEBUG] === END LANGUAGE FILTER ===`)
+            debug(`[LANGUAGE-DEBUG] After filter: ${filteredProfessionals.length} professionals`)
+            debug(`[LANGUAGE-DEBUG] === END LANGUAGE FILTER ===`)
           }
 
           professionalResults = filteredProfessionals.map(item => ({
@@ -1371,65 +1189,46 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           }))
         }
 
-        // Fetch companies who trade (open_for_business)
+        // Fetch companies who trade — always apply bounding box using selectedLocation or map centre
+        const compLat = selectedLocation?.lat ?? mapCenter[0]
+        const compLon = selectedLocation?.lon ?? mapCenter[1]
+        const compRadiusMiles = parseInt(effectiveDistance) || 25
+        const compRadiusKm = compRadiusMiles * 1.60934
+        const compLatDelta = compRadiusKm / 111.0
+        const compLngDelta = compRadiusKm / (111.0 * Math.cos(compLat * Math.PI / 180))
+
         let companyQuery = supabase
           .from("company_profiles")
           .select("*")
-          .eq("open_for_business", true)
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .gte("latitude", compLat - compLatDelta)
+          .lte("latitude", compLat + compLatDelta)
+          .gte("longitude", compLon - compLngDelta)
+          .lte("longitude", compLon + compLngDelta)
 
         if (searchQuery.trim()) {
           const searchTerm = searchQuery.trim().toLowerCase()
-
-          // Expand search terms with synonyms
           const searchTerms = [searchTerm]
-          if (searchTerm.includes('builder') || searchTerm.includes('building')) {
-            searchTerms.push('construction')
-          }
-          if (searchTerm.includes('plumber')) {
-            searchTerms.push('plumbing', 'heating')
-          }
-          if (searchTerm.includes('electrician')) {
-            searchTerms.push('electrical')
-          }
-          if (searchTerm.includes('carpenter')) {
-            searchTerms.push('carpentry', 'joinery')
-          }
+          if (searchTerm.includes('builder') || searchTerm.includes('building')) searchTerms.push('construction')
+          if (searchTerm.includes('plumber')) searchTerms.push('plumbing', 'heating')
+          if (searchTerm.includes('electrician')) searchTerms.push('electrical')
+          if (searchTerm.includes('carpenter')) searchTerms.push('carpentry', 'joinery')
 
-          // Build OR conditions for all search terms
           const orConditions = searchTerms.flatMap(term => [
             `company_name.ilike.%${term}%`,
             `industry.ilike.%${term}%`
           ]).join(',')
-
           companyQuery = companyQuery.or(orConditions)
         }
 
-        // Language filter for companies
-        // NOTE: company_profiles.spoken_languages is JSONB, not text[]
-        // Skip server-side filter for JSONB - will filter client-side instead for reliability
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Language filter for companies will be applied client-side (JSONB column)`)
-        }
-
-        // Apply location-based radius filtering
-        if (selectedLocation) {
-          const lat = selectedLocation.lat
-          const lon = selectedLocation.lon
-          const radiusMiles = parseInt(effectiveDistance) || 10
-          const radiusKm = radiusMiles * 1.60934
-          const latDelta = radiusKm / 111.0
-          const lngDelta = radiusKm / (111.0 * Math.cos(lat * Math.PI / 180))
-
-          companyQuery = companyQuery
-            .gte("latitude", lat - latDelta)
-            .lte("latitude", lat + latDelta)
-            .gte("longitude", lon - lngDelta)
-            .lte("longitude", lon + lngDelta)
+          companyQuery = companyQuery.contains("spoken_languages", [spokenLanguage])
         }
 
         // Add timeout protection to company query (10 seconds)
         const COMPANY_TIMEOUT = 10000
-        console.log(`[MAIN-PAGE-SEARCH] Executing company query with ${COMPANY_TIMEOUT/1000}s timeout...`)
+        debug(`[MAIN-PAGE-SEARCH] Executing company query with ${COMPANY_TIMEOUT/1000}s timeout...`)
 
         let companyData: any = null
         let companyError: any = null
@@ -1476,62 +1275,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           // Don't return on non-timeout errors - continue with empty company results
           companyData = []
         } else {
-          console.log(`[MAIN-PAGE-SEARCH] Company query returned ${companyData?.length || 0} results`)
+          debug(`[MAIN-PAGE-SEARCH] Company query returned ${companyData?.length || 0} results`)
         }
 
         if (companyData) {
-          // DEBUG: Log first company's language data
-          if (companyData.length > 0) {
-            console.log(`[LANGUAGE-DEBUG] First company:`, {
-              name: companyData[0].company_name,
-              spoken_languages: companyData[0].spoken_languages,
-              type: typeof companyData[0].spoken_languages,
-              isArray: Array.isArray(companyData[0].spoken_languages)
-            })
-          }
-
           // Apply radius filtering to company results
           let filteredCompanies = companyData.filter(item => item.latitude && item.longitude)
 
           if (selectedLocation) {
             const radiusMiles = parseInt(effectiveDistance) || 10
-            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredCompanies.length} companies (${radiusMiles} miles)`)
+            debug(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredCompanies.length} companies (${radiusMiles} miles)`)
             filteredCompanies = filterByRadius(filteredCompanies, selectedLocation.lat, selectedLocation.lon, radiusMiles)
-            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredCompanies.length} companies`)
-          }
-
-          // Client-side language filter for companies
-          // NOTE: company_profiles.spoken_languages is JSONB, may come as array or need parsing
-          if (spokenLanguage && spokenLanguage !== "all") {
-            console.log(`[LANGUAGE-DEBUG] === COMPANY LANGUAGE FILTER (JSONB) ===`)
-            console.log(`[LANGUAGE-DEBUG] Selected language: "${spokenLanguage}"`)
-            console.log(`[LANGUAGE-DEBUG] Companies before filter: ${filteredCompanies.length}`)
-
-            filteredCompanies.slice(0, 3).forEach((item, idx) => {
-              console.log(`[LANGUAGE-DEBUG] Company ${idx + 1}:`, {
-                name: item.company_name,
-                languages: item.spoken_languages,
-                type: typeof item.spoken_languages
-              })
-            })
-
-            filteredCompanies = filteredCompanies.filter(item => {
-              let languages = item.spoken_languages
-
-              // Handle JSONB - might come as string, array, or null
-              if (!languages) return false
-              if (typeof languages === 'string') {
-                try {
-                  languages = JSON.parse(languages)
-                } catch {
-                  return false
-                }
-              }
-
-              return Array.isArray(languages) && languages.includes(spokenLanguage)
-            })
-            console.log(`[LANGUAGE-DEBUG] Companies after filter: ${filteredCompanies.length}`)
-            console.log(`[LANGUAGE-DEBUG] === END COMPANY FILTER ===`)
+            debug(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredCompanies.length} companies`)
           }
 
           // Client-side services filter for companies
@@ -1553,9 +1308,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               searchTerms.push('carpentry', 'joinery')
             }
 
-            console.log(`[SERVICES-DEBUG] === COMPANY SERVICES FILTER ===`)
-            console.log(`[SERVICES-DEBUG] Search terms:`, searchTerms)
-            console.log(`[SERVICES-DEBUG] Companies before services filter: ${filteredCompanies.length}`)
+            debug(`[SERVICES-DEBUG] === COMPANY SERVICES FILTER ===`)
+            debug(`[SERVICES-DEBUG] Search terms:`, searchTerms)
+            debug(`[SERVICES-DEBUG] Companies before services filter: ${filteredCompanies.length}`)
 
             // Filter companies by services
             const companiesWithMatchingServices = filteredCompanies.filter(company => {
@@ -1573,14 +1328,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               )
 
               if (hasMatchingService) {
-                console.log(`[SERVICES-DEBUG] Match: ${company.company_name} - services:`, company.services)
+                debug(`[SERVICES-DEBUG] Match: ${company.company_name} - services:`, company.services)
               }
 
               return hasMatchingService
             })
 
-            console.log(`[SERVICES-DEBUG] Companies after services filter: ${companiesWithMatchingServices.length}`)
-            console.log(`[SERVICES-DEBUG] === END SERVICES FILTER ===`)
+            debug(`[SERVICES-DEBUG] Companies after services filter: ${companiesWithMatchingServices.length}`)
+            debug(`[SERVICES-DEBUG] === END SERVICES FILTER ===`)
 
             filteredCompanies = companiesWithMatchingServices
           }
@@ -1598,15 +1353,15 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         }
 
         // Combine all results
-        console.log(`[MAIN-PAGE-SEARCH] Combining trader results: contractors=${contractorResults.length}, professionals=${professionalResults.length}, companies=${companyResults.length}`)
-        results = [...contractorResults, ...professionalResults, ...companyResults]
-        console.log(`[MAIN-PAGE-SEARCH] Total trader results: ${results.length}`)
+        debug(`[MAIN-PAGE-SEARCH] Combining trader results: professionals=${professionalResults.length}, companies=${companyResults.length}`)
+        results = [...professionalResults, ...companyResults]
+        debug(`[MAIN-PAGE-SEARCH] Total trader results: ${results.length}`)
         setSearchProgress(`Found ${results.length} traders...`)
         setSearchResultCount(results.length)
       } else if (type === "talents") {
-        console.log(`[MAIN-PAGE-SEARCH] Fetching talents/professionals`)
+        debug(`[MAIN-PAGE-SEARCH] Fetching talents/professionals`)
         setSearchProgress("Searching for talented professionals...")
-        console.log(`[MAIN-PAGE-SEARCH] Search query:`, searchQuery, `Location:`, location, `selectedLocation:`, selectedLocation)
+        debug(`[MAIN-PAGE-SEARCH] Search query:`, searchQuery, `Location:`, location, `selectedLocation:`, selectedLocation)
         // Fetch all professionals (not just self-employed)
         // Use inner join with users table to filter out deleted users (orphaned profiles)
         let query = supabase
@@ -1615,12 +1370,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           .eq("profile_visible", true)
           .eq("available_for_work", true)
 
-        console.log(`[MAIN-PAGE-SEARCH] Initial query built for talents`)
+        debug(`[MAIN-PAGE-SEARCH] Initial query built for talents`)
 
         if (searchQuery.trim()) {
           // Get bilingual search terms (e.g., "architect" + "arquiteto")
           const searchTerms = getBilingualSearchTerms(searchQuery.trim())
-          console.log(`[MAIN-PAGE-SEARCH] Bilingual search terms:`, searchTerms)
+          debug(`[MAIN-PAGE-SEARCH] Bilingual search terms:`, searchTerms)
 
           // Build OR conditions for each search term variant
           const orConditions = searchTerms.flatMap(term => [
@@ -1634,17 +1389,17 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         }
 
         // Apply talent filters
-        console.log(`[MAIN-PAGE-SEARCH] Applying talent filters:`, { experienceLevel, employmentStatus, hasCVUploaded, hasDrivingLicense, hasOwnTransport, willingToRelocate })
+        debug(`[MAIN-PAGE-SEARCH] Applying talent filters:`, { experienceLevel, employmentStatus, hasCVUploaded, hasDrivingLicense, hasOwnTransport, willingToRelocate })
 
         // Experience Level filter
         if (experienceLevel !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering by experience_level: ${experienceLevel}`)
+          debug(`[MAIN-PAGE-SEARCH] Filtering by experience_level: ${experienceLevel}`)
           query = query.eq("experience_level", experienceLevel)
         }
 
         // Employment Status filter
         if (employmentStatus !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering by employment_status: ${employmentStatus}`)
+          debug(`[MAIN-PAGE-SEARCH] Filtering by employment_status: ${employmentStatus}`)
           if (employmentStatus === "self-employed") {
             query = query.eq("is_self_employed", true)
           } else {
@@ -1654,32 +1409,32 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
         // Has CV uploaded filter
         if (hasCVUploaded) {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering by has CV uploaded`)
+          debug(`[MAIN-PAGE-SEARCH] Filtering by has CV uploaded`)
           // Note: CV is stored in separate cvs table, we'll filter this in post-processing
           // or we need to join with cvs table
         }
 
         // Has driving license filter
         if (hasDrivingLicense) {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering by has_driving_licence: true`)
+          debug(`[MAIN-PAGE-SEARCH] Filtering by has_driving_licence: true`)
           query = query.eq("has_driving_licence", true)
         }
 
         // Has own transport filter
         if (hasOwnTransport) {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering by has_own_transport: true`)
+          debug(`[MAIN-PAGE-SEARCH] Filtering by has_own_transport: true`)
           query = query.eq("has_own_transport", true)
         }
 
         // Willing to relocate filter
         if (willingToRelocate) {
-          console.log(`[MAIN-PAGE-SEARCH] Filtering by ready_to_relocate: true`)
+          debug(`[MAIN-PAGE-SEARCH] Filtering by ready_to_relocate: true`)
           query = query.eq("ready_to_relocate", true)
         }
 
         // Language filter
         if (spokenLanguage && spokenLanguage !== "all") {
-          console.log(`[MAIN-PAGE-SEARCH] Applying language filter for talents: ${spokenLanguage}`)
+          debug(`[MAIN-PAGE-SEARCH] Applying language filter for talents: ${spokenLanguage}`)
           // Native text[] array - use contains() method
           query = query.contains("spoken_languages", [spokenLanguage])
         }
@@ -1691,7 +1446,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           const radiusMiles = parseInt(effectiveDistance) || 10
           const radiusKm = radiusMiles * 1.60934 // Convert miles to km
 
-          console.log(`[MAIN-PAGE-SEARCH] Applying location filter: ${radiusMiles} miles radius`)
+          debug(`[MAIN-PAGE-SEARCH] Applying location filter: ${radiusMiles} miles radius`)
 
           // Use bounding box approximation for radius search
           const latDelta = radiusKm / 111.0 // Rough conversion: 1 degree ≈ 111 km
@@ -1705,7 +1460,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             .lte("longitude", lon + lngDelta)
         }
 
-        console.log(`[MAIN-PAGE-SEARCH] Executing talents query...`)
+        debug(`[MAIN-PAGE-SEARCH] Executing talents query...`)
 
         // Add specific ordering to help with query performance
         query = query.order('created_at', { ascending: false })
@@ -1738,7 +1493,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           }
         }
 
-        console.log(`[MAIN-PAGE-SEARCH] Query executed. Error:`, error, `Data count:`, data?.length)
+        debug(`[MAIN-PAGE-SEARCH] Query executed. Error:`, error, `Data count:`, data?.length)
 
         if (error) {
           console.warn(`[MAIN-PAGE-SEARCH] Error fetching talents:`, error)
@@ -1763,11 +1518,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         }
 
         if (!error && data) {
-          console.log(`[MAIN-PAGE-SEARCH] Raw talents data:`, data)
+          debug(`[MAIN-PAGE-SEARCH] Raw talents data:`, data)
 
           // DEBUG: Log first talent's language data
           if (data.length > 0) {
-            console.log(`[LANGUAGE-DEBUG] First talent:`, {
+            debug(`[LANGUAGE-DEBUG] First talent:`, {
               name: data[0].first_name,
               spoken_languages: data[0].spoken_languages,
               type: typeof data[0].spoken_languages,
@@ -1780,19 +1535,19 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
           if (selectedLocation && distance !== "remote") {
             const radiusMiles = parseInt(effectiveDistance) || 10
-            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredTalents.length} talents (${radiusMiles} miles)`)
+            debug(`[MAIN-PAGE-SEARCH] Applying radius filter to ${filteredTalents.length} talents (${radiusMiles} miles)`)
             filteredTalents = filterByRadius(filteredTalents, selectedLocation.lat, selectedLocation.lon, radiusMiles)
-            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredTalents.length} talents`)
+            debug(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredTalents.length} talents`)
           }
 
           // Client-side language filter for talents
           if (spokenLanguage && spokenLanguage !== "all") {
-            console.log(`[LANGUAGE-DEBUG] === TALENTS LANGUAGE FILTER ===`)
-            console.log(`[LANGUAGE-DEBUG] Selected language: "${spokenLanguage}"`)
-            console.log(`[LANGUAGE-DEBUG] Talents before filter: ${filteredTalents.length}`)
+            debug(`[LANGUAGE-DEBUG] === TALENTS LANGUAGE FILTER ===`)
+            debug(`[LANGUAGE-DEBUG] Selected language: "${spokenLanguage}"`)
+            debug(`[LANGUAGE-DEBUG] Talents before filter: ${filteredTalents.length}`)
 
             filteredTalents.slice(0, 5).forEach((item, idx) => {
-              console.log(`[LANGUAGE-DEBUG] Talent ${idx + 1}:`, {
+              debug(`[LANGUAGE-DEBUG] Talent ${idx + 1}:`, {
                 name: item.first_name,
                 languages: item.spoken_languages
               })
@@ -1802,8 +1557,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               const languages = item.spoken_languages || []
               return Array.isArray(languages) && languages.includes(spokenLanguage)
             })
-            console.log(`[LANGUAGE-DEBUG] Talents after filter: ${filteredTalents.length}`)
-            console.log(`[LANGUAGE-DEBUG] === END TALENTS FILTER ===`)
+            debug(`[LANGUAGE-DEBUG] Talents after filter: ${filteredTalents.length}`)
+            debug(`[LANGUAGE-DEBUG] === END TALENTS FILTER ===`)
           }
 
           // Transform data to match ProfessionalMap expected format
@@ -1819,12 +1574,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               lon: item.longitude!
             }
           }))
-          console.log(`[MAIN-PAGE-SEARCH] Filtered/transformed talents results:`, results.length, `items`)
+          debug(`[MAIN-PAGE-SEARCH] Filtered/transformed talents results:`, results.length, `items`)
           setSearchProgress(`Found ${results.length} professionals...`)
           setSearchResultCount(results.length)
         }
       } else if (type === "vacancies" || type === "jobs_tasks") {
-        console.log(`[MAIN-PAGE-SEARCH] Fetching jobs/vacancies, is_tradespeople_job=${type === "jobs_tasks"}`)
+        debug(`[MAIN-PAGE-SEARCH] Fetching jobs/vacancies, is_tradespeople_job=${type === "jobs_tasks"}`)
         setSearchProgress(type === "jobs_tasks" ? "Searching for trade jobs..." : "Searching for job vacancies...")
         // Fetch jobs - exclude expired ones
         // Vacancies = employee positions (is_tradespeople_job = false)
@@ -1835,7 +1590,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           .from("jobs")
           .select(`
             *,
-            company_profiles (
+            company_profiles!company_id (
               id,
               company_name,
               location,
@@ -1843,7 +1598,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               logo_url,
               user_id
             ),
-            homeowner_profiles (
+            homeowner_profiles!homeowner_id (
               id,
               user_id,
               first_name,
@@ -1853,42 +1608,42 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               reviews_count
             )
           `)
-          .eq("status", "open") // Only show open jobs (not accepted, in_progress, completed, or failed)
+          .eq("status", "POSTED") // Only show jobs open for applications
           .eq("is_active", true)
           .eq("is_tradespeople_job", type === "jobs_tasks") // true for jobs/tasks, false for vacancies
           .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
 
         // Apply filters for vacancies (regular jobs)
         if (type === "vacancies") {
-          console.log(`[MAIN-PAGE-SEARCH] Applying vacancy filters:`, { jobType, experienceLevel, workLocation, noExperienceRequired, salaryRange })
+          debug(`[MAIN-PAGE-SEARCH] Applying vacancy filters:`, { jobType, experienceLevel, workLocation, noExperienceRequired, salaryRange })
 
           // Job Type filter
           if (jobType !== "all") {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by job_type: ${jobType}`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by job_type: ${jobType}`)
             query = query.eq("job_type", jobType)
           }
 
           // Experience Level filter
           if (experienceLevel !== "all") {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by experience_level: ${experienceLevel}`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by experience_level: ${experienceLevel}`)
             query = query.eq("experience_level", experienceLevel)
           }
 
           // Work Location filter
           if (workLocation !== "all") {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by work_location: ${workLocation}`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by work_location: ${workLocation}`)
             query = query.eq("work_location", workLocation)
           }
 
           // No Experience Required filter
           if (noExperienceRequired) {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by no_experience_required: true`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by no_experience_required: true`)
             query = query.eq("no_experience_required", true)
           }
 
           // Driving License Required filter
           if (drivingLicenseRequired) {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by driving license required`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by driving license required`)
             // Filter for jobs where requirements array contains driving license
             // Using OR to match common variations
             query = query.or('requirements.cs.{"Driving License (Full UK)"},requirements.cs.{"Driving License"},requirements.cs.{"Driver\'s License"},requirements.cs.{"Full UK Driving License"}')
@@ -1896,14 +1651,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
           // Own Transport Required filter
           if (ownTransportRequired) {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by own transport required`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by own transport required`)
             // Filter for jobs where requirements array contains own vehicle/transport
             query = query.or('requirements.cs.{"Own Vehicle"},requirements.cs.{"Own Transport"},requirements.cs.{"Own Tools/Equipment"}')
           }
 
           // Salary Range filter
           if (salaryRange !== "all") {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by salary range: ${salaryRange}`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by salary range: ${salaryRange}`)
             switch (salaryRange) {
               case "0-30k":
                 query = query.lte("budget_max", 30000)
@@ -1926,39 +1681,38 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
         // Apply filters for trade jobs
         if (type === "jobs_tasks") {
-          console.log(`[MAIN-PAGE-SEARCH] Applying trade job filters:`, { tradeCategory, urgency, budgetRange, tradeJobType })
+          debug(`[MAIN-PAGE-SEARCH] Applying trade job filters:`, { tradeCategory, urgency, budgetRange, tradeJobType })
 
-          // Trade Category filter
+          // Trade Category filter — uses industry column (ilike for broad matching)
           if (tradeCategory !== "all") {
-            // Map filter values to actual category values
-            let categoryValue = tradeCategory
-            if (tradeCategory === "construction") categoryValue = "Construction"
-            if (tradeCategory === "plumbing") categoryValue = "Plumbing"
-            if (tradeCategory === "electrical") categoryValue = "Electrical"
-            if (tradeCategory === "carpentry") categoryValue = "Carpentry"
-            if (tradeCategory === "painting") categoryValue = "Painting & Decorating"
-            if (tradeCategory === "roofing") categoryValue = "Roofing"
-            if (tradeCategory === "landscaping") categoryValue = "Gardening"
+            let industryKeyword = tradeCategory
+            if (tradeCategory === "construction") industryKeyword = "Construction"
+            if (tradeCategory === "plumbing")     industryKeyword = "Plumbing"
+            if (tradeCategory === "electrical")   industryKeyword = "Electrical"
+            if (tradeCategory === "carpentry")    industryKeyword = "Construction"   // Carpentry is under Construction & Renovation
+            if (tradeCategory === "painting")     industryKeyword = "Construction"   // Painting is under Construction & Renovation
+            if (tradeCategory === "roofing")      industryKeyword = "Construction"   // Roofing is under Construction & Renovation
+            if (tradeCategory === "landscaping")  industryKeyword = "Landscap"
 
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by category: ${categoryValue}`)
-            query = query.eq("category", categoryValue)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by industry keyword: ${industryKeyword}`)
+            query = query.or(`industry.ilike.%${industryKeyword}%,category.ilike.%${industryKeyword}%`)
           }
 
           // Urgency filter
           if (urgency !== "all") {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by urgency: ${urgency}`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by urgency: ${urgency}`)
             query = query.eq("urgency", urgency)
           }
 
           // Job Type filter
           if (tradeJobType !== "all") {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by job_type: ${tradeJobType}`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by job_type: ${tradeJobType}`)
             query = query.eq("job_type", tradeJobType)
           }
 
           // Budget Range filter
           if (budgetRange !== "all") {
-            console.log(`[MAIN-PAGE-SEARCH] Filtering by budget range: ${budgetRange}`)
+            debug(`[MAIN-PAGE-SEARCH] Filtering by budget range: ${budgetRange}`)
             switch (budgetRange) {
               case "0-500":
                 query = query.lte("budget_max", 500)
@@ -1996,8 +1750,38 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           )
         }
 
-        if (searchQuery.trim()) {
-          console.log(`[MAIN-PAGE-SEARCH] Applying search filter: ${searchQuery.trim()}`)
+        // Industry/service exact matching (takes highest priority)
+        const autoIndustry  = autoSearchIndustryRef.current
+        const autoServices  = autoSearchServicesRef.current
+        const profileSkillsList = autoSearchSkillsListRef.current
+        if (autoIndustry) {
+          debug(`[MAIN-PAGE-SEARCH] Industry filter: ${autoIndustry}, services: ${autoServices}`)
+          // Use ilike with first meaningful keyword so tradesperson profiles with broad industry
+          // names (e.g. "Electrical & Electronic Engineering") match simplified job industry names
+          // (e.g. "Electrical"). Split on spaces, &, commas; take first word > 3 chars.
+          const industryKeyword = autoIndustry.split(/[\s&,/]+/).find(w => w.length > 3) || autoIndustry
+          query = query.ilike("industry", `%${industryKeyword}%`)
+          if (autoServices.length > 0) {
+            // Show jobs whose service matches one of the tradesperson's services, OR has no service (null)
+            const serviceOrParts = autoServices.map(s => `service.eq.${s}`).join(',')
+            query = query.or(`${serviceOrParts},service.is.null`)
+          }
+          // If no services: show all jobs in this industry (no service filter)
+        } else if (profileSkillsList.length > 0) {
+          // Legacy skills-based OR ilike filter
+          debug(`[MAIN-PAGE-SEARCH] Applying skills-based filter for ${profileSkillsList.length} skills`)
+          const orConditions = profileSkillsList.flatMap(skill => {
+            const t = skill.toLowerCase()
+            return [
+              `title.ilike.%${t}%`,
+              `description.ilike.%${t}%`,
+              `category.ilike.%${t}%`,
+              `industry.ilike.%${t}%`,
+            ]
+          }).join(',')
+          query = query.or(orConditions)
+        } else if (searchQuery.trim()) {
+          debug(`[MAIN-PAGE-SEARCH] Applying search filter: ${searchQuery.trim()}`)
 
           const searchTerm = searchQuery.trim().toLowerCase()
 
@@ -2042,7 +1826,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             searchTerms.push('gardening', 'gardener', 'landscaping', 'landscaper')
           }
 
-          console.log(`[MAIN-PAGE-SEARCH] Expanded search terms:`, searchTerms)
+          debug(`[MAIN-PAGE-SEARCH] Expanded search terms:`, searchTerms)
 
           // Build OR conditions for all search terms
           const orConditions = searchTerms.flatMap(term => [
@@ -2054,8 +1838,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           query = query.or(orConditions)
         }
 
-        console.log(`[MAIN-PAGE-SEARCH] ===== EXECUTING VACANCY/JOB QUERY =====`)
-        console.log(`[MAIN-PAGE-SEARCH] Query parameters:`, {
+        debug(`[MAIN-PAGE-SEARCH] ===== EXECUTING VACANCY/JOB QUERY =====`)
+        debug(`[MAIN-PAGE-SEARCH] Query parameters:`, {
           type: type,
           is_tradespeople_job: type === "jobs_tasks",
           status: "open",
@@ -2081,7 +1865,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         const queryPromise = query.limit(RESULT_LIMIT + 1)
         const QUERY_TIMEOUT = 10000 // 10 seconds
 
-        console.log(`[MAIN-PAGE-SEARCH] Executing optimized query with ${QUERY_TIMEOUT/1000}s timeout...`)
+        debug(`[MAIN-PAGE-SEARCH] Executing optimized query with ${QUERY_TIMEOUT/1000}s timeout...`)
 
         let data: any = null
         let error: any = null
@@ -2108,10 +1892,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           }
         }
 
-        console.log(`[MAIN-PAGE-SEARCH] Query completed. Error:`, error, `Data count:`, data?.length)
+        debug(`[MAIN-PAGE-SEARCH] Query completed. Error:`, error, `Data count:`, data?.length)
 
         if (data && data.length > 0) {
-          console.log(`[MAIN-PAGE-SEARCH] Sample job data (first result):`, {
+          debug(`[MAIN-PAGE-SEARCH] Sample job data (first result):`, {
             id: data[0].id,
             title: data[0].title,
             is_tradespeople_job: data[0].is_tradespeople_job,
@@ -2127,7 +1911,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             homeowner_profiles: data[0].homeowner_profiles
           })
           // Log all jobs' poster info for debugging "Anonymous" issue
-          console.log(`[MAIN-PAGE-SEARCH] All jobs poster info:`, data.map((j: any) => ({
+          debug(`[MAIN-PAGE-SEARCH] All jobs poster info:`, data.map((j: any) => ({
             id: j.id,
             title: j.title,
             company_id: j.company_id,
@@ -2161,13 +1945,13 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         }
 
         if (!error && data) {
-          console.log(`[MAIN-PAGE-SEARCH] Raw data received:`, data.length, 'jobs')
+          debug(`[MAIN-PAGE-SEARCH] Raw data received:`, data.length, 'jobs')
           setSearchProgress(`Processing ${data.length} jobs...`)
 
           // Count jobs with and without coordinates for debugging
           const jobsWithCoords = data.filter((item: any) => item.latitude && item.longitude).length
           const jobsWithoutCoords = data.length - jobsWithCoords
-          console.log(`[MAIN-PAGE-SEARCH] Jobs with coordinates: ${jobsWithCoords}, without coordinates: ${jobsWithoutCoords}`)
+          debug(`[MAIN-PAGE-SEARCH] Jobs with coordinates: ${jobsWithCoords}, without coordinates: ${jobsWithoutCoords}`)
 
           // Apply radius filtering to jobs WITH coordinates (keep jobs without coordinates)
           // Skip filtering if workLocation is "remote" (for vacancies/trade jobs)
@@ -2177,15 +1961,15 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             const jobsWithCoordsArray = data.filter((item: any) => item.latitude && item.longitude)
             const jobsWithoutCoordsArray = data.filter((item: any) => !item.latitude || !item.longitude)
 
-            console.log(`[MAIN-PAGE-SEARCH] Applying radius filter to ${jobsWithCoordsArray.length} jobs with coordinates (${radiusMiles} miles)`)
+            debug(`[MAIN-PAGE-SEARCH] Applying radius filter to ${jobsWithCoordsArray.length} jobs with coordinates (${radiusMiles} miles)`)
             const filteredJobsWithCoords = filterByRadius(jobsWithCoordsArray, selectedLocation.lat, selectedLocation.lon, radiusMiles)
-            console.log(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredJobsWithCoords.length} jobs with coordinates`)
+            debug(`[MAIN-PAGE-SEARCH] After radius filter: ${filteredJobsWithCoords.length} jobs with coordinates`)
 
             // Combine filtered jobs with coordinates + all jobs without coordinates
             filteredData = [...filteredJobsWithCoords, ...jobsWithoutCoordsArray]
-            console.log(`[MAIN-PAGE-SEARCH] Total jobs after filtering: ${filteredData.length} (${filteredJobsWithCoords.length} with coords + ${jobsWithoutCoordsArray.length} without coords)`)
+            debug(`[MAIN-PAGE-SEARCH] Total jobs after filtering: ${filteredData.length} (${filteredJobsWithCoords.length} with coords + ${jobsWithoutCoordsArray.length} without coords)`)
           } else if (workLocation === "remote") {
-            console.log(`[MAIN-PAGE-SEARCH] Skipping radius filter - remote work location selected`)
+            debug(`[MAIN-PAGE-SEARCH] Skipping radius filter - remote work location selected`)
           }
 
           // Enrich jobs with poster information
@@ -2212,7 +1996,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               }
             })
 
-          console.log(`[MAIN-PAGE-SEARCH] Enriched ${results.length} jobs with poster data`)
+          debug(`[MAIN-PAGE-SEARCH] Enriched ${results.length} jobs with poster data`)
           setSearchProgress(`Found ${results.length} jobs...`)
           setSearchResultCount(results.length)
         }
@@ -2239,7 +2023,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
       // Check if result limit was reached and trim if necessary
       if (results.length > RESULT_LIMIT) {
-        console.log(`[MAIN-PAGE-SEARCH] Result limit reached: ${results.length} results found, showing first ${RESULT_LIMIT}`)
+        debug(`[MAIN-PAGE-SEARCH] Result limit reached: ${results.length} results found, showing first ${RESULT_LIMIT}`)
         results = results.slice(0, RESULT_LIMIT)
         setResultLimitReached(true)
       } else {
@@ -2251,8 +2035,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         window.dispatchEvent(new Event('mainPageSearch'))
       }
 
-      console.log(`[MAIN-PAGE-SEARCH] Setting results: ${results.length}, center:`, center, `searchType: ${type}`)
-      console.log(`[MAIN-PAGE-SEARCH] Results to display:`, results)
+      debug(`[MAIN-PAGE-SEARCH] Setting results: ${results.length}, center:`, center, `searchType: ${type}`)
+      debug(`[MAIN-PAGE-SEARCH] Results to display:`, results)
       setMapResults(results)
       setMapCenter(center)
       setSearchType(type)
@@ -2266,7 +2050,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           // Stage 1 done (user skills) → try Stage 2: related trade
           const related = getRelatedTrade(autoSearchOriginalQueryRef.current)
           if (related && related.toLowerCase() !== autoSearchOriginalQueryRef.current.toLowerCase()) {
-            console.log(`[MAIN-PAGE-SEARCH] Fallback stage 2: trying related trade "${related}"`)
+            debug(`[MAIN-PAGE-SEARCH] Fallback stage 2: trying related trade "${related}"`)
             autoSearchFallbackStageRef.current = 1
             setSearchQuery(related)
             setTimeout(() => handleSearch("jobs_tasks"), 250)
@@ -2278,17 +2062,17 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
         if (autoSearchFallbackStageRef.current === 1) {
           // Stage 2 done (related trade) → try Stage 3: any nearby trade jobs (empty query)
-          console.log(`[MAIN-PAGE-SEARCH] Fallback stage 3: searching any nearby trade jobs`)
+          debug(`[MAIN-PAGE-SEARCH] Fallback stage 3: searching any nearby trade jobs`)
           autoSearchFallbackStageRef.current = 2
           setSearchQuery("")
           setTimeout(() => handleSearch("jobs_tasks"), 250)
           return
         }
 
-        // All stages exhausted → show no-jobs overlay
-        console.log(`[MAIN-PAGE-SEARCH] All fallback stages exhausted - showing no-jobs overlay`)
+        // All stages exhausted → open modal with empty map; inline panel shows the message
+        debug(`[MAIN-PAGE-SEARCH] All fallback stages exhausted - showing empty map`)
         autoSearchFallbackStageRef.current = 3
-        setShowNoJobsOverlay(true)
+        setShowMapModal(true)
         return
       }
 
@@ -2297,23 +2081,19 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         setShowNoJobsOverlay(false)
       }
 
-      // Only open the modal if search succeeded and returned results
-      if (results.length > 0) {
-        console.log(`[MAIN-PAGE-SEARCH] Search succeeded with ${results.length} results - opening modal`)
-        setShowMapModal(true)
-      } else {
-        console.log(`[MAIN-PAGE-SEARCH] Search returned 0 results - modal will not open`)
-      }
+      // Always open the modal — 0 results shows the informational panel, not an error
+      debug(`[MAIN-PAGE-SEARCH] Opening modal with ${results.length} results`)
+      setShowMapModal(true)
     } catch (error) {
       console.warn("[MAIN-PAGE-SEARCH] Search error:", error)
     } finally {
       // Clean up AbortController
       if (searchAbortControllerRef.current) {
-        console.log('[MAIN-PAGE-SEARCH] 🧹 Cleaning up AbortController')
+        debug('[MAIN-PAGE-SEARCH] 🧹 Cleaning up AbortController')
         searchAbortControllerRef.current = null
       }
       setIsSearching(false)
-      console.log(`[MAIN-PAGE-SEARCH] Search completed, isSearching set to false`)
+      debug(`[MAIN-PAGE-SEARCH] Search completed, isSearching set to false`)
     }
   }
 
@@ -2373,7 +2153,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       setDistance(mapPickerRadius) // Apply the selected radius to distance filter
       setShowMapPicker(false)
       setLocationError("")
-      setShowFilters(true) // Automatically expand filters after location is set
+      if (!showMapModal) setShowFilters(true) // Only expand filters when not inside the map modal
     }
   }
 
@@ -2403,17 +2183,13 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         : params.talents === "true" ? "talents"
         : modalSearchType
 
-      console.log('[MODAL-SEARCH] params:', params, 'modalSearchType:', modalSearchType, 'effective:', effectiveSearchType, 'searchLat:', searchLat, 'searchLng:', searchLng)
+      debug('[MODAL-SEARCH] params:', params, 'modalSearchType:', modalSearchType, 'effective:', effectiveSearchType, 'searchLat:', searchLat, 'searchLng:', searchLng)
 
       if (effectiveSearchType === "traders") {
-        // Fetch traders: contractors (primary) + self-employed professionals + companies open for business
-        let contractorResults: any[] = []
+        // Fetch traders: self-employed professionals + companies (tradespeople) open for business
         let professionalResults: any[] = []
         let companyResults: any[] = []
 
-        // Always apply a location bounding box to avoid full table scans.
-        // Use params.lat/lng if the user explicitly entered a location,
-        // otherwise fall back to the current map centre.
         const hasExplicitLocation = !!(params.lat && params.lng)
         const effectiveLat = searchLat ?? mapCenter[0]
         const effectiveLng = searchLng ?? mapCenter[1]
@@ -2421,77 +2197,19 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         const latDelta = radiusKm / 111.0
         const lngDelta = radiusKm / (111.0 * Math.cos(effectiveLat * Math.PI / 180))
 
-        // --- contractor_profiles (primary source for tradespeople) ---
-        let contractorQuery = supabase
-          .from("contractor_profiles")
-          .select("id,user_id,company_name,industry,location,latitude,longitude,services,languages,available_247,logo_url,profile_photo_url,description,bio,website_url,phone_number,company_size,price_list,created_at,average_rating,reviews_count")
-          .not("latitude", "is", null)
-          .not("longitude", "is", null)
-          .gte("latitude", effectiveLat - latDelta)
-          .lte("latitude", effectiveLat + latDelta)
-          .gte("longitude", effectiveLng - lngDelta)
-          .lte("longitude", effectiveLng + lngDelta)
-
-        if (searchTerm) {
-          const term = searchTerm.toLowerCase()
-          const searchTerms = [term]
-          if (term.includes('plumber')) searchTerms.push('plumbing', 'heating')
-          if (term.includes('electrician')) searchTerms.push('electrical')
-          if (term.includes('builder') || term.includes('building')) searchTerms.push('construction')
-          if (term.includes('carpenter')) searchTerms.push('carpentry', 'joinery')
-          const orConds = searchTerms.flatMap(t => [
-            `company_name.ilike.%${t}%`,
-            `industry.ilike.%${t}%`
-          ]).join(',')
-          contractorQuery = contractorQuery.or(orConds)
-        }
-
-        if (params.tradeCategory && params.tradeCategory !== "all") {
-          contractorQuery = contractorQuery.ilike("industry", `%${params.tradeCategory}%`)
-        }
-        if (params.is_247 === "true") {
-          contractorQuery = contractorQuery.eq("available_247", true)
-        }
-        if (params.language && params.language !== "all") {
-          contractorQuery = contractorQuery.contains("languages", [params.language])
-        }
-
-        const { data: contractorData, error: contractorError } = await contractorQuery.limit(RESULT_LIMIT + 1)
-        console.log('[MODAL-SEARCH] contractor_profiles result:', contractorData?.length, 'error:', contractorError)
-        if (contractorData) {
-          let filtered = contractorData.filter(item => item.latitude && item.longitude)
-          // Apply precise radius filter when user explicitly chose a location
-          if (hasExplicitLocation) {
-            filtered = filterByRadius(filtered, effectiveLat, effectiveLng, searchRadius)
-          }
-          // Client-side services array filter (mirrors fetchResults behaviour)
-          if (searchTerm && filtered.length > 0) {
-            const svcTerms = [searchTerm.toLowerCase()]
-            if (svcTerms[0].includes('plumber')) svcTerms.push('plumbing', 'heating')
-            if (svcTerms[0].includes('gas')) svcTerms.push('heating', 'boiler')
-            if (svcTerms[0].includes('electrician') || svcTerms[0].includes('electric')) svcTerms.push('electrical', 'electric')
-            if (svcTerms[0].includes('carpenter')) svcTerms.push('carpentry', 'joinery')
-            filtered = filtered.filter(c => {
-              if (!c.services || !Array.isArray(c.services) || c.services.length === 0) return true
-              return svcTerms.some(t => c.services.some((s: string) => s.toLowerCase().includes(t)))
-            })
-          }
-          contractorResults = filtered.map(item => ({
-            ...item,
-            id: item.id,
-            name: item.company_name || item.name || "Contractor",
-            coordinates: { lat: item.latitude, lon: item.longitude },
-            type: 'contractor'
-          }))
-        }
-
-        // --- professional_profiles (self-employed) ---
+        // --- professional_profiles (self-employed) — always bounded, no users join ---
         let profQuery = supabase
           .from("professional_profiles")
           .select("*")
           .eq("profile_visible", true)
           .eq("available_for_work", true)
           .eq("is_self_employed", true)
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .gte("latitude", effectiveLat - latDelta)
+          .lte("latitude", effectiveLat + latDelta)
+          .gte("longitude", effectiveLng - lngDelta)
+          .lte("longitude", effectiveLng + lngDelta)
 
         if (searchTerm) {
           const searchTerms = getBilingualSearchTerms(searchTerm)
@@ -2507,17 +2225,19 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           profQuery = profQuery.contains("spoken_languages", [params.language])
         }
 
-        if (hasExplicitLocation && searchLat && searchLng) {
-          profQuery = profQuery
-            .gte("latitude", searchLat - latDelta)
-            .lte("latitude", searchLat + latDelta)
-            .gte("longitude", searchLng - lngDelta)
-            .lte("longitude", searchLng + lngDelta)
+        let profData: any[] = []
+        try {
+          const result = await Promise.race([
+            profQuery.limit(RESULT_LIMIT + 1),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('QUERY_TIMEOUT')), 5000))
+          ])
+          profData = result.data || []
+          if (result.error) console.warn('[MODAL-SEARCH] professional_profiles error (non-fatal):', result.error)
+        } catch (err: any) {
+          console.warn('[MODAL-SEARCH] professional_profiles failed (non-fatal):', err.message)
         }
-
-        const { data: profData, error: profError } = await profQuery.limit(RESULT_LIMIT + 1)
-        console.log('[MODAL-SEARCH] professional_profiles (self_employed) result:', profData?.length, 'error:', profError)
-        if (profData) {
+        debug('[MODAL-SEARCH] professional_profiles result:', profData.length)
+        {
           let filtered = profData.filter(item => item.latitude && item.longitude)
           if (hasExplicitLocation && searchLat && searchLng) {
             filtered = filterByRadius(filtered, searchLat, searchLng, searchRadius)
@@ -2532,10 +2252,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         }
 
         // --- company_profiles (open for business) ---
+        // Always apply bounding box to company query
         let companyQuery = supabase
           .from("company_profiles")
           .select("*")
-          .eq("open_for_business", true)
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .gte("latitude", effectiveLat - latDelta)
+          .lte("latitude", effectiveLat + latDelta)
+          .gte("longitude", effectiveLng - lngDelta)
+          .lte("longitude", effectiveLng + lngDelta)
 
         if (searchTerm) {
           const cTerm = searchTerm.toLowerCase()
@@ -2551,31 +2277,16 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           companyQuery = companyQuery.or(cOrConds)
         }
 
-        if (hasExplicitLocation && searchLat && searchLng) {
-          companyQuery = companyQuery
-            .gte("latitude", searchLat - latDelta)
-            .lte("latitude", searchLat + latDelta)
-            .gte("longitude", searchLng - lngDelta)
-            .lte("longitude", searchLng + lngDelta)
+        if (params.language && params.language !== "all") {
+          companyQuery = companyQuery.contains("spoken_languages", [params.language])
         }
 
         const { data: companyData, error: companyError } = await companyQuery.limit(RESULT_LIMIT + 1)
-        console.log('[MODAL-SEARCH] company_profiles result:', companyData?.length, 'error:', companyError)
+        debug('[MODAL-SEARCH] company_profiles result:', companyData?.length, 'error:', companyError)
         if (companyData) {
           let filtered = companyData.filter(item => item.latitude && item.longitude)
           if (hasExplicitLocation && searchLat && searchLng) {
             filtered = filterByRadius(filtered, searchLat, searchLng, searchRadius)
-          }
-          // Client-side language filter (company_profiles.spoken_languages is JSONB)
-          if (params.language && params.language !== "all") {
-            filtered = filtered.filter(item => {
-              let langs = item.spoken_languages
-              if (!langs) return false
-              if (typeof langs === 'string') {
-                try { langs = JSON.parse(langs) } catch { return false }
-              }
-              return Array.isArray(langs) && langs.includes(params.language)
-            })
           }
           companyResults = filtered.map(item => ({
             ...item,
@@ -2586,8 +2297,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           }))
         }
 
-        // Combine all three sources
-        results = [...contractorResults, ...professionalResults, ...companyResults]
+        // Combine results
+        results = [...professionalResults, ...companyResults]
       } else if (effectiveSearchType === "talents") {
         // Fetch all professionals (not just self-employed)
         let query = supabase
@@ -2648,14 +2359,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           .from("jobs")
           .select(`
             *,
-            company_profiles (
+            company_profiles!company_id (
               company_name,
               location,
               industry,
               logo_url,
               user_id
             ),
-            homeowner_profiles (
+            homeowner_profiles!homeowner_id (
               id,
               user_id,
               first_name,
@@ -2665,7 +2376,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               reviews_count
             )
           `)
-          .eq("status", "open") // Only show open jobs (not accepted, in_progress, completed, or failed)
+          .eq("status", "POSTED") // Only show jobs open for applications
           .eq("is_active", true)
           .eq("is_tradespeople_job", effectiveSearchType === "jobs_tasks") // true for jobs/tasks, false for vacancies
           .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
@@ -2695,10 +2406,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         }
 
         if (!error && data) {
-          console.log(`[MAIN-PAGE-SEARCH-MODAL] Raw data received:`, data.length, 'jobs')
+          debug(`[MAIN-PAGE-SEARCH-MODAL] Raw data received:`, data.length, 'jobs')
           // Enrich jobs with poster information
           results = data
-            .filter(item => item.latitude && item.longitude)
             .map((job: any) => {
               const homeownerProfile = job.homeowner_profiles
 
@@ -2715,7 +2425,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               }
             })
 
-          console.log(`[MAIN-PAGE-SEARCH-MODAL] Enriched ${results.length} jobs with poster data`)
+          debug(`[MAIN-PAGE-SEARCH-MODAL] Enriched ${results.length} jobs with poster data`)
         }
       }
 
@@ -2797,6 +2507,42 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     }
   }
 
+  // Memoize modal searchParams so ProfessionalsPageContent doesn't re-render on every parent state change
+  const modalSearchParams = useMemo(() => ({
+    search: searchQuery,
+    location: location,
+    lat: selectedLocation?.lat.toString(),
+    lng: selectedLocation?.lon.toString(),
+    radius: distance,
+    traders: modalSearchType === "traders" ? "true" : undefined,
+    vacancies: modalSearchType === "vacancies" ? "true" : undefined,
+    jobs_tasks: modalSearchType === "jobs_tasks" ? "true" : undefined,
+    talents: modalSearchType === "talents" ? "true" : undefined,
+    jobType: jobType !== "all" ? jobType : undefined,
+    experienceLevel: experienceLevel !== "all" ? experienceLevel : undefined,
+    workLocation: workLocation !== "all" ? workLocation : undefined,
+    salaryRange: salaryRange !== "all" ? salaryRange : undefined,
+    noExperienceRequired: noExperienceRequired ? "true" : undefined,
+    drivingLicenseRequired: drivingLicenseRequired ? "true" : undefined,
+    ownTransportRequired: ownTransportRequired ? "true" : undefined,
+    tradeCategory: tradeCategory !== "all" ? tradeCategory : undefined,
+    urgency: urgency !== "all" ? urgency : undefined,
+    budgetRange: budgetRange !== "all" ? budgetRange : undefined,
+    tradeJobType: tradeJobType !== "all" ? tradeJobType : undefined,
+    employmentStatus: employmentStatus !== "all" ? employmentStatus : undefined,
+    hasCVUploaded: hasCVUploaded ? "true" : undefined,
+    hasDrivingLicense: hasDrivingLicense ? "true" : undefined,
+    hasOwnTransport: hasOwnTransport ? "true" : undefined,
+    willingToRelocate: willingToRelocate ? "true" : undefined,
+    availableForBusiness: availableForBusiness ? "true" : undefined,
+  }), [
+    searchQuery, location, selectedLocation, distance, modalSearchType,
+    jobType, experienceLevel, workLocation, salaryRange, noExperienceRequired,
+    drivingLicenseRequired, ownTransportRequired, tradeCategory, urgency,
+    budgetRange, tradeJobType, employmentStatus, hasCVUploaded, hasDrivingLicense,
+    hasOwnTransport, willingToRelocate, availableForBusiness,
+  ])
+
   return (
     <div className="w-full relative z-[100]">
       <div className="max-w-3xl mx-auto bg-slate-900/95 backdrop-blur-sm rounded-lg md:rounded-xl p-3 sm:p-4 md:p-6 shadow-xl border border-white/10">
@@ -2854,7 +2600,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               <Input
                 value={searchQuery}
                 onChange={(e) => {
-                  console.log('[AUTOCOMPLETE-INPUT] onChange triggered:', e.target.value)
+                  debug('[AUTOCOMPLETE-INPUT] onChange triggered:', e.target.value)
                   setSearchQuery(e.target.value)
                 }}
                 onKeyPress={(e) => e.key === "Enter" && handleSearch(selectedSearchType)}
@@ -2917,7 +2663,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             {/* Search button - desktop only */}
             <Button
               onClick={() => {
-                console.log('[SEARCH-BUTTON] Click detected, isSearching:', isSearching, 'selectedSearchType:', selectedSearchType)
+                debug('[SEARCH-BUTTON] Click detected, isSearching:', isSearching, 'selectedSearchType:', selectedSearchType)
                 handleSearch(selectedSearchType)
               }}
               disabled={isSearching}
@@ -2973,16 +2719,39 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           {autoSearchSkillsLabel && selectedSearchType === "jobs_tasks" && !showFilters && (
             <div className="mt-2 flex items-center justify-between bg-white/5 rounded-lg px-3 py-2 border border-white/10">
               <span className="text-xs text-slate-300">
-                Showing jobs for:{" "}
+                {autoSearchIndustryRef.current ? "Matching your trade:" : "Matching your skills:"}{" "}
                 <span className="text-emerald-400 font-medium">{autoSearchSkillsLabel}</span>
               </span>
-              <button
-                type="button"
-                onClick={() => { setShowFilters(true); setAutoSearchSkillsLabel(null) }}
-                className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors font-medium ml-3 shrink-0"
-              >
-                Change
-              </button>
+              <div className="flex items-center gap-2 ml-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    autoSearchSkillsListRef.current = []
+                    autoSearchIndustryRef.current   = null
+                    autoSearchServicesRef.current   = []
+                    setAutoSearchSkillsLabel(null)
+                    setSearchQuery("")
+                    handleSearch("jobs_tasks")
+                  }}
+                  className="text-xs text-slate-400 hover:text-white transition-colors font-medium"
+                >
+                  All jobs
+                </button>
+                <span className="text-slate-600">·</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFilters(true)
+                    setAutoSearchSkillsLabel(null)
+                    autoSearchSkillsListRef.current = []
+                    autoSearchIndustryRef.current   = null
+                    autoSearchServicesRef.current   = []
+                  }}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors font-medium"
+                >
+                  Change
+                </button>
+              </div>
             </div>
           )}
 
@@ -3511,14 +3280,14 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           if (!open) {
             // Cancel ongoing search
             if (searchAbortControllerRef.current) {
-              console.log('[MAIN-PAGE-SEARCH] 🛑 User cancelled search, aborting')
+              debug('[MAIN-PAGE-SEARCH] 🛑 User cancelled search, aborting')
               searchAbortControllerRef.current.abort()
               searchAbortControllerRef.current = null
             }
             setIsSearching(false)
             setSearchProgress("")
             setSearchResultCount(0)
-            console.log('[MAIN-PAGE-SEARCH] Search manually cancelled by user')
+            debug('[MAIN-PAGE-SEARCH] Search manually cancelled by user')
           }
         }}>
           <DialogContent className="max-w-md" showCloseButton={true}>
@@ -3718,42 +3487,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             </div>
           )}
 
-          {/* No-jobs overlay — shown when all fallback stages are exhausted */}
-          {showNoJobsOverlay && modalSearchType === "jobs_tasks" && (
-            <div className="absolute inset-0 z-[10000] flex items-center justify-center bg-slate-900/75 backdrop-blur-sm">
-              <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-sm w-full mx-4 text-center shadow-2xl">
-                <div className="text-4xl mb-3">🗺️</div>
-                <h3 className="text-white font-bold text-lg mb-1">No jobs found nearby</h3>
-                <p className="text-slate-400 text-sm mb-5">
-                  No trade jobs matching your skills were found in this area.
-                  Try expanding your radius, viewing all construction jobs, or adjusting filters.
-                </p>
-                <div className="space-y-2.5">
-                  <button
-                    type="button"
-                    onClick={handleExpandRadius}
-                    className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <span>🔍</span> Expand search radius (×2)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleShowAllConstruction}
-                    className="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-xl transition-colors border border-slate-500 flex items-center justify-center gap-2"
-                  >
-                    <span>🏗️</span> Show all construction jobs
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpenFiltersFromOverlay}
-                    className="w-full py-2.5 px-4 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-xl transition-colors border border-slate-500 flex items-center justify-center gap-2"
-                  >
-                    <span>⚙️</span> Open filters
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* No-jobs overlay removed — empty state is shown inline in the job list panel */}
 
           {/* Use the same ProfessionalsPageContent component */}
           <ProfessionalsPageContent
@@ -3761,40 +3495,19 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             user={user}
             userType={userType}
             userProfile={userProfile}
-            searchParams={{
-              search: searchQuery,
-              location: location,
-              lat: selectedLocation?.lat.toString(),
-              lng: selectedLocation?.lon.toString(),
-              radius: distance,
-              traders: modalSearchType === "traders" ? "true" : undefined,
-              vacancies: modalSearchType === "vacancies" ? "true" : undefined,
-              jobs_tasks: modalSearchType === "jobs_tasks" ? "true" : undefined,
-              talents: modalSearchType === "talents" ? "true" : undefined,
-              // Pass all filter values
-              jobType: jobType !== "all" ? jobType : undefined,
-              experienceLevel: experienceLevel !== "all" ? experienceLevel : undefined,
-              workLocation: workLocation !== "all" ? workLocation : undefined,
-              salaryRange: salaryRange !== "all" ? salaryRange : undefined,
-              noExperienceRequired: noExperienceRequired ? "true" : undefined,
-              drivingLicenseRequired: drivingLicenseRequired ? "true" : undefined,
-              ownTransportRequired: ownTransportRequired ? "true" : undefined,
-              tradeCategory: tradeCategory !== "all" ? tradeCategory : undefined,
-              urgency: urgency !== "all" ? urgency : undefined,
-              budgetRange: budgetRange !== "all" ? budgetRange : undefined,
-              tradeJobType: tradeJobType !== "all" ? tradeJobType : undefined,
-              employmentStatus: employmentStatus !== "all" ? employmentStatus : undefined,
-              hasCVUploaded: hasCVUploaded ? "true" : undefined,
-              hasDrivingLicense: hasDrivingLicense ? "true" : undefined,
-              hasOwnTransport: hasOwnTransport ? "true" : undefined,
-              willingToRelocate: willingToRelocate ? "true" : undefined,
-              availableForBusiness: availableForBusiness ? "true" : undefined,
-            } as any}
+            searchParams={modalSearchParams as any}
             center={mapCenter}
             isModal={true}
             onSearchUpdate={handleModalSearchUpdate}
+            onViewAllJobs={() => {
+              // Clear skills filter and re-run with no query (all nearby jobs)
+              autoSearchSkillsListRef.current = []
+              setAutoSearchSkillsLabel(null)
+              setSearchQuery("")
+              handleSearch("jobs_tasks")
+            }}
             onModalClose={() => {
-              console.log('[MAIN-PAGE-SEARCH] Modal closing, redirecting to landing page')
+              debug('[MAIN-PAGE-SEARCH] Modal closing, redirecting to landing page')
               // Cancel ongoing search
               if (searchAbortControllerRef.current) {
                 searchAbortControllerRef.current.abort()

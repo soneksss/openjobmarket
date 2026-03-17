@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import {
-  Zap, MapPin, X, CheckCircle2, Clock,
-  ArrowLeft, ChevronRight, Banknote,
+  Zap, MapPin, X, Clock, Banknote, ChevronRight,
 } from "lucide-react"
 
 interface UrgentAlert {
@@ -17,12 +16,11 @@ interface UrgentAlert {
   budget?: string | null
   linkUrl: string
   shownAt: number
-  homeownerUserId?: string | null
   urgencyType?: string | null
 }
 
-const SHOWN_KEY = "ujb_shown"
-const AUTO_SECS = 30
+const SHOWN_KEY  = "ujb_shown"
+const AUTO_SECS  = 30
 
 /** Extract UUID from /jobs/{uuid} URL */
 function extractJobId(url: string): string | null {
@@ -43,11 +41,7 @@ function markShown(id: string) {
   } catch {}
 }
 
-function formatBudget(
-  min: number | null,
-  max: number | null,
-  period: string | null,
-): string | null {
+function formatBudget(min: number | null, max: number | null, period: string | null): string | null {
   if (!min && !max) return null
   const p = period === "hourly" ? "/hr" : period === "daily" ? "/day" : period === "weekly" ? "/wk" : ""
   if (min && max) return `£${min}–£${max}${p}`
@@ -55,24 +49,19 @@ function formatBudget(
   return `Up to £${max}${p}`
 }
 
-/* ────────────────────────────────────────────────────────── */
-/* Card — two phases: preview → detail                        */
-/* ────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────── */
+/* Notification card — quick preview                           */
+/* ─────────────────────────────────────────────────────────── */
 function UrgentCard({
   alert,
-  onApply,
+  onView,
   onSkip,
-  applying,
-  applied,
 }: {
   alert: UrgentAlert
-  onApply: () => void
+  onView: () => void
   onSkip: () => void
-  applying: boolean
-  applied: boolean
 }) {
-  const [secs, setSecs]       = useState(AUTO_SECS)
-  const [viewing, setViewing] = useState(false)
+  const [secs, setSecs] = useState(AUTO_SECS)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -87,109 +76,12 @@ function UrgentCard({
 
   const progress = (secs / AUTO_SECS) * 100
 
-  /* ── DETAIL VIEW ── */
-  if (viewing) {
-    return (
-      <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-        <div className="w-full max-w-sm bg-slate-900 border border-orange-500/40 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in duration-150">
-
-          {/* Hero banner */}
-          <div className="relative h-28 bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 flex flex-col justify-end px-4 pb-3">
-            {/* Close */}
-            <button
-              onClick={onSkip}
-              className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/30 flex items-center justify-center text-white/80 hover:text-white hover:bg-black/50 transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            {/* Back */}
-            <button
-              onClick={() => setViewing(false)}
-              className="absolute top-3 left-3 flex items-center gap-1 text-white/70 hover:text-white text-xs transition-colors"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Back
-            </button>
-            {/* Urgent badge */}
-            <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[11px] font-bold px-2 py-0.5 rounded-full w-fit mb-1.5">
-              <Zap className="w-3 h-3 fill-white" />
-              Urgent Job
-            </span>
-            <h2 className="text-lg font-extrabold text-white leading-tight drop-shadow-sm">
-              {alert.jobTitle}
-            </h2>
-          </div>
-
-          {/* Job details */}
-          <div className="px-4 py-3 space-y-2.5">
-            {/* Location + Budget chips */}
-            <div className="flex flex-wrap gap-2">
-              {alert.jobLocation && (
-                <span className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full border border-slate-700/60">
-                  <MapPin className="w-3 h-3 flex-shrink-0" />
-                  {alert.jobLocation}
-                </span>
-              )}
-              {alert.budget && (
-                <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/25">
-                  <Banknote className="w-3 h-3 flex-shrink-0" />
-                  {alert.budget}
-                </span>
-              )}
-            </div>
-
-            {/* Description */}
-            {alert.jobDescription ? (
-              <p className="text-sm text-slate-300 leading-relaxed max-h-32 overflow-y-auto whitespace-pre-line">
-                {alert.jobDescription}
-              </p>
-            ) : (
-              <p className="text-sm text-slate-500 italic">No description provided.</p>
-            )}
-
-            {/* Timer */}
-            <p className="text-xs text-slate-500 flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              Auto-dismisses in {secs}s · First come, first served
-            </p>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 px-4 pb-5 pt-1">
-            <button
-              onClick={onSkip}
-              disabled={applying || applied}
-              className="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-400 bg-slate-800 border border-white/10 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-40"
-            >
-              Skip
-            </button>
-            <button
-              onClick={onApply}
-              disabled={applying || applied}
-              className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
-            >
-              {applied ? (
-                <><CheckCircle2 className="w-4 h-4" /> Applied!</>
-              ) : applying ? (
-                <><span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Applying…</>
-              ) : (
-                "Apply & Message"
-              )}
-            </button>
-          </div>
-
-        </div>
-      </div>
-    )
-  }
-
-  /* ── PREVIEW (initial notification) ── */
   return (
-    <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="w-full max-w-sm bg-slate-900 border border-orange-500/40 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-x-0 bottom-0 sm:inset-auto sm:bottom-5 sm:right-5 z-[400] sm:max-w-sm w-full animate-in slide-in-from-bottom-4 sm:slide-in-from-right-4 duration-300">
+      <div className="bg-slate-900 border border-orange-500/40 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden">
 
         {/* Countdown bar */}
-        <div className="h-1 bg-slate-700 w-full">
+        <div className="h-1 bg-slate-800 w-full">
           <div
             className="h-full bg-orange-500 transition-all duration-1000 ease-linear"
             style={{ width: `${progress}%` }}
@@ -212,10 +104,9 @@ function UrgentCard({
         </div>
 
         {/* Job summary */}
-        <div className="px-4 py-3">
-          <h2 className="text-lg font-bold text-white leading-tight mb-1.5">
-            {alert.jobTitle}
-          </h2>
+        <div className="px-4 py-3 space-y-2">
+          <h2 className="text-base font-bold text-white leading-snug">{alert.jobTitle}</h2>
+
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {alert.jobLocation && (
               <span className="flex items-center gap-1.5 text-sm text-slate-400">
@@ -230,23 +121,21 @@ function UrgentCard({
               </span>
             )}
           </div>
+
           {alert.jobDescription && (
-            <p className="text-xs text-slate-500 mt-1.5 line-clamp-2 leading-relaxed">
+            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
               {alert.jobDescription}
             </p>
           )}
-        </div>
 
-        {/* Timer */}
-        <div className="px-4 pb-1">
-          <p className="text-xs text-slate-500 flex items-center gap-1">
+          <p className="text-xs text-slate-600 flex items-center gap-1">
             <Clock className="w-3 h-3" />
             Auto-dismisses in {secs}s · First come, first served
           </p>
         </div>
 
-        {/* Buttons: Skip | View Job */}
-        <div className="flex gap-3 px-4 pb-5 pt-2">
+        {/* Buttons */}
+        <div className="flex gap-3 px-4 pb-5 pt-1">
           <button
             onClick={onSkip}
             className="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-400 bg-slate-800 border border-white/10 hover:bg-slate-700 hover:text-white transition-colors"
@@ -254,10 +143,10 @@ function UrgentCard({
             Skip
           </button>
           <button
-            onClick={() => setViewing(true)}
+            onClick={onView}
             className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-orange-600 hover:bg-orange-500 active:bg-orange-700 transition-colors flex items-center justify-center gap-1.5"
           >
-            View Job
+            View &amp; Apply
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
@@ -267,17 +156,15 @@ function UrgentCard({
   )
 }
 
-/* ────────────────────────────────────────────────────────── */
-/* Main notifier — mounts once in the layout                  */
-/* ────────────────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────── */
+/* Main notifier — mounts once in the layout                   */
+/* ─────────────────────────────────────────────────────────── */
 export function UrgentJobNotifier({ userId }: { userId: string }) {
   const router   = useRouter()
   const supabase = createClient()
 
-  const [current,  setCurrent]  = useState<UrgentAlert | null>(null)
-  const [queue,    setQueue]    = useState<UrgentAlert[]>([])
-  const [applying, setApplying] = useState(false)
-  const [applied,  setApplied]  = useState(false)
+  const [current, setCurrent] = useState<UrgentAlert | null>(null)
+  const [queue,   setQueue]   = useState<UrgentAlert[]>([])
 
   /* ── advance queue ── */
   useEffect(() => {
@@ -285,7 +172,6 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
       const [next, ...rest] = queue
       setCurrent(next)
       setQueue(rest)
-      setApplied(false)
     }
   }, [current, queue])
 
@@ -294,14 +180,12 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     id: string; title: string; link_url?: string; message?: string
   }) => {
     if (!notif.link_url) return
-
     const shown = getShown()
     if (shown.has(notif.id)) return
 
     const jobId = extractJobId(notif.link_url)
     if (!jobId) return
 
-    // Don't show again if this user already skipped this job
     try {
       const { data: skip } = await supabase
         .from("job_skips")
@@ -314,53 +198,41 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
 
     markShown(notif.id)
 
-    // Fetch job details — try full select first, fall back if optional columns missing
     let jobLocation    = ""
     let jobDescription = ""
-    let homeownerUserId: string | null = null
     let urgencyType: string | null = null
     let budget: string | null = null
 
     try {
       const { data: jobData } = await supabase
         .from("jobs")
-        .select("location, description, homeowner_id, urgency_type, budget_min, budget_max, budget_period")
+        .select("location, description, urgency_type, budget_min, budget_max, budget_period")
         .eq("id", jobId)
         .maybeSingle()
 
-      if (jobData) {
-        jobLocation    = jobData.location      ?? ""
-        jobDescription = jobData.description   ?? ""
-        urgencyType    = jobData.urgency_type  ?? null
-        budget = formatBudget(jobData.budget_min, jobData.budget_max, jobData.budget_period)
+      // Job was deleted or no longer accessible — silently skip (already marked shown)
+      if (!jobData) return
 
-        if (jobData.homeowner_id) {
-          const { data: hp } = await supabase
-            .from("homeowner_profiles")
-            .select("user_id")
-            .eq("id", jobData.homeowner_id)
-            .maybeSingle()
-          homeownerUserId = hp?.user_id ?? null
-        }
-      }
+      jobLocation    = jobData.location     ?? ""
+      jobDescription = jobData.description  ?? ""
+      urgencyType    = jobData.urgency_type ?? null
+      budget = formatBudget(jobData.budget_min, jobData.budget_max, jobData.budget_period)
     } catch {}
 
     const alert: UrgentAlert = {
-      notifId:        notif.id,
+      notifId:     notif.id,
       jobId,
-      jobTitle:       notif.title.replace(/^Urgent job near you:\s*/i, ""),
+      jobTitle:    notif.title.replace(/^Urgent job near you:\s*/i, ""),
       jobLocation,
       jobDescription,
       budget,
-      linkUrl:        notif.link_url,
-      shownAt:        Date.now(),
-      homeownerUserId,
+      linkUrl:     notif.link_url,
+      shownAt:     Date.now(),
       urgencyType,
     }
 
     setCurrent((prev) => {
       if (prev) { setQueue((q) => [...q, alert]); return prev }
-      setApplied(false)
       return alert
     })
   }, [supabase, userId])
@@ -404,50 +276,27 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
-  /* ── skip ── */
-  const handleSkip = useCallback(() => {
-    if (current) {
-      // Mark notification read
-      supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
-      // Record skip so this job never appears again for this user
-      supabase.from("job_skips").insert({ job_id: current.jobId, user_id: userId })
-        .then(() => {})
-        .catch(() => {}) // ignore if table doesn't exist yet
-    }
+  /* ── View & Apply: navigate to full job page ── */
+  const handleView = useCallback(() => {
+    if (!current) return
+    // Mark notification as read (fire-and-forget)
+    supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
+    // Navigate to the full job page — the job detail view shows photo, description,
+    // and the UrgentJobApplySection with message textarea + quick-fill buttons.
+    router.push(`/jobs/${current.jobId}`)
     setCurrent(null)
-    setApplied(false)
-    setApplying(false)
-  }, [current, supabase, userId])
+  }, [current, supabase, router])
 
-  /* ── apply & message ── */
-  const handleApply = useCallback(async () => {
-    if (!current || applying || applied) return
-    setApplying(true)
-    try {
-      const res = await fetch(`/api/jobs/${current.jobId}/urgent-responses`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-        credentials: "include",
-      })
-      if (res.ok || res.status === 409) {
-        setApplied(true)
-        supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
-        setTimeout(() => {
-          const destination = current.homeownerUserId
-            ? `/messages/new?recipient=${current.homeownerUserId}&job=${current.jobId}`
-            : `/messages`
-          router.push(destination)
-          setCurrent(null)
-          setApplied(false)
-        }, 1200)
-      }
-    } catch (err) {
-      console.error("[UrgentJobNotifier] Apply error:", err)
-    } finally {
-      setApplying(false)
-    }
-  }, [current, applying, applied, supabase, router])
+  /* ── Skip: dismiss + record skip so this job never shows again ── */
+  const handleSkip = useCallback(() => {
+    if (!current) return
+    supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
+    supabase.from("job_skips")
+      .insert({ job_id: current.jobId, user_id: userId })
+      .then(() => {})
+      .catch(() => {})
+    setCurrent(null)
+  }, [current, supabase, userId])
 
   if (!current) return null
 
@@ -455,10 +304,8 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     <UrgentCard
       key={current.notifId}
       alert={current}
-      onApply={handleApply}
+      onView={handleView}
       onSkip={handleSkip}
-      applying={applying}
-      applied={applied}
     />
   )
 }

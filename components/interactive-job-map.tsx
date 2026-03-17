@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { MapPin, Eye, Bookmark, Users, Clock, DollarSign } from "lucide-react"
+import { MapPin, Eye, Bookmark, Users, Clock, DollarSign, Info, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useLanguageRegion } from "@/contexts/language-region-context"
 import { getDefaultMapCenter } from "@/lib/i18n/language-region"
@@ -59,12 +59,11 @@ export function InteractiveJobMap({ className }: JobMapProps) {
         .from("jobs")
         .select(`
           *,
-          company_profiles (
+          company_profiles!company_id (
             company_name,
             logo_url
           )
         `)
-        .eq("status", "open") // Only show open jobs (not accepted, in_progress, completed, or failed)
         .eq("is_active", true)
         .not("latitude", "is", null)
         .not("longitude", "is", null)
@@ -195,7 +194,42 @@ export function InteractiveJobMap({ className }: JobMapProps) {
           <CardContent className="p-0">
             <div className="max-h-[520px] overflow-y-auto">
               {jobs.length === 0 ? (
-                <div className="p-6 text-center text-muted-foreground">No active jobs found</div>
+                <div className="p-5">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <Info className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-foreground leading-snug">
+                        No jobs matching your skills in this area right now.
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-3 font-medium uppercase tracking-wide">Try:</p>
+                  <ul className="space-y-2 text-sm text-muted-foreground mb-5">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 font-bold mt-0.5">•</span>
+                      <span>Expanding your search radius</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 font-bold mt-0.5">•</span>
+                      <span>Adding more skills to your profile</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 font-bold mt-0.5">•</span>
+                      <span>Viewing all construction jobs nearby</span>
+                    </li>
+                  </ul>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full justify-between"
+                    onClick={() => window.location.href = "/jobs"}
+                  >
+                    View all jobs nearby
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               ) : (
                 jobs.map((job) => (
                   <div

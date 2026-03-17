@@ -65,6 +65,10 @@ interface LandingPageProps {
   isSignedIn: boolean
   user?: any
   userType?: string | null
+  profileLocation?: { location: string; latitude: number; longitude: number } | null
+  profileSkills?: string[]
+  profileIndustry?: string | null
+  profileServices?: string[]
 }
 
 // Problem-based help items
@@ -99,7 +103,7 @@ const allLanguages = [
   "Azerbaijani", "Georgian", "Armenian", "Maltese", "Welsh", "Irish", "Scottish Gaelic"
 ].sort()
 
-export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
+export function LandingPage({ isSignedIn, user, userType, profileLocation: serverProfileLocation, profileSkills = [], profileIndustry = null, profileServices = [] }: LandingPageProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -149,73 +153,12 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
   const [availableForWork, setAvailableForWork] = useState(true)
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false)
 
-  // User profile location state
+  // User profile location — initialised from server prop (no async race condition)
   const [userProfileLocation, setUserProfileLocation] = useState<{
     location: string
     latitude: number
     longitude: number
-  } | null>(null)
-
-  // Fetch user profile location on mount
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      if (!isSignedIn || !user?.id) return
-
-      try {
-        // Try company profile first
-        const { data: companyProfile } = await supabase
-          .from("company_profiles")
-          .select("location, latitude, longitude")
-          .eq("user_id", user.id)
-          .maybeSingle()
-
-        if (companyProfile?.latitude && companyProfile?.longitude) {
-          setUserProfileLocation({
-            location: companyProfile.location || "",
-            latitude: companyProfile.latitude,
-            longitude: companyProfile.longitude
-          })
-          return
-        }
-
-        // Try professional profile
-        const { data: professionalProfile } = await supabase
-          .from("professional_profiles")
-          .select("location, latitude, longitude")
-          .eq("user_id", user.id)
-          .maybeSingle()
-
-        if (professionalProfile?.latitude && professionalProfile?.longitude) {
-          setUserProfileLocation({
-            location: professionalProfile.location || "",
-            latitude: professionalProfile.latitude,
-            longitude: professionalProfile.longitude
-          })
-          return
-        }
-
-        // Try homeowner profile
-        const { data: homeownerProfile } = await supabase
-          .from("homeowner_profiles")
-          .select("location, latitude, longitude")
-          .eq("user_id", user.id)
-          .maybeSingle()
-
-        if (homeownerProfile?.latitude && homeownerProfile?.longitude) {
-          setUserProfileLocation({
-            location: homeownerProfile.location || "",
-            latitude: homeownerProfile.latitude,
-            longitude: homeownerProfile.longitude
-          })
-        }
-      } catch (error) {
-        // Silently handle - user may not have a profile yet
-        console.log("No user profile location found")
-      }
-    }
-
-    fetchUserProfile()
-  }, [isSignedIn, user?.id, supabase])
+  } | null>(serverProfileLocation ?? null)
 
   // Fetch availability for tradespeople
   useEffect(() => {
@@ -271,17 +214,22 @@ export function LandingPage({ isSignedIn, user, userType }: LandingPageProps) {
     const params = new URLSearchParams()
 
     if (userProfileLocation) {
-      // Use user's profile location with 5 mile radius
-      params.set("location", userProfileLocation.location || "My Location")
+      params.set("location", "Near Me")
       params.set("lat", userProfileLocation.latitude.toString())
       params.set("lng", userProfileLocation.longitude.toString())
       params.set("radius", "5")
     } else {
-      // Default to London for unregistered users
-      params.set("location", "London, UK")
-      params.set("lat", "51.5074")
-      params.set("lng", "-0.1278")
-      params.set("radius", "10")
+      params.set("location", "Near Me")
+    }
+
+    // Prefer industry/services (exact matching) over legacy skills (ilike)
+    if (profileIndustry) {
+      params.set("industry", profileIndustry)
+      if (profileServices.length > 0) {
+        params.set("services", profileServices.slice(0, 10).join(","))
+      }
+    } else if (profileSkills.length > 0) {
+      params.set("skills", profileSkills.slice(0, 10).join(","))
     }
 
     params.set("tab", "jobs_tasks")

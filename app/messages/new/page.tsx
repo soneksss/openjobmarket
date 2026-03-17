@@ -1,307 +1,33 @@
-"use client"
+// Server component — handles auth server-side, no client-side auth check needed
+import { createClient } from "@/lib/server"
+import { redirect } from "next/navigation"
+import NewMessageForm from "./new-message-form"
 
-import { useState, useEffect } from "react"
-import { useRouter, useSearchParams } from "next/navigation"
-import { createClient } from "@/lib/client"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft, Send, LogIn } from "lucide-react"
-import Link from "next/link"
-
-// ✅ Error boundary wrapper to avoid white screen
-export default function NewMessagePageWrapper() {
-  try {
-    return <NewMessagePage />
-  } catch (error) {
-    console.error("[v0] Fatal render error:", error)
-    return (
-      <div className="container mx-auto p-6 text-center">
-        <p className="text-red-500 font-semibold">Something went wrong. Check console logs.</p>
-      </div>
-    )
-  }
+interface PageProps {
+  searchParams: Promise<{ recipient?: string; jobId?: string; subject?: string; returnUrl?: string }>
 }
 
-function NewMessagePage() {
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const [user, setUser] = useState<any>(null)
-  const [authChecked, setAuthChecked] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [recipientId, setRecipientId] = useState("")
-  const [jobId, setJobId] = useState<string | null>(null)
-  const [subject, setSubject] = useState("")
-  const [message, setMessage] = useState("")
-  const [recipientInfo, setRecipientInfo] = useState<any>(null)
-  const [loadingRecipient, setLoadingRecipient] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const [returnUrl, setReturnUrl] = useState<string | null>(null)
-
-  const supabase = createClient()
-
-  // ✅ Check logged-in user
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser()
-
-        if (error) {
-          console.error("[v0] Auth check error:", error)
-        }
-
-        if (user) setUser(user)
-      } catch (err) {
-        console.error("[v0] Auth check failed:", err)
-        setErrorMsg("Authentication check failed.")
-      } finally {
-        setAuthChecked(true)
-      }
-    }
-
-    // ✅ Grab params from URL
-    const recipient = searchParams.get("recipient")
-    const subjectParam = searchParams.get("subject")
-    const returnUrlParam = searchParams.get("returnUrl")
-    const jobIdParam = searchParams.get("jobId")
-    if (recipient) setRecipientId(recipient)
-    if (subjectParam) setSubject(subjectParam)
-    if (returnUrlParam) setReturnUrl(decodeURIComponent(returnUrlParam))
-    if (jobIdParam) setJobId(jobIdParam)
-
-    checkAuth()
-  }, [searchParams, supabase])
-
-  // ✅ Fetch recipient info safely
-  useEffect(() => {
-    if (!user || !recipientId || recipientInfo) return
-
-    const fetchRecipientInfo = async (id: string) => {
-      try {
-        setLoadingRecipient(true)
-        console.log("[v0] Fetching recipient info for:", id)
-
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("user_type, email")
-          .eq("id", id)
-          .maybeSingle()
-
-        if (userError) {
-          console.error("[v0] Supabase userError:", userError)
-          setErrorMsg("Failed to load recipient user info.")
-          return
-        }
-        if (!userData) {
-          console.warn("[v0] No user found for recipient:", id)
-          setErrorMsg("Recipient not found.")
-          return
-        }
-
-        let profileData = null
-        if (userData.user_type === "professional") {
-          const { data, error } = await supabase
-            .from("professional_profiles")
-            .select("first_name, last_name")
-            .eq("user_id", id)
-            .maybeSingle()
-          if (error) console.error("[v0] professional_profiles error:", error)
-          profileData = data
-        } else if (userData.user_type === "company") {
-          const { data, error } = await supabase
-            .from("company_profiles")
-            .select("company_name")
-            .eq("user_id", id)
-            .maybeSingle()
-          if (error) console.error("[v0] company_profiles error:", error)
-          profileData = data
-        }
-
-        setRecipientInfo({ ...userData, ...profileData })
-      } catch (err) {
-        console.error("[v0] Error fetching recipient info:", err)
-        setErrorMsg("Failed to fetch recipient info.")
-      } finally {
-        setLoadingRecipient(false)
-      }
-    }
-
-    fetchRecipientInfo(recipientId)
-  }, [user, recipientId, recipientInfo, supabase])
-
-  // ✅ Send message safely
-  const handleSendMessage = async () => {
-    if (!recipientId || !subject || !message) return
-
-    setSending(true)
-    try {
-      // Use the database function to get or create conversation
-      const { data: conversationId, error: convError } = await supabase.rpc(
-        'get_or_create_conversation',
-        { user1_id: user.id, user2_id: recipientId }
-      )
-
-      if (convError || !conversationId) {
-        console.error("[NEW-MESSAGE] Error getting/creating conversation:", convError)
-        setErrorMsg("Failed to create conversation.")
-        return
-      }
-
-      console.log("[NEW-MESSAGE] Conversation ID:", conversationId)
-
-      // Insert the message with the conversation ID
-      const { error: messageError } = await supabase.from("messages").insert({
-        conversation_id: conversationId,
-        sender_id: user.id,
-        recipient_id: recipientId,
-        subject: subject,
-        content: message,
-        message_type: 'direct',
-        job_id: jobId || null,
-        is_read: false,
-        share_personal_info: false
-      })
-
-      if (messageError) {
-        console.error("[NEW-MESSAGE] Message insert error:", messageError)
-        setErrorMsg("Failed to send message.")
-        return
-      }
-
-      console.log("[NEW-MESSAGE] Message sent successfully")
-
-      // Send email notification (non-blocking)
-      fetch("/api/notifications/send-message-notification", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recipientId: recipientId,
-          senderId: user.id,
-          conversationId: conversationId,
-          messageSubject: subject,
-          messageContent: message,
-        }),
-      }).catch((err) => {
-        console.error("[NEW-MESSAGE] Failed to send email notification:", err)
-        // Don't block user flow on notification failure
-      })
-
-      // Navigate to conversation page, passing returnUrl if available
-      if (returnUrl) {
-        router.push(`/messages/${conversationId}?returnUrl=${encodeURIComponent(returnUrl)}`)
-      } else {
-        router.push(`/messages/${conversationId}`)
-      }
-    } catch (err) {
-      console.error("[NEW-MESSAGE] Error sending message:", err)
-      setErrorMsg("Unexpected error while sending message.")
-    } finally {
-      setSending(false)
-    }
-  }
-
-  // ✅ UI states
-  if (!authChecked) {
-    return (
-      <div className="container mx-auto p-6 text-center">
-        <div>Checking authentication...</div>
-      </div>
-    )
-  }
+export default async function NewMessagePage({ searchParams }: PageProps) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (!user) {
-    return (
-      <div className="container mx-auto p-6 max-w-md">
-        <Card>
-          <CardHeader>
-            <CardTitle>Login Required</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-muted-foreground">You need to be logged in to send messages.</p>
-            <Button asChild className="w-full">
-              <Link href="/auth/login">
-                <LogIn className="h-4 w-4 mr-2" />
-                Login
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    redirect("/auth/login")
   }
 
+  const params = await searchParams
+  const recipientId = params.recipient ?? ""
+  const jobId = params.jobId ?? null
+  const subject = params.subject ?? ""
+  const returnUrl = params.returnUrl ? decodeURIComponent(params.returnUrl) : null
+
   return (
-    <div className="container mx-auto p-6 max-w-2xl">
-      <div className="mb-6">
-        {returnUrl ? (
-          <Link href={returnUrl} className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Search Results
-          </Link>
-        ) : (
-          <Link href="/messages" className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Messages
-          </Link>
-        )}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>New Message</CardTitle>
-          {loadingRecipient && <div className="text-sm text-muted-foreground">Loading recipient info...</div>}
-          {recipientInfo && (
-            <div className="text-sm text-muted-foreground">
-              To:{" "}
-              {recipientInfo.user_type === "professional"
-                ? `${recipientInfo.first_name ?? ""} ${recipientInfo.last_name ?? ""}`
-                : recipientInfo.company_name ?? "Unknown company"}
-            </div>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {errorMsg && <p className="text-sm text-red-500">{errorMsg}</p>}
-
-          {!recipientId && (
-            <div>
-              <label className="text-sm font-medium">Recipient ID</label>
-              <Input
-                value={recipientId}
-                onChange={(e) => setRecipientId(e.target.value)}
-                placeholder="Enter recipient user ID"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="text-sm font-medium">Subject</label>
-            <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Enter message subject" />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium">Message</label>
-            <Textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Type your message here..."
-              rows={6}
-            />
-          </div>
-
-          <Button
-            onClick={handleSendMessage}
-            disabled={!recipientId || !subject || !message || sending}
-            className="w-full"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            {sending ? "Sending..." : "Send Message"}
-          </Button>
-        </CardContent>
-      </Card>
-    </div>
+    <NewMessageForm
+      userId={user.id}
+      recipientId={recipientId}
+      jobId={jobId}
+      initialSubject={subject}
+      returnUrl={returnUrl}
+    />
   )
 }

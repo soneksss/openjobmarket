@@ -9,8 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Upload, ArrowLeft, Building2, MapPin, Eye, EyeOff, Trash2, Plus, X } from "lucide-react"
+import { Upload, ArrowLeft, Building2, MapPin, Eye, EyeOff, Trash2 } from "lucide-react"
 import { createClient } from "@/lib/client"
 import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
@@ -38,7 +37,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
-import { industryTitles } from "@/lib/data/industries"
+import { TRADE_INDUSTRIES, findTradeIndustry } from "@/lib/data/trade-industries"
 
 interface User {
   id: string
@@ -84,10 +83,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
   const [companyName, setCompanyName] = useState(profile.company_name)
   const [description, setDescription] = useState(profile.description || "")
   const [industry, setIndustry] = useState(profile.industry || "")
-  const [customIndustry, setCustomIndustry] = useState("")
-  const [showCustomIndustry, setShowCustomIndustry] = useState(false)
   const [services, setServices] = useState<string[]>(profile.services || [])
-  const [newService, setNewService] = useState("")
   const [websiteUrl, setWebsiteUrl] = useState(profile.website_url || "")
   const [phoneNumber, setPhoneNumber] = useState(profile.phone_number || "")
   const [location, setLocation] = useState(profile.location || "")
@@ -123,14 +119,6 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     console.log("[COMPANY-EDIT] Component mounted with logo_url:", profile.logo_url)
     console.log("[COMPANY-EDIT] Current logoUrl state (with cache-bust):", logoUrl)
     console.log("[COMPANY-EDIT] logoError state:", logoError)
-  }, [])
-
-  // Check if industry is a custom value (not in predefined list)
-  useEffect(() => {
-    if (industry && !industryTitles.includes(industry)) {
-      setShowCustomIndustry(true)
-      setCustomIndustry(industry)
-    }
   }, [])
 
   // Image resizing helper function with timeout and fallback
@@ -370,21 +358,10 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     }
   }
 
-  const addService = () => {
-    console.log("[COMPANY-EDIT] addService called, newService:", newService, "current services:", services)
-    const trimmedService = newService.trim()
-    if (trimmedService && !services.includes(trimmedService)) {
-      const newServices = [...services, trimmedService]
-      console.log("[COMPANY-EDIT] Adding service:", trimmedService, "new services array:", newServices)
-      setServices(newServices)
-      setNewService("")
-    } else {
-      console.log("[COMPANY-EDIT] Service not added - empty or duplicate:", trimmedService)
-    }
-  }
-
-  const removeService = (service: string) => {
-    setServices(services.filter((s) => s !== service))
+  const toggleService = (service: string) => {
+    setServices(prev =>
+      prev.includes(service) ? prev.filter(s => s !== service) : [...prev, service]
+    )
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -619,103 +596,72 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
               <div className="space-y-2">
                 <Label htmlFor="industry" className="text-sm font-medium text-slate-200">
-                  Industry
+                  Trade / Industry
                 </Label>
-                {!showCustomIndustry ? (
-                  <Select
-                    value={industry}
-                    onValueChange={(value) => {
-                      if (value === "Other") {
-                        setShowCustomIndustry(true)
-                        setIndustry("")
-                      } else {
-                        setIndustry(value)
-                      }
-                    }}
-                  >
-                    <SelectTrigger className="w-full text-sm bg-slate-700/50 border-2 border-slate-600 hover:border-slate-500 focus:border-emerald-500 focus:ring-0 text-white data-[placeholder]:text-slate-400">
-                      <SelectValue placeholder="Select an industry" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-800 border border-slate-700 text-white shadow-xl max-h-72">
-                      {industryTitles.map((ind) => (
-                        <SelectItem
-                          key={ind}
-                          value={ind}
-                          className="text-slate-200 focus:bg-emerald-600/20 focus:text-emerald-300 cursor-pointer"
-                        >
-                          {ind}
-                        </SelectItem>
-                      ))}
+                <Select
+                  value={industry}
+                  onValueChange={(value) => {
+                    setIndustry(value)
+                    // Keep only services that belong to the new industry
+                    const industryData = findTradeIndustry(value)
+                    if (industryData && industryData.services.length > 0) {
+                      setServices(prev => prev.filter(s => (industryData.services as readonly string[]).includes(s)))
+                    } else {
+                      setServices([])
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full text-sm bg-slate-700/50 border-2 border-slate-600 hover:border-slate-500 focus:border-emerald-500 focus:ring-0 text-white data-[placeholder]:text-slate-400">
+                    <SelectValue placeholder="Select your trade" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border border-slate-700 text-white shadow-xl max-h-72">
+                    {TRADE_INDUSTRIES.map((ind) => (
                       <SelectItem
-                        value="Other"
-                        className="text-slate-400 italic focus:bg-slate-700 focus:text-slate-200 cursor-pointer border-t border-slate-700 mt-1"
+                        key={ind.title}
+                        value={ind.title}
+                        className="text-slate-200 focus:bg-emerald-600/20 focus:text-emerald-300 cursor-pointer"
                       >
-                        Other (Enter manually)
+                        {ind.icon} {ind.title}
                       </SelectItem>
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <div className="flex gap-2">
-                    <Input
-                      type="text"
-                      placeholder="Enter your industry"
-                      value={customIndustry}
-                      onChange={(e) => {
-                        setCustomIndustry(e.target.value)
-                        setIndustry(e.target.value)
-                      }}
-                      className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setShowCustomIndustry(false)
-                        setCustomIndustry("")
-                        setIndustry("")
-                      }}
-                      className="shrink-0 border-slate-600 text-slate-200 hover:bg-slate-700"
-                    >
-                      Back to List
-                    </Button>
-                  </div>
-                )}
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Services */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-slate-200">Services</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add a service (e.g., Lightning design, Electrical installation)"
-                    value={newService}
-                    onChange={(e) => setNewService(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault()
-                        addService()
-                      }
-                    }}
-                    className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
-                  />
-                  <Button type="button" onClick={addService} size="icon" className="shrink-0 bg-emerald-600 hover:bg-emerald-700">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {services.map((service) => (
-                    <Badge key={service} variant="secondary" className="flex items-center gap-1 text-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      {service}
-                      <button type="button" onClick={() => removeService(service)} className="ml-0.5 hover:text-white transition-colors">
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-                <p className="text-xs text-slate-400">
-                  List the services your company provides (helps customers find you by service type)
-                </p>
-              </div>
+              {(() => {
+                const industryData = findTradeIndustry(industry)
+                const availableServices = industryData?.services ?? []
+                return (
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-200">Services</Label>
+                    {availableServices.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2 p-3 bg-slate-700/30 rounded-lg border border-slate-600">
+                        {availableServices.map((service) => (
+                          <label key={service} className="flex items-center gap-2 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={services.includes(service)}
+                              onChange={() => toggleService(service)}
+                              className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 cursor-pointer"
+                            />
+                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{service}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-400 italic">
+                        {industry ? "No predefined services for this trade — add a description below." : "Select a trade above to see available services."}
+                      </p>
+                    )}
+                    {services.length > 0 && (
+                      <p className="text-xs text-slate-400">
+                        {services.length} service{services.length !== 1 ? "s" : ""} selected
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
 
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -769,13 +715,19 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   <LocationPicker
                     latitude={latitude || undefined}
                     longitude={longitude || undefined}
-                    onLocationSelect={(lat, lng) => {
+                    onLocationSelect={(lat, lng, address) => {
                       setLatitude(lat)
                       setLongitude(lng)
+                      if (address) {
+                        setLocation(address)
+                        setFullAddress(address)
+                      }
                     }}
                     onLocationClear={() => {
                       setLatitude(null)
                       setLongitude(null)
+                      setLocation("")
+                      setFullAddress("")
                     }}
                   />
                 </div>

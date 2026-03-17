@@ -122,21 +122,65 @@ export default function MessagesPage() {
 
       console.log("[MESSAGES] Fetched", messages?.length || 0, "messages")
 
-      // No messages - exit early
-      if (!messages || messages.length === 0) {
+      // Also fetch conversations with no messages yet (e.g. just confirmed, no first message sent)
+      const { data: emptyConvs } = await supabase
+        .from("conversations")
+        .select("id, participant_1, participant_2, created_at")
+        .or(`participant_1.eq.${currentUser.id},participant_2.eq.${currentUser.id}`)
+        .order("created_at", { ascending: false })
+        .limit(100)
+
+      // Build a set of other-user IDs already covered by messages
+      const coveredUserIds = new Set<string>()
+      for (const msg of messages ?? []) {
+        const otherId = msg.sender_id === currentUser.id ? msg.recipient_id : msg.sender_id
+        coveredUserIds.add(otherId)
+      }
+
+      // Synthetic "empty" conversations to merge in below
+      const emptySyntheticMessages: Array<{
+        id: string; subject: string; content: string; created_at: string;
+        is_read: boolean; sender_id: string; recipient_id: string;
+        conversation_id: string; job_id: null; _empty: true
+      }> = []
+
+      for (const conv of emptyConvs ?? []) {
+        const otherId = conv.participant_1 === currentUser.id ? conv.participant_2 : conv.participant_1
+        if (!coveredUserIds.has(otherId)) {
+          coveredUserIds.add(otherId)
+          emptySyntheticMessages.push({
+            id:              `empty-${conv.id}`,
+            subject:         "",
+            content:         "No messages yet — say hello!",
+            created_at:      conv.created_at,
+            is_read:         true,
+            sender_id:       otherId,
+            recipient_id:    currentUser.id,
+            conversation_id: conv.id,
+            job_id:          null,
+            _empty:          true,
+          })
+        }
+      }
+
+      // No messages and no conversations - exit early
+      if ((!messages || messages.length === 0) && emptySyntheticMessages.length === 0) {
         console.log("[MESSAGES] No messages found")
         setConversations([])
         setLoading(false)
         return
       }
 
+      const allMessages = [...(messages ?? []), ...emptySyntheticMessages]
+
       // Group messages by conversation partner
       const conversationMap = new Map<string, {
-        messages: typeof messages,
+        messages: typeof allMessages,
         other_user_id: string
+        conversation_id?: string
       }>()
 
-      for (const message of messages) {
+      for (const message of allMessages) {
         const other_user_id = message.sender_id === currentUser.id
           ? message.recipient_id
           : message.sender_id
@@ -144,7 +188,8 @@ export default function MessagesPage() {
         if (!conversationMap.has(other_user_id)) {
           conversationMap.set(other_user_id, {
             messages: [],
-            other_user_id
+            other_user_id,
+            conversation_id: message.conversation_id ?? undefined,
           })
         }
 
@@ -217,7 +262,7 @@ export default function MessagesPage() {
       const contractorProfilesMap = new Map(contractorProfiles?.map(c => [c.user_id, c]) || [])
 
       // Fetch job info for messages with job_id
-      const jobIds = [...new Set(messages?.filter(m => m.job_id).map(m => m.job_id))]
+      const jobIds = [...new Set(allMessages.filter(m => m.job_id).map(m => m.job_id))]
       let jobsMap = new Map<string, JobInfo>()
 
       if (jobIds.length > 0) {
@@ -284,7 +329,9 @@ export default function MessagesPage() {
         const jobInfo = messageWithJob?.job_id ? jobsMap.get(messageWithJob.job_id) : undefined
 
         conversationsData.push({
-          id: otherUserId,
+          // Prefer a real conversation_id for navigation; fall back to other user's ID
+          // (the conversation page handles both cases)
+          id: convData.conversation_id ?? otherUserId,
           other_user: {
             id: otherUserId,
             name: displayName,
@@ -450,18 +497,23 @@ export default function MessagesPage() {
   const getJobStatusBadge = (job?: JobInfo) => {
     if (!job) return null
 
-    const status = job.matching_status || job.status
-
-    // Dark theme badges
+    // Only show badges for meaningful confirmed/active/completed states.
+    // "Searching" / "POSTED" / "open" are not useful in a conversation context.
     const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
-      searching: { label: 'Searching', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Clock },
-      reviewing: { label: 'Reviewing', className: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: Clock },
-      in_progress: { label: 'In Progress', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: Play },
-      closed: { label: 'Completed', className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
-      open: { label: 'Open', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Clock },
+      CONFIRMED:   { label: 'Confirmed',   className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
+      ACTIVE:      { label: 'In Progress', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',   icon: Play },
+      COMPLETED:   { label: 'Completed',   className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
+      in_progress: { label: 'In Progress', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',   icon: Play },
+      closed:      { label: 'Completed',   className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
     }
 
-    const config = statusConfig[status || 'open'] || statusConfig.open
+    // job.status takes priority; fall back to matching_status
+    const status = job.status === 'CONFIRMED' || job.status === 'ACTIVE' || job.status === 'COMPLETED'
+      ? job.status
+      : job.matching_status ?? job.status
+
+    const config = statusConfig[status || '']
+    if (!config) return null // hide badge for POSTED / searching / reviewing / open
     const Icon = config.icon
 
     return (

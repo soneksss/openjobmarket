@@ -147,17 +147,17 @@ export function JobsNearYou({ userLocation, maxJobs = 5, radiusMiles = 10 }: Job
           category,
           salary_min,
           salary_max,
-          company_profiles (
+          company_profiles!company_id (
             company_name,
             logo_url
           ),
-          homeowner_profiles (
+          homeowner_profiles!homeowner_id (
             first_name,
             last_name,
             profile_photo_url
           )
         `)
-        .eq("status", "open")
+        .eq("status", "POSTED")
         .eq("is_active", true)
         .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
         .gte("latitude", userCoords.lat - latDelta)

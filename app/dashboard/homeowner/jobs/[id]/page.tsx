@@ -65,29 +65,38 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
   const { data: applications } = await supabase
     .from("job_applications")
     .select(`
-      id, status, applied_at, cover_letter, contractor_id, professional_id,
+      id, status, applied_at, cover_letter, contractor_id, professional_id, company_id,
       contractor_profiles ( id, user_id, business_name, trade_specialties, experience_years, location, profile_picture, phone, email, bio ),
-      professional_profiles ( id, user_id, first_name, last_name, title, location, skills, experience_level, profile_photo_url, portfolio_url, linkedin_url, github_url )
+      professional_profiles ( id, user_id, first_name, last_name, title, location, skills, experience_level, profile_photo_url, portfolio_url, linkedin_url, github_url ),
+      company_profiles!company_id ( id, user_id, company_name, logo_url, location, verified, industry )
     `)
     .eq("job_id", id)
     .order("applied_at", { ascending: false })
 
   const now = new Date()
   const expiresAt = job.expires_at ? new Date(job.expires_at) : null
-  const isExpired = expiresAt && expiresAt < now
-  const isActive = job.is_active && !isExpired
+  const isExpired = expiresAt ? expiresAt < now : false
+  // A job posted in the last 2 minutes is treated as active even if is_active
+  // hasn't propagated yet (DB trigger latency on first insert)
+  const justPosted = (now.getTime() - new Date(job.created_at).getTime()) < 2 * 60 * 1000
+  const isActive = (job.is_active || justPosted) && !isExpired
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
 
-  const expiryDays = expiresAt
-    ? Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-    : null
-
-  const expiryLabel = expiryDays === null ? null
-    : expiryDays < 0  ? `Expired ${Math.abs(expiryDays)}d ago`
-    : expiryDays === 0 ? "Expires today"
-    : `Expires in ${expiryDays}d`
+  const expiryDiffMs = expiresAt ? expiresAt.getTime() - now.getTime() : null
+  const expiryLabel = expiryDiffMs === null ? null
+    : expiryDiffMs < 0
+      ? (() => {
+          const hrs = Math.floor(Math.abs(expiryDiffMs) / (1000 * 60 * 60))
+          const days = Math.floor(hrs / 24)
+          return days > 0 ? `Expired ${days}d ago` : `Expired ${hrs}h ago`
+        })()
+    : expiryDiffMs < 60 * 60 * 1000
+      ? `Expires in ${Math.ceil(expiryDiffMs / (1000 * 60))}m`
+    : expiryDiffMs < 24 * 60 * 60 * 1000
+      ? `Expires in ${Math.ceil(expiryDiffMs / (1000 * 60 * 60))}h`
+    : `Expires in ${Math.ceil(expiryDiffMs / (1000 * 60 * 60 * 24))}d`
 
   const budgetLabel = job.budget_min && job.budget_max
     ? `£${job.budget_min}–£${job.budget_max}`
@@ -199,9 +208,9 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
 
         {/* Description */}
         {displayDescription && (
-          <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5">
+          <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5 overflow-hidden">
             <h2 className="text-sm font-semibold text-slate-300 mb-2">About this job</h2>
-            <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-line">{displayDescription}</p>
+            <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap break-words">{displayDescription}</p>
           </div>
         )}
 
@@ -215,6 +224,7 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
             expiresAt={job.expires_at}
             jobStatus={job.status}
             isFlexibleJob={!!(job.is_tradespeople_job && job.urgency_type === "flexible")}
+            urgencyType={job.urgency_type ?? undefined}
             currentJob={{
               title: job.title,
               description: job.description,
@@ -239,9 +249,15 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
           <div className="flex items-start gap-3 p-4 rounded-2xl bg-red-500/10 border border-red-500/25">
             <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold text-red-300">This job has expired</p>
+              <p className="text-sm font-semibold text-red-300">
+                {job.urgency_type === "asap" || job.urgency_type === "today"
+                  ? "Search window closed"
+                  : "This job has expired"}
+              </p>
               <p className="text-xs text-red-400/80 mt-0.5">
-                Not visible to tradespeople. Use "Extend" above to reactivate it.
+                {job.urgency_type === "asap" || job.urgency_type === "today"
+                  ? "The 1-hour search window has ended. Use \"Reopen\" above to start a new search window."
+                  : "Not visible to tradespeople. Use \"Extend\" above to reactivate it."}
               </p>
             </div>
           </div>

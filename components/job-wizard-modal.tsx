@@ -3,10 +3,12 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import MapLocationPicker from "./map-location-picker"
+import { LocationInput } from "./location-input"
 import { X, ArrowLeft, ArrowRight, Eye, Briefcase, Hammer, Zap, Clock, Calendar, ChevronDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
+import { TRADE_INDUSTRIES, INDUSTRY_TO_CATEGORY as TRADE_INDUSTRY_TO_CATEGORY, findTradeIndustry } from "@/lib/data/trade-industries"
 
 type Props = {
   companyProfile: any
@@ -23,7 +25,9 @@ type JobFormData = {
   urgencyType: "asap" | "flexible" | ""
   flexibleDays: number
   // Step 3: Job details
-  profession: string
+  profession: string   // kept for employee-type jobs
+  industry: string     // tradespeople jobs: industry (matches company_profiles.industry)
+  service: string      // tradespeople jobs: specific service/subcategory (optional)
   shortDescription: string
   longDescription: string
   payMin: string
@@ -245,6 +249,91 @@ const getCommonTrades = (isPtBR: boolean) => {
   ]
 }
 
+// Maps wizard profession names to the canonical category values used by the job search filter
+const PROFESSION_TO_CATEGORY: Record<string, string> = {
+  // EN
+  "Plumber": "Plumbing",
+  "Electrician": "Electrical",
+  "Builder": "Construction",
+  "Carpenter": "Carpentry",
+  "Painter": "Painting & Decorating",
+  "Painter & Decorator": "Painting & Decorating",
+  "Decorator": "Painting & Decorating",
+  "Roofer": "Roofing",
+  "Gardener": "Gardening",
+  "Cleaner": "Cleaning",
+  "Handyman": "General Handyman",
+  "General Handyman": "General Handyman",
+  "Locksmith": "General Handyman",
+  "Bathrooms": "Plumbing",
+  "Bathroom Fitter": "Plumbing",
+  "Tiler": "Flooring",
+  "Heating": "Electrical",
+  "Heating Engineer": "Electrical",
+  "Gas Boiler": "Electrical",
+  "Gas Engineer": "Electrical",
+  "Plasterer": "Construction",
+  "Driveways": "Construction",
+  "Driveway Specialist": "Construction",
+  "Fencing": "Carpentry",
+  "Tree Surgeon": "Gardening",
+  "Windows/Doors": "Carpentry",
+  "Window Fitter": "Carpentry",
+  "Door Fitter": "Carpentry",
+  "Mechanic": "General Handyman",
+  "Flooring": "Flooring",
+  "Flooring Specialist": "Flooring",
+  "Kitchen Fitter": "Carpentry",
+  "HVAC": "Electrical",
+  "HVAC Engineer": "Electrical",
+  "Glazier": "Construction",
+  "Bricklayer": "Construction",
+  "Scaffolder": "Construction",
+  "Welder": "Construction",
+  // PT-BR
+  "Encanador": "Plumbing",
+  "Eletricista": "Electrical",
+  "Construtor": "Construction",
+  "Carpinteiro": "Carpentry",
+  "Pintor": "Painting & Decorating",
+  "Pintor & Decorador": "Painting & Decorating",
+  "Telhador": "Roofing",
+  "Jardineiro": "Gardening",
+  "Faxineiro": "Cleaning",
+  "Faz-Tudo": "General Handyman",
+  "Faz-Tudo Geral": "General Handyman",
+  "Chaveiro": "General Handyman",
+  "Banheiros": "Plumbing",
+  "Instalador de Banheiros": "Plumbing",
+  "Azulejista": "Flooring",
+  "Aquecimento": "Electrical",
+  "Engenheiro de Aquecimento": "Electrical",
+  "Caldeira a Gás": "Electrical",
+  "Engenheiro de Gás": "Electrical",
+  "Gesseiro": "Construction",
+  "Calçadas": "Construction",
+  "Especialista em Calçadas": "Construction",
+  "Cercas": "Carpentry",
+  "Cirurgião de Árvores": "Gardening",
+  "Janelas/Portas": "Carpentry",
+  "Instalador de Janelas": "Carpentry",
+  "Instalador de Portas": "Carpentry",
+  "Mecânico": "General Handyman",
+  "Pisos": "Flooring",
+  "Especialista em Pisos": "Flooring",
+  "Instalador de Cozinhas": "Carpentry",
+  "Engenheiro HVAC": "Electrical",
+  "Vidraceiro": "Construction",
+  "Decorador": "Painting & Decorating",
+  "Pedreiro": "Construction",
+  "Andaimeiro": "Construction",
+  "Soldador": "Construction",
+}
+
+// Use the shared trade industry list (same as tradesperson profile forms)
+// TRADE_INDUSTRIES and INDUSTRY_TO_CATEGORY imported from lib/data/trade-industries.ts
+const INDUSTRY_TO_CATEGORY = TRADE_INDUSTRY_TO_CATEGORY
+
 // Language data with flags
 const LANGUAGE_FLAGS: { [key: string]: { code: string; en: string; ptBR: string } } = {
   english:    { code: "gb", en: "English",    ptBR: "Inglês" },
@@ -379,6 +468,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
     urgencyType: "",
     flexibleDays: 1,
     profession: "",
+    industry: "",
+    service: "",
     shortDescription: "",
     longDescription: "",
     payMin: "",
@@ -395,8 +486,11 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
 
   const closeModal = () => {
     setOpen(false)
-    const defaultRedirect = userType === "company" ? "/dashboard/company" : "/dashboard/homeowner"
-    router.push(redirectPath || defaultRedirect)
+    if (redirectPath) {
+      router.push(redirectPath)
+    } else {
+      router.back()
+    }
   }
 
   const handleMapLocationSelect = (location: { latitude: number; longitude: number; address: string } | null) => {
@@ -442,9 +536,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
     try {
       // Always convert to JPEG format (required by Supabase Storage bucket)
       // Compress if larger than 1MB, otherwise just convert to JPEG
-      console.log("[Job Wizard] Processing image from", (file.size / 1024 / 1024).toFixed(2), "MB")
       const processedFile = await compressImage(file, 1024 * 1024) // 1MB target, always convert to JPEG
-      console.log("[Job Wizard] Processed to", (processedFile.size / 1024 / 1024).toFixed(2), "MB")
 
       // Create preview URL
       const previewUrl = URL.createObjectURL(processedFile)
@@ -568,9 +660,16 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
 
     switch (step) {
       case 1: // Job details
-        if (!formData.profession.trim()) {
-          setErr("Please enter the trade / service.")
-          return false
+        if (formData.postingType === "tradespeople") {
+          if (!formData.industry) {
+            setErr("Please select an industry.")
+            return false
+          }
+        } else {
+          if (!formData.profession.trim()) {
+            setErr("Please enter the trade / service.")
+            return false
+          }
         }
         if (!formData.shortDescription.trim()) {
           setErr("Please enter a short description.")
@@ -738,13 +837,45 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
 
       const fullDescription = formData.shortDescription
 
+      // ── Budget validation ────────────────────────────────────────────
+      const budgetMin = formData.payMin ? Number.parseInt(formData.payMin) : null
+      const budgetMax = formData.payMax ? Number.parseInt(formData.payMax) : null
+
+      if (budgetMin !== null && isNaN(budgetMin)) {
+        setErr("Please enter a valid minimum budget.")
+        setLoading(false)
+        return
+      }
+      if (budgetMax !== null && isNaN(budgetMax)) {
+        setErr("Please enter a valid maximum budget.")
+        setLoading(false)
+        return
+      }
+      if (budgetMin !== null && budgetMax !== null && budgetMin > budgetMax) {
+        setErr("Minimum budget cannot be greater than the maximum budget.")
+        setLoading(false)
+        return
+      }
+      // ─────────────────────────────────────────────────────────────────
+
       const payload: any = {
         company_id: userType === "company" ? companyProfile.id : null,
         homeowner_id: userType === "homeowner" ? companyProfile.id : null,
-        title: formData.profession.trim(),
+        title: formData.postingType === "tradespeople"
+          ? (formData.service && formData.service !== "Not sure / Other"
+              ? formData.service
+              : formData.industry || formData.profession).trim()
+          : formData.profession.trim(),
+        industry: formData.postingType === "tradespeople" ? formData.industry || null : null,
+        service: formData.postingType === "tradespeople" && formData.service && formData.service !== "Not sure / Other"
+          ? formData.service
+          : null,
+        category: formData.postingType === "tradespeople"
+          ? INDUSTRY_TO_CATEGORY[formData.industry] ?? PROFESSION_TO_CATEGORY[formData.profession.trim()] ?? null
+          : null,
         location: formData.fullAddress,
-        latitude: formData.locationCoords?.lat || null,
-        longitude: formData.locationCoords?.lon || null,
+        latitude: formData.locationCoords?.lat ?? companyProfile?.latitude ?? null,
+        longitude: formData.locationCoords?.lon ?? companyProfile?.longitude ?? null,
         work_location: "onsite",
         description: fullDescription,
         short_description: formData.shortDescription,
@@ -765,10 +896,11 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         max_radius: formData.postingType === "tradespeople" ? 50.0 : null,
         last_broadcast_at: formData.postingType === "tradespeople" ? new Date().toISOString() : null,
         homeowner_notified: false,
-        budget_min: formData.payMin ? Number.parseInt(formData.payMin) : null,
-        budget_max: formData.payMax ? Number.parseInt(formData.payMax) : null,
+        budget_min: budgetMin,
+        budget_max: budgetMax,
         budget_period: formData.payFrequency,
         languages: formData.languages.length > 0 ? formData.languages : null,
+        status: "POSTED",
         is_active: true,
         expires_at: expirationDate.toISOString(),
         created_at: new Date().toISOString(),
@@ -783,8 +915,6 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
       // This avoids the common hang where INSERT succeeds but the postgrest RETURNING query stalls.
       const jobId = crypto.randomUUID()
       payload.id = jobId
-
-      console.log("[Job Wizard] Submitting job:", { id: jobId, ...payload })
 
       // Use the server-side API route (admin/service_role) to avoid
       // client-side RLS subquery hangs. 15-second abort for safety.
@@ -804,7 +934,6 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
           const body = await res.json().catch(() => ({}))
           insertErrMsg = body?.error ?? `HTTP ${res.status}`
         }
-        console.log("[JOB-WIZARD] API response:", res.status)
       } catch (fetchErr: any) {
         insertErrMsg = fetchErr?.message ?? String(fetchErr)
         console.error("[JOB-WIZARD] API fetch threw:", fetchErr)
@@ -820,7 +949,6 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         return
       }
 
-      console.log("[JOB-WIZARD] Job posted successfully:", jobId)
       clearTimeout(timeoutId)
 
       // ── Everything below is fire-and-forget. ─────────────────
@@ -830,44 +958,66 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
           ? `${companyProfile.first_name || ""} ${companyProfile.last_name || ""}`.trim() || "A homeowner"
           : companyProfile.company_name || "A company"
 
+        // Bell notifications go to ALL trade jobs (flexible + urgent)
+        // Skills array includes service, industry, and profession for broad matching
+        const skillsToNotify = [
+          formData.service && formData.service !== "Not sure / Other" ? formData.service : null,
+          formData.industry || null,
+          formData.profession.trim() || null,
+        ].filter(Boolean) as string[]
+
         fetch("/api/notifications/send-trade-job-notification", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            jobId: jobId,
-            jobTitle: formData.profession.trim(),
+            jobId,
+            jobTitle: formData.service || formData.profession.trim(),
             jobLat: formData.locationCoords.lat,
             jobLon: formData.locationCoords.lon,
-            jobSkills: [formData.profession.trim()],
+            jobSkills: skillsToNotify,
             posterName,
             urgencyType: formData.urgencyType,
+            jobIndustry: formData.industry || null,
+            jobService: (formData.service && formData.service !== "Not sure / Other") ? formData.service : null,
           }),
         }).catch(() => {})
 
+        // Uber-style dispatch only for urgent jobs
         if (formData.urgencyType === "asap" || formData.urgencyType === "today") {
           fetch(`/api/jobs/${jobId}/dispatch-urgent`, { method: "POST" }).catch(() => {})
         }
       }
       // ─────────────────────────────────────────────────────────
 
-      toast({
-        title: "✅ Job Posted Successfully!",
-        description: "Finding the best available trades near you…",
-        variant: "default",
-      })
+      const isFlexible = formData.urgencyType === "flexible"
 
-      // Persist active search so the bar shows on all pages until cancelled
-      setActiveSearch({
-        jobId,
-        jobTitle: formData.profession.trim() || "Job",
-        tradesCount:   0,
-        notifiedCount: 0,
-        phase:         "searching",
-        startedAt:     Date.now(),
-      })
-
-      setLoading(false)
-      router.push(`/jobs/${jobId}/live`)
+      if (isFlexible) {
+        // Flexible jobs: simple confirmation, no live-tracking, no active search bar
+        toast({
+          title: "✅ Job Posted!",
+          description: "Your job is live on the map. Nearby tradespeople have been notified.",
+          variant: "default",
+        })
+        setLoading(false)
+        router.push(`/jobs/${jobId}`)
+      } else {
+        // Urgent (ASAP/Today): uber-style live tracking
+        toast({
+          title: "✅ Job Posted Successfully!",
+          description: "Finding the best available trades near you…",
+          variant: "default",
+        })
+        setActiveSearch({
+          jobId,
+          jobTitle: formData.profession.trim() || "Job",
+          tradesCount:   0,
+          notifiedCount: 0,
+          phase:         "searching",
+          startedAt:     Date.now(),
+        })
+        setLoading(false)
+        router.push(`/jobs/${jobId}/live`)
+      }
     } catch (err: any) {
       clearTimeout(timeoutId)
       console.error("[JOB-WIZARD] Unexpected error:", err)
@@ -918,118 +1068,103 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                 <button
                   type="button"
                   onClick={() => router.push("/jobs/vacancy/new")}
-                  className="text-sm text-slate-400 md:text-gray-500 hover:text-blue-500 hover:underline"
+                  className="text-sm text-slate-400 hover:text-blue-500 hover:underline"
                 >
                   Posting a long-term role? <span className="font-medium">Switch to Vacancy →</span>
                 </button>
               </div>
             )}
 
-            <h3 className="text-lg font-semibold text-white md:text-gray-900">Job / Task Details</h3>
+            <h3 className="text-lg font-semibold text-white">Job / Task Details</h3>
 
-            {/* Trade input */}
-            <div className="relative">
-              <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">
-                Trade / Service <span className="text-red-400">*</span>
+            {/* Industry dropdown */}
+            <div>
+              <label className="block text-sm font-medium mb-2 text-white">
+                Type of trade needed <span className="text-red-400">*</span>
               </label>
-              <input
-                type="text"
-                value={formData.profession}
-                onChange={(e) => handleProfessionChange(e.target.value)}
-                onFocus={() => {
-                  if (formData.profession.trim().length === 0) {
-                    setFilteredSuggestions(professionsList)
-                    setShowSuggestions(true)
-                  } else {
-                    setShowSuggestions(true)
-                  }
-                }}
-                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
-                placeholder="e.g. Plumber, Electrician, Painter…"
-                className={`w-full border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 md:focus:ring-blue-500 focus:border-transparent bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400 md:placeholder:text-gray-400 ${
-                  formData.profession && professionsList.includes(formData.profession)
-                    ? "border-emerald-500 bg-emerald-500/10 md:border-green-500 md:bg-green-50"
-                    : ""
-                }`}
-              />
-              {showSuggestions && filteredSuggestions.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-slate-800 md:bg-white border border-slate-700 md:border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                  {filteredSuggestions.map((suggestion) => (
-                    <div
-                      key={suggestion}
-                      onClick={() => handleSuggestionClick(suggestion)}
-                      className="px-4 py-2 hover:bg-slate-700 md:hover:bg-blue-50 cursor-pointer transition-colors text-slate-200 md:text-gray-900"
-                    >
-                      {suggestion}
-                    </div>
+              <div className="relative">
+                <select
+                  value={formData.industry}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, industry: e.target.value, service: "" }))}
+                  className="w-full border rounded-xl p-3 pr-10 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white appearance-none"
+                >
+                  <option value="">Select a trade…</option>
+                  {TRADE_INDUSTRIES.map((ind) => (
+                    <option key={ind.title} value={ind.title}>
+                      {ind.icon} {ind.title}
+                    </option>
                   ))}
-                </div>
-              )}
-              <p className="text-xs text-slate-400 md:text-gray-500 mt-1">
-                Selecting from suggestions helps match with relevant tradespeople
-              </p>
-
-              {/* Quick-select chips */}
-              <div className="mt-3">
-                <p className="text-xs text-slate-400 md:text-gray-500 mb-2">Quick select:</p>
-                <div className="flex flex-wrap gap-2">
-                  {professionsList.slice(0, 12).map((trade) => {
-                    const isSelected = formData.profession === trade
-                    return (
-                      <button
-                        key={trade}
-                        type="button"
-                        onClick={() => handleSuggestionClick(trade)}
-                        className={`px-3 py-1.5 rounded-full text-sm transition-all ${
-                          isSelected
-                            ? "bg-emerald-600 md:bg-blue-600 text-white ring-2 ring-emerald-300 md:ring-blue-300 shadow-md"
-                            : "bg-slate-700 md:bg-gray-100 text-slate-200 md:text-gray-700 hover:bg-slate-600 md:hover:bg-gray-200"
-                        }`}
-                      >
-                        {trade}{isSelected && <span className="text-xs ml-1">✓</span>}
-                      </button>
-                    )
-                  })}
-                </div>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
             </div>
 
+            {/* Service dropdown — only shown when an industry with services is selected */}
+            {(() => {
+              const selectedInd = TRADE_INDUSTRIES.find(i => i.title === formData.industry)
+              if (!selectedInd || selectedInd.services.length === 0) return null
+              return (
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-white">
+                    Specific service{" "}
+                    <span className="text-slate-400 font-normal text-xs">(recommended)</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={formData.service}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, service: e.target.value }))}
+                      className="w-full border rounded-xl p-3 pr-10 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white appearance-none"
+                    >
+                      <option value="">Not sure / Any</option>
+                      {selectedInd.services.map((svc) => (
+                        <option key={svc} value={svc}>{svc}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Helps match you with tradespeople who specialise in this service
+                  </p>
+                </div>
+              )
+            })()}
+
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">
+              <label className="block text-sm font-medium mb-2 text-white">
                 Description <span className="text-red-400">*</span>
               </label>
               <textarea
                 value={formData.shortDescription}
                 onChange={(e) => setFormData((prev) => ({ ...prev, shortDescription: e.target.value }))}
-                className="w-full h-32 border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 md:focus:ring-blue-500 focus:border-transparent resize-none bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400"
+                className="w-full h-32 border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
                 placeholder="Describe the job (size, problem, location in house)"
                 maxLength={1000}
               />
-              <p className="text-xs text-slate-400 md:text-gray-500 mt-1">{formData.shortDescription.length}/1000</p>
+              <p className="text-xs text-slate-400 mt-1">{formData.shortDescription.length}/1000</p>
             </div>
 
             {/* Budget */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">Budget (optional)</label>
+              <label className="block text-sm font-medium mb-2 text-white">Budget (optional)</label>
               <div className="grid grid-cols-2 gap-2 md:gap-4">
                 <div>
-                  <label className="block text-xs text-slate-400 md:text-gray-600 mb-1">Min £</label>
+                  <label className="block text-xs text-slate-400 mb-1">Min £</label>
                   <input
                     type="number"
                     value={formData.payMin}
                     onChange={(e) => setFormData((prev) => ({ ...prev, payMin: e.target.value }))}
-                    className="w-full border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400"
+                    className="w-full border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
                     placeholder="0"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 md:text-gray-600 mb-1">Max £</label>
+                  <label className="block text-xs text-slate-400 mb-1">Max £</label>
                   <input
                     type="number"
                     value={formData.payMax}
                     onChange={(e) => setFormData((prev) => ({ ...prev, payMax: e.target.value }))}
-                    className="w-full border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-400"
+                    className="w-full border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
                     placeholder="0"
                   />
                 </div>
@@ -1038,14 +1173,14 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
 
             {/* Photo */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">Photo (optional)</label>
-              <p className="text-xs text-slate-400 md:text-gray-500 mb-2">Add a photo to help tradespeople understand the job</p>
+              <label className="block text-sm font-medium mb-2 text-white">Photo (optional)</label>
+              <p className="text-xs text-slate-400 mb-2">Add a photo to help tradespeople understand the job</p>
               {!formData.jobPhotoUrl ? (
-                <div className="border-2 border-dashed border-slate-600 md:border-gray-300 rounded-xl p-4 text-center bg-slate-800/50 md:bg-transparent">
+                <div className="border-2 border-dashed border-slate-600 rounded-xl p-4 text-center bg-slate-800/50">
                   <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" id="job-photo-gallery" />
                   <input type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} className="hidden" id="job-photo-camera" />
                   <div className="flex gap-3 justify-center">
-                    <label htmlFor="job-photo-gallery" className="flex items-center gap-2 px-4 py-2 bg-slate-700 md:bg-gray-100 hover:bg-slate-600 md:hover:bg-gray-200 text-slate-200 md:text-gray-700 rounded-lg cursor-pointer text-sm font-medium">
+                    <label htmlFor="job-photo-gallery" className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg cursor-pointer text-sm font-medium">
                       Gallery
                     </label>
                     <label htmlFor="job-photo-camera" className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer text-sm font-medium">
@@ -1055,7 +1190,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                 </div>
               ) : (
                 <div className="relative">
-                  <img src={formData.jobPhotoUrl} alt="Job preview" className="w-full h-48 object-cover rounded-xl border border-slate-700 md:border-0" />
+                  <img src={formData.jobPhotoUrl} alt="Job preview" className="w-full h-48 object-cover rounded-xl border border-slate-700" />
                   <button type="button" onClick={handleRemovePhoto} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600">
                     <X className="w-4 h-4" />
                   </button>
@@ -1071,16 +1206,16 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         if (formData.postingType === "tradespeople") {
           return (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white md:text-gray-900">How urgently do you need this done?</h3>
-              <p className="text-sm text-slate-400 md:text-gray-600">Select the urgency level for your job/task</p>
+              <h3 className="text-lg font-semibold text-white">How urgently do you need this done?</h3>
+              <p className="text-sm text-slate-400">Select the urgency level for your job/task</p>
 
               <div className="space-y-3">
                 {/* ASAP Option */}
                 <label
                   className={`flex items-center justify-between p-4 border-2 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${
                     formData.urgencyType === "asap"
-                      ? "border-red-500 bg-red-500/20 md:bg-red-50 shadow-md"
-                      : "border-slate-700 md:border-gray-200 hover:border-red-400 md:hover:border-red-300 hover:bg-slate-800 md:hover:bg-gray-50"
+                      ? "border-red-500 bg-red-500/20 shadow-md"
+                      : "border-slate-700 hover:border-red-400 hover:bg-slate-800"
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -1099,16 +1234,16 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                       className="w-4 h-4 text-red-600"
                     />
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-red-500/20 md:bg-red-100 rounded-full">
-                        <Zap className="w-5 h-5 text-red-400 md:text-red-600" />
+                      <div className="p-2 bg-red-500/20 rounded-full">
+                        <Zap className="w-5 h-5 text-red-400" />
                       </div>
                       <div>
-                        <span className="font-semibold text-white md:text-gray-900">Urgent (ASAP)</span>
-                        <p className="text-sm text-slate-400 md:text-gray-500">Find available tradespeople in minutes</p>
+                        <span className="font-semibold text-white">Urgent (ASAP)</span>
+                        <p className="text-sm text-slate-400">Find available tradespeople in minutes</p>
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 py-1 bg-red-500/20 md:bg-red-100 text-red-400 md:text-red-700 text-sm font-medium rounded-full">
+                  <div className="px-3 py-1 bg-red-500/20 text-red-400 text-sm font-medium rounded-full">
                     Urgent
                   </div>
                 </label>
@@ -1128,8 +1263,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                 <label
                   className={`flex items-center justify-between p-4 border-2 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${
                     formData.urgencyType === "flexible"
-                      ? "border-blue-500 bg-blue-500/20 md:bg-blue-50 shadow-md"
-                      : "border-slate-700 md:border-gray-200 hover:border-blue-400 md:hover:border-blue-300 hover:bg-slate-800 md:hover:bg-gray-50"
+                      ? "border-blue-500 bg-blue-500/20 shadow-md"
+                      : "border-slate-700 hover:border-blue-400 hover:bg-slate-800"
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -1148,24 +1283,24 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                       className="w-4 h-4 text-blue-600"
                     />
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/20 md:bg-blue-100 rounded-full">
-                        <Calendar className="w-5 h-5 text-blue-400 md:text-blue-600" />
+                      <div className="p-2 bg-blue-500/20 rounded-full">
+                        <Calendar className="w-5 h-5 text-blue-400" />
                       </div>
                       <div>
-                        <span className="font-semibold text-white md:text-gray-900">Flexible (1–7 days)</span>
-                        <p className="text-sm text-slate-400 md:text-gray-500">Tradespeople will see your job on the map</p>
+                        <span className="font-semibold text-white">Flexible (1–7 days)</span>
+                        <p className="text-sm text-slate-400">Tradespeople will see your job on the map</p>
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 py-1 bg-blue-500/20 md:bg-blue-100 text-blue-400 md:text-blue-700 text-sm font-medium rounded-full">
+                  <div className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full">
                     Flexible
                   </div>
                 </label>
 
                 {/* Days dropdown for Flexible option */}
                 {formData.urgencyType === "flexible" && (
-                  <div className="ml-4 md:ml-12 mt-2 p-4 bg-blue-500/20 md:bg-blue-50 border border-blue-500/30 md:border-blue-200 rounded-xl">
-                    <label className="block text-sm font-medium text-blue-300 md:text-blue-800 mb-2">
+                  <div className="ml-4 md:ml-12 mt-2 p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl">
+                    <label className="block text-sm font-medium text-blue-300 mb-2">
                       Select number of days
                     </label>
                     <div className="relative">
@@ -1179,7 +1314,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                             activeDuration: `${days}_days`,
                           }))
                         }}
-                        className="w-full appearance-none bg-slate-700 md:bg-white border border-slate-600 md:border-blue-300 rounded-lg p-3 pr-10 text-white md:text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full appearance-none bg-slate-700 border border-slate-600 rounded-lg p-3 pr-10 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         {[1, 2, 3, 4, 5, 6, 7].map((day) => (
                           <option key={day} value={day}>
@@ -1187,7 +1322,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 md:text-gray-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
                     </div>
                   </div>
                 )}
@@ -1195,9 +1330,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
 
               {/* Info box — only shown for flexible (ASAP has its own banner above) */}
               {formData.urgencyType === "flexible" && (
-                <div className="mt-4 p-4 bg-slate-800 md:bg-gray-50 border border-slate-700/50 md:border-gray-200 rounded-xl">
-                  <p className="text-sm text-slate-300 md:text-gray-600">
-                    <strong className="text-white md:text-gray-900">Note:</strong> Your job will be visible on the map to nearby tradespeople for the selected number of days.
+                <div className="mt-4 p-4 bg-slate-800 border border-slate-700/50 rounded-xl">
+                  <p className="text-sm text-slate-300">
+                    <strong className="text-white">Note:</strong> Your job will be visible on the map to nearby tradespeople for the selected number of days.
                   </p>
                 </div>
               )}
@@ -1211,21 +1346,21 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
 
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white md:text-gray-900">Location</h3>
-            <p className="text-sm text-slate-400 md:text-gray-600">
+            <h3 className="text-lg font-semibold text-white">Location</h3>
+            <p className="text-sm text-slate-400">
               <span className="text-red-400">*</span> You must select a location. This is mandatory.
             </p>
 
             {/* Location Choice Radio Buttons */}
             {hasProfileLocation && (
               <div className="space-y-3 mb-6">
-                <label className="block text-sm font-medium mb-2 text-white md:text-gray-900">Where is this job?</label>
+                <label className="block text-sm font-medium mb-2 text-white">Where is this job?</label>
                 <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <label
                     className={`flex items-center justify-center p-3 md:p-4 border-2 rounded-xl cursor-pointer transition-all text-sm md:text-base ${
                       locationChoice === "myLocation"
-                        ? "border-emerald-500 md:border-blue-500 bg-emerald-500/20 md:bg-blue-50"
-                        : "border-slate-700 md:border-gray-200 hover:border-emerald-400 md:hover:border-blue-300 hover:bg-slate-800 md:hover:bg-gray-50"
+                        ? "border-emerald-500 bg-emerald-500/20"
+                        : "border-slate-700 hover:border-emerald-400 hover:bg-slate-800"
                     }`}
                   >
                     <input
@@ -1249,14 +1384,14 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                       }}
                       className="mr-2"
                     />
-                    <span className="font-medium text-white md:text-gray-900">At my location</span>
+                    <span className="font-medium text-white">At my location</span>
                   </label>
 
                   <label
                     className={`flex items-center justify-center p-3 md:p-4 border-2 rounded-xl cursor-pointer transition-all text-sm md:text-base ${
                       locationChoice === "differentLocation"
-                        ? "border-orange-500 bg-orange-500/20 md:bg-orange-50"
-                        : "border-slate-700 md:border-gray-200 hover:border-orange-400 md:hover:border-orange-300 hover:bg-slate-800 md:hover:bg-gray-50"
+                        ? "border-orange-500 bg-orange-500/20"
+                        : "border-slate-700 hover:border-orange-400 hover:bg-slate-800"
                     }`}
                   >
                     <input
@@ -1274,7 +1409,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                       }}
                       className="mr-2"
                     />
-                    <span className="font-medium text-white md:text-gray-900">Other location</span>
+                    <span className="font-medium text-white">Other location</span>
                   </label>
                 </div>
               </div>
@@ -1292,7 +1427,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
             {(locationChoice === "differentLocation" || !hasProfileLocation || (locationChoice === "myLocation" && !hasProfileCoords)) && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-sm font-medium text-white md:text-gray-900">
+                  <label className="text-sm font-medium text-white">
                     Pin your location
                     {locationChoice !== "myLocation" && <span className="text-red-400"> *</span>}
                   </label>
@@ -1304,14 +1439,21 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                   )}
                 </div>
 
-                {/* Compact address input */}
-                <input
-                  type="text"
-                  value={formData.fullAddress}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, fullAddress: e.target.value }))}
-                  className="w-full border rounded-lg px-3 py-2 text-sm mb-2 bg-slate-700 md:bg-white border-slate-600 md:border-gray-300 text-white md:text-gray-900 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  placeholder="Street address or postcode (optional)"
-                />
+                {/* Postcode / address input with autocomplete */}
+                <div className="mb-2">
+                  <LocationInput
+                    value={formData.fullAddress}
+                    onChange={(val) => setFormData((prev) => ({ ...prev, fullAddress: val }))}
+                    onLocationSelect={(address, lat, lon) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        fullAddress: address,
+                        locationCoords: { lat, lon },
+                      }))
+                    }}
+                    placeholder="Enter postcode or address"
+                  />
+                </div>
 
                 {isGeocodingPostcode ? (
                   <div className="flex items-center justify-center gap-2 h-16 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-400 text-xs">
@@ -1398,52 +1540,66 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 md:bg-black/40"
         >
           <div
-            className="w-full h-full md:h-auto md:max-h-[90vh] max-w-2xl bg-slate-900 md:bg-white md:rounded-lg shadow-lg overflow-hidden flex flex-col"
+            className="w-full h-full md:h-auto md:max-h-[90vh] max-w-2xl bg-slate-900 md:rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between p-4 md:p-6 border-b border-slate-700/50 md:border-gray-200 bg-slate-800 md:bg-white">
-              <div className="flex items-center gap-3 md:gap-4">
+            <div className="flex-shrink-0 flex items-center justify-between px-4 py-4 md:px-6 bg-gradient-to-r from-slate-800 to-slate-900 border-b border-white/10">
+              <div className="flex items-center gap-3">
                 {companyProfile?.logo_url && userType === "company" && (
                   <img
                     src={companyProfile.logo_url}
                     alt="Company logo"
-                    className="w-10 h-10 rounded-lg md:rounded object-cover border border-slate-600 md:border-0"
+                    className="w-9 h-9 rounded-xl object-cover ring-1 ring-white/20"
                   />
                 )}
                 <div>
-                  <h2 className="text-lg md:text-xl font-semibold text-white md:text-gray-900">Post a Job</h2>
-                  <p className="text-xs md:text-sm text-slate-400 md:text-gray-500">Step {currentStep} of {totalSteps}</p>
+                  <h2 className="text-base md:text-lg font-bold text-white tracking-tight">Post a Job</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Step {currentStep} of {totalSteps}</p>
                 </div>
               </div>
-              <button onClick={closeModal} className="text-slate-400 md:text-gray-500 hover:text-white md:hover:text-gray-700 p-2">
+              <button onClick={closeModal} className="text-slate-500 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Progress bar */}
-            <div className="flex-shrink-0 px-4 md:px-6 py-3 md:py-4 border-b border-slate-700/50 md:border-gray-200 bg-slate-800/50 md:bg-white">
-              <div className="w-full bg-slate-700 md:bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-emerald-500 md:bg-blue-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-                />
+            {/* Progress bar + step indicators */}
+            <div className="flex-shrink-0 px-4 md:px-6 pt-3 pb-2 bg-slate-900 border-b border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
+                  <div key={step} className="flex items-center flex-1">
+                    <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-all duration-300 ${
+                      step < currentStep
+                        ? "bg-emerald-500 text-white"
+                        : step === currentStep
+                        ? "bg-emerald-500/20 text-emerald-400 ring-2 ring-emerald-500/50"
+                        : "bg-slate-800 text-slate-600 ring-1 ring-slate-700"
+                    }`}>
+                      {step < currentStep ? "✓" : step}
+                    </div>
+                    {step < totalSteps && (
+                      <div className="flex-1 h-0.5 mx-1.5 rounded-full overflow-hidden bg-slate-800">
+                        <div className={`h-full rounded-full transition-all duration-500 ${step < currentStep ? "bg-emerald-500 w-full" : "w-0"}`} />
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-h-0 p-4 md:p-6 pb-24 md:pb-6 overflow-y-auto bg-slate-900 md:bg-white">
+            <div className="flex-1 min-h-0 p-4 md:p-6 pb-28 md:pb-6 overflow-y-auto bg-slate-900 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
               {renderStep()}
-              {err && <div className="mt-4 p-3 bg-red-500/20 md:bg-red-50 border border-red-500/30 md:border-red-200 text-red-400 md:text-red-600 text-sm rounded-lg">{err}</div>}
+              {err && <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 text-sm rounded-lg">{err}</div>}
             </div>
 
-            {/* Footer - fixed at bottom, transparent background */}
-            <div className="fixed md:relative bottom-16 left-0 right-0 md:bottom-auto md:left-auto md:right-auto z-20 md:z-auto flex-shrink-0 flex items-center justify-between p-4 md:p-6 pointer-events-none">
+            {/* Footer */}
+            <div className="fixed md:relative bottom-16 left-0 right-0 md:bottom-auto md:left-auto md:right-auto z-20 md:z-auto flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 md:px-6 md:py-4 pointer-events-none border-t border-white/10 bg-slate-900/95 backdrop-blur-sm">
               <button
                 type="button"
                 onClick={prevStep}
                 disabled={currentStep === 1}
-                className="pointer-events-auto flex items-center gap-2 px-4 py-2 border border-slate-600 md:border-gray-300 text-slate-300 md:text-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-700 md:hover:bg-gray-50 bg-slate-800 md:bg-white"
+                className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 border border-slate-700/80 text-slate-400 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 hover:text-slate-200 transition-all text-sm font-medium"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
@@ -1453,7 +1609,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="pointer-events-auto flex items-center gap-2 px-6 py-2 bg-emerald-600 md:bg-blue-600 text-white rounded-lg hover:bg-emerald-700 md:hover:bg-blue-700"
+                  className="pointer-events-auto flex items-center gap-2 px-7 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-400 active:bg-emerald-600 transition-all text-sm font-semibold shadow-lg shadow-emerald-500/25"
                 >
                   Continue
                   <ArrowRight className="w-4 h-4" />
@@ -1463,9 +1619,17 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                   type="button"
                   onClick={handleSubmit}
                   disabled={loading}
-                  className="pointer-events-auto px-6 py-2 bg-emerald-600 md:bg-blue-600 text-white rounded-lg hover:bg-emerald-700 md:hover:bg-blue-700 disabled:opacity-50"
+                  className="pointer-events-auto flex items-center gap-2 px-7 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-400 active:bg-emerald-600 transition-all text-sm font-semibold shadow-lg shadow-emerald-500/25 disabled:opacity-50"
                 >
-                  {loading ? "Publishing..." : "Publish Job"}
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Publishing…
+                    </>
+                  ) : "Publish Job"}
                 </button>
               )}
             </div>

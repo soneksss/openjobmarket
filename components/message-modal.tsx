@@ -30,7 +30,8 @@ export default function MessageModal({
   const [success, setSuccess] = useState<string | null>(null)
   const [subject, setSubject] = useState("Job Opportunity Inquiry")
   const [message, setMessage] = useState("")
-  const [subscriptionInfo, setSubscriptionInfo] = useState<any>(null)
+  // Default to allowed — updated async after mount; prevents form from hiding during check
+  const [subscriptionInfo, setSubscriptionInfo] = useState<any>({ can_contact: true, reason: 'loading' })
 
   const router = useRouter()
   const supabase = createClient()
@@ -119,9 +120,13 @@ export default function MessageModal({
 
   useEffect(() => {
     if (isOpen && user) {
+      setSubscriptionInfo({ can_contact: true, reason: 'loading' })
+      setError(null)
+      setSuccess(null)
       checkSubscriptionLimits()
     }
-  }, [isOpen, user, checkSubscriptionLimits])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, user])
 
   const handleSendMessage = async () => {
     if (!message.trim()) {

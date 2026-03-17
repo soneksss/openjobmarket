@@ -7,6 +7,8 @@ interface TradeMark {
   name: string
   distanceMiles: number
   status: "waiting" | "accepted" | "declined"
+  lat?: number | null
+  lng?: number | null
 }
 
 interface FindingTradesMapProps {
@@ -197,10 +199,17 @@ export default function FindingTradesMap({
     tradeMarkersRef.current = []
 
     trades.forEach((trade, i) => {
-      const angle  = (i / Math.max(trades.length, 1)) * 2 * Math.PI + Math.PI / 6
-      const distM  = Math.min(trade.distanceMiles * 1609.34 * 0.55, currentRadiusMRef.current * 0.75)
-      const tLat   = lat + (distM / 111320) * Math.cos(angle)
-      const tLon   = lon + (distM / (111320 * Math.cos((lat * Math.PI) / 180))) * Math.sin(angle)
+      // Use real GPS coordinates if available, otherwise estimate from distance
+      let tLat: number, tLon: number
+      if (trade.lat && trade.lng) {
+        tLat = trade.lat
+        tLon = trade.lng
+      } else {
+        const angle = (i / Math.max(trades.length, 1)) * 2 * Math.PI + Math.PI / 6
+        const distM = Math.min(trade.distanceMiles * 1609.34 * 0.55, currentRadiusMRef.current * 0.75)
+        tLat = lat + (distM / 111320) * Math.cos(angle)
+        tLon = lon + (distM / (111320 * Math.cos((lat * Math.PI) / 180))) * Math.sin(angle)
+      }
 
       const color  = trade.status === "accepted" ? "#10b981"
                    : trade.status === "declined"  ? "#ef4444"

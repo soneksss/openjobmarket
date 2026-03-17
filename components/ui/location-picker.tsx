@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { MapPin, X, Crosshair } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 
 // Dynamically import the map component to avoid SSR issues
@@ -91,7 +91,6 @@ export function LocationPicker({
 
       // Country (short form preferred)
       if (address.country_code) {
-        // Use country code in uppercase for brevity (UK, US, DE, etc.)
         parts.push(address.country_code.toUpperCase())
       } else if (address.country) {
         parts.push(address.country)
@@ -161,6 +160,64 @@ export function LocationPicker({
 
   const hasLocation = latitude && longitude
 
+  // Shared map + footer content (used in all three dialog variants)
+  const dialogBody = (initialLat: number, initialLng: number, showClear: boolean) => (
+    <>
+      <div className="relative rounded-lg border overflow-hidden" style={{ height: 'clamp(280px, 50vh, 520px)' }}>
+        <LocationMap
+          ref={mapRef}
+          onLocationSelect={handleLocationSelect}
+          initialLat={initialLat}
+          initialLng={initialLng}
+        />
+        {/* Locate Me button overlay on map */}
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleLocateMe}
+            disabled={isLocating}
+            className="shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {isLocating ? (
+              <>
+                <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
+                Locating...
+              </>
+            ) : (
+              <>
+                <Crosshair className="h-4 w-4 mr-2" />
+                Locate Me
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Footer — always visible, never inside a flex-1 area */}
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4 border-t">
+        <Button variant="outline" onClick={handleCancel} className="order-2 sm:order-1">
+          Cancel
+        </Button>
+        <div className="flex gap-2 order-1 sm:order-2">
+          {showClear && (
+            <Button
+              variant="outline"
+              onClick={onLocationClear}
+              className="text-destructive hover:text-destructive flex-1 sm:flex-none"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
+          <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress} className="flex-1 sm:flex-none">
+            {isGettingAddress ? 'Getting address...' : 'Save Location'}
+          </Button>
+        </div>
+      </div>
+    </>
+  )
+
   // If controlled externally, don't render the trigger button
   const isControlled = externalIsOpen !== undefined
 
@@ -186,61 +243,14 @@ export function LocationPicker({
                     Change
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-5xl w-[95vw] h-[85vh] sm:h-[75vh] flex flex-col overflow-hidden p-4 sm:p-6">
-                  <DialogHeader className="flex-shrink-0">
+                <DialogContent className="max-w-3xl w-[95vw] p-4 sm:p-6">
+                  <DialogHeader className="mb-3">
                     <DialogTitle className="text-xl">Choose your location</DialogTitle>
-                    <DialogDescription className="pt-2">
+                    <DialogDescription>
                       Click on the map to select your location, or use the "Locate Me" button
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="flex-1 relative min-h-[300px] sm:min-h-[400px] overflow-hidden rounded-lg border">
-                    <LocationMap
-                      ref={mapRef}
-                      onLocationSelect={handleLocationSelect}
-                      initialLat={latitude}
-                      initialLng={longitude}
-                    />
-                    {/* Locate Me button overlay on map */}
-                    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={handleLocateMe}
-                        disabled={isLocating}
-                        className="shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
-                      >
-                        {isLocating ? (
-                          <>
-                            <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
-                            Locating...
-                          </>
-                        ) : (
-                          <>
-                            <Crosshair className="h-4 w-4 mr-2" />
-                            Locate Me
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4 pb-2 flex-shrink-0 bg-background border-t">
-                    <Button variant="outline" onClick={handleCancel} className="order-2 sm:order-1">
-                      Cancel
-                    </Button>
-                    <div className="flex gap-2 order-1 sm:order-2">
-                      <Button
-                        variant="outline"
-                        onClick={onLocationClear}
-                        className="text-destructive hover:text-destructive flex-1 sm:flex-none"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Clear
-                      </Button>
-                      <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress} className="flex-1 sm:flex-none">
-                        {isGettingAddress ? 'Getting address...' : 'Save Location'}
-                      </Button>
-                    </div>
-                  </div>
+                  {dialogBody(latitude!, longitude!, true)}
                 </DialogContent>
               </Dialog>
             </div>
@@ -257,51 +267,14 @@ export function LocationPicker({
               Choose location on map
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-5xl w-[95vw] h-[85vh] sm:h-[75vh] flex flex-col overflow-hidden p-4 sm:p-6">
-            <DialogHeader className="flex-shrink-0">
+          <DialogContent className="max-w-3xl w-[95vw] p-4 sm:p-6">
+            <DialogHeader className="mb-3">
               <DialogTitle className="text-xl">Choose your location</DialogTitle>
-              <DialogDescription className="pt-2">
+              <DialogDescription>
                 Click on the map to select your location, or use the "Locate Me" button
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 relative min-h-[300px] sm:min-h-[400px] overflow-hidden rounded-lg border">
-              <LocationMap
-                ref={mapRef}
-                onLocationSelect={handleLocationSelect}
-                initialLat={50.8058} // Default to Portsmouth
-                initialLng={-1.0872}
-              />
-              {/* Locate Me button overlay on map */}
-              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleLocateMe}
-                  disabled={isLocating}
-                  className="shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {isLocating ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
-                      Locating...
-                    </>
-                  ) : (
-                    <>
-                      <Crosshair className="h-4 w-4 mr-2" />
-                      Locate Me
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4 pb-2 flex-shrink-0 bg-background border-t">
-              <Button variant="outline" onClick={handleCancel} className="order-2 sm:order-1">
-                Cancel
-              </Button>
-              <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress} className="flex-1 sm:flex-none order-1 sm:order-2">
-                {isGettingAddress ? 'Getting address...' : 'Save Location'}
-              </Button>
-            </div>
+            {dialogBody(50.8058, -1.0872, false)}
           </DialogContent>
         </Dialog>
       ) : null}
@@ -309,63 +282,14 @@ export function LocationPicker({
       {/* Controlled dialog (no trigger button) */}
       {isControlled && (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="max-w-5xl w-[95vw] h-[85vh] sm:h-[75vh] flex flex-col overflow-hidden p-4 sm:p-6">
-            <DialogHeader className="flex-shrink-0">
+          <DialogContent className="max-w-3xl w-[95vw] p-4 sm:p-6">
+            <DialogHeader className="mb-3">
               <DialogTitle className="text-xl">Choose your location</DialogTitle>
-              <DialogDescription className="pt-2">
+              <DialogDescription>
                 Click on the map to select your location, or use the "Locate Me" button
               </DialogDescription>
             </DialogHeader>
-            <div className="flex-1 relative min-h-[300px] sm:min-h-[400px] overflow-hidden rounded-lg border">
-              <LocationMap
-                ref={mapRef}
-                onLocationSelect={handleLocationSelect}
-                initialLat={latitude || 51.5074}
-                initialLng={longitude || -0.1278}
-              />
-              {/* Locate Me button overlay on map */}
-              <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000]">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={handleLocateMe}
-                  disabled={isLocating}
-                  className="shadow-lg bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {isLocating ? (
-                    <>
-                      <div className="animate-spin h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
-                      Locating...
-                    </>
-                  ) : (
-                    <>
-                      <Crosshair className="h-4 w-4 mr-2" />
-                      Locate Me
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4 pb-2 flex-shrink-0 bg-background border-t">
-              <Button variant="outline" onClick={handleCancel} className="order-2 sm:order-1">
-                Cancel
-              </Button>
-              <div className="flex gap-2 order-1 sm:order-2">
-                {hasLocation && (
-                  <Button
-                    variant="outline"
-                    onClick={onLocationClear}
-                    className="text-destructive hover:text-destructive flex-1 sm:flex-none"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Clear
-                  </Button>
-                )}
-                <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress} className="flex-1 sm:flex-none">
-                  {isGettingAddress ? 'Getting address...' : 'Save Location'}
-                </Button>
-              </div>
-            </div>
+            {dialogBody(latitude || 51.5074, longitude || -0.1278, !!hasLocation)}
           </DialogContent>
         </Dialog>
       )}

@@ -41,12 +41,12 @@ export default async function CompanyMyApplicationsPage() {
         budget_min,
         budget_max,
         is_tradespeople_job,
-        company_profiles (
+        company_profiles!company_id (
           company_name,
           logo_url,
           user_id
         ),
-        homeowner_profiles (
+        homeowner_profiles!homeowner_id (
           first_name,
           last_name,
           user_id

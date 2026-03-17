@@ -58,11 +58,8 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
     setIsLoading(true)
     setError(null)
 
-    console.log("[HOMEOWNER-JOB-FORM] Starting job submission...")
-
     // Timeout protection - automatically reset loading after 30 seconds
     const timeoutId = setTimeout(() => {
-      console.error("[HOMEOWNER-JOB-FORM] Submission timeout after 30 seconds")
       setIsLoading(false)
       setError("Request timed out. Please check your connection and try again.")
     }, 30000)
@@ -99,6 +96,7 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
         // Mark as tradespeople job (homeowner looking for services)
         is_tradespeople_job: true,
         is_active: true,
+        status: "POSTED",
         expires_at: expiryDate.toISOString(),
       }
 
@@ -122,7 +120,6 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
       if (result1.error) {
         // If error mentions unknown column, retry without urgent-specific fields
         if (result1.error.message?.includes("column") || result1.error.code === "42703") {
-          console.log("[HOMEOWNER-JOB-FORM] Retrying without urgent columns...")
           const { urgency_type, search_radius_miles, search_state, ...baseJobData } = jobData
           const result2 = await supabase
             .from("jobs")
@@ -140,11 +137,9 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
 
       if (insertError) {
         clearTimeout(timeoutId)
-        console.error("[HOMEOWNER-JOB-FORM] Insert error:", insertError)
         throw insertError
       }
 
-      console.log("[HOMEOWNER-JOB-FORM] Job posted successfully", insertedJob)
       clearTimeout(timeoutId)
 
       // Reset loading before redirect/showing urgent search
@@ -159,13 +154,11 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
 
       // For flexible/normal jobs, redirect to job details page immediately
       // This shows "Waiting for applications" status
-      console.log("[HOMEOWNER-JOB-FORM] Redirecting to job details page...")
 
       if (insertedJob?.id) {
         try {
           router.push(`/dashboard/homeowner/jobs/${insertedJob.id}`)
         } catch (pushError) {
-          console.error("[HOMEOWNER-JOB-FORM] Router push failed:", pushError)
           // Fallback to direct navigation
           window.location.href = `/dashboard/homeowner/jobs/${insertedJob.id}`
         }
@@ -175,7 +168,6 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
       }
     } catch (err: any) {
       clearTimeout(timeoutId)
-      console.error("[HOMEOWNER-JOB-FORM] Job posting error:", err)
       setError(err.message || "Failed to post job")
       setIsLoading(false)
     } finally {

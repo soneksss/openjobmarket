@@ -237,27 +237,28 @@ export default function ConversationView({ conversationId, userId, userType }: C
         return
       }
 
-      // Skip block check - allow all messaging
-      console.log('[CONVERSATION] Skipping block check, proceeding to send message')
-
-      console.log('[CONVERSATION] Inserting message into database...')
-      const { error } = await supabase.from("messages").insert({
-        sender_id: userId,
-        recipient_id: recipientId,
-        subject: messages.length > 0 ? `Re: ${messages[0]?.subject || "Message"}` : "New Message",
-        content: replyContent,
-        conversation_id: conversationId,
-        job_id: messages[0]?.job_id,
-        message_type: messages.length > 0 ? "reply" : "direct",
-        share_personal_info: sharePersonalInfo, // Track if personal info was shared in this message
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          recipient_id: recipientId,
+          content: replyContent,
+          job_id: messages[0]?.job_id ?? undefined,
+          conversation_id: conversationId,
+        }),
       })
 
-      if (error) {
-        console.error('[CONVERSATION] Error inserting message:', error)
-        throw error
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        if (res.status === 409) {
+          alert(body?.error ?? "Wait for the homeowner to reply before sending another message.")
+          return
+        }
+        throw new Error(body?.error ?? `HTTP ${res.status}`)
       }
 
-      console.log('[CONVERSATION] Message inserted successfully')
+      console.log('[CONVERSATION] Message sent successfully')
 
       if (userType === "professional" && sharePersonalInfo) {
         // Create or update employer-specific privacy permission

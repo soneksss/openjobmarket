@@ -15,12 +15,22 @@ import {
   Star,
   Home,
 } from "lucide-react"
+import { DeleteJobInlineButton } from "@/components/delete-job-inline-button"
+
+// A job belongs in "History" if it's inactive OR has a terminal status
+const CLOSED_STATUSES = new Set(["closed", "filled", "expired", "cancelled", "completed"])
+function isClosed(job: any): boolean {
+  if (!job.is_active) return true
+  const s = (job.status ?? "").toLowerCase()
+  return CLOSED_STATUSES.has(s)
+}
 
 export default async function HomeownerJobsPage({
   searchParams,
 }: {
-  searchParams: { status?: string }
+  searchParams: Promise<{ status?: string }>
 }) {
+  const search = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/auth/login")
@@ -33,25 +43,26 @@ export default async function HomeownerJobsPage({
 
   if (!hp) redirect("/dashboard/homeowner")
 
-  // Fetch all jobs with application counts
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("id, title, location, is_active, created_at, applications_count, views_count, status")
+    .select("id, title, location, is_active, created_at, applications_count, views_count, status, expires_at")
     .eq("homeowner_id", hp.id)
     .order("created_at", { ascending: false })
 
   const allJobs = jobs || []
-  const showHistory = searchParams.status === "closed"
+  const showHistory = search.status === "closed"
 
-  const activeJobs = allJobs.filter((j) => j.is_active)
-  const closedJobs = allJobs.filter((j) => !j.is_active)
+  const activeJobs = allJobs.filter((j) => !isClosed(j))
+  const closedJobs = allJobs.filter(isClosed)
   const displayJobs = showHistory ? closedJobs : activeJobs
 
-  const pageTitle = showHistory ? "Job History" : "My Jobs"
+  const returnUrl = showHistory
+    ? "/dashboard/homeowner/jobs?status=closed"
+    : "/dashboard/homeowner/jobs"
 
-  // ── Status badge helper ──────────────────────────────────────────────────────
+  // ── Status badge ──────────────────────────────────────────────────────────
   function StatusBadge({ job }: { job: any }) {
-    if (!job.is_active)
+    if (isClosed(job))
       return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Closed</span>
     const apps = job.applications_count ?? 0
     if (apps > 0)
@@ -71,8 +82,12 @@ export default async function HomeownerJobsPage({
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-lg font-semibold text-white">{pageTitle}</h1>
-          <span className="ml-auto text-sm text-slate-500">{displayJobs.length} {showHistory ? "closed" : "active"}</span>
+          <h1 className="text-lg font-semibold text-white">
+            {showHistory ? "Job History" : "My Jobs"}
+          </h1>
+          <span className="ml-auto text-sm text-slate-500">
+            {displayJobs.length} {showHistory ? "closed" : "active"}
+          </span>
         </div>
 
         {/* Tab strip */}
@@ -85,7 +100,7 @@ export default async function HomeownerJobsPage({
                 : "border-transparent text-slate-500 hover:text-slate-300"
             }`}
           >
-            Active
+            Active jobs{activeJobs.length > 0 && ` (${activeJobs.length})`}
           </Link>
           <Link
             href="/dashboard/homeowner/jobs?status=closed"
@@ -95,14 +110,13 @@ export default async function HomeownerJobsPage({
                 : "border-transparent text-slate-500 hover:text-slate-300"
             }`}
           >
-            History
+            History{closedJobs.length > 0 && ` (${closedJobs.length})`}
           </Link>
         </div>
       </div>
 
       {/* ── Job list ── */}
       {allJobs.length === 0 ? (
-        /* No jobs at all */
         <div className="mx-4 mt-8 bg-slate-800/80 border border-slate-700/50 rounded-2xl p-8 text-center">
           <Briefcase className="h-12 w-12 mx-auto mb-3 text-slate-600" />
           <h3 className="text-base font-semibold text-slate-300 mb-1">No jobs posted yet</h3>
@@ -119,7 +133,6 @@ export default async function HomeownerJobsPage({
           </Link>
         </div>
       ) : displayJobs.length === 0 ? (
-        /* Tab empty state */
         <div className="mx-4 mt-8 bg-slate-800/50 border border-slate-700/40 rounded-2xl p-8 text-center">
           {showHistory ? (
             <>
@@ -149,7 +162,7 @@ export default async function HomeownerJobsPage({
               {/* Title row */}
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  {showHistory ? (
+                  {isClosed(job) ? (
                     <XCircle className="h-5 w-5 text-slate-600 flex-shrink-0 mt-0.5" />
                   ) : (
                     <Briefcase className="h-5 w-5 text-slate-400 flex-shrink-0 mt-0.5" />
@@ -172,7 +185,7 @@ export default async function HomeownerJobsPage({
                 <StatusBadge job={job} />
               </div>
 
-              {/* Meta */}
+              {/* Meta — applications + views for active jobs */}
               {!showHistory && (
                 <div className="flex items-center gap-4 text-xs text-slate-500 mb-3 pl-8">
                   <span className="flex items-center gap-1">
@@ -195,6 +208,7 @@ export default async function HomeownerJobsPage({
                   View
                   <ChevronRight className="h-3.5 w-3.5" />
                 </Link>
+
                 {showHistory && (
                   <Link
                     href={`/reviews/new?job=${job.id}`}
@@ -204,6 +218,12 @@ export default async function HomeownerJobsPage({
                     Leave Review
                   </Link>
                 )}
+
+                <DeleteJobInlineButton
+                  jobId={job.id}
+                  jobTitle={job.title}
+                  returnUrl={returnUrl}
+                />
               </div>
             </div>
           ))}

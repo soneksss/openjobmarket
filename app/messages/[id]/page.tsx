@@ -7,17 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Send, User, MapPin, Briefcase, CheckCircle, Clock, Play, MoreHorizontal, PoundSterling } from "lucide-react"
+import { ArrowLeft, Send, User, MapPin, Briefcase, CheckCircle, Clock, Play, PoundSterling } from "lucide-react"
 import { createClient } from "@/lib/client"
 import Link from "next/link"
 import { StatusDot } from "@/components/status-dot"
 import { updatePresence } from "@/lib/presence"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import ReviewSubmissionModal from "@/components/review-submission-modal"
 
 interface Message {
@@ -206,6 +200,21 @@ export default function ConversationPage() {
         console.log('[CONVERSATION] Step 4.7: Other user determined from conversation:', determinedOtherId)
       }
 
+      // Last resort: ask the server (bypasses RLS on conversations table)
+      if (!determinedOtherId) {
+        console.log('[CONVERSATION] Falling back to server-side conversation lookup...')
+        try {
+          const res = await fetch(`/api/conversations?id=${conversationId}`, { credentials: 'include' })
+          if (res.ok) {
+            const data = await res.json()
+            determinedOtherId = data.otherUserId ?? null
+            console.log('[CONVERSATION] Server-side lookup result:', determinedOtherId)
+          }
+        } catch (e) {
+          console.error('[CONVERSATION] Server-side lookup failed:', e)
+        }
+      }
+
       if (!determinedOtherId) {
         console.error('[CONVERSATION] Could not determine other user')
         setLoading(false)
@@ -268,6 +277,7 @@ export default function ConversationPage() {
       console.log('[CONVERSATION] Step 10: Fetching other user data for ID:', determinedOtherId)
       let displayName = 'Deleted User'
       let photoUrl: string | undefined = undefined
+      let otherUserType: string | null = null
 
       try {
         const { data: userData, error: userDataError } = await supabase
@@ -281,6 +291,7 @@ export default function ConversationPage() {
         if (userData && !userDataError) {
           displayName = userData.nickname || userData.full_name || userData.email || 'Unknown User'
           photoUrl = userData.profile_photo_url
+          otherUserType = userData.user_type ?? null
           setOtherUserLastSeen(userData.last_seen_at ?? null)
           console.log('[CONVERSATION] Step 12: Other user type:', userData.user_type)
 
@@ -357,7 +368,8 @@ export default function ConversationPage() {
       setOtherUser({
         id: determinedOtherId,
         name: displayName,
-        profile_photo_url: photoUrl
+        profile_photo_url: photoUrl,
+        user_type: otherUserType
       })
       console.log('[CONVERSATION] Step 14: Other user state set:', displayName)
 
@@ -558,9 +570,14 @@ export default function ConversationPage() {
     setUpdatingJobStatus(true)
     try {
       if (newStatus === 'completed') {
-        // Use the state-machine RPC — enforces homeowner-only, correct transition
-        const { error } = await supabase.rpc('complete_job', { p_job_id: jobContext.id })
-        if (error) throw error
+        const res = await fetch(`/api/jobs/${jobContext.id}/complete`, {
+          method: 'POST',
+          credentials: 'include',
+        })
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body?.error ?? 'Failed to complete job')
+        }
         setJobContext(prev => prev ? { ...prev, status: 'COMPLETED', matching_status: 'closed' } : null)
         // Prompt the homeowner to leave a review immediately
         setShowReviewModal(true)
@@ -583,20 +600,25 @@ export default function ConversationPage() {
   const getJobStatusBadge = () => {
     if (!jobContext) return null
 
-    const status = jobContext.matching_status || jobContext.status
-
-    // Dark theme badges
+    // Only show meaningful states. "searching" / "POSTED" / "open" are hidden —
+    // they're misleading inside an active conversation.
     const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
-      searching: { label: 'Searching', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Clock },
-      reviewing: { label: 'Reviewing', className: 'bg-orange-500/20 text-orange-400 border-orange-500/30', icon: Clock },
-      in_progress: { label: 'In Progress', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30', icon: Play },
-      closed: { label: 'Completed', className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
-      open: { label: 'Open', className: 'bg-blue-500/20 text-blue-400 border-blue-500/30', icon: Clock },
+      CONFIRMED:   { label: 'Confirmed',   className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
+      ACTIVE:      { label: 'In Progress', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',   icon: Play },
+      COMPLETED:   { label: 'Completed',   className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
+      in_progress: { label: 'In Progress', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',   icon: Play },
+      closed:      { label: 'Completed',   className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
     }
 
-    const config = statusConfig[status || 'open'] || statusConfig.open
-    const Icon = config.icon
+    // job.status takes priority; fall back to matching_status
+    const status = jobContext.status === 'CONFIRMED' || jobContext.status === 'ACTIVE' || jobContext.status === 'COMPLETED'
+      ? jobContext.status
+      : (jobContext.matching_status ?? jobContext.status)
 
+    const config = statusConfig[status || '']
+    if (!config) return null // hide for POSTED / searching / reviewing / open
+
+    const Icon = config.icon
     return (
       <Badge variant="outline" className={`${config.className} border font-medium text-xs`}>
         <Icon className="w-3 h-3 mr-1" />
@@ -616,10 +638,10 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 pb-20 md:pb-6">
-      <div className="container mx-auto p-4 md:p-6 max-w-2xl">
+    <div className="fixed inset-0 bg-slate-900 flex flex-col z-[60] pb-16 md:pb-0">
+      <div className="flex flex-col flex-1 min-h-0 w-full max-w-2xl mx-auto px-4 md:px-6 py-4 md:py-6">
         {/* Header */}
-        <div className="bg-slate-800/90 rounded-t-xl border border-slate-700/50 border-b-0 p-3">
+        <div className="bg-slate-800/90 rounded-t-xl border border-slate-700/50 border-b-0 p-3 flex-shrink-0">
           <div className="flex items-center gap-3">
             {returnUrl ? (
               <Button
@@ -693,36 +715,16 @@ export default function ConversationPage() {
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {getJobStatusBadge()}
                   {jobContext.is_tradespeople_job && senderRole === 'homeowner' && jobContext.status !== 'COMPLETED' && (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 text-slate-400 hover:text-white hover:bg-slate-600"
-                          disabled={updatingJobStatus}
-                        >
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
-                        {jobContext.matching_status !== 'in_progress' && (
-                          <DropdownMenuItem
-                            onClick={() => updateJobStatus('in_progress')}
-                            className="text-slate-200 hover:bg-slate-700 focus:bg-slate-700"
-                          >
-                            <Play className="h-4 w-4 mr-2 text-purple-400" />
-                            Mark In Progress
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem
-                          onClick={() => updateJobStatus('completed')}
-                          className="text-slate-200 hover:bg-slate-700 focus:bg-slate-700"
-                        >
-                          <CheckCircle className="h-4 w-4 mr-2 text-emerald-400" />
-                          Mark Completed
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Button
+                      size="sm"
+                      onClick={() => updateJobStatus('completed')}
+                      disabled={updatingJobStatus}
+                      className="h-7 px-2.5 text-[11px] bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 font-medium"
+                      variant="outline"
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {updatingJobStatus ? '…' : 'Mark Completed'}
+                    </Button>
                   )}
                 </div>
               </div>
@@ -731,7 +733,7 @@ export default function ConversationPage() {
         </div>
 
         {/* Messages Area */}
-        <div className="bg-slate-800/60 border-x border-slate-700/50 h-[calc(100vh-280px)] overflow-y-auto p-4 space-y-3">
+        <div className="bg-slate-800/60 border-x border-slate-700/50 flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
           {messages.length === 0 ? (
             <div className="text-center text-slate-500 py-12">
               <p className="text-sm">No messages yet. Start the conversation!</p>
@@ -787,7 +789,7 @@ export default function ConversationPage() {
         </div>
 
         {/* Input Area */}
-        <div className="bg-slate-800/90 rounded-b-xl border border-slate-700/50 border-t-0 p-3">
+        <div className="bg-slate-800/90 rounded-b-xl border border-slate-700/50 border-t-0 p-3 flex-shrink-0">
           {/* Quote input panel */}
           {showQuoteInput && (
             <div className="flex gap-2 mb-2">
@@ -887,7 +889,7 @@ export default function ConversationPage() {
           jobTitle={jobContext.title}
           reviewedUserId={otherUserId}
           reviewedUserName={otherUser?.name || 'the tradesperson'}
-          reviewedUserType="contractor"
+          reviewedUserType={(otherUser?.user_type ?? 'company') as any}
           reviewerType="homeowner"
           onSuccess={() => setShowReviewModal(false)}
         />

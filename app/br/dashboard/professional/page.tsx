@@ -44,7 +44,7 @@ export default async function ProfessionalDashboardPageBR() {
       jobs (
         id,
         title,
-        company_profiles (
+        company_profiles!company_id (
           company_name
         )
       )
@@ -63,7 +63,7 @@ export default async function ProfessionalDashboardPageBR() {
         title,
         location,
         job_type,
-        company_profiles (
+        company_profiles!company_id (
           company_name
         )
       )

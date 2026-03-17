@@ -34,6 +34,8 @@ function getActionUrl(n: Notification) {
 function getJobPageUrl(n: Notification): string | null {
   const jobId = extractJobId(getActionUrl(n))
   if (!jobId) return null
+  // Homeowner notification: link to job management page (shows applicants), not public job page
+  if (n.type === "job_application") return `/jobs/${jobId}?tab=applications`
   return `/jobs/${jobId}`
 }
 
@@ -282,7 +284,7 @@ export default function NotificationsPage() {
                           }`}
                         >
                           <ExternalLink className="w-3 h-3" />
-                          View Job
+                          {n.type === "job_application" ? "View Application" : "View Job"}
                         </Link>
                       )}
                     </div>

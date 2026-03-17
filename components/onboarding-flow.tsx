@@ -20,6 +20,7 @@ import { LocationPicker } from "@/components/ui/location-picker"
 import { HomeownerOnboardingForm } from "@/components/homeowner-onboarding-form"
 import LanguageSelector from "@/components/language-selector"
 import { useTranslation } from "@/lib/i18n/context"
+import { TRADE_INDUSTRIES, findTradeIndustry } from "@/lib/data/trade-industries"
 
 interface OnboardingFlowProps {
   user: {
@@ -155,11 +156,6 @@ export default function OnboardingFlow({
     priceList: "",
     service24_7: false,
   })
-
-  // UI state for adding services
-  const [newService, setNewService] = useState("")
-  const [showServiceSuggestions, setShowServiceSuggestions] = useState(false)
-  const [filteredServiceSuggestions, setFilteredServiceSuggestions] = useState<string[]>([])
 
   // Pre-fill form with data from signup (user metadata and users table)
   useEffect(() => {
@@ -553,186 +549,12 @@ export default function OnboardingFlow({
     }))
   }
 
-  // Get relevant service suggestions based on company industry (locale-aware)
-  const getRelevantServices = (industry: string): string[] => {
-    const industryLower = industry.toLowerCase()
-    const isPtBR = locale === 'pt-BR'
-
-    const constructionServices = isPtBR ? [
-      "Construção Geral", "Construção Nova", "Reformas", "Ampliações",
-      "Instalação Elétrica", "Reparos Elétricos", "Refiação", "Elétrica de Emergência",
-      "Instalação Hidráulica", "Reparos Hidráulicos", "Instalação de Caldeira", "Aquecimento Central",
-      "Instalação de Banheiro", "Instalação de Cozinha", "Carpintaria", "Marcenaria Personalizada",
-      "Pintura Interna", "Pintura Externa", "Decoração", "Papel de Parede",
-      "Reparos de Telhado", "Instalação de Telhado Novo", "Manutenção de Telhado", "Calhas",
-      "Reboco", "Revestimento", "Drywall", "Trabalho de Teto",
-      "Azulejista", "Instalação de Piso", "Alvenaria", "Terraplenagem",
-    ] : [
-      "General Construction", "New Build Construction", "Renovations", "Extensions",
-      "Electrical Installation", "Electrical Repairs", "Rewiring", "Emergency Electrical",
-      "Plumbing Installation", "Plumbing Repairs", "Boiler Installation", "Central Heating",
-      "Bathroom Installation", "Kitchen Installation", "Carpentry", "Custom Joinery",
-      "Painting Interior", "Painting Exterior", "Decorating", "Wallpapering",
-      "Roofing Repairs", "New Roof Installation", "Roof Maintenance", "Guttering",
-      "Plastering", "Rendering", "Drywall", "Ceiling Work",
-      "Tiling", "Flooring Installation", "Bricklaying", "Groundwork",
-    ]
-
-    const techServices = isPtBR ? [
-      "Desenvolvimento Web", "Desenvolvimento de Aplicativos Mobile", "Desenvolvimento de Software",
-      "Suporte de TI", "Configuração de Rede", "Migração para Nuvem", "Cibersegurança",
-      "Gerenciamento de Banco de Dados", "Integração de Sistemas", "Desenvolvimento de API",
-      "Design UI/UX", "Design de Website", "Desenvolvimento de E-commerce",
-      "Serviços de SEO", "Marketing Digital", "Gerenciamento de Mídias Sociais",
-    ] : [
-      "Web Development", "Mobile App Development", "Software Development",
-      "IT Support", "Network Setup", "Cloud Migration", "Cybersecurity",
-      "Database Management", "System Integration", "API Development",
-      "UI/UX Design", "Website Design", "E-commerce Development",
-      "SEO Services", "Digital Marketing", "Social Media Management",
-    ]
-
-    const healthcareServices = isPtBR ? [
-      "Consulta Geral", "Avaliação de Saúde", "Planos de Tratamento",
-      "Atendimento Domiciliar", "Cuidado Pessoal", "Cuidados de Enfermagem", "Gerenciamento de Medicamentos",
-      "Fisioterapia", "Reabilitação Física", "Tratamento de Dor",
-      "Aconselhamento de Saúde Mental", "Sessões de Terapia", "Programas de Bem-Estar",
-      "Check-up Odontológico", "Limpeza Dental", "Tratamento Dental",
-    ] : [
-      "General Consultation", "Health Assessment", "Treatment Plans",
-      "Home Care", "Personal Care", "Nursing Care", "Medication Management",
-      "Physiotherapy", "Physical Rehabilitation", "Pain Management",
-      "Mental Health Counseling", "Therapy Sessions", "Wellness Programs",
-      "Dental Checkup", "Dental Cleaning", "Dental Treatment",
-    ]
-
-    const businessServices = isPtBR ? [
-      "Consultoria Empresarial", "Desenvolvimento de Estratégia", "Pesquisa de Mercado",
-      "Serviços Contábeis", "Escrituração Contábil", "Preparação de Impostos", "Serviços de Folha de Pagamento",
-      "Consultoria Jurídica", "Revisão de Contratos", "Representação Legal",
-      "Estratégia de Marketing", "Desenvolvimento de Marca", "Criação de Conteúdo",
-      "Consultoria de RH", "Serviços de Recrutamento", "Programas de Treinamento",
-    ] : [
-      "Business Consulting", "Strategy Development", "Market Research",
-      "Accounting Services", "Bookkeeping", "Tax Preparation", "Payroll Services",
-      "Legal Advice", "Contract Review", "Legal Representation",
-      "Marketing Strategy", "Brand Development", "Content Creation",
-      "HR Consulting", "Recruitment Services", "Training Programs",
-    ]
-
-    const cleaningServices = isPtBR ? [
-      "Limpeza Residencial", "Limpeza Profunda", "Limpeza Regular",
-      "Limpeza de Escritório", "Limpeza Comercial", "Limpeza Fim de Locação",
-      "Limpeza de Carpete", "Limpeza de Janelas", "Lavagem de Pressão",
-    ] : [
-      "House Cleaning", "Deep Cleaning", "Regular Cleaning",
-      "Office Cleaning", "Commercial Cleaning", "End of Tenancy Cleaning",
-      "Carpet Cleaning", "Window Cleaning", "Pressure Washing",
-    ]
-
-    const gardeningServices = isPtBR ? [
-      "Manutenção de Jardim", "Corte de Grama", "Poda de Cerca Viva",
-      "Design de Jardim", "Paisagismo", "Instalação de Pátio",
-      "Cirurgia de Árvore", "Remoção de Tocos", "Instalação de Cerca",
-    ] : [
-      "Garden Maintenance", "Lawn Mowing", "Hedge Trimming",
-      "Garden Design", "Landscaping", "Patio Installation",
-      "Tree Surgery", "Stump Removal", "Fence Installation",
-    ]
-
-    const automotiveServices = isPtBR ? [
-      "Manutenção de Carro", "Inspeção Veicular", "Reparos de Veículos",
-      "Diagnóstico de Motor", "Reparos de Freio", "Instalação de Pneus",
-      "Elétrica Automotiva", "Reparos de Funilaria", "Pintura Automotiva",
-    ] : [
-      "Car Servicing", "MOT Testing", "Vehicle Repairs",
-      "Engine Diagnostics", "Brake Repairs", "Tyre Fitting",
-      "Auto Electrical", "Bodywork Repairs", "Spray Painting",
-    ]
-
-    // Match industry to relevant services (English and Portuguese keywords)
-    if (industryLower.includes("construction") || industryLower.includes("construção") ||
-        industryLower.includes("building") || industryLower.includes("edif") ||
-        industryLower.includes("electrical") || industryLower.includes("elétr") ||
-        industryLower.includes("plumbing") || industryLower.includes("hidrául") ||
-        industryLower.includes("carpentry") || industryLower.includes("carpint") ||
-        industryLower.includes("painting") || industryLower.includes("pint") ||
-        industryLower.includes("roofing") || industryLower.includes("telha") ||
-        industryLower.includes("hvac")) {
-      return constructionServices
-    }
-
-    if (industryLower.includes("technology") || industryLower.includes("tecnologia") ||
-        industryLower.includes("software") || industryLower.includes("it ") ||
-        industryLower.includes("web") || industryLower.includes("digital")) {
-      return techServices
-    }
-
-    if (industryLower.includes("health") || industryLower.includes("saúde") ||
-        industryLower.includes("medical") || industryLower.includes("médic") ||
-        industryLower.includes("care") || industryLower.includes("cuidado") ||
-        industryLower.includes("dental") || industryLower.includes("nursing") ||
-        industryLower.includes("enferm")) {
-      return healthcareServices
-    }
-
-    if (industryLower.includes("business") || industryLower.includes("negócio") ||
-        industryLower.includes("consulting") || industryLower.includes("consultoria") ||
-        industryLower.includes("accounting") || industryLower.includes("contabil") ||
-        industryLower.includes("legal") || industryLower.includes("jurídic") ||
-        industryLower.includes("marketing") || industryLower.includes("hr") ||
-        industryLower.includes("rh")) {
-      return businessServices
-    }
-
-    if (industryLower.includes("cleaning") || industryLower.includes("limpeza")) {
-      return cleaningServices
-    }
-
-    if (industryLower.includes("garden") || industryLower.includes("jardim") ||
-        industryLower.includes("landscaping") || industryLower.includes("paisag")) {
-      return gardeningServices
-    }
-
-    if (industryLower.includes("automotive") || industryLower.includes("automotiv") ||
-        industryLower.includes("vehicle") || industryLower.includes("veículo") ||
-        industryLower.includes("mechanic") || industryLower.includes("mecân")) {
-      return automotiveServices
-    }
-
-    // Default: show all services
-    return [
-      ...constructionServices,
-      ...techServices,
-      ...healthcareServices,
-      ...businessServices,
-      ...cleaningServices,
-      ...gardeningServices,
-      ...automotiveServices,
-    ]
-  }
-
-  // Update service suggestions based on input and company industry
-  useEffect(() => {
-    if (newService.trim().length > 0) {
-      const relevantServices = getRelevantServices(companyData.industry || "")
-      const filtered = relevantServices.filter(service =>
-        service.toLowerCase().includes(newService.toLowerCase()) &&
-        !companyData.services.includes(service)
-      ).slice(0, 10) // Limit to 10 suggestions
-      setFilteredServiceSuggestions(filtered)
-      setShowServiceSuggestions(filtered.length > 0)
-    } else {
-      setShowServiceSuggestions(false)
-      setFilteredServiceSuggestions([])
-    }
-  }, [newService, companyData.industry, companyData.services])
-
-  const handleLocationSelect = (lat: number, lng: number) => {
+  const handleLocationSelect = (lat: number, lng: number, address?: string) => {
     setProfessionalData((prev) => ({
       ...prev,
       latitude: lat,
       longitude: lng,
+      ...(address ? { location: address } : {}),
     }))
   }
 
@@ -741,6 +563,7 @@ export default function OnboardingFlow({
       ...prev,
       latitude: null,
       longitude: null,
+      location: "",
     }))
   }
 
@@ -839,7 +662,6 @@ export default function OnboardingFlow({
         priceList: "",
         service24_7: false,
       })
-      setNewService("")
 
       // Clear location data
       setProfessionalLocationData(null)
@@ -2143,104 +1965,33 @@ export default function OnboardingFlow({
             {/* Industry - Required */}
             <div className="space-y-2 pb-6 border-b">
               <Label htmlFor="industry" className="text-base font-semibold">{t('onboardingFlow.industry')} <span className="text-red-500">*</span></Label>
-              <Input
-                id="industry"
-                placeholder={t('onboardingFlow.industryPlaceholder')}
+              <Select
                 value={companyData.industry}
-                onChange={(e) => setCompanyData((prev) => ({ ...prev, industry: e.target.value }))}
-                list="industry-list"
-                required
-                className="border-2"
-              />
-              <datalist id="industry-list">
-                {/* Construction & Trades */}
-                <option value="Construction" />
-                <option value="Building & Construction" />
-                <option value="Electrical Services" />
-                <option value="Plumbing & Heating" />
-                <option value="Carpentry & Joinery" />
-                <option value="Painting & Decorating" />
-                <option value="Roofing" />
-                <option value="HVAC Services" />
-                <option value="General Contracting" />
-
-                {/* Technology */}
-                <option value="Information Technology" />
-                <option value="Software Development" />
-                <option value="IT Services & Consulting" />
-                <option value="Cybersecurity" />
-                <option value="Cloud Services" />
-                <option value="Web Development" />
-                <option value="Mobile App Development" />
-
-                {/* Healthcare */}
-                <option value="Healthcare" />
-                <option value="Medical Services" />
-                <option value="Dental Care" />
-                <option value="Mental Health Services" />
-                <option value="Home Care Services" />
-                <option value="Nursing Services" />
-                <option value="Physiotherapy" />
-
-                {/* Business Services */}
-                <option value="Business Consulting" />
-                <option value="Accounting & Finance" />
-                <option value="Legal Services" />
-                <option value="Marketing & Advertising" />
-                <option value="Human Resources" />
-                <option value="Recruitment" />
-                <option value="Event Management" />
-
-                {/* Retail & E-commerce */}
-                <option value="Retail" />
-                <option value="E-commerce" />
-                <option value="Wholesale" />
-
-                {/* Hospitality & Food */}
-                <option value="Hospitality" />
-                <option value="Restaurants & Catering" />
-                <option value="Hotels & Accommodation" />
-                <option value="Food & Beverage" />
-
-                {/* Education */}
-                <option value="Education" />
-                <option value="Training & Development" />
-                <option value="Tutoring Services" />
-
-                {/* Real Estate & Property */}
-                <option value="Real Estate" />
-                <option value="Property Management" />
-                <option value="Estate Agency" />
-
-                {/* Transportation & Logistics */}
-                <option value="Transportation" />
-                <option value="Logistics & Distribution" />
-                <option value="Courier Services" />
-
-                {/* Creative & Design */}
-                <option value="Graphic Design" />
-                <option value="Web Design" />
-                <option value="Photography" />
-                <option value="Video Production" />
-                <option value="Creative Services" />
-
-                {/* Automotive */}
-                <option value="Automotive Repair" />
-                <option value="Vehicle Services" />
-
-                {/* Home Services */}
-                <option value="Cleaning Services" />
-                <option value="Landscaping & Gardening" />
-                <option value="Pest Control" />
-                <option value="Security Services" />
-
-                {/* Manufacturing */}
-                <option value="Manufacturing" />
-                <option value="Engineering" />
-
-                {/* Other */}
-                <option value="Other Services" />
-              </datalist>
+                onValueChange={(value) => {
+                  const industryData = findTradeIndustry(value)
+                  setCompanyData((prev) => ({
+                    ...prev,
+                    industry: value,
+                    // Reset services when industry changes
+                    services: prev.services.filter(s =>
+                      industryData && industryData.services.length > 0
+                        ? (industryData.services as readonly string[]).includes(s)
+                        : false
+                    ),
+                  }))
+                }}
+              >
+                <SelectTrigger className="border-2">
+                  <SelectValue placeholder={t('onboardingFlow.industryPlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRADE_INDUSTRIES.map((ind) => (
+                    <SelectItem key={ind.title} value={ind.title}>
+                      {ind.icon} {ind.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Optional Section */}
@@ -2286,79 +2037,46 @@ export default function OnboardingFlow({
               </div>
 
               {/* Services */}
-              <div className="space-y-2">
-                <Label>{t('onboardingFlow.servicesOffered')}</Label>
-                <div className="flex gap-2 relative">
-                  <div className="flex-1 relative">
-                    <Input
-                      placeholder={t('onboardingFlow.servicesPlaceholder')}
-                      value={newService}
-                      onChange={(e) => setNewService(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault()
-                          if (newService.trim() && !companyData.services.includes(newService.trim())) {
-                            setCompanyData((prev) => ({ ...prev, services: [...prev.services, newService.trim()] }))
-                            setNewService("")
-                            setShowServiceSuggestions(false)
-                          }
-                        }
-                      }}
-                      onFocus={() => newService.trim().length > 0 && setShowServiceSuggestions(true)}
-                      onBlur={() => setTimeout(() => setShowServiceSuggestions(false), 200)}
-                      className="border-2"
-                    />
-                    {/* Service suggestions dropdown */}
-                    {showServiceSuggestions && filteredServiceSuggestions.length > 0 && (
-                      <div className="absolute bottom-full left-0 right-0 mb-1 max-h-60 overflow-y-auto bg-white border-2 border-blue-500 rounded-lg shadow-lg z-50">
-                        {filteredServiceSuggestions.map((service) => (
-                          <button
-                            key={service}
-                            type="button"
-                            onClick={() => {
-                              if (!companyData.services.includes(service)) {
-                                setCompanyData((prev) => ({ ...prev, services: [...prev.services, service] }))
-                                setNewService("")
-                                setShowServiceSuggestions(false)
-                              }
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-blue-50 transition-colors text-sm"
-                          >
-                            {service}
-                          </button>
+              {(() => {
+                const industryData = findTradeIndustry(companyData.industry)
+                const availableServices = industryData?.services ?? []
+                return (
+                  <div className="space-y-2">
+                    <Label>{t('onboardingFlow.servicesOffered')}</Label>
+                    {availableServices.length > 0 ? (
+                      <div className="grid grid-cols-2 gap-2 p-3 border-2 rounded-lg">
+                        {availableServices.map((service) => (
+                          <label key={service} className="flex items-center gap-2 cursor-pointer group">
+                            <input
+                              type="checkbox"
+                              checked={companyData.services.includes(service)}
+                              onChange={() => {
+                                setCompanyData((prev) => ({
+                                  ...prev,
+                                  services: prev.services.includes(service)
+                                    ? prev.services.filter(s => s !== service)
+                                    : [...prev.services, service],
+                                }))
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                            />
+                            <span className="text-sm group-hover:text-blue-600 transition-colors">{service}</span>
+                          </label>
                         ))}
                       </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">
+                        {companyData.industry ? "No predefined services for this trade." : "Select a trade above to see available services."}
+                      </p>
+                    )}
+                    {companyData.services.length > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        {companyData.services.length} service{companyData.services.length !== 1 ? "s" : ""} selected
+                      </p>
                     )}
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (newService.trim() && !companyData.services.includes(newService.trim())) {
-                        setCompanyData((prev) => ({ ...prev, services: [...prev.services, newService.trim()] }))
-                        setNewService("")
-                        setShowServiceSuggestions(false)
-                      }
-                    }}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {companyData.services.map((service) => (
-                    <Badge key={service} variant="secondary" className="flex items-center gap-1">
-                      {service}
-                      <X
-                        className="h-3 w-3 cursor-pointer"
-                        onClick={() => setCompanyData((prev) => ({ ...prev, services: prev.services.filter((s) => s !== service) }))}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {t('onboardingFlow.servicesDesc')}
-                </p>
-              </div>
+                )
+              })()}
 
               {/* Spoken Languages */}
               <div className="space-y-2">

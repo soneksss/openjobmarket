@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { Zap, X, CheckCircle2, Bell, Users, ChevronRight } from "lucide-react"
+import { Zap, X, Users, ChevronRight } from "lucide-react"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
 import { createClient } from "@/lib/client"
 
@@ -12,30 +12,35 @@ export function ActiveSearchBar() {
   const supabase = createClient()
   const { activeSearch, setActiveSearch, clearActiveSearch } = useActiveSearch()
 
+  // ── All hooks must run unconditionally at top level ─────────────────
   const [notifiedCount, setNotifiedCount] = useState(activeSearch?.notifiedCount ?? 0)
   const [tradesCount,   setTradesCount]   = useState(activeSearch?.tradesCount   ?? 0)
   const [elapsed,       setElapsed]       = useState(0)
   const [cancelling,    setCancelling]    = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  /* ── hide on the live page itself (full UI there) ── */
-  const isOnLivePage = !!pathname?.match(/^\/jobs\/[0-9a-f-]{36}\/live/)
-  if (!activeSearch || isOnLivePage) return null
-
-  // ── elapsed ticker (runs from startedAt stored in context) ──
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // Sync counts from context when activeSearch changes (e.g. after page reload)
   useEffect(() => {
+    if (!activeSearch) return
+    setNotifiedCount(activeSearch.notifiedCount ?? 0)
+    setTradesCount(activeSearch.tradesCount ?? 0)
+  }, [activeSearch?.jobId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Elapsed ticker — recomputes from startedAt every 5 s
+  useEffect(() => {
+    if (!activeSearch) return
     const tick = () =>
       setElapsed(Math.floor((Date.now() - activeSearch.startedAt) / 1000))
     tick()
     const t = setInterval(tick, 5000)
     return () => clearInterval(t)
-  }, [activeSearch.startedAt])
+  }, [activeSearch?.startedAt]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── poll for live counts every 10 s ── */
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+  // Poll for live notifiedCount + tradesCount every 10 s
+  // Skip polling on the live page — FindingTradesView already polls every 5 s there
+  const isOnLivePage = !!pathname?.match(/^\/jobs\/[0-9a-f-]{36}\/live/)
   const poll = useCallback(async () => {
-    if (!activeSearch) return
+    if (!activeSearch || isOnLivePage) return
     try {
       const res = await fetch(`/api/jobs/${activeSearch.jobId}/urgent-responses`, {
         credentials: "include",
@@ -46,19 +51,21 @@ export function ActiveSearchBar() {
       const tc = (data.responses ?? []).length
       setNotifiedCount(nc)
       setTradesCount(tc)
-      // Persist updated counts so they survive the next page load
       setActiveSearch({ ...activeSearch, notifiedCount: nc, tradesCount: tc })
     } catch {}
   }, [activeSearch?.jobId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
+    if (!activeSearch) return
     poll()
     pollRef.current = setInterval(poll, 10_000)
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [poll])
+  }, [poll]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ── Cancel search: deactivate job in DB + clear context ── */
+  // ── Early return AFTER all hooks ────────────────────────────────────
+  if (!activeSearch || isOnLivePage) return null
+
+  // ── Cancel: deactivate job in DB + clear context ─────────────────────
   const handleCancel = async () => {
     if (cancelling) return
     setCancelling(true)
@@ -72,23 +79,22 @@ export function ActiveSearchBar() {
     router.push("/dashboard/homeowner")
   }
 
-  /* ── Progression message based on elapsed seconds ── */
+  // ── Progression message ───────────────────────────────────────────────
+  const hasResponse = tradesCount > 0
   const message =
-    tradesCount > 0
+    hasResponse
       ? `${tradesCount} tradesperson${tradesCount !== 1 ? "s" : ""} responded — tap to view`
       : notifiedCount > 0
         ? elapsed < 90
           ? `We notified ${notifiedCount} tradespeople — waiting for their responses…`
           : elapsed < 180
-          ? `Still searching… expanding radius to reach more trades.`
-          : `Search in progress — we'll notify you when someone responds.`
+          ? "Still searching… expanding radius to reach more trades."
+          : "Search in progress — we'll notify you when someone responds."
         : elapsed < 30
           ? "Searching for available tradespeople nearby…"
           : elapsed < 90
           ? "Still searching… contacting more tradespeople."
           : "Search in progress — tap to view live updates."
-
-  const hasResponse = tradesCount > 0
 
   return (
     <div
@@ -118,7 +124,6 @@ export function ActiveSearchBar() {
           </p>
         </div>
 
-        {/* Counts */}
         <div className="flex items-center gap-2 flex-shrink-0">
           {notifiedCount > 0 && (
             <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
@@ -132,10 +137,12 @@ export function ActiveSearchBar() {
         </div>
       </button>
 
-      {/* Cancel — separate tap target below the main row */}
+      {/* Bottom row: elapsed + cancel */}
       <div className="flex items-center justify-between px-4 pb-2 -mt-1">
         <span className="text-[11px] text-slate-500">
-          {elapsed > 0 ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s elapsed` : "Just started"}
+          {elapsed > 0
+            ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s elapsed`
+            : "Just started"}
         </span>
         <button
           onClick={handleCancel}

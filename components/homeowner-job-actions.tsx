@@ -6,16 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Trash2, Edit, Clock, Eye, EyeOff, Calendar, Camera, Upload, X as XIcon, Play } from "lucide-react"
 import { createClient } from "@/lib/client"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -36,6 +26,7 @@ interface HomeownerJobActionsProps {
   expiresAt: string | null
   jobStatus?: string
   isFlexibleJob?: boolean
+  urgencyType?: string
   currentJob: {
     title: string
     description: string
@@ -58,6 +49,7 @@ export function HomeownerJobActions({
   expiresAt,
   jobStatus,
   isFlexibleJob,
+  urgencyType,
   currentJob,
 }: HomeownerJobActionsProps) {
   const router = useRouter()
@@ -72,7 +64,9 @@ export function HomeownerJobActions({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showExtendDialog, setShowExtendDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
-  const [extensionDays, setExtensionDays] = useState("30")
+
+  const isUrgentJob = urgencyType === "asap" || urgencyType === "today"
+  const [extensionValue, setExtensionValue] = useState(isUrgentJob ? "1" : "7")
 
   // Photo state
   const [jobPhoto, setJobPhoto] = useState<File | null>(null)
@@ -217,26 +211,30 @@ export function HomeownerJobActions({
 
   const handleDelete = async () => {
     setIsDeleting(true)
-    const supabase = createClient()
-
     try {
-      // Delete job
-      const { error } = await supabase.from("jobs").delete().eq("id", jobId)
+      // Use server-side admin route — bypasses RLS so the DELETE never hangs
+      const res = await fetch(`/api/jobs/${jobId}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
 
-      if (error) throw error
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error ?? `HTTP ${res.status}`)
+      }
 
-      // Redirect to dashboard
-      router.push("/dashboard/homeowner")
-      router.refresh()
-    } catch (error) {
+      setShowDeleteDialog(false)
+      // Use location.href for a hard navigation — ensures the server page
+      // re-fetches fresh data instead of serving the cached job list.
+      window.location.href = "/dashboard/homeowner"
+    } catch (error: any) {
       console.error("Error deleting job:", error)
       toast({
         title: "Delete Failed",
-        description: "Failed to delete job. Please try again.",
+        description: error.message || "Failed to delete job. Please try again.",
         variant: "destructive",
         duration: 5000,
       })
-    } finally {
       setIsDeleting(false)
       setShowDeleteDialog(false)
     }
@@ -270,20 +268,25 @@ export function HomeownerJobActions({
     const supabase = createClient()
 
     try {
-      // Calculate new expiry date
-      const currentExpiry = expiresAt ? new Date(expiresAt) : new Date()
+      // Calculate new expiry — always extend from now so expired jobs restart fresh
       const now = new Date()
+      const newExpiry = new Date(now)
 
-      // If job is expired, extend from now, otherwise extend from current expiry
-      const baseDate = currentExpiry > now ? currentExpiry : now
-      const newExpiry = new Date(baseDate)
-      newExpiry.setDate(newExpiry.getDate() + parseInt(extensionDays))
+      if (isUrgentJob) {
+        // Urgent/ASAP jobs extend in hours
+        newExpiry.setHours(newExpiry.getHours() + parseInt(extensionValue))
+      } else {
+        // Flexible/standard jobs extend in days
+        newExpiry.setDate(newExpiry.getDate() + parseInt(extensionValue))
+      }
 
       const { error } = await supabase
         .from("jobs")
         .update({
           expires_at: newExpiry.toISOString(),
-          is_active: true, // Reactivate the job
+          is_active: true,
+          // Reset matching_status so the trigger allows new applications
+          matching_status: "searching",
         })
         .eq("id", jobId)
 
@@ -331,13 +334,24 @@ export function HomeownerJobActions({
           // Use folder structure to match RLS policy: {userId}/filename.jpg
           const fileName = `${user.id}/${Date.now()}.jpg`
 
-          const { error: uploadError } = await supabase.storage
-            .from('job-photos')
-            .upload(fileName, jobPhoto, {
+          // 10-second timeout — storage hangs indefinitely if bucket/RLS not configured
+          const photoAbort = new AbortController()
+          const photoTimeout = setTimeout(() => photoAbort.abort(), 10000)
+
+          const { error: uploadError } = await Promise.race([
+            supabase.storage.from('job-photos').upload(fileName, jobPhoto, {
               cacheControl: '3600',
               upsert: false,
-              contentType: 'image/jpeg'
-            })
+              contentType: 'image/jpeg',
+            }),
+            new Promise<{ data: null; error: Error }>((resolve) =>
+              photoAbort.signal.addEventListener("abort", () =>
+                resolve({ data: null, error: new Error("upload_timeout") })
+              )
+            ),
+          ])
+
+          clearTimeout(photoTimeout)
 
           if (uploadError) {
             console.error("[HOMEOWNER-JOB-ACTIONS] Photo upload error:", uploadError)
@@ -476,24 +490,44 @@ export function HomeownerJobActions({
         Delete
       </Button>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete "{jobTitle}". This action cannot be undone. All applications for this job
-              will also be removed.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
-              {isDeleting ? "Deleting..." : "Delete Job"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete Confirmation — compact mobile-friendly overlay */}
+      {showDeleteDialog && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xs bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
+            {/* Icon */}
+            <div className="flex flex-col items-center px-5 pt-6 pb-4 text-center">
+              <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center mb-3">
+                <Trash2 className="w-5 h-5 text-red-400" />
+              </div>
+              <p className="text-base font-bold text-white mb-1">Delete job?</p>
+              <p className="text-sm text-slate-400 leading-snug">
+                "<span className="text-white font-medium">{jobTitle}</span>" will be permanently removed along with all its applications.
+              </p>
+            </div>
+            {/* Actions */}
+            <div className="flex gap-2 px-4 pb-5">
+              <button
+                onClick={() => setShowDeleteDialog(false)}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-500 active:bg-red-700 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {isDeleting ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Deleting…</>
+                ) : (
+                  <><Trash2 className="w-3.5 h-3.5" /> Delete</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Extend Dialog */}
       <Dialog open={showExtendDialog} onOpenChange={setShowExtendDialog}>
@@ -501,29 +535,37 @@ export function HomeownerJobActions({
           <DialogHeader>
             <DialogTitle>Extend Job Posting</DialogTitle>
             <DialogDescription>
-              Choose how many days to extend this job posting. The job will be reactivated if it's currently expired.
+              {isUrgentJob
+                ? "Choose how many hours to reopen this urgent job. The search window restarts from now."
+                : "Choose how many days to extend this job posting. The job will be reactivated if it's currently expired."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="days">Extension Period</Label>
-              <Select value={extensionDays} onValueChange={setExtensionDays}>
+              <Label htmlFor="extension-value">Extension Period</Label>
+              <Select value={extensionValue} onValueChange={setExtensionValue}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="7">7 days</SelectItem>
-                  <SelectItem value="14">14 days</SelectItem>
-                  <SelectItem value="30">30 days (1 month)</SelectItem>
-                  <SelectItem value="60">60 days (2 months)</SelectItem>
-                  <SelectItem value="90">90 days (3 months)</SelectItem>
-                </SelectContent>
+                {isUrgentJob ? (
+                  <SelectContent>
+                    <SelectItem value="1">1 hour</SelectItem>
+                    <SelectItem value="2">2 hours</SelectItem>
+                    <SelectItem value="3">3 hours</SelectItem>
+                    <SelectItem value="6">6 hours</SelectItem>
+                    <SelectItem value="12">12 hours</SelectItem>
+                    <SelectItem value="24">24 hours</SelectItem>
+                  </SelectContent>
+                ) : (
+                  <SelectContent>
+                    <SelectItem value="1">1 day</SelectItem>
+                    <SelectItem value="3">3 days</SelectItem>
+                    <SelectItem value="7">7 days</SelectItem>
+                    <SelectItem value="14">14 days (2 weeks)</SelectItem>
+                    <SelectItem value="30">30 days (1 month)</SelectItem>
+                  </SelectContent>
+                )}
               </Select>
-              {expiresAt && (
-                <p className="text-sm text-muted-foreground">
-                  Current expiry: {new Date(expiresAt).toLocaleDateString()}
-                </p>
-              )}
             </div>
           </div>
           <DialogFooter>
@@ -531,7 +573,7 @@ export function HomeownerJobActions({
               Cancel
             </Button>
             <Button onClick={handleExtend} disabled={isExtending}>
-              {isExtending ? "Extending..." : "Extend Job"}
+              {isExtending ? "Extending..." : "Reopen Job"}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -469,14 +469,6 @@ export function AccountDashboard({ user, userType, profileData }: AccountDashboa
       return [
         [
           {
-            icon: Briefcase,
-            label: "My Job Listings",
-            href: getLocalePath("/dashboard/company/jobs"),
-            badge: activeJobs > 0 ? String(activeJobs) : undefined,
-            badgeColor: "bg-green-500",
-            description: "Manage your posted jobs"
-          },
-          {
             icon: Users,
             label: "Applications Received",
             href: getLocalePath("/dashboard/company/applications"),

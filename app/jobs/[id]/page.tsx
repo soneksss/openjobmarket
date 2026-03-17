@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/server"
+import { createClient, createAdminClient } from "@/lib/server"
 import { notFound, permanentRedirect } from "next/navigation"
 import { Metadata } from "next"
 import JobDetailView from "@/components/job-detail-view"
@@ -6,30 +6,54 @@ import { generateJobPostingSchema } from "@/lib/schema-markup"
 import { requireVacancyEnabledForJob } from "@/lib/vacancy-guard"
 import { isUUID } from "@/lib/slug"
 
-/** Resolve a URL param (UUID or slug) to a job row */
-async function resolveJob(supabase: Awaited<ReturnType<typeof createClient>>, param: string) {
-  if (isUUID(param)) {
-    const { data } = await supabase
-      .from("jobs")
-      .select(`*, company_profiles (company_name, location), homeowner_profiles (first_name, last_name)`)
-      .eq("id", param)
-      .single()
-    return data
-  }
-  // Slug lookup
-  const { data } = await supabase
+// Use FK column hints to disambiguate: jobs has two FKs to company_profiles
+// (company_id and confirmed_tradesperson_id) — without a hint PostgREST errors.
+const JOB_SELECT = `*, company_profiles!company_id (id, company_name, description, industry, company_size, website_url, location, logo_url, user_id), homeowner_profiles!homeowner_id (id, user_id, first_name, last_name, profile_photo_url)`
+
+/**
+ * Resolve a URL param (UUID or slug) to a job row.
+ * Uses the admin client so RLS never hides a job from a tradesperson
+ * who received a notification — job listings are public information.
+ */
+async function resolveJob(param: string) {
+  const admin = createAdminClient()
+  const filter = isUUID(param)
+    ? { column: "id", value: param }
+    : { column: "slug", value: param }
+
+  const { data, error } = await admin
     .from("jobs")
-    .select(`*, company_profiles (company_name, location), homeowner_profiles (first_name, last_name)`)
-    .eq("slug", param)
-    .single()
-  return data
+    .select(JOB_SELECT)
+    .eq(filter.column, filter.value)
+    .maybeSingle()
+
+  if (error) {
+    console.error("[JOB-DETAIL] resolveJob query error:", error.message, {
+      code: error.code,
+      details: (error as any).details,
+      hint: (error as any).hint,
+      param,
+    })
+    // Fallback: fetch job without profile joins in case of relationship error
+    const { data: bare, error: bareError } = await admin
+      .from("jobs")
+      .select("*, company_profiles!company_id(id, company_name, logo_url, user_id), homeowner_profiles!homeowner_id(id, user_id, first_name, last_name)")
+      .eq(filter.column, filter.value)
+      .maybeSingle()
+    if (bareError) {
+      console.error("[JOB-DETAIL] Fallback query also failed:", bareError.message)
+      return null
+    }
+    return bare ?? null
+  }
+
+  return data ?? null
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const supabase = await createClient()
   const { id } = await params
 
-  const job = await resolveJob(supabase, id)
+  const job = await resolveJob(id)
 
   if (!job) {
     return {
@@ -96,49 +120,19 @@ export default async function JobDetailPage({
 
   console.log("[JOB-DETAIL] Loading job detail page:", { param: rawParam })
 
-  let job: any = null
+  // Use admin client for job SELECT — job listings are public data, and RLS
+  // would otherwise hide homeowner-posted trade jobs from company (tradesperson)
+  // users who received a notification and are trying to view and apply.
+  const job: any = await resolveJob(rawParam)
 
-  if (isUUID(rawParam)) {
-    // Legacy UUID URL — look up by id, then redirect to slug URL
-    const { data, error } = await supabase
-      .from("jobs")
-      .select(`
-        *,
-        company_profiles (id, company_name, description, industry, company_size, website_url, location, logo_url, user_id),
-        homeowner_profiles (id, user_id, first_name, last_name, profile_photo_url)
-      `)
-      .eq("id", rawParam)
-      .single()
+  if (!job) {
+    console.log("[JOB-DETAIL] Job not found:", rawParam)
+    notFound()
+  }
 
-    if (error || !data) {
-      console.log("[JOB-DETAIL] Job not found by UUID:", rawParam)
-      notFound()
-    }
-
-    job = data
-
-    // Permanently redirect to slug URL so Google indexes the keyword-rich URL
-    if (job.slug) {
-      permanentRedirect(`/jobs/${job.slug}`)
-    }
-  } else {
-    // Slug URL — look up by slug
-    const { data, error } = await supabase
-      .from("jobs")
-      .select(`
-        *,
-        company_profiles (id, company_name, description, industry, company_size, website_url, location, logo_url, user_id),
-        homeowner_profiles (id, user_id, first_name, last_name, profile_photo_url)
-      `)
-      .eq("slug", rawParam)
-      .single()
-
-    if (error || !data) {
-      console.log("[JOB-DETAIL] Job not found by slug:", rawParam)
-      notFound()
-    }
-
-    job = data
+  // Permanently redirect UUID → slug so Google indexes the canonical URL
+  if (isUUID(rawParam) && job.slug) {
+    permanentRedirect(`/jobs/${job.slug}`)
   }
 
   await requireVacancyEnabledForJob(job.id)
@@ -167,6 +161,9 @@ export default async function JobDetailPage({
   let userProfile = null
   let hasApplied = false
   let companyStatus = null
+  let isJobOwner = false
+  let jobApplications: any[] = []
+  let serverUserType: string | null = null
 
   if (user) {
     try {
@@ -182,6 +179,7 @@ export default async function JobDetailPage({
       if (userError) {
         console.error("[JOB-DETAIL] Error fetching user data:", userError)
       } else {
+        serverUserType = userData?.user_type ?? null
         console.log("[JOB-DETAIL] User type:", userData?.user_type, "Job is task:", job.is_tradespeople_job)
 
         // In the 2-role model, only company (tradesperson) users can apply to trade jobs
@@ -215,7 +213,7 @@ export default async function JobDetailPage({
 
             const { data: application, error: applicationError } = await supabase
               .from("job_applications")
-              .select("id")
+              .select("id, status")
               .eq("job_id", job.id)
               .eq("company_id", profile.id)
               .single()
@@ -224,8 +222,51 @@ export default async function JobDetailPage({
               console.error("[JOB-DETAIL] Error checking application status:", applicationError)
             } else {
               hasApplied = !!application
-              console.log("[JOB-DETAIL] Application status:", { hasApplied, applicationId: application?.id })
+              companyStatus = application?.status ?? null
+              console.log("[JOB-DETAIL] Application status:", { hasApplied, applicationId: application?.id, status: companyStatus })
             }
+          }
+        } else if (userData?.user_type === "homeowner") {
+          // Homeowner — check if they own this job
+          const { data: hp } = await supabase
+            .from("homeowner_profiles")
+            .select("id")
+            .eq("user_id", user.id)
+            .maybeSingle()
+
+          console.log("[JOB-DETAIL] Homeowner profile:", hp?.id, "job.homeowner_id:", job.homeowner_id)
+
+          // String comparison guards against any UUID-type mismatch
+          if (hp && String(job.homeowner_id) === String(hp.id)) {
+            isJobOwner = true
+
+            // Admin client bypasses RLS — never filter by user_id here
+            try {
+              const admin = createAdminClient()
+              const { data: apps, error: appsError } = await admin
+                .from("job_applications")
+                .select(`
+                  id, status, applied_at, cover_letter, tradesperson_id, company_id,
+                  company_profiles!company_id (
+                    id, user_id, company_name, logo_url, location, industry
+                  )
+                `)
+                .eq("job_id", job.id)
+                .not("status", "eq", "WITHDRAWN")
+                .order("applied_at", { ascending: false })
+
+              if (appsError) {
+                console.error("[JOB-DETAIL] Applications query error:", appsError.message, appsError)
+              } else {
+                console.log("[JOB-DETAIL] Applications loaded:", apps?.length ?? 0)
+              }
+
+              jobApplications = apps ?? []
+            } catch (adminErr) {
+              console.error("[JOB-DETAIL] Admin client error (SUPABASE_SERVICE_ROLE_KEY missing?):", adminErr)
+            }
+          } else {
+            console.log("[JOB-DETAIL] Homeowner profile mismatch or hp null — not setting isJobOwner")
           }
         } else {
           console.log("[JOB-DETAIL] User type is not company — no profile loaded")
@@ -380,9 +421,13 @@ export default async function JobDetailPage({
         userProfile={userProfile}
         hasApplied={hasApplied}
         companyStatus={companyStatus}
+        applicationStatus={companyStatus}
         searchParams={search}
         companyRating={companyRating}
         companyReviews={companyReviews}
+        isJobOwner={isJobOwner}
+        jobApplications={jobApplications}
+        serverUserType={serverUserType}
       />
     </>
   )

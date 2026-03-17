@@ -6,7 +6,7 @@ import dynamic from "next/dynamic"
 import {
   ArrowLeft, CheckCircle2, MessageCircle, Phone,
   Star, MapPin, Users, Zap, X, Edit, UserPlus,
-  PartyPopper, Minimize2, Bell, AlertCircle, Clock,
+  PartyPopper, Minimize2, Bell, AlertCircle, Clock, StopCircle,
 } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
@@ -29,7 +29,8 @@ type SearchingPhase = Exclude<Phase, "no_trades">
 type TradeStatus = "waiting" | "accepted" | "declined"
 
 interface Trade {
-  id: string
+  id: string        // company_profiles.id (profile ID)
+  userId: string    // auth user ID — used for messaging and profile URL
   name: string
   businessName?: string
   avatarUrl?: string
@@ -40,7 +41,10 @@ interface Trade {
   verified: boolean
   status: TradeStatus
   phone?: string
+  message?: string
   addedAt: number
+  lat?: number | null
+  lng?: number | null
 }
 
 interface Job {
@@ -51,11 +55,166 @@ interface Job {
   longitude: number | null
   urgency_type: string | null
   search_radius_miles: number | null
+  expires_at?: string | null
 }
 
 interface FindingTradesViewProps {
   job: Job
   userId: string
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
+/* Helpers (module-level — stable references, no blinking)            */
+/* ─────────────────────────────────────────────────────────────────── */
+const fmt = (s: number) =>
+  `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+
+/* ── Trade card — defined outside component so reference is stable ── */
+interface TradeCardProps {
+  trade: Trade
+  index: number
+  elapsed: number
+  onMessage: (trade: Trade) => void
+  onCall: (trade: Trade) => void
+  onConfirm: (trade: Trade) => void
+  confirming?: boolean
+}
+
+function TradeCard({ trade, index, elapsed, onMessage, onCall, onConfirm, confirming }: TradeCardProps) {
+  return (
+    <div
+      className={`animate-fade-in-up p-3 rounded-2xl border transition-colors duration-300 ${
+        trade.status === "accepted"
+          ? "bg-emerald-500/12 border-emerald-500/35 shadow-sm shadow-emerald-500/10"
+          : trade.status === "declined"
+          ? "bg-slate-700/15 border-slate-600/20 opacity-40"
+          : "bg-slate-700/35 border-slate-600/30"
+      }`}
+      style={{ animationDelay: `${index * 80}ms`, animationFillMode: "both" }}
+    >
+      <div className="flex items-start gap-3">
+        {/* Avatar + name — clickable → tradesperson profile */}
+        <a
+          href={`/companies/${trade.id}`}
+          className={`w-11 h-11 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ring-2 transition-all duration-500 hover:ring-emerald-400/70 ${
+            trade.status === "accepted" ? "ring-emerald-500/50" : "ring-slate-600/40"
+          } bg-slate-600`}
+        >
+          {trade.avatarUrl
+            ? <img src={trade.avatarUrl} alt={trade.name} className="w-full h-full object-cover" />
+            : <span className="text-sm font-bold text-slate-200">{trade.name.charAt(0).toUpperCase()}</span>
+          }
+        </a>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <a
+              href={`/companies/${trade.id}`}
+              className="text-sm font-semibold text-white truncate hover:text-emerald-300 transition-colors"
+            >
+              {trade.businessName || trade.name}
+            </a>
+            {trade.verified && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />}
+          </div>
+          <div className="flex items-center gap-2.5 text-xs text-slate-400 mt-0.5">
+            <span className="flex items-center gap-0.5">
+              <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+              {trade.rating.toFixed(1)}
+              <span className="text-slate-500 ml-0.5">({trade.reviewCount})</span>
+            </span>
+            {trade.distanceMiles > 0 && (
+              <span className="flex items-center gap-0.5">
+                <MapPin className="w-3 h-3" />
+                {trade.distanceMiles.toFixed(1)} mi
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            {trade.status === "waiting" && (
+              <span className="animate-fade-in flex items-center gap-1.5">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-70" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+                </span>
+                <span className="text-xs text-yellow-400">
+                  Waiting…{" "}
+                  <span className="font-mono tracking-tight">{fmt(Math.max(0, elapsed - index * 5))}</span>
+                </span>
+              </span>
+            )}
+            {trade.status === "accepted" && (
+              <span className="animate-pop-in flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span className="text-xs text-emerald-400 font-semibold">Applied — Ready to chat</span>
+              </span>
+            )}
+            {trade.status === "declined" && (
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-400" />
+                <span className="text-xs text-red-400">Declined</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+      {trade.status === "accepted" && trade.message && (
+        <div className="mt-2 px-1">
+          <p className="text-xs text-slate-300 bg-slate-700/60 rounded-lg px-2.5 py-2 leading-relaxed">
+            &ldquo;{trade.message}&rdquo;
+          </p>
+        </div>
+      )}
+      {trade.status === "accepted" && (
+        <div className="flex gap-2 mt-3">
+          <button
+            onClick={() => onMessage(trade)}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors"
+          >
+            <MessageCircle className="w-3.5 h-3.5" /> Message
+          </button>
+          {trade.phone && (
+            <button
+              onClick={() => onCall(trade)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 text-xs font-semibold transition-colors"
+            >
+              <Phone className="w-3.5 h-3.5" /> Call
+            </button>
+          )}
+          <button
+            onClick={() => onConfirm(trade)}
+            disabled={confirming}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-semibold transition-colors"
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            {confirming ? "…" : "Confirm"}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SkeletonCard({ index, elapsed }: { index: number; elapsed: number }) {
+  return (
+    <div
+      className="animate-fade-in-up p-3 rounded-2xl border border-slate-600/25 bg-slate-700/25"
+      style={{ animationDelay: `${index * 100}ms`, animationFillMode: "both" }}
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-full bg-slate-600/60 animate-pulse flex-shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div className="h-3 rounded-full bg-slate-600/60 animate-pulse" style={{ width: `${60 + index * 8}%` }} />
+          <div className="h-2.5 rounded-full bg-slate-600/60 animate-pulse w-1/2" />
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-70" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
+          </span>
+          <span className="text-xs font-mono text-yellow-400/80">{fmt(Math.max(0, elapsed - index * 6))}</span>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 /* ─────────────────────────────────────────────────────────────────── */
@@ -76,7 +235,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   const [radiusMiles, setRadiusMiles]             = useState(job.search_radius_miles ?? 5)
   const [isExpanding, setIsExpanding]             = useState(false)
   const [notifyRequested, setNotifyRequested]     = useState(false)
-  const [hireCTADismissed, setHireCTADismissed]   = useState(false)
+  const [stopped, setStopped]                     = useState(false)
 
   const lat = job.latitude  ?? 51.5074
   const lon = job.longitude ?? -0.1278
@@ -85,29 +244,47 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   const pollFailsRef     = useRef(0)
   const pollIntervalRef  = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  /* ── keep active search context in sync so the bar has fresh counts ── */
+  /* ── check if job is already expired on mount ── */
+  useEffect(() => {
+    if (!job.expires_at) return
+    const remaining = new Date(job.expires_at).getTime() - Date.now()
+    if (remaining <= 0) {
+      // Job's search window already closed — stop immediately
+      setStopped(true)
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+    } else {
+      // Auto-stop when window closes
+      const t = setTimeout(() => {
+        setStopped(true)
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+      }, remaining)
+      return () => clearTimeout(t)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* ── elapsed ticker ── */
   useEffect(() => {
+    if (stopped) return
     const t = setInterval(() => setElapsed((s) => s + 1), 1000)
     return () => clearInterval(t)
-  }, [])
+  }, [stopped])
 
   /* ── 3 s: searching → sent ── */
   useEffect(() => {
+    if (stopped) return
     const t = setTimeout(() => setPhase((p) => p === "searching" ? "sent" : p), 3000)
     return () => clearTimeout(t)
-  }, [])
+  }, [stopped])
 
   /* ── no_trades: been in "sent" for 20 s with 0 notified and no responses ── */
-  /* 20 s gives dispatch-urgent time to complete and the poll to run at least 3x */
   useEffect(() => {
-    if (phase !== "sent" || notifiedCount !== 0 || trades.length > 0) return
+    if (stopped || phase !== "sent" || notifiedCount !== 0 || trades.length > 0) return
     const t = setTimeout(() => {
       setPhase((p) => p === "sent" ? "no_trades" : p)
     }, 20000)
     return () => clearTimeout(t)
-  }, [phase, notifiedCount, trades.length])
+  }, [stopped, phase, notifiedCount, trades.length])
 
   /* ── no_trades: expansion animation done, still 0 trade responses ── */
   useEffect(() => {
@@ -118,8 +295,8 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
 
   /* ── no-response countdown → expanding (only if someone was notified) ── */
   useEffect(() => {
-    if (trades.length > 0) return
-    if (notifiedCount === 0) return  // nobody notified yet — handled by no_trades detection
+    if (stopped || trades.length > 0) return
+    if (notifiedCount === 0) return
     if (["expanding", "first_accepted", "all_responded", "no_trades"].includes(phase)) return
 
     const t = setInterval(() => {
@@ -130,7 +307,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     }, 1000)
     return () => clearInterval(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trades.length, phase, notifiedCount])
+  }, [stopped, trades.length, phase, notifiedCount])
 
   /* ── detect first accepted ── */
   useEffect(() => {
@@ -140,14 +317,9 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       const first = trades.find((t) => t.status === "accepted")
       setFirstAcceptedName(first?.businessName || first?.name || "A tradesperson")
       setPhase("first_accepted")
-      tryPlaySound()
       if (trades.filter((t) => t.status === "accepted").length > 1) setPhase("all_responded")
     }
   }, [trades])
-
-  const tryPlaySound = () => {
-    try { new Audio("/sounds/success.mp3").play().catch(() => {}) } catch {}
-  }
 
   const triggerExpand = async () => {
     setPhase("expanding")
@@ -177,14 +349,22 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     router.push("/")
   }
 
-  const handleExpandRadius = () => { triggerExpand() }
+  const handleStopSearch = async () => {
+    setStopped(true)
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+    try {
+      await supabase.from("jobs").update({
+        matching_status: "stopped",
+        search_state: null,
+      }).eq("id", job.id)
+    } catch {}
+  }
 
   const handleNotifyMe = async () => {
     setNotifyRequested(true)
     try {
       await supabase.from("jobs").update({ notify_when_available: true }).eq("id", job.id)
     } catch {}
-    // Show confirmation briefly, then return to main page
     setTimeout(() => router.push("/"), 1500)
   }
 
@@ -198,31 +378,26 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     if (phase !== "expanding") triggerExpand()
   }
 
-  const fmt = (s: number) =>
-    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
-
   /* ── poll for responses ── */
   const poll = useCallback(async () => {
     try {
       const res = await fetch(`/api/jobs/${job.id}/urgent-responses`, { credentials: "include" })
       if (!res.ok) {
-        // Auth / forbidden errors — stop polling immediately
         if (res.status === 401 || res.status === 403) {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
         }
         return
       }
-      pollFailsRef.current = 0 // reset on success
+      pollFailsRef.current = 0
       const data = await res.json()
       if (data.notifiedCount) setNotifiedCount(data.notifiedCount)
-      // If trades responded even when alert count is 0 (e.g. FK migration not run),
-      // bump notifiedCount so "no trades" screen is never shown incorrectly
       if (!data.notifiedCount && data.responses?.length > 0) setNotifiedCount(data.responses.length)
       if (data.responses?.length > 0) {
         const now = Date.now()
         setTrades((prev) => {
           const incoming: Trade[] = data.responses.map((r: any, i: number): Trade => ({
             id:            r.id,
+            userId:        r.user_id,
             name:          r.name,
             businessName:  r.business_name,
             avatarUrl:     r.avatar_url,
@@ -233,9 +408,12 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
             verified:      r.verified ?? false,
             status:        "accepted",
             phone:         r.phone,
+            message:       r.message ?? undefined,
             addedAt:       now + i * 150,
+            lat:           r.lat ?? null,
+            lng:           r.lng ?? null,
           }))
-          const ids    = new Set(prev.map((t) => t.id))
+          const ids = new Set(prev.map((t) => t.id))
           return [...prev, ...incoming.filter((t) => !ids.has(t.id))]
         })
         if (data.responses.length > 1) setPhase("all_responded")
@@ -250,14 +428,16 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   }, [job.id])
 
   useEffect(() => {
+    if (stopped) return
     poll()
     pollIntervalRef.current = setInterval(poll, 5000)
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
     }
-  }, [poll])
+  }, [poll, stopped])
 
   useEffect(() => {
+    if (stopped) return
     const channel = supabase
       .channel(`finding-trades-${job.id}`)
       .on("postgres_changes", {
@@ -266,23 +446,65 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       }, poll)
       .subscribe()
     return () => { supabase.removeChannel(channel) }
-  }, [job.id, supabase, poll])
+  }, [job.id, supabase, poll, stopped])
+
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+
+  // Get or create conversation then open the dark /messages/:id view
+  const openConversation = async (trade: Trade) => {
+    try {
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ with_user_id: trade.userId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      router.push(body.conversationId ? `/messages/${body.conversationId}?job=${job.id}` : `/messages`)
+    } catch {
+      router.push(`/messages`)
+    }
+  }
 
   const contact = (trade: Trade, method: "call" | "message") => {
-    if (method === "message") router.push(`/messages?to=${trade.id}&job=${job.id}`)
+    if (method === "message") openConversation(trade)
     if (method === "call" && trade.phone) window.location.href = `tel:${trade.phone}`
+  }
+
+  const handleConfirm = async (trade: Trade) => {
+    if (confirmingId) return
+    setConfirmingId(trade.id)
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ company_id: trade.id }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (res.ok || res.status === 409) {
+        // Stop polling + clear the minimised search bar
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+        clearActiveSearch()
+        const convId = body.conversationId
+        router.push(convId ? `/messages/${convId}?job=${job.id}` : `/messages`)
+      }
+    } catch {
+      clearActiveSearch()
+      router.push(`/messages`)
+    } finally {
+      setConfirmingId(null)
+    }
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
   /* NO TRADES SCREEN                                                    */
   /* ─────────────────────────────────────────────────────────────────── */
-  if (phase === "no_trades") {
+  if (phase === "no_trades" && !stopped) {
     const atMaxRadius = radiusMiles >= 25
 
     return (
       <div className="fixed inset-0 z-50 flex flex-col bg-slate-900 overflow-hidden">
-
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/60 flex-shrink-0">
           <button
             onClick={() => router.back()}
@@ -301,34 +523,17 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
           <div className="w-16" />
         </div>
 
-        {/* Content */}
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center overflow-y-auto">
-
-          {/* Icon */}
           <div className="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6 animate-pop-in">
             <AlertCircle className="w-10 h-10 text-amber-400" />
           </div>
-
-          <h2
-            className="text-xl font-bold text-white mb-2 animate-fade-in-up"
-            style={{ animationDelay: "100ms" }}
-          >
+          <h2 className="text-xl font-bold text-white mb-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
             No {job.title.toLowerCase()}s available nearby
           </h2>
-          <p
-            className="text-sm text-slate-400 mb-8 max-w-xs animate-fade-in-up"
-            style={{ animationDelay: "200ms" }}
-          >
+          <p className="text-sm text-slate-400 mb-8 max-w-xs animate-fade-in-up" style={{ animationDelay: "200ms" }}>
             You can still post your job and receive replies when trades become available in your area.
           </p>
-
-          {/* Options */}
-          <div
-            className="w-full max-w-sm space-y-3 animate-fade-in-up"
-            style={{ animationDelay: "300ms" }}
-          >
-
-            {/* 🟠 Post Job & Wait */}
+          <div className="w-full max-w-sm space-y-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
             <button
               onClick={() => router.push("/")}
               className="w-full flex items-center gap-4 p-4 rounded-2xl bg-orange-500 hover:bg-orange-400 text-white transition-all duration-200 active:scale-[0.98] text-left"
@@ -338,16 +543,13 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
               </div>
               <div>
                 <p className="font-semibold text-sm leading-tight">Post Job &amp; Wait for Replies</p>
-                <p className="text-xs text-orange-100/80 font-normal mt-0.5">
-                  Your job stays live — trades will find you
-                </p>
+                <p className="text-xs text-orange-100/80 font-normal mt-0.5">Your job stays live — trades will find you</p>
               </div>
             </button>
 
-            {/* ⚪ Expand Search Radius */}
             {!atMaxRadius ? (
               <button
-                onClick={handleExpandRadius}
+                onClick={() => triggerExpand()}
                 className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-700 hover:bg-slate-600 text-white border border-slate-600/60 transition-all duration-200 active:scale-[0.98] text-left"
               >
                 <div className="w-10 h-10 rounded-xl bg-slate-600 flex items-center justify-center flex-shrink-0">
@@ -355,9 +557,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
                 </div>
                 <div>
                   <p className="font-semibold text-sm leading-tight">Expand Search Radius</p>
-                  <p className="text-xs text-slate-400 font-normal mt-0.5">
-                    Look up to {Math.min(radiusMiles * 2, 25)} miles from your location
-                  </p>
+                  <p className="text-xs text-slate-400 font-normal mt-0.5">Look up to {Math.min(radiusMiles * 2, 25)} miles from your location</p>
                 </div>
               </button>
             ) : (
@@ -366,15 +566,12 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
                   <MapPin className="w-5 h-5 text-slate-600" />
                 </div>
                 <div>
-                  <p className="font-medium text-slate-500 text-sm leading-tight">
-                    Already at maximum radius
-                  </p>
+                  <p className="font-medium text-slate-500 text-sm leading-tight">Already at maximum radius</p>
                   <p className="text-xs text-slate-600 font-normal mt-0.5">Searching up to 25 miles</p>
                 </div>
               </div>
             )}
 
-            {/* ⚪ Notify me */}
             <button
               onClick={handleNotifyMe}
               disabled={notifyRequested}
@@ -384,34 +581,23 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
                   : "bg-slate-800/60 border border-slate-700/50 hover:bg-slate-700/60 hover:border-slate-600/60"
               }`}
             >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                notifyRequested ? "bg-emerald-500/20" : "bg-slate-700/80"
-              }`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${notifyRequested ? "bg-emerald-500/20" : "bg-slate-700/80"}`}>
                 <Bell className={`w-5 h-5 ${notifyRequested ? "text-emerald-400" : "text-slate-300"}`} />
               </div>
               <div>
                 {notifyRequested ? (
                   <>
-                    <p className="font-semibold text-emerald-400 text-sm leading-tight animate-pop-in">
-                      ✓ We'll notify you
-                    </p>
-                    <p className="text-xs text-emerald-400/70 font-normal mt-0.5">
-                      Alert when a trade becomes available
-                    </p>
+                    <p className="font-semibold text-emerald-400 text-sm leading-tight animate-pop-in">✓ We'll notify you</p>
+                    <p className="text-xs text-emerald-400/70 font-normal mt-0.5">Alert when a trade becomes available</p>
                   </>
                 ) : (
                   <>
-                    <p className="font-semibold text-white text-sm leading-tight">
-                      Notify me when available
-                    </p>
-                    <p className="text-xs text-slate-400 font-normal mt-0.5">
-                      Get a notification when a trade opens up
-                    </p>
+                    <p className="font-semibold text-white text-sm leading-tight">Notify me when available</p>
+                    <p className="text-xs text-slate-400 font-normal mt-0.5">Get a notification when a trade opens up</p>
                   </>
                 )}
               </div>
             </button>
-
           </div>
         </div>
       </div>
@@ -419,14 +605,17 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
-  /* STATUS BANNER CONFIG (only for non-no_trades phases)               */
+  /* STATUS BANNER CONFIG                                                */
   /* ─────────────────────────────────────────────────────────────────── */
+  const stoppedBanner = {
+    bg: "bg-slate-700/60 border-slate-600/40",
+    icon: <StopCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />,
+    title: <span className="text-sm font-semibold text-slate-200">Search stopped — {trades.length > 0 ? `${trades.length} applicant${trades.length !== 1 ? "s" : ""} found` : "no applicants yet"}</span>,
+    sub:   <span className="text-xs text-slate-400/80">Message or call any tradesperson below.</span>,
+  }
+
   const banners: Record<SearchingPhase, {
-    bg: string
-    icon: React.ReactNode
-    title: React.ReactNode
-    sub: React.ReactNode
-    right?: React.ReactNode
+    bg: string; icon: React.ReactNode; title: React.ReactNode; sub: React.ReactNode; right?: React.ReactNode
   }> = {
     searching: {
       bg: "bg-emerald-500/10 border-emerald-500/20",
@@ -452,33 +641,27 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
           We found {notifiedCount > 0 ? notifiedCount : "several"} tradespeople nearby and notified them.
         </span>
       ) : elapsed < 90 ? (
-        <span className="text-sm font-semibold text-blue-300">
-          Still searching… notifying more tradespeople within a slightly larger area.
-        </span>
+        <span className="text-sm font-semibold text-blue-300">Still searching… notifying more tradespeople.</span>
       ) : elapsed < 150 ? (
-        <span className="text-sm font-semibold text-blue-300">
-          Expanding the search radius to reach more available tradespeople.
-        </span>
+        <span className="text-sm font-semibold text-blue-300">Expanding the search radius to reach more trades.</span>
       ) : (
-        <span className="text-sm font-semibold text-indigo-300">
-          You can minimize the app — we'll notify you as soon as someone responds.
-        </span>
+        <span className="text-sm font-semibold text-indigo-300">You can minimize — we'll notify you when someone responds.</span>
       ),
       sub: elapsed < 30 ? (
         <span className="text-xs text-blue-400/80">Waiting for their responses…</span>
       ) : elapsed < 90 ? (
         <span className="text-xs text-blue-400/80">Replies usually arrive within 2–5 minutes.</span>
       ) : elapsed < 150 ? (
-        <span className="text-xs text-blue-400/80">Hang tight — tradespeople in your area are being contacted.</span>
+        <span className="text-xs text-blue-400/80">Hang tight — more tradespeople are being contacted.</span>
       ) : (
-        <span className="text-xs text-indigo-400/80">Tap "Minimize" below — your search continues in the background.</span>
+        <span className="text-xs text-indigo-400/80">Tap "Minimize" — your search continues in the background.</span>
       ),
     },
     first_accepted: {
       bg: "bg-emerald-500/15 border-emerald-500/30",
       icon: <PartyPopper className="w-4 h-4 text-emerald-300 flex-shrink-0" />,
-      title: <span className="text-sm font-semibold text-emerald-200">1 tradesperson applied — hire now or wait for more offers.</span>,
-      sub:   <span className="text-xs text-emerald-400/80">See their profile below.</span>,
+      title: <span className="text-sm font-semibold text-emerald-200">{firstAcceptedName} applied — message them or wait for more.</span>,
+      sub:   <span className="text-xs text-emerald-400/80">See their profile below. Search is still running.</span>,
     },
     expanding: {
       bg: "bg-amber-500/10 border-amber-500/20",
@@ -495,136 +678,16 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       bg: "bg-emerald-500/15 border-emerald-500/30",
       icon: <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />,
       title: <span className="text-sm font-semibold text-emerald-200">{trades.length} tradesperson{trades.length !== 1 ? "s" : ""} applied — choose the best fit.</span>,
-      sub:   <span className="text-xs text-emerald-400/80">Hire now or keep waiting for more.</span>,
+      sub:   <span className="text-xs text-emerald-400/80">Message or call any of them below.</span>,
     },
   }
 
-  const banner = banners[phase as SearchingPhase]
-
-  /* ─────────────────────────────────────────────────────────────────── */
-  /* TRADE CARD                                                          */
-  /* ─────────────────────────────────────────────────────────────────── */
-  const TradeCard = ({ trade, index }: { trade: Trade; index: number }) => (
-    <div
-      className={`animate-fade-in-up p-3 rounded-2xl border transition-all duration-500 ${
-        trade.status === "accepted"
-          ? "bg-emerald-500/12 border-emerald-500/35 shadow-sm shadow-emerald-500/10"
-          : trade.status === "declined"
-          ? "bg-slate-700/15 border-slate-600/20 opacity-40"
-          : "bg-slate-700/35 border-slate-600/30"
-      }`}
-      style={{ animationDelay: `${index * 80}ms` }}
-    >
-      <div className="flex items-start gap-3">
-        <div className={`w-11 h-11 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ring-2 transition-all duration-500 ${
-          trade.status === "accepted" ? "ring-emerald-500/50" : "ring-slate-600/40"
-        } bg-slate-600`}>
-          {trade.avatarUrl
-            ? <img src={trade.avatarUrl} alt={trade.name} className="w-full h-full object-cover" />
-            : <span className="text-sm font-bold text-slate-200">{trade.name.charAt(0).toUpperCase()}</span>
-          }
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-semibold text-white truncate">{trade.businessName || trade.name}</p>
-            {trade.verified && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />}
-          </div>
-          <div className="flex items-center gap-2.5 text-xs text-slate-400 mt-0.5">
-            <span className="flex items-center gap-0.5">
-              <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-              {trade.rating.toFixed(1)}
-              <span className="text-slate-500 ml-0.5">({trade.reviewCount})</span>
-            </span>
-            <span className="flex items-center gap-0.5">
-              <MapPin className="w-3 h-3" />
-              {trade.distanceMiles.toFixed(1)} mi
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            {trade.status === "waiting" && (
-              <span className="animate-fade-in flex items-center gap-1.5">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-70" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
-                </span>
-                <span className="text-xs text-yellow-400">
-                  Waiting…{" "}
-                  <span className="font-mono tracking-tight">{fmt(Math.max(0, elapsed - index * 5))}</span>
-                </span>
-              </span>
-            )}
-            {trade.status === "accepted" && (
-              <span className="animate-pop-in flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                <span className="text-xs text-emerald-400 font-semibold">Accepted — Ready to chat</span>
-              </span>
-            )}
-            {trade.status === "declined" && (
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-red-400" />
-                <span className="text-xs text-red-400">Declined</span>
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-      {trade.status === "accepted" && (
-        <div className="flex gap-2 mt-3 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-          <button
-            onClick={() => contact(trade, "message")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold transition-colors"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" /> Hire Now
-          </button>
-          {trade.phone ? (
-            <button
-              onClick={() => contact(trade, "call")}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-emerald-500/50 text-emerald-400 hover:bg-emerald-500/10 text-xs font-semibold transition-colors"
-            >
-              <Phone className="w-3.5 h-3.5" /> Call Now
-            </button>
-          ) : (
-            <button
-              onClick={() => router.push(`/profile/${trade.id}`)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-slate-600 text-slate-300 hover:bg-slate-700 text-xs font-semibold transition-colors"
-            >
-              View Profile
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
-
-  /* ─────────────────────────────────────────────────────────────────── */
-  /* SKELETON CARD                                                       */
-  /* ─────────────────────────────────────────────────────────────────── */
-  const SkeletonCard = ({ index }: { index: number }) => (
-    <div
-      className="animate-fade-in-up p-3 rounded-2xl border border-slate-600/25 bg-slate-700/25"
-      style={{ animationDelay: `${index * 100}ms` }}
-    >
-      <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-full bg-slate-600/60 animate-pulse flex-shrink-0" />
-        <div className="flex-1 space-y-2">
-          <div className="h-3 rounded-full bg-slate-600/60 animate-pulse" style={{ width: `${60 + index * 8}%` }} />
-          <div className="h-2.5 rounded-full bg-slate-600/60 animate-pulse w-1/2" />
-        </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-70" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-400" />
-          </span>
-          <span className="text-xs font-mono text-yellow-400/80">{fmt(Math.max(0, elapsed - index * 6))}</span>
-        </div>
-      </div>
-    </div>
-  )
+  const activeBanner = stopped ? stoppedBanner : banners[phase as SearchingPhase]
 
   /* ─────────────────────────────────────────────────────────────────── */
   /* MAIN RENDER                                                         */
   /* ─────────────────────────────────────────────────────────────────── */
-  const skeletonCount = Math.max(0, 3 + expandSlots - trades.length)
+  const skeletonCount = stopped ? 0 : Math.max(0, 3 + expandSlots - trades.length)
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-slate-900 overflow-hidden">
@@ -642,12 +705,11 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
         <div className="text-center">
           <p className="text-sm font-semibold text-white flex items-center justify-center gap-1.5">
             <Zap className="w-4 h-4 text-emerald-400" />
-            Finding Available Trades
+            {stopped ? "Search Complete" : "Finding Available Trades"}
           </p>
           <p className="text-xs text-slate-400">{job.title} · {radiusMiles} mi radius</p>
         </div>
 
-        {/* Minimize — keeps searching, shows sticky bar on all pages */}
         <button
           onClick={handleMinimize}
           className="flex items-center gap-1 text-slate-400 hover:text-white text-xs transition-colors"
@@ -660,16 +722,26 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
 
       {/* ── STATUS BANNER ───────────────────────────────────────── */}
       <div
-        key={phase}
-        className={`animate-fade-in flex items-center gap-3 px-4 py-2.5 border-b flex-shrink-0 transition-colors duration-500 ${banner.bg}`}
-        style={{ borderColor: "inherit" }}
+        key={stopped ? "stopped" : phase}
+        className={`animate-fade-in flex items-center gap-3 px-4 py-2.5 border-b flex-shrink-0 transition-colors duration-500 ${activeBanner.bg}`}
       >
-        {banner.icon}
+        {activeBanner.icon}
         <div className="flex-1 min-w-0">
-          <div>{banner.title}</div>
-          <div>{banner.sub}</div>
+          <div>{activeBanner.title}</div>
+          <div>{activeBanner.sub}</div>
         </div>
-        {banner.right}
+        {/* Stop search button — only visible while actively searching */}
+        {!stopped && (
+          <button
+            onClick={handleStopSearch}
+            className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-red-400 border border-slate-600 hover:border-red-500/50 px-2.5 py-1 rounded-lg transition-colors"
+            title="Stop the search and keep current results"
+          >
+            <StopCircle className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Stop</span>
+          </button>
+        )}
+        {!stopped && activeBanner.right}
       </div>
 
       {/* ── MAIN CONTENT ────────────────────────────────────────── */}
@@ -681,12 +753,14 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
             lat={lat}
             lon={lon}
             searchRadiusMiles={radiusMiles}
-            isExpanding={isExpanding}
+            isExpanding={isExpanding && !stopped}
             trades={trades.map((t) => ({
               id: t.id,
               name: t.businessName || t.name,
               distanceMiles: t.distanceMiles,
               status: t.status,
+              lat: t.lat,
+              lng: t.lng,
             }))}
           />
         </div>
@@ -705,50 +779,42 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
           <div className="px-4 pb-4 pt-3 space-y-3">
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-              <span className="text-sm font-semibold text-white">Contacted Trades</span>
+              <span className="text-sm font-semibold text-white">
+                {stopped ? "Applicants" : "Contacted Trades"}
+              </span>
               <span className="ml-auto text-xs text-slate-400">
-                {notifiedCount ? `${notifiedCount} alerted` : "Searching…"}
+                {stopped
+                  ? (trades.length > 0 ? `${trades.length} found` : "None yet")
+                  : (notifiedCount ? `${notifiedCount} alerted` : "Searching…")}
               </span>
             </div>
 
-            {/* ── Hire Now / Wait CTA ── */}
-            {(phase === "first_accepted" || phase === "all_responded") &&
-              !hireCTADismissed &&
-              trades.some((t) => t.status === "accepted") && (
-              <div className="animate-fade-in-up bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-4">
-                <p className="text-sm font-bold text-white mb-0.5">
-                  {trades.filter((t) => t.status === "accepted").length === 1
-                    ? "1 tradesperson applied."
-                    : `${trades.filter((t) => t.status === "accepted").length} tradespeople applied.`}
-                </p>
-                <p className="text-xs text-slate-400 mb-3">You can hire now or wait for more offers.</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      const first = trades.find((t) => t.status === "accepted")
-                      if (first) contact(first, "message")
-                    }}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-sm font-bold transition-colors"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Hire Now
-                  </button>
-                  <button
-                    onClick={() => setHireCTADismissed(true)}
-                    className="flex-1 py-3 rounded-xl bg-slate-700 border border-slate-600/50 text-slate-300 text-sm font-semibold transition-colors hover:bg-slate-600"
-                  >
-                    Wait for More
-                  </button>
-                </div>
+            {trades.map((t, i) => (
+              <TradeCard
+                key={t.id}
+                trade={t}
+                index={i}
+                elapsed={elapsed}
+                onMessage={(trade) => contact(trade, "message")}
+                onCall={(trade) => contact(trade, "call")}
+                onConfirm={handleConfirm}
+                confirming={confirmingId === t.id}
+              />
+            ))}
+
+            {skeletonCount > 0 && Array.from({ length: skeletonCount }, (_, i) => (
+              <SkeletonCard key={`sk-${i}`} index={i} elapsed={elapsed} />
+            ))}
+
+            {trades.length === 0 && stopped && (
+              <div className="text-center py-8 text-slate-500">
+                <Users className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No one applied before the search stopped.</p>
+                <p className="text-xs mt-1">Try posting a flexible job to reach more trades.</p>
               </div>
             )}
 
-            {trades.map((t, i) => <TradeCard key={t.id} trade={t} index={i} />)}
-            {Array.from({ length: skeletonCount }, (_, i) => (
-              <SkeletonCard key={`sk-${i}`} index={i} />
-            ))}
-
-            {phase === "expanding" && (
+            {phase === "expanding" && !stopped && (
               <p className="animate-fade-in text-xs text-center text-amber-400/70 pt-1">
                 Adding more tradespeople from a wider area…
               </p>
@@ -759,34 +825,56 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
 
       {/* ── BOTTOM ACTION BAR ───────────────────────────────────── */}
       <div className="flex items-center bg-slate-800/98 border-t border-slate-700/60 flex-shrink-0 px-3 py-2 gap-2">
-        <button
-          onClick={handleCancelRequest}
-          className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-center min-w-0 flex-1"
-        >
-          <X className="w-4 h-4" />
-          <span className="text-[10px] font-medium leading-tight">Cancel Request</span>
-        </button>
+        {stopped ? (
+          <>
+            <button
+              onClick={() => router.push("/dashboard/homeowner")}
+              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-center min-w-0 flex-1"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="text-[10px] font-medium leading-tight">Dashboard</span>
+            </button>
+            <div className="w-px h-8 bg-slate-700/60" />
+            <button
+              onClick={() => router.push(`/dashboard/homeowner/jobs/${job.id}`)}
+              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-emerald-400 hover:bg-emerald-500/10 transition-all text-center min-w-0 flex-1"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="text-[10px] font-medium leading-tight">View Job</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={handleCancelRequest}
+              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all text-center min-w-0 flex-1"
+            >
+              <X className="w-4 h-4" />
+              <span className="text-[10px] font-medium leading-tight">Cancel Request</span>
+            </button>
 
-        <div className="w-px h-8 bg-slate-700/60" />
+            <div className="w-px h-8 bg-slate-700/60" />
 
-        <button
-          onClick={handleContactMore}
-          disabled={phase === "expanding"}
-          className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-center min-w-0 flex-1"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span className="text-[10px] font-medium leading-tight">Contact More</span>
-        </button>
+            <button
+              onClick={handleContactMore}
+              disabled={phase === "expanding"}
+              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-emerald-400 hover:bg-emerald-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all text-center min-w-0 flex-1"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span className="text-[10px] font-medium leading-tight">Contact More</span>
+            </button>
 
-        <div className="w-px h-8 bg-slate-700/60" />
+            <div className="w-px h-8 bg-slate-700/60" />
 
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-center min-w-0 flex-1"
-        >
-          <Edit className="w-4 h-4" />
-          <span className="text-[10px] font-medium leading-tight">Edit Job</span>
-        </button>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-700 transition-all text-center min-w-0 flex-1"
+            >
+              <Edit className="w-4 h-4" />
+              <span className="text-[10px] font-medium leading-tight">Edit Job</span>
+            </button>
+          </>
+        )}
       </div>
 
     </div>

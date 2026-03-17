@@ -59,7 +59,8 @@
       "Bash(ren:*)",
       "Bash(ls:*)",
       "Bash(xargs:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []

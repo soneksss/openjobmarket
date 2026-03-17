@@ -214,7 +214,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
 
   // ── Tradesperson nav ───────────────────────────────────────────────────────
   if (isTradesperson) {
-    const defaultJobsUrl = "/?tab=jobs_tasks&autoSearch=true&location=London%2C+UK&lat=51.5074&lng=-0.1278&radius=10"
+    const defaultJobsUrl = "/?tab=jobs_tasks&autoSearch=true"
     const jobsUrl = `${base}${(jobsSearchUrl || defaultJobsUrl)}`
     const items = [
       { key: "home",          icon: Home,          label: "Home",          href: `${base}/`,              isActive: pathname === "/" || pathname === "/br" },

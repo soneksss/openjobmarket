@@ -18,7 +18,6 @@ export const metadata = generateSEO({
 })
 
 export default async function HomePage() {
-  console.log("[v0] HomePage rendering")
 
   // Check if current user is an admin - don't block page rendering if this fails
   let adminUser = null
@@ -42,6 +41,48 @@ export default async function HomePage() {
       .single()
 
     userType = userData?.user_type || null
+  }
+
+  // Fetch profile location + skills server-side (no client race condition)
+  let profileLocation: { location: string; latitude: number; longitude: number } | null = null
+  let profileSkills: string[] = []
+  let profileIndustry: string | null = null
+  let profileServices: string[] = []
+  if (user) {
+    const { data: cp } = await supabase
+      .from("company_profiles")
+      .select("location, latitude, longitude, industry, services")
+      .eq("user_id", user.id)
+      .maybeSingle()
+
+    if (cp?.latitude && cp?.longitude) {
+      profileLocation = { location: cp.location || "", latitude: cp.latitude, longitude: cp.longitude }
+    }
+    if (cp) {
+      profileIndustry = cp.industry || null
+      profileServices = Array.isArray(cp.services) ? cp.services.filter(Boolean) : []
+      // Combine for legacy skills-based fallback
+      const skills: string[] = []
+      if (cp.industry) skills.push(cp.industry)
+      if (Array.isArray(cp.services)) skills.push(...cp.services)
+      profileSkills = skills.filter(Boolean)
+    }
+
+    if (!cp) {
+      const { data: pp } = await supabase
+        .from("professional_profiles")
+        .select("location, latitude, longitude, skills, title")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (pp?.latitude && pp?.longitude) {
+        profileLocation = { location: pp.location || "", latitude: pp.latitude, longitude: pp.longitude }
+      }
+      const skills: string[] = []
+      if (pp?.title) skills.push(pp.title)
+      if (Array.isArray(pp?.skills)) skills.push(...pp.skills)
+      profileSkills = skills.filter(Boolean)
+    }
   }
 
   return (
@@ -68,6 +109,10 @@ export default async function HomePage() {
         isSignedIn={!!user}
         user={user}
         userType={userType}
+        profileLocation={profileLocation}
+        profileSkills={profileSkills}
+        profileIndustry={profileIndustry}
+        profileServices={profileServices}
       />
 
       {/* Compact Footer - Hidden on mobile (links in Account dashboard) */}

@@ -61,14 +61,14 @@ export default async function CompanySavedJobsPageBR() {
           job_id,
           jobs!inner (
             *,
-            company_profiles (
+            company_profiles!company_id (
               company_name,
               location,
               industry,
               logo_url,
               user_id
             ),
-            homeowner_profiles (
+            homeowner_profiles!homeowner_id (
               first_name,
               last_name,
               location,
