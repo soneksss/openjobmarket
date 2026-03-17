@@ -3,6 +3,13 @@ import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import { SearchPageClient } from "@/components/search-page-client"
 import JobRecommendations from "@/components/job-recommendations"
+import { generateSEO } from "@/lib/seo"
+
+export const metadata = generateSEO({
+  title: 'Search Jobs & Tradespeople | Open Job Market',
+  description: 'Search for local jobs or find tradespeople near you. Browse plumbers, electricians, builders and more in your area.',
+  path: '/search',
+})
 
 export default async function SearchPage() {
   const supabase = await createClient()

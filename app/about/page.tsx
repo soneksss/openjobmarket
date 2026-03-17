@@ -1,3 +1,11 @@
+import { generateSEO } from "@/lib/seo"
+
+export const metadata = generateSEO({
+  title: 'About Open Job Market - Connecting Homeowners with Tradespeople',
+  description: 'Open Job Market connects homeowners with trusted local tradespeople in seconds. Learn how our platform makes finding plumbers, electricians, builders and more fast and simple.',
+  path: '/about',
+})
+
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-slate-900 text-white">

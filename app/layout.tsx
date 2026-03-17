@@ -122,6 +122,7 @@ export default async function RootLayout({
     <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        {/* Organization schema */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -130,7 +131,30 @@ export default async function RootLayout({
               "@type": "Organization",
               name: "Open Job Market",
               url: "https://www.openjobmarket.com",
-              logo: "https://www.openjobmarket.com/Logo.png"
+              logo: "https://www.openjobmarket.com/Logo.png",
+              sameAs: [
+                "https://www.openjobmarket.com"
+              ]
+            })
+          }}
+        />
+        {/* WebSite schema — enables Google Sitelinks Search Box */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "Open Job Market",
+              url: "https://www.openjobmarket.com",
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: "https://www.openjobmarket.com/search?q={search_term_string}"
+                },
+                "query-input": "required name=search_term_string"
+              }
             })
           }}
         />

@@ -1,58 +1,64 @@
 import { MetadataRoute } from "next"
-import { createClient } from "@/lib/server"
+import { createAdminClient } from "@/lib/server"
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://www.openjobmarket.com"
-  const supabase = await createClient()
+  const admin = createAdminClient()
 
-  // Public-facing static pages only (no auth/dashboard/private routes)
-  const publicPages = [
-    { path: "/", priority: 1, changeFrequency: "daily" as const },
-    { path: "/jobs", priority: 0.9, changeFrequency: "hourly" as const },
-    { path: "/about", priority: 0.8, changeFrequency: "monthly" as const },
-    { path: "/professionals", priority: 0.7, changeFrequency: "daily" as const },
-    { path: "/privacy", priority: 0.4, changeFrequency: "monthly" as const },
-    { path: "/terms", priority: 0.4, changeFrequency: "monthly" as const },
+  // All publicly indexable static pages
+  const staticPages = [
+    // High priority — core funnel
+    { path: "/",         priority: 1.0, changeFrequency: "daily"   as const },
+    { path: "/search",   priority: 0.9, changeFrequency: "hourly"  as const },
+    { path: "/about",    priority: 0.7, changeFrequency: "monthly" as const },
+    { path: "/contact",  priority: 0.5, changeFrequency: "monthly" as const },
+    { path: "/help",     priority: 0.5, changeFrequency: "weekly"  as const },
+    // Legal
+    { path: "/privacy",  priority: 0.3, changeFrequency: "monthly" as const },
+    { path: "/terms",    priority: 0.3, changeFrequency: "monthly" as const },
+    { path: "/cookies",  priority: 0.3, changeFrequency: "monthly" as const },
+    { path: "/security", priority: 0.3, changeFrequency: "monthly" as const },
   ]
 
-  const enPages: MetadataRoute.Sitemap = publicPages.map(page => ({
+  const enPages: MetadataRoute.Sitemap = staticPages.map(page => ({
     url: `${baseUrl}${page.path}`,
     lastModified: new Date(),
     changeFrequency: page.changeFrequency,
     priority: page.priority,
   }))
 
-  const ptPages: MetadataRoute.Sitemap = publicPages.map(page => ({
+  const ptPages: MetadataRoute.Sitemap = staticPages.map(page => ({
     url: `${baseUrl}/br${page.path}`,
     lastModified: new Date(),
     changeFrequency: page.changeFrequency,
     priority: page.priority,
   }))
 
-  // Fetch all real active job postings (must have title and location — excludes test/demo rows)
-  const { data: jobs } = await supabase
+  // Only open, active jobs — prevents indexing of closed/confirmed/completed listings
+  const { data: jobs } = await admin
     .from("jobs")
-    .select("id, updated_at")
+    .select("id, slug, updated_at")
     .eq("is_active", true)
+    .eq("status", "POSTED")
     .not("title", "is", null)
     .not("location", "is", null)
-    .limit(5000)
+    .limit(10000)
 
   const jobPages: MetadataRoute.Sitemap =
     jobs?.map((job) => ({
-      url: `${baseUrl}/jobs/${job.id}`,
+      url: `${baseUrl}/jobs/${job.slug ?? job.id}`,
       lastModified: new Date(job.updated_at),
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })) || []
 
-  // Fetch real tradesperson profiles from company_profiles (post-2-role migration)
-  const { data: tradespeople } = await supabase
+  // Tradesperson profiles — company_profiles with real names
+  const { data: tradespeople } = await admin
     .from("company_profiles")
     .select("id, updated_at")
     .not("company_name", "is", null)
     .not("company_name", "eq", "Tradesperson")
-    .limit(5000)
+    .limit(10000)
 
   const tradespeoplePages: MetadataRoute.Sitemap =
     tradespeople?.map((t) => ({
