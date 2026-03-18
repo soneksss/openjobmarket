@@ -35,7 +35,7 @@ function getJobPageUrl(n: Notification): string | null {
   const jobId = extractJobId(getActionUrl(n))
   if (!jobId) return null
   // Homeowner notification: link to job management page (shows applicants), not public job page
-  if (n.type === "job_application") return `/jobs/${jobId}?tab=applications`
+  if (n.type === "job_application") return `/dashboard/homeowner/jobs/${jobId}`
   return `/jobs/${jobId}`
 }
 
@@ -75,28 +75,46 @@ export default function NotificationsPage() {
   const [deleting, setDeleting]           = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { router.push("/auth/login"); return }
+    try {
+      const { data: authData } = await supabase.auth.getUser()
+      const user = authData?.user
+      if (!user) { router.push("/auth/login"); return }
 
-    const { data } = await supabase
-      .from("notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(50)
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(50)
 
-    const notifs = data || []
-    setNotifications(notifs)
-    setLoading(false)
+      if (error) console.error("[NOTIFICATIONS] fetch error:", error.message)
 
-    // Mark unread as read
-    const unreadIds = notifs.filter((n: Notification) => !n.is_read).map((n: Notification) => n.id)
-    if (unreadIds.length > 0) {
-      await supabase.from("notifications").update({ is_read: true }).in("id", unreadIds)
+      const notifs = data || []
+      setNotifications(notifs)
+
+      // Mark unread as read (non-blocking)
+      const unreadIds = notifs.filter((n: Notification) => !n.is_read).map((n: Notification) => n.id)
+      if (unreadIds.length > 0) {
+        supabase.from("notifications").update({ is_read: true }).in("id", unreadIds)
+      }
+    } catch (err) {
+      console.error("[NOTIFICATIONS] load error:", err)
+    } finally {
+      setLoading(false)
     }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    const onVisible = () => { if (document.visibilityState === "visible") load() }
+    const onFocus = () => load()
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("focus", onFocus)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("focus", onFocus)
+    }
+  }, [load])
 
   /* ── delete single ── */
   const deleteOne = useCallback(async (id: string, e: React.MouseEvent) => {

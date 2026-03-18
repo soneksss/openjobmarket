@@ -34,6 +34,27 @@ import { useSearchLocation } from "@/lib/contexts/search-location-context"
 
 const RESULT_LIMIT = 100
 
+// Normalize search_traders RPC result to have the same field names the UI expects.
+// UI detects type via "company_name" in item (company) or "first_name" in item (professional),
+// so we must only add the relevant key — adding undefined still makes `in` return true.
+function normalizeTraderResult(item: any) {
+  const isCompany = item.profile_type === "company"
+  const base = {
+    ...item,
+    average_rating:    item.rating ?? item.average_rating,
+    profile_photo_url: item.logo_url,
+    coordinates:       { lat: item.latitude, lon: item.longitude },
+    type:              item.profile_type,
+  }
+  if (isCompany) {
+    base.company_name = item.name
+  } else {
+    base.first_name = item.name?.split(" ")[0] || item.name
+    base.last_name  = item.name?.split(" ").slice(1).join(" ") || ""
+  }
+  return base
+}
+
 interface MainPageSearchProps {
   onSearchStateChange?: (hasResults: boolean) => void
   externalSearchQuery?: string
@@ -1062,12 +1083,51 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       const radiusMiles = parseInt(effectiveDistance) || 10
 
       if (type === "traders") {
-        debug(`[MAIN-PAGE-SEARCH] Fetching traders/contractors`)
+        debug(`[MAIN-PAGE-SEARCH] Fetching traders via RPC search_traders`)
         setSearchProgress("Searching for traders and contractors...")
-        // Fetch traders: self-employed professionals AND companies (tradespeople)
-        let professionalResults: any[] = []
-        let companyResults: any[] = []
 
+        const rpcLat    = selectedLocation?.lat ?? mapCenter[0]
+        const rpcLon    = selectedLocation?.lon ?? mapCenter[1]
+        const rpcRadius = parseInt(effectiveDistance) || 25
+        const rpcSearch = searchQuery.trim() || null
+        const rpcLang   = (spokenLanguage && spokenLanguage !== "all") ? spokenLanguage : null
+
+        let rpcData: any[] = []
+        try {
+          const rpcResult = await Promise.race([
+            supabase.rpc("search_traders", {
+              p_lat:          rpcLat,
+              p_lon:          rpcLon,
+              p_radius_miles: rpcRadius,
+              p_search:       rpcSearch,
+              p_language:     rpcLang,
+              p_limit:        RESULT_LIMIT + 1,
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("QUERY_TIMEOUT")), 8000)
+            ),
+          ])
+          if (rpcResult.error) {
+            console.warn("[MAIN-PAGE-SEARCH] search_traders RPC error:", rpcResult.error)
+          } else {
+            rpcData = rpcResult.data ?? []
+          }
+        } catch (err: any) {
+          console.warn("[MAIN-PAGE-SEARCH] search_traders failed:", err.message)
+        }
+
+        // Client-side radius precision filter
+        if (selectedLocation) {
+          rpcData = filterByRadius(rpcData, selectedLocation.lat, selectedLocation.lon, rpcRadius)
+        }
+
+        results = rpcData.map((item: any) => normalizeTraderResult(item))
+        debug(`[MAIN-PAGE-SEARCH] search_traders returned ${results.length} results`)
+        setSearchProgress(`Found ${results.length} traders...`)
+        setSearchResultCount(results.length)
+
+        // ── legacy block kept for reference but now skipped ───────────────
+        if (false) { // eslint-disable-line no-constant-condition
         debug(`[MAIN-PAGE-SEARCH] Applying trader filters:`, { tradeCategory, availableForBusiness, distance })
 
         // Fetch self-employed professionals as well
@@ -1358,6 +1418,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         debug(`[MAIN-PAGE-SEARCH] Total trader results: ${results.length}`)
         setSearchProgress(`Found ${results.length} traders...`)
         setSearchResultCount(results.length)
+        } // end if(false) legacy block
       } else if (type === "talents") {
         debug(`[MAIN-PAGE-SEARCH] Fetching talents/professionals`)
         setSearchProgress("Searching for talented professionals...")
@@ -2175,6 +2236,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       const searchLat = params.lat ? parseFloat(params.lat) : selectedLocation?.lat
       const searchLng = params.lng ? parseFloat(params.lng) : selectedLocation?.lon
       const searchRadius = params.radius ? parseInt(params.radius) : (distance ? parseInt(distance) : 10)
+      // Sync outer distance state so modalSearchParams.radius stays current
+      if (params.radius && params.radius !== distance) setDistance(params.radius)
 
       // Determine search type: prefer params.traders/jobs_tasks/vacancies over modalSearchType
       const effectiveSearchType = params.traders === "true" ? "traders"
@@ -2186,119 +2249,48 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       debug('[MODAL-SEARCH] params:', params, 'modalSearchType:', modalSearchType, 'effective:', effectiveSearchType, 'searchLat:', searchLat, 'searchLng:', searchLng)
 
       if (effectiveSearchType === "traders") {
-        // Fetch traders: self-employed professionals + companies (tradespeople) open for business
-        let professionalResults: any[] = []
-        let companyResults: any[] = []
-
-        const hasExplicitLocation = !!(params.lat && params.lng)
+        // Use the same search_traders RPC as the main search (bypasses RLS, fast)
         const effectiveLat = searchLat ?? mapCenter[0]
         const effectiveLng = searchLng ?? mapCenter[1]
-        const radiusKm = searchRadius * 1.60934
-        const latDelta = radiusKm / 111.0
-        const lngDelta = radiusKm / (111.0 * Math.cos(effectiveLat * Math.PI / 180))
+        const rpcLang = (params.language && params.language !== "all") ? params.language : null
 
-        // --- professional_profiles (self-employed) — always bounded, no users join ---
-        let profQuery = supabase
-          .from("professional_profiles")
-          .select("*")
-          .eq("profile_visible", true)
-          .eq("available_for_work", true)
-          .eq("is_self_employed", true)
-          .not("latitude", "is", null)
-          .not("longitude", "is", null)
-          .gte("latitude", effectiveLat - latDelta)
-          .lte("latitude", effectiveLat + latDelta)
-          .gte("longitude", effectiveLng - lngDelta)
-          .lte("longitude", effectiveLng + lngDelta)
-
-        if (searchTerm) {
-          const searchTerms = getBilingualSearchTerms(searchTerm)
-          const orConditions = searchTerms.flatMap(term => [
-            `first_name.ilike.%${term}%`,
-            `last_name.ilike.%${term}%`,
-            `title.ilike.%${term}%`
-          ]).join(',')
-          profQuery = profQuery.or(orConditions)
-        }
-
-        if (params.language && params.language !== "all") {
-          profQuery = profQuery.contains("spoken_languages", [params.language])
-        }
-
-        let profData: any[] = []
+        let rpcData: any[] = []
         try {
-          const result = await Promise.race([
-            profQuery.limit(RESULT_LIMIT + 1),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('QUERY_TIMEOUT')), 5000))
+          const rpcResult = await Promise.race([
+            supabase.rpc("search_traders", {
+              p_lat:          effectiveLat,
+              p_lon:          effectiveLng,
+              p_radius_miles: searchRadius,
+              p_search:       searchTerm || null,
+              p_language:     rpcLang,
+              p_limit:        RESULT_LIMIT + 1,
+            }),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("QUERY_TIMEOUT")), 8000)
+            ),
           ])
-          profData = result.data || []
-          if (result.error) console.warn('[MODAL-SEARCH] professional_profiles error (non-fatal):', result.error)
+          if (rpcResult.error) console.warn('[MODAL-SEARCH] search_traders error:', rpcResult.error)
+          else rpcData = rpcResult.data ?? []
         } catch (err: any) {
-          console.warn('[MODAL-SEARCH] professional_profiles failed (non-fatal):', err.message)
-        }
-        debug('[MODAL-SEARCH] professional_profiles result:', profData.length)
-        {
-          let filtered = profData.filter(item => item.latitude && item.longitude)
-          if (hasExplicitLocation && searchLat && searchLng) {
-            filtered = filterByRadius(filtered, searchLat, searchLng, searchRadius)
-          }
-          professionalResults = filtered.map(item => ({
-            ...item,
-            id: item.id,
-            name: `${item.first_name || ''} ${item.last_name || ''}`.trim(),
-            coordinates: { lat: item.latitude, lon: item.longitude },
-            type: 'professional'
-          }))
+          console.warn('[MODAL-SEARCH] search_traders failed:', err.message)
         }
 
-        // --- company_profiles (open for business) ---
-        // Always apply bounding box to company query
-        let companyQuery = supabase
-          .from("company_profiles")
-          .select("*")
-          .not("latitude", "is", null)
-          .not("longitude", "is", null)
-          .gte("latitude", effectiveLat - latDelta)
-          .lte("latitude", effectiveLat + latDelta)
-          .gte("longitude", effectiveLng - lngDelta)
-          .lte("longitude", effectiveLng + lngDelta)
-
-        if (searchTerm) {
-          const cTerm = searchTerm.toLowerCase()
-          const cTerms = [cTerm]
-          if (cTerm.includes('builder') || cTerm.includes('building')) cTerms.push('construction')
-          if (cTerm.includes('plumber')) cTerms.push('plumbing', 'heating')
-          if (cTerm.includes('electrician')) cTerms.push('electrical')
-          if (cTerm.includes('carpenter')) cTerms.push('carpentry', 'joinery')
-          const cOrConds = cTerms.flatMap(t => [
-            `company_name.ilike.%${t}%`,
-            `industry.ilike.%${t}%`
-          ]).join(',')
-          companyQuery = companyQuery.or(cOrConds)
+        if (searchLat && searchLng) {
+          rpcData = filterByRadius(rpcData, searchLat, searchLng, searchRadius)
         }
 
-        if (params.language && params.language !== "all") {
-          companyQuery = companyQuery.contains("spoken_languages", [params.language])
-        }
+        results = rpcData.map((item: any) => normalizeTraderResult(item))
 
-        const { data: companyData, error: companyError } = await companyQuery.limit(RESULT_LIMIT + 1)
-        debug('[MODAL-SEARCH] company_profiles result:', companyData?.length, 'error:', companyError)
-        if (companyData) {
-          let filtered = companyData.filter(item => item.latitude && item.longitude)
-          if (hasExplicitLocation && searchLat && searchLng) {
-            filtered = filterByRadius(filtered, searchLat, searchLng, searchRadius)
-          }
-          companyResults = filtered.map(item => ({
-            ...item,
-            id: item.id,
-            name: item.company_name,
-            coordinates: { lat: item.latitude, lon: item.longitude },
-            type: 'company'
-          }))
+        // Apply client-side filters that aren't handled by the RPC
+        if (params.open_for_business === "true") {
+          results = results.filter((r: any) => r.open_for_business === true)
         }
-
-        // Combine results
-        results = [...professionalResults, ...companyResults]
+        if (params.self_employed === "true") {
+          results = results.filter((r: any) => r.is_self_employed === true)
+        }
+        if (params.company === "true") {
+          results = results.filter((r: any) => r.is_self_employed === false)
+        }
       } else if (effectiveSearchType === "talents") {
         // Fetch all professionals (not just self-employed)
         let query = supabase

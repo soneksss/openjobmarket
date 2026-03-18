@@ -203,13 +203,13 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   // ── Homeowner nav ──────────────────────────────────────────────────────────
   if (isHomeowner) {
     const items = [
-      { key: "search",   icon: Home,          label: "Search",   href: `${base}/`,                              isActive: pathname === "/" || pathname === "/br" },
-      { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/messages`,                      isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
-      { key: "post",     icon: Plus,          label: "Post",     href: `${base}/jobs/new`,                      isActive: !!pathname?.includes("/jobs/new"), isCenter: true },
-      { key: "saved",    icon: Bookmark,      label: "Saved",    href: `${base}/dashboard/homeowner/saved`,     isActive: !!pathname?.includes("/saved") },
-      { key: "account",  icon: User,          label: "Account",  href: `${base}/dashboard/homeowner`,           isActive: !!pathname?.includes("/dashboard") && !pathname?.includes("/saved") },
+      { key: "search",        icon: Home,          label: "Search",       href: `${base}/`,                     isActive: pathname === "/" || pathname === "/br" },
+      { key: "messages",      icon: MessageCircle, label: "Messages",     href: `${base}/messages`,             isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
+      { key: "post",          icon: Plus,          label: "Post",         href: `${base}/jobs/new`,             isActive: !!pathname?.includes("/jobs/new"), isCenter: true },
+      { key: "notifications", icon: Bell,          label: "Alerts",       href: `${base}/notifications`,        isActive: !!pathname?.includes("/notifications"), badge: unreadNotifications },
+      { key: "account",       icon: User,          label: "Account",      href: `${base}/dashboard/homeowner`,  isActive: !!pathname?.includes("/dashboard") },
     ]
-    return <BottomNav items={items} unreadMessages={unreadMessages} unreadNotifications={0} />
+    return <BottomNav items={items} unreadMessages={unreadMessages} unreadNotifications={unreadNotifications} />
   }
 
   // ── Tradesperson nav ───────────────────────────────────────────────────────

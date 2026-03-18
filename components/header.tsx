@@ -161,22 +161,20 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   }, [user]) // Re-run if user prop changes
 
   const handleSignOut = async () => {
+    if (onSignOut) {
+      onSignOut()
+      return
+    }
     try {
-      if (onSignOut) {
-        onSignOut()
-      } else {
-        // Clear storage first
-        if (typeof window !== 'undefined') {
-          localStorage.clear()
-          sessionStorage.clear()
-        }
-
-        // Use server-side sign out action which will redirect
-        await signOut()
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      if (typeof window !== 'undefined') {
+        localStorage.clear()
+        sessionStorage.clear()
+        window.location.href = '/'
       }
     } catch (error) {
       console.error('[HEADER] Sign out error:', error)
-      // Force redirect even on error
       if (typeof window !== 'undefined') {
         window.location.href = '/'
       }
@@ -621,7 +619,6 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onSelect={handleSignOut}
-                        onClick={handleSignOut}
                         className="flex items-center text-red-600 cursor-pointer"
                       >
                         <LogOut className="h-4 w-4 mr-2" />

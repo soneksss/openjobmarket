@@ -250,32 +250,30 @@ export function HomeownerApplicationActions({
 
   if (isJobAlreadyAccepted && !isThisContractorAccepted) {
     return (
-      <p className="text-sm text-gray-500 italic">
-        Another contractor has been accepted for this job
+      <p className="text-xs text-slate-500 italic">
+        Another tradesperson has been confirmed
       </p>
     )
   }
 
   return (
     <>
-      <div className="flex flex-col space-y-2">
+      <div className="flex flex-wrap gap-2">
         <Button
-          size="sm"
           onClick={() => setShowAcceptDialog(true)}
           disabled={loading}
-          className="bg-green-600 hover:bg-green-700"
+          className="flex items-center gap-1.5 text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 h-auto rounded-lg"
         >
-          <CheckCircle className="h-4 w-4 mr-1" />
-          Accept Contractor
+          <CheckCircle className="h-4 w-4" />
+          Confirm
         </Button>
         <Button
-          size="sm"
           variant="outline"
           onClick={handleReject}
           disabled={loading}
-          className="border-red-300 text-red-600 hover:bg-red-50"
+          className="flex items-center gap-1.5 text-sm font-semibold border-red-500/40 text-red-400 hover:bg-red-500/15 hover:text-red-300 bg-transparent px-4 py-2 h-auto rounded-lg"
         >
-          <XCircle className="h-4 w-4 mr-1" />
+          <XCircle className="h-4 w-4" />
           Reject
         </Button>
       </div>

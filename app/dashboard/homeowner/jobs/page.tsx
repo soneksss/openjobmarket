@@ -14,6 +14,8 @@ import {
   ChevronRight,
   Star,
   Home,
+  Users,
+  Clock,
 } from "lucide-react"
 import { DeleteJobInlineButton } from "@/components/delete-job-inline-button"
 
@@ -60,14 +62,34 @@ export default async function HomeownerJobsPage({
     ? "/dashboard/homeowner/jobs?status=closed"
     : "/dashboard/homeowner/jobs"
 
-  // ── Status badge ──────────────────────────────────────────────────────────
-  function StatusBadge({ job }: { job: any }) {
-    if (isClosed(job))
-      return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-400">Closed</span>
+  // ── Status config ─────────────────────────────────────────────────────────
+  function getStatusConfig(job: any) {
+    if (isClosed(job)) return {
+      label: "Closed",
+      sub: "No longer visible to tradespeople",
+      badge: "bg-slate-700/60 text-slate-400 border-slate-600/50",
+      icon: <XCircle className="h-4 w-4 text-slate-500" />,
+    }
+    const dbStatus = (job.status ?? "").toUpperCase()
+    if (dbStatus === "CONFIRMED") return {
+      label: "Confirmed",
+      sub: "Tradesperson selected",
+      badge: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+      icon: <CheckCircle2 className="h-4 w-4 text-blue-400" />,
+    }
     const apps = job.applications_count ?? 0
-    if (apps > 0)
-      return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400 border border-orange-500/30">Reviewing</span>
-    return <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Open</span>
+    if (apps > 0) return {
+      label: "Reviewing",
+      sub: `${apps} applicant${apps !== 1 ? "s" : ""} — tap View`,
+      badge: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+      icon: <Users className="h-4 w-4 text-amber-400" />,
+    }
+    return {
+      label: "Open",
+      sub: "Waiting for applications",
+      badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+      icon: <Briefcase className="h-4 w-4 text-emerald-400" />,
+    }
   }
 
   return (
@@ -156,77 +178,94 @@ export default async function HomeownerJobsPage({
           )}
         </div>
       ) : (
-        <div className="divide-y divide-slate-800/80">
-          {displayJobs.map((job) => (
-            <div key={job.id} className="bg-slate-900 px-4 py-4">
-              {/* Title row */}
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
-                  {isClosed(job) ? (
-                    <XCircle className="h-5 w-5 text-slate-600 flex-shrink-0 mt-0.5" />
-                  ) : (
-                    <Briefcase className="h-5 w-5 text-slate-400 flex-shrink-0 mt-0.5" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-white truncate">{job.title}</p>
-                    {job.location && (
-                      <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                        <MapPin className="h-3 w-3 flex-shrink-0" />
-                        {job.location}
-                      </p>
-                    )}
-                    <p className="text-xs text-slate-600 mt-0.5">
-                      {new Date(job.created_at).toLocaleDateString("en-GB", {
-                        day: "numeric", month: "short", year: "numeric",
-                      })}
-                    </p>
+        <div className="px-4 py-4 space-y-3">
+          {displayJobs.map((job) => {
+            const sc = getStatusConfig(job)
+            return (
+              <div key={job.id} className="bg-slate-800/60 border border-slate-700/50 rounded-2xl overflow-hidden">
+                {/* Card body */}
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    {/* Status icon */}
+                    <div className="flex-shrink-0 mt-0.5">{sc.icon}</div>
+
+                    {/* Main info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold text-white leading-snug">{job.title}</p>
+                        <span className={`flex-shrink-0 text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${sc.badge}`}>
+                          {sc.label}
+                        </span>
+                      </div>
+
+                      {/* Status sub-label */}
+                      <p className="text-xs text-slate-500 mt-0.5">{sc.sub}</p>
+
+                      {/* Location + date */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1.5">
+                        {job.location && (
+                          <span className="flex items-center gap-1 text-xs text-slate-500">
+                            <MapPin className="h-3 w-3 flex-shrink-0" />
+                            {job.location}
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1 text-xs text-slate-600">
+                          <Clock className="h-3 w-3 flex-shrink-0" />
+                          {new Date(job.created_at).toLocaleDateString("en-GB", {
+                            day: "numeric", month: "short", year: "numeric",
+                          })}
+                        </span>
+                      </div>
+
+                      {/* Stats row */}
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="flex items-center gap-1 text-xs text-slate-500">
+                          <Users className="h-3 w-3" />
+                          {job.applications_count ?? 0} applicant{(job.applications_count ?? 0) !== 1 ? "s" : ""}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-slate-600">
+                          <Eye className="h-3 w-3" />
+                          {job.views_count ?? 0} view{(job.views_count ?? 0) !== 1 ? "s" : ""}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <StatusBadge job={job} />
-              </div>
 
-              {/* Meta — applications + views for active jobs */}
-              {!showHistory && (
-                <div className="flex items-center gap-4 text-xs text-slate-500 mb-3 pl-8">
-                  <span className="flex items-center gap-1">
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    {job.applications_count ?? 0} applications
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Eye className="h-3.5 w-3.5" />
-                    {job.views_count ?? 0} views
-                  </span>
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex gap-2 pl-8">
-                <Link
-                  href={`/dashboard/homeowner/jobs/${job.id}`}
-                  className="flex-1 text-center text-xs font-medium py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors border border-slate-700 flex items-center justify-center gap-1"
-                >
-                  View
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-
-                {showHistory && (
+                {/* Action footer */}
+                <div className="flex border-t border-slate-700/40">
                   <Link
-                    href={`/reviews/new?job=${job.id}`}
-                    className="flex-1 text-center text-xs font-medium py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 transition-colors border border-amber-500/20 flex items-center justify-center gap-1"
+                    href={`/dashboard/homeowner/jobs/${job.id}`}
+                    className="flex-1 text-center text-xs font-semibold py-2.5 text-slate-300 hover:text-white hover:bg-slate-700/50 transition-colors flex items-center justify-center gap-1.5"
                   >
-                    <Star className="h-3.5 w-3.5" />
-                    Leave Review
+                    View job
+                    <ChevronRight className="h-3.5 w-3.5" />
                   </Link>
-                )}
 
-                <DeleteJobInlineButton
-                  jobId={job.id}
-                  jobTitle={job.title}
-                  returnUrl={returnUrl}
-                />
+                  {showHistory && (
+                    <>
+                      <div className="w-px bg-slate-700/40" />
+                      <Link
+                        href={`/reviews/new?job=${job.id}`}
+                        className="flex-1 text-center text-xs font-semibold py-2.5 text-amber-400 hover:text-amber-300 hover:bg-amber-500/10 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Star className="h-3.5 w-3.5" />
+                        Review
+                      </Link>
+                    </>
+                  )}
+
+                  <div className="w-px bg-slate-700/40" />
+                  <DeleteJobInlineButton
+                    jobId={job.id}
+                    jobTitle={job.title}
+                    returnUrl={returnUrl}
+                    triggerClassName="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

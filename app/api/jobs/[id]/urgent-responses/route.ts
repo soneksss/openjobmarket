@@ -288,7 +288,7 @@ async function notifyHomeownerOfApplication(jobId: string, applicantUserId: stri
     type:     "job_application",
     title:    `${applicantName} responded to your job`,
     message:  `${applicantName} applied for "${job.title}". Tap to review their profile.`,
-    link_url: `/jobs/${jobId}?tab=applications`,
+    link_url: `/dashboard/homeowner/jobs/${jobId}`,
     is_read:  false,
   })
 

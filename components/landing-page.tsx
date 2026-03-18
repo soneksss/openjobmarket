@@ -677,19 +677,7 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
             </div>
 
             {/* Dynamic Visual CTA - Changes based on active tab */}
-            {activeTab === "jobs" ? (
-              <div className="flex justify-center mb-6">
-                <button
-                  onClick={() => {
-                    const params = getBrowseJobsParams()
-                    router.push(`/?${params.toString()}`)
-                  }}
-                  className="bg-orange-500 hover:bg-orange-400 active:bg-orange-600 text-white font-semibold px-8 py-3 rounded-xl text-base transition-colors shadow-md shadow-orange-500/30"
-                >
-                  Browse local jobs
-                </button>
-              </div>
-            ) : (
+            {activeTab === "jobs" ? null : (
               <div className="mb-6 -mt-16 md:mt-4 relative z-10">
                 {/* Action bar */}
                 <div
@@ -910,11 +898,8 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
 
               /* ── TRADESPEOPLE: Keep existing compact map section ── */
               <>
-                <h2 className="text-lg font-semibold text-center mb-3 text-orange-400">
-                  Search Jobs / Tasks
-                </h2>
                 <button
-                  onClick={handleSearch}
+                  onClick={() => router.push(`/?${getBrowseJobsParams().toString()}`)}
                   className="relative w-full h-44 md:h-52 rounded-2xl overflow-hidden block group border border-slate-700/50 hover:border-emerald-400/50 transition-all duration-300 shadow-xl"
                 >
                   <img
@@ -931,9 +916,9 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
                       textClassName="text-[11px] font-semibold text-emerald-300 whitespace-nowrap"
                     />
                   </div>
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-emerald-500 group-hover:bg-emerald-400 text-white px-5 py-2.5 rounded-full shadow-lg font-semibold text-sm transition-colors whitespace-nowrap">
-                    <Map className="h-4 w-4 flex-shrink-0" />
-                    Open Live Map
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 bg-orange-500 group-hover:bg-orange-400 text-white px-7 py-3 rounded-full shadow-lg shadow-orange-500/40 font-bold text-base transition-colors whitespace-nowrap">
+                    <Map className="h-5 w-5 flex-shrink-0" />
+                    View Jobs on Map
                   </div>
                 </button>
               </>

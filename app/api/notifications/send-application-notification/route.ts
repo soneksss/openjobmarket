@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
 
     // Build URLs
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://openjobmarket.com"
-    const applicationUrl = `${baseUrl}/dashboard/applications/${applicationId}`
+    const applicationUrl = `${baseUrl}/dashboard/homeowner/jobs/${jobId}`
     const settingsUrl = `${baseUrl}/dashboard/settings#notifications`
 
     // ALWAYS create in-app notification for the bell icon (regardless of email preferences)

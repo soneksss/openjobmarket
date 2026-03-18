@@ -2,6 +2,7 @@ import { createClient } from "@/lib/server"
 import { notFound } from "next/navigation"
 import { Metadata } from "next"
 import CompanyDetailView from "@/components/company-detail-view"
+import { generateOrganizationSchema } from "@/lib/schema-markup"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const supabase = await createClient()
@@ -69,10 +70,21 @@ export default async function ProfessionalDetailPage({ params }: { params: Promi
     // continue without session — page works for anonymous users
   }
 
+  const schemaJson = generateOrganizationSchema({
+    id: company.id,
+    company_name: company.company_name,
+    description: company.description || "",
+    location: company.location || "",
+    logo_url: company.logo_url,
+    website_url: company.website_url,
+    average_rating: company.average_rating,
+    review_count: company.reviews_count,
+  })
+
   return (
-    <CompanyDetailView
-      company={company}
-      user={user as any}
-    />
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: schemaJson }} />
+      <CompanyDetailView company={company} user={user as any} />
+    </>
   )
 }

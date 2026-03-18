@@ -1,7 +1,7 @@
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
 
-import { createClient } from "@/lib/server"
+import { createClient, createAdminClient } from "@/lib/server"
 import { redirect, notFound } from "next/navigation"
 import Link from "next/link"
 import {
@@ -62,16 +62,63 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
     responseCount = new Set(responders?.map((r: any) => r.sender_id) || []).size
   }
 
-  const { data: applications } = await supabase
+  // Use admin client to bypass RLS — homeowner ownership already verified above
+  const admin = createAdminClient()
+
+  // Step 1: Fetch application rows without PostgREST join hints
+  // (avoid company_profiles!company_id syntax which requires an explicit FK constraint)
+  const { data: appRows, error: appsError } = await admin
     .from("job_applications")
-    .select(`
-      id, status, applied_at, cover_letter, contractor_id, professional_id, company_id,
-      contractor_profiles ( id, user_id, business_name, trade_specialties, experience_years, location, profile_picture, phone, email, bio ),
-      professional_profiles ( id, user_id, first_name, last_name, title, location, skills, experience_level, profile_photo_url, portfolio_url, linkedin_url, github_url ),
-      company_profiles!company_id ( id, user_id, company_name, logo_url, location, verified, industry )
-    `)
+    .select("id, status, applied_at, cover_letter, company_id, tradesperson_id")
     .eq("job_id", id)
     .order("applied_at", { ascending: false })
+
+  if (appsError) {
+    console.error("[HOMEOWNER-JOB] applications fetch error:", appsError.message, appsError.code)
+  }
+
+  // Step 2: Fetch company profiles for each applicant
+  // apply_to_job sets both company_id and tradesperson_id to the same company_profiles.id
+  // fall back to tradesperson_id if company_id is null
+  const resolvedProfileId = (a: any) => a.company_id ?? a.tradesperson_id ?? null
+  const profileIds = [...new Set((appRows ?? []).map(resolvedProfileId).filter(Boolean))]
+
+  let cpMap: Record<string, any> = {}
+  if (profileIds.length > 0) {
+    // First: try matching by company_profiles.id (normal path)
+    const { data: cpById } = await admin
+      .from("company_profiles")
+      .select("id, user_id, company_name, logo_url, location")
+      .in("id", profileIds)
+
+    ;(cpById ?? []).forEach((r: any) => { cpMap[r.id] = r })
+
+    // Second: for any IDs that didn't match, try matching as user_id
+    // (handles older apply_to_job versions that stored auth.uid() instead of profile.id)
+    const unmatched = profileIds.filter(pid => !cpMap[pid])
+    if (unmatched.length > 0) {
+      const { data: cpByUserId } = await admin
+        .from("company_profiles")
+        .select("id, user_id, company_name, logo_url, location")
+        .in("user_id", unmatched)
+      ;(cpByUserId ?? []).forEach((r: any) => {
+        // map the stored uid → profile, so the lookup below works
+        cpMap[r.user_id] = r
+        cpMap[r.id]      = r
+      })
+    }
+  }
+
+  const applications = (appRows ?? []).map((a: any) => {
+    const pid = resolvedProfileId(a)
+    const profile = pid ? (cpMap[pid] ?? null) : null
+    return {
+      ...a,
+      company_profiles:      profile,
+      contractor_profiles:   null,
+      professional_profiles: null,
+    }
+  })
 
   const now = new Date()
   const expiresAt = job.expires_at ? new Date(job.expires_at) : null

@@ -157,6 +157,16 @@ export default function FindingTradesMap({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /* ── instant circle update when radius changes without expansion ── */
+  useEffect(() => {
+    if (isExpanding || !radiusCircleRef.current) return
+    const targetM = searchRadiusMiles * 1609.34
+    radiusCircleRef.current.setRadius(targetM)
+    currentRadiusMRef.current = targetM
+    // reset pulse ring so it doesn't overshoot the new boundary
+    if (pulseRingRef.current) pulseRingRef.current.setRadius(400)
+  }, [searchRadiusMiles, isExpanding])
+
   /* ── animate radius expansion when isExpanding changes ── */
   useEffect(() => {
     if (!isExpanding || !radiusCircleRef.current) return

@@ -744,6 +744,35 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
         {!stopped && activeBanner.right}
       </div>
 
+      {/* ── RADIUS SELECTOR ─────────────────────────────────────── */}
+      {!stopped && (
+        <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/60 border-b border-slate-700/40 flex-shrink-0">
+          <MapPin className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+          <span className="text-[11px] text-slate-500 flex-shrink-0">Radius:</span>
+          <div className="flex gap-1">
+            {[5, 10, 15, 20, 25].map((mi) => (
+              <button
+                key={mi}
+                onClick={async () => {
+                  if (mi === radiusMiles) return
+                  setRadiusMiles(mi)
+                  try {
+                    await supabase.from("jobs").update({ search_radius_miles: mi }).eq("id", job.id)
+                  } catch {}
+                }}
+                className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold transition-colors ${
+                  mi === radiusMiles
+                    ? "bg-emerald-500 text-white"
+                    : "bg-slate-700/80 text-slate-400 hover:bg-slate-600 hover:text-white"
+                }`}
+              >
+                {mi}mi
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── MAIN CONTENT ────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
 

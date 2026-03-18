@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { CheckCircle, Send, Zap, PartyPopper } from "lucide-react"
+import { CheckCircle, Send, Zap, PartyPopper, XCircle } from "lucide-react"
 
 interface UrgentJobApplySectionProps {
   jobId: string
@@ -43,6 +43,22 @@ export function UrgentJobApplySection({ jobId, hasApplied, applicationStatus }: 
     } finally {
       setLoading(false)
     }
+  }
+
+  // ── Not selected — job filled by another tradesperson ───────────────────
+  if (
+    applicationStatus === "AUTO_CANCELLED" ||
+    applicationStatus === "auto_cancelled" ||
+    applicationStatus === "REJECTED" ||
+    applicationStatus === "rejected"
+  ) {
+    return (
+      <div className="rounded-xl border border-slate-600/40 bg-slate-800/60 p-5 text-center space-y-2">
+        <XCircle className="h-7 w-7 text-slate-500 mx-auto" />
+        <p className="text-sm font-semibold text-slate-300">Not selected</p>
+        <p className="text-xs text-slate-500">The homeowner chose another tradesperson for this job.</p>
+      </div>
+    )
   }
 
   // ── Selected by homeowner ────────────────────────────────────────────────

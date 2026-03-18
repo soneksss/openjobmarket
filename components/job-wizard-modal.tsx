@@ -1588,7 +1588,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-h-0 p-4 md:p-6 pb-28 md:pb-6 overflow-y-auto bg-slate-900 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+            <div className="flex-1 min-h-0 p-4 md:p-6 pb-36 md:pb-6 overflow-y-auto bg-slate-900 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
               {renderStep()}
               {err && <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 text-sm rounded-lg">{err}</div>}
             </div>

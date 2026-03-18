@@ -476,7 +476,7 @@ export default function ProfessionalsPageContent({
     }
   }
 
-  const handleSearch = (customRadius?: string) => {
+  const handleSearch = (customRadius?: string, overrides?: { availability?: string; language?: string; is247?: boolean }) => {
     setSearchApplied(true)
     const params = new URLSearchParams()
 
@@ -497,7 +497,8 @@ export default function ProfessionalsPageContent({
       params.set("lng", selectedLocationCoords.lon.toString())
     }
     if (skillsFilter) params.set("skills", skillsFilter)
-    const finalLanguage = languageFilter === "other" ? customLanguage.trim() : (languageFilter || "")
+    const effectiveLanguage = overrides?.language !== undefined ? overrides.language : (languageFilter === "other" ? customLanguage.trim() : (languageFilter || ""))
+    const finalLanguage = effectiveLanguage
     if (finalLanguage && finalLanguage !== "all") params.set("language", finalLanguage)
     if (unemployedFilter) params.set("unemployed", "true")
     if (employedFilter) params.set("employed", "true")
@@ -518,10 +519,12 @@ export default function ProfessionalsPageContent({
     if (filterCategory !== "all") params.set("tradeCategory", filterCategory)
     if (filterUrgency !== "all") params.set("urgency", filterUrgency)
     if (filterBudget !== "all") params.set("budget", filterBudget)
-    if (filterAvailability === "available") params.set("open_for_business", "true")
+    const effectiveAvailability = overrides?.availability !== undefined ? overrides.availability : filterAvailability
+    const effective247 = overrides?.is247 !== undefined ? overrides.is247 : filter247
+    if (effectiveAvailability === "available") params.set("open_for_business", "true")
     if (filterBusinessType === "self_employed") params.set("self_employed", "true")
     if (filterBusinessType === "company") params.set("company", "true")
-    if (filter247) params.set("is_247", "true")
+    if (effective247) params.set("is_247", "true")
     // Non-modal legacy filters
     if (!isModal) {
       if (selfEmployedFilter) params.set("self_employed", "true")
@@ -1498,7 +1501,7 @@ export default function ProfessionalsPageContent({
                           height="100%"
                           showRadius={!!selectedLocationCoords}
                           radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
-                          radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
+                          radiusKm={parseInt(filterRadius || searchParams.radius || "20") * 1.60934}
                           selectedJobId={selectedProfessionalId}
                           onJobSelect={(job) => {
                             setSelectedProfessionalId(job?.id || null)
@@ -1534,7 +1537,7 @@ export default function ProfessionalsPageContent({
                           user={user}
                           showRadius={!!selectedLocationCoords}
                           radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
-                          radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
+                          radiusKm={parseInt(filterRadius || searchParams.radius || "20") * 1.60934}
                           selectedProfessionalId={selectedProfessionalId}
                           onProfileSelect={(profile) => {
                             // Toggle selection: set ID if selecting, null if deselecting
@@ -2584,7 +2587,7 @@ export default function ProfessionalsPageContent({
                     <Search className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0 flex items-center gap-1.5">
                       <span className="flex-1 min-w-0 text-white text-sm font-semibold truncate">
-                        {searchTerm || (isShowingJobs ? "All jobs" : "All trades")}
+                        {searchTerm || currentSearchParams.get('industry') || (isShowingJobs ? "All jobs" : "All trades")}
                       </span>
                       <span className="text-slate-600 flex-shrink-0">·</span>
                       <span className="flex-1 min-w-0 text-slate-400 text-sm truncate text-right">
@@ -2786,7 +2789,7 @@ export default function ProfessionalsPageContent({
                               {/* 2. Availability */}
                               <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
                                 <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Availability</label>
-                                <Select value={filterAvailability} onValueChange={setFilterAvailability}>
+                                <Select value={filterAvailability} onValueChange={(v) => { setFilterAvailability(v); handleSearch(undefined, { availability: v }) }}>
                                   <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
                                     <SelectValue />
                                   </SelectTrigger>
@@ -2799,7 +2802,7 @@ export default function ProfessionalsPageContent({
                               {/* 3. Preferred Language */}
                               <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
                                 <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Preferred Language</label>
-                                <Select value={languageFilter || "all"} onValueChange={(v) => { setLanguageFilter(v === "all" ? "" : v); if (v !== "other") setCustomLanguage("") }}>
+                                <Select value={languageFilter || "all"} onValueChange={(v) => { const lang = v === "all" ? "" : v; setLanguageFilter(lang); if (v !== "other") { setCustomLanguage(""); handleSearch(undefined, { language: lang }) } }}>
                                   <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
                                     <SelectValue placeholder="Any language" />
                                   </SelectTrigger>
@@ -2827,7 +2830,7 @@ export default function ProfessionalsPageContent({
                               <Checkbox
                                 id="247-modal"
                                 checked={filter247}
-                                onCheckedChange={(checked) => setFilter247(!!checked)}
+                                onCheckedChange={(checked) => { setFilter247(!!checked); handleSearch(undefined, { is247: !!checked }) }}
                                 className="border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 bg-slate-700 border-slate-500 flex-shrink-0"
                               />
                               <div>
@@ -3345,8 +3348,7 @@ export default function ProfessionalsPageContent({
                                 <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
                                   <Button
                                     size="sm"
-                                    variant="outline"
-                                    className="h-10 px-4 flex-1 text-sm touch-manipulation border-slate-600 text-slate-300 hover:bg-slate-700"
+                                    className="h-10 px-4 flex-1 text-sm touch-manipulation bg-blue-600 hover:bg-blue-700 text-white border-0"
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       // Build URL with return context to enable "Back to Search"

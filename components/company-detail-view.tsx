@@ -21,7 +21,9 @@ import {
   DollarSign,
   Sparkles,
   ExternalLink,
-  Clock
+  Clock,
+  Bookmark,
+  BookmarkCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -76,6 +78,58 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
   const [loadingJobs, setLoadingJobs] = useState(true)
 
   const isOwnProfile = user?.id === company.user_id
+  const [isSaved, setIsSaved] = useState(false)
+  const [savingState, setSavingState] = useState(false)
+
+  useEffect(() => {
+    if (!user || isOwnProfile) return
+    // Check if this tradesperson is already saved
+    supabase
+      .from("homeowner_profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data: hp }) => {
+        if (!hp) return
+        supabase
+          .from("saved_traders")
+          .select("id")
+          .eq("homeowner_id", hp.id)
+          .eq("company_id", company.id)
+          .maybeSingle()
+          .then(({ data }) => setIsSaved(!!data))
+      })
+  }, [user?.id, company.id])
+
+  const handleSaveToggle = async () => {
+    if (!user) { router.push("/auth/sign-up"); return }
+    setSavingState(true)
+    try {
+      const { data: hp } = await supabase
+        .from("homeowner_profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+      if (!hp) return
+      if (isSaved) {
+        await supabase
+          .from("saved_traders")
+          .delete()
+          .eq("homeowner_id", hp.id)
+          .eq("company_id", company.id)
+        setIsSaved(false)
+      } else {
+        await supabase
+          .from("saved_traders")
+          .insert({ homeowner_id: hp.id, company_id: company.id })
+        setIsSaved(true)
+      }
+    } catch (e) {
+      console.error("[SAVE] Error:", e)
+    } finally {
+      setSavingState(false)
+    }
+  }
 
   useEffect(() => {
     console.log("[COMPANY-DETAIL-VIEW] Component loaded:", {
@@ -351,13 +405,27 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
 
           {/* Contact button */}
           {!isOwnProfile && (
-            <button
-              onClick={handleContactClick}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
-            >
-              <MessageCircle className="h-4 w-4" />
-              {user ? "Send Message" : "Sign Up to Contact"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={handleContactClick}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+              >
+                <MessageCircle className="h-4 w-4" />
+                {user ? "Message" : "Sign Up"}
+              </button>
+              <button
+                onClick={handleSaveToggle}
+                disabled={savingState}
+                title={isSaved ? "Unsave" : "Save tradesperson"}
+                className={`px-4 py-3 rounded-xl flex items-center justify-center transition-colors border ${
+                  isSaved
+                    ? "bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25"
+                    : "bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 hover:text-white"
+                }`}
+              >
+                {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+              </button>
+            </div>
           )}
         </div>
 
@@ -568,6 +636,18 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 >
                   <MessageCircle className="h-4 w-4" />
                   {user ? "Send Message" : "Sign Up to Contact"}
+                </button>
+                <button
+                  onClick={handleSaveToggle}
+                  disabled={savingState}
+                  className={`mt-2 w-full py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm font-semibold border ${
+                    isSaved
+                      ? "bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25"
+                      : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                  }`}
+                >
+                  {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+                  {isSaved ? "Saved" : "Save Tradesperson"}
                 </button>
               </div>
             )}

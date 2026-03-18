@@ -1,13 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Checkbox } from "@/components/ui/checkbox"
-import { MessageCircle, Clock, User, ArrowLeft, Trash2, Star, Briefcase, CheckCircle, Play, AlertCircle } from "lucide-react"
+import { MessageCircle, ArrowLeft, Trash2, User, Briefcase, CheckCircle, Play } from "lucide-react"
 import { createClient } from "@/lib/client"
 import Link from "next/link"
 import { RateCompanyModal } from "@/components/rate-company-modal"
@@ -23,7 +22,7 @@ interface JobInfo {
 }
 
 interface Conversation {
-  id: string // conversation_id from the conversations table
+  id: string
   other_user: {
     id: string
     name: string
@@ -42,343 +41,276 @@ interface Conversation {
 }
 
 export default function MessagesPage() {
-  const [user, setUser] = useState<any>(null)
-  const [userType, setUserType] = useState<"professional" | "company" | "homeowner" | "contractor" | null>(null)
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [user, setUser]                       = useState<any>(null)
+  const [userType, setUserType]               = useState<"professional" | "company" | "homeowner" | "contractor" | null>(null)
+  const [conversations, setConversations]     = useState<Conversation[]>([])
+  const [loading, setLoading]                 = useState(true)
+  const [error, setError]                     = useState<string | null>(null)
   const [ratingModalOpen, setRatingModalOpen] = useState(false)
   const [selectedUserToRate, setSelectedUserToRate] = useState<{userId: string, name: string} | null>(null)
   const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set())
-  const [deletingBulk, setDeletingBulk] = useState(false)
-  const supabase = createClient()
-  const router = useRouter()
+  const [deletingBulk, setDeletingBulk]       = useState(false)
 
-  useEffect(() => {
-    fetchConversations()
-  }, [])
+  const supabase   = createClient()
+  const router     = useRouter()
 
-  const fetchConversations = async () => {
-    updatePresence() // best-effort, fire-and-forget
+  // Cached across re-fetches so back navigation never re-hits auth
+  const cachedUser     = useRef<any>(null)
+  const cachedUserType = useRef<string | null>(null)
+  const lastFetchAt    = useRef<number>(0)
+  const STALE_MS       = 30_000 // skip full re-fetch if data is < 30 s old
+
+  const fetchConversations = useCallback(async (force = false) => {
+    updatePresence() // fire-and-forget
+
+    // If we have fresh data and this is a background re-fetch, skip it
+    const now = Date.now()
+    if (!force && conversations.length > 0 && now - lastFetchAt.current < STALE_MS) return
+
+    // Only show the loading spinner on the very first load
+    const isFirstLoad = !cachedUser.current
+    if (isFirstLoad) setLoading(true)
+
     try {
-      console.log("[MESSAGES] Starting to fetch conversations...")
-
-      // Get user (more reliable than getSession which can hang)
-      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser()
-
-      if (authError) {
-        console.error("[MESSAGES] Auth error:", authError)
-        setError("Authentication error")
-        setLoading(false)
-        return
-      }
-
-      console.log("[MESSAGES] User from getUser:", currentUser?.id)
+      // ── Step 1: Auth (use cache after first load) ────────────────────────
+      let currentUser = cachedUser.current
+      let currentUserType = cachedUserType.current
 
       if (!currentUser) {
-        console.log("[MESSAGES] No user found")
-        setError("Please log in to view messages")
-        setLoading(false)
-        return
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+        if (authError || !authUser) {
+          setError("Please log in to view messages")
+          setLoading(false)
+          return
+        }
+        currentUser = authUser
+        cachedUser.current = authUser
+        setUser(authUser)
+
+        // Fetch user_type in parallel with the first messages fetch below
+        const { data: userData } = await supabase
+          .from("users")
+          .select("user_type")
+          .eq("id", currentUser.id)
+          .single()
+        currentUserType = userData?.user_type ?? null
+        cachedUserType.current = currentUserType
+        setUserType(currentUserType as any)
       }
 
-      setUser(currentUser)
+      const uid = currentUser.id
 
-      // Get user type
-      const { data: userData } = await supabase
-        .from("users")
-        .select("user_type")
-        .eq("id", currentUser.id)
-        .single()
+      // ── Step 2: Fetch messages + conversations IN PARALLEL ───────────────
+      const [messagesResult, convsResult] = await Promise.all([
+        supabase
+          .from("messages")
+          .select("id, subject, content, created_at, is_read, sender_id, recipient_id, conversation_id, job_id")
+          .or(`sender_id.eq.${uid},recipient_id.eq.${uid}`)
+          .order("created_at", { ascending: false })
+          .limit(300),
 
-      if (userData) {
-        setUserType(userData.user_type)
-      }
+        supabase
+          .from("conversations")
+          .select("id, participant_1, participant_2, created_at")
+          .or(`participant_1.eq.${uid},participant_2.eq.${uid}`)
+          .order("created_at", { ascending: false })
+          .limit(100),
+      ])
 
-      console.log("[MESSAGES] Fetching messages...")
+      if (messagesResult.error) throw messagesResult.error
 
-      // Fetch all messages involving this user (limit for performance)
-      const { data: messages, error: messagesError } = await supabase
-        .from("messages")
-        .select(`
-          id,
-          subject,
-          content,
-          created_at,
-          is_read,
-          sender_id,
-          recipient_id,
-          conversation_id,
-          job_id
-        `)
-        .or(`sender_id.eq.${currentUser.id},recipient_id.eq.${currentUser.id}`)
-        .order("created_at", { ascending: false })
-        .limit(500)
+      const messages = messagesResult.data ?? []
+      const emptyConvs = convsResult.data ?? []
 
-      if (messagesError) {
-        console.error("[MESSAGES] Error fetching messages:", messagesError)
-        throw messagesError
-      }
-
-      console.log("[MESSAGES] Fetched", messages?.length || 0, "messages")
-
-      // Also fetch conversations with no messages yet (e.g. just confirmed, no first message sent)
-      const { data: emptyConvs } = await supabase
-        .from("conversations")
-        .select("id, participant_1, participant_2, created_at")
-        .or(`participant_1.eq.${currentUser.id},participant_2.eq.${currentUser.id}`)
-        .order("created_at", { ascending: false })
-        .limit(100)
-
-      // Build a set of other-user IDs already covered by messages
+      // ── Step 3: Synthetic "empty" conversations (no messages yet) ────────
       const coveredUserIds = new Set<string>()
-      for (const msg of messages ?? []) {
-        const otherId = msg.sender_id === currentUser.id ? msg.recipient_id : msg.sender_id
-        coveredUserIds.add(otherId)
+      for (const msg of messages) {
+        coveredUserIds.add(msg.sender_id === uid ? msg.recipient_id : msg.sender_id)
       }
 
-      // Synthetic "empty" conversations to merge in below
-      const emptySyntheticMessages: Array<{
-        id: string; subject: string; content: string; created_at: string;
-        is_read: boolean; sender_id: string; recipient_id: string;
-        conversation_id: string; job_id: null; _empty: true
-      }> = []
-
-      for (const conv of emptyConvs ?? []) {
-        const otherId = conv.participant_1 === currentUser.id ? conv.participant_2 : conv.participant_1
+      const emptySynthetic: typeof messages = []
+      for (const conv of emptyConvs) {
+        const otherId = conv.participant_1 === uid ? conv.participant_2 : conv.participant_1
         if (!coveredUserIds.has(otherId)) {
           coveredUserIds.add(otherId)
-          emptySyntheticMessages.push({
+          emptySynthetic.push({
             id:              `empty-${conv.id}`,
             subject:         "",
             content:         "No messages yet — say hello!",
             created_at:      conv.created_at,
             is_read:         true,
             sender_id:       otherId,
-            recipient_id:    currentUser.id,
+            recipient_id:    uid,
             conversation_id: conv.id,
             job_id:          null,
             _empty:          true,
-          })
+          } as any)
         }
       }
 
-      // No messages and no conversations - exit early
-      if ((!messages || messages.length === 0) && emptySyntheticMessages.length === 0) {
-        console.log("[MESSAGES] No messages found")
+      const allMessages = [...messages, ...emptySynthetic]
+
+      if (allMessages.length === 0) {
         setConversations([])
-        setLoading(false)
+        lastFetchAt.current = Date.now()
         return
       }
 
-      const allMessages = [...(messages ?? []), ...emptySyntheticMessages]
-
-      // Group messages by conversation partner
-      const conversationMap = new Map<string, {
-        messages: typeof allMessages,
-        other_user_id: string
-        conversation_id?: string
-      }>()
-
-      for (const message of allMessages) {
-        const other_user_id = message.sender_id === currentUser.id
-          ? message.recipient_id
-          : message.sender_id
-
-        if (!conversationMap.has(other_user_id)) {
-          conversationMap.set(other_user_id, {
-            messages: [],
-            other_user_id,
-            conversation_id: message.conversation_id ?? undefined,
-          })
+      // ── Step 4: Group by conversation partner ────────────────────────────
+      const conversationMap = new Map<string, { messages: typeof allMessages; other_user_id: string; conversation_id?: string }>()
+      for (const msg of allMessages) {
+        const otherId = msg.sender_id === uid ? msg.recipient_id : msg.sender_id
+        if (!conversationMap.has(otherId)) {
+          conversationMap.set(otherId, { messages: [], other_user_id: otherId, conversation_id: (msg as any).conversation_id })
         }
-
-        conversationMap.get(other_user_id)!.messages.push(message)
+        conversationMap.get(otherId)!.messages.push(msg)
       }
 
-      // OPTIMIZATION: Batch fetch all user IDs at once instead of one by one
-      const userIds = Array.from(conversationMap.keys()).filter(id => id && id !== 'undefined' && id !== 'null')
+      const userIds = [...conversationMap.keys()].filter(id => id && id !== "undefined" && id !== "null")
+      const jobIds  = [...new Set(allMessages.filter(m => m.job_id).map(m => m.job_id))] as string[]
 
       if (userIds.length === 0) {
         setConversations([])
-        setLoading(false)
-        console.log("[MESSAGES] No valid user IDs found")
+        lastFetchAt.current = Date.now()
         return
       }
 
-      console.log("[MESSAGES] Batch fetching", userIds.length, "users")
+      // ── Step 5: Fetch users + jobs IN PARALLEL ───────────────────────────
+      const [usersResult, jobsResult] = await Promise.all([
+        supabase
+          .from("users")
+          .select("id, user_type, full_name, nickname, profile_photo_url, email, last_seen_at")
+          .in("id", userIds),
 
-      // Fetch all users at once (1 query instead of N queries)
-      const { data: users } = await supabase
-        .from("users")
-        .select("id, user_type, full_name, nickname, profile_photo_url, email, last_seen_at")
-        .in("id", userIds)
+        jobIds.length > 0
+          ? supabase.from("jobs").select("id, title, matching_status, status, urgency_type").in("id", jobIds)
+          : Promise.resolve({ data: [] }),
+      ])
 
-      const usersMap = new Map(users?.map(u => [u.id, u]) || [])
-      console.log("[MESSAGES] Fetched", usersMap.size, "user records")
+      const usersMap = new Map((usersResult.data ?? []).map(u => [u.id, u]))
+      const jobsMap  = new Map((jobsResult.data ?? []).map((j: any) => [j.id, j]))
 
-      // Fetch all professional profiles at once
-      const professionalIds = users?.filter(u => u.user_type === 'professional').map(u => u.id) || []
-      const { data: professionalProfiles } = professionalIds.length > 0
-        ? await supabase
-            .from('professional_profiles')
-            .select('user_id, first_name, last_name, profile_photo_url')
-            .in('user_id', professionalIds)
-        : { data: [] }
+      // ── Step 6: Fetch ALL profile tables IN PARALLEL ─────────────────────
+      const proIds        = (usersResult.data ?? []).filter(u => u.user_type === "professional").map(u => u.id)
+      const compIds       = (usersResult.data ?? []).filter(u => u.user_type === "company").map(u => u.id)
+      const homeownerIds2 = (usersResult.data ?? []).filter(u => u.user_type === "homeowner").map(u => u.id)
+      const contractorIds = (usersResult.data ?? []).filter(u => u.user_type === "contractor").map(u => u.id)
 
-      const proProfilesMap = new Map(professionalProfiles?.map(p => [p.user_id, p]) || [])
+      const [proResult, compResult, homeResult, contractorResult] = await Promise.all([
+        proIds.length > 0
+          ? supabase.from("professional_profiles").select("user_id, first_name, last_name, profile_photo_url").in("user_id", proIds)
+          : Promise.resolve({ data: [] }),
+        compIds.length > 0
+          ? supabase.from("company_profiles").select("user_id, company_name, logo_url").in("user_id", compIds)
+          : Promise.resolve({ data: [] }),
+        homeownerIds2.length > 0
+          ? supabase.from("homeowner_profiles").select("user_id, first_name, last_name, profile_photo_url").in("user_id", homeownerIds2)
+          : Promise.resolve({ data: [] }),
+        contractorIds.length > 0
+          ? supabase.from("contractor_profiles").select("user_id, company_name, profile_photo_url").in("user_id", contractorIds)
+          : Promise.resolve({ data: [] }),
+      ])
 
-      // Fetch all company profiles at once
-      const companyIds = users?.filter(u => u.user_type === 'company').map(u => u.id) || []
-      const { data: companyProfiles } = companyIds.length > 0
-        ? await supabase
-            .from('company_profiles')
-            .select('user_id, company_name, logo_url')
-            .in('user_id', companyIds)
-        : { data: [] }
+      const proMap        = new Map((proResult.data ?? []).map((p: any) => [p.user_id, p]))
+      const compMap       = new Map((compResult.data ?? []).map((c: any) => [c.user_id, c]))
+      const homeMap       = new Map((homeResult.data ?? []).map((h: any) => [h.user_id, h]))
+      const contractorMap = new Map((contractorResult.data ?? []).map((c: any) => [c.user_id, c]))
 
-      const compProfilesMap = new Map(companyProfiles?.map(c => [c.user_id, c]) || [])
-
-      // Fetch all homeowner profiles at once
-      const homeownerIds = users?.filter(u => u.user_type === 'homeowner').map(u => u.id) || []
-      const { data: homeownerProfiles } = homeownerIds.length > 0
-        ? await supabase
-            .from('homeowner_profiles')
-            .select('user_id, first_name, last_name, profile_photo_url')
-            .in('user_id', homeownerIds)
-        : { data: [] }
-
-      const homeownerProfilesMap = new Map(homeownerProfiles?.map(h => [h.user_id, h]) || [])
-
-      // Fetch all contractor profiles at once
-      const contractorIds = users?.filter(u => u.user_type === 'contractor').map(u => u.id) || []
-      const { data: contractorProfiles } = contractorIds.length > 0
-        ? await supabase
-            .from('contractor_profiles')
-            .select('user_id, company_name, profile_photo_url')
-            .in('user_id', contractorIds)
-        : { data: [] }
-
-      const contractorProfilesMap = new Map(contractorProfiles?.map(c => [c.user_id, c]) || [])
-
-      // Fetch job info for messages with job_id
-      const jobIds = [...new Set(allMessages.filter(m => m.job_id).map(m => m.job_id))]
-      let jobsMap = new Map<string, JobInfo>()
-
-      if (jobIds.length > 0) {
-        const { data: jobsData } = await supabase
-          .from('jobs')
-          .select('id, title, matching_status, status, urgency_type')
-          .in('id', jobIds)
-
-        jobsMap = new Map(jobsData?.map(j => [j.id, j]) || [])
-      }
-
-      console.log("[MESSAGES] Profiles and jobs fetched - building conversations")
-
-      // Now process all conversations with cached data (no more queries)
+      // ── Step 7: Build conversation list ──────────────────────────────────
       const conversationsData: Conversation[] = []
 
       for (const [otherUserId, convData] of conversationMap) {
         const otherUser = usersMap.get(otherUserId)
-
-        let displayName = 'Deleted User'
-        let photoUrl: string | undefined = undefined
+        let displayName = "Deleted User"
+        let photoUrl: string | undefined
 
         if (otherUser) {
-          displayName = otherUser.nickname || otherUser.full_name || otherUser.email || 'Unknown User'
+          displayName = otherUser.nickname || otherUser.full_name || otherUser.email || "Unknown User"
           photoUrl = otherUser.profile_photo_url
 
-          // Get profile-specific data from cached maps
-          if (otherUser.user_type === 'professional') {
-            const profData = proProfilesMap.get(otherUserId)
-            if (profData) {
-              const fullName = [profData.first_name, profData.last_name].filter(Boolean).join(' ')
-              displayName = fullName || displayName
-              photoUrl = profData.profile_photo_url || photoUrl
+          if (otherUser.user_type === "professional") {
+            const p = proMap.get(otherUserId)
+            if (p) {
+              displayName = [p.first_name, p.last_name].filter(Boolean).join(" ") || displayName
+              photoUrl = p.profile_photo_url || photoUrl
             }
-          } else if (otherUser.user_type === 'company') {
-            const compData = compProfilesMap.get(otherUserId)
-            if (compData) {
-              displayName = compData.company_name || displayName
-              photoUrl = compData.logo_url || photoUrl
+          } else if (otherUser.user_type === "company") {
+            const c = compMap.get(otherUserId)
+            if (c) {
+              displayName = c.company_name || displayName
+              photoUrl = c.logo_url || photoUrl
             }
-          } else if (otherUser.user_type === 'homeowner') {
-            const homeownerData = homeownerProfilesMap.get(otherUserId)
-            if (homeownerData) {
-              const fullName = [homeownerData.first_name, homeownerData.last_name].filter(Boolean).join(' ')
-              displayName = fullName || displayName
-              photoUrl = homeownerData.profile_photo_url || photoUrl
+          } else if (otherUser.user_type === "homeowner") {
+            const h = homeMap.get(otherUserId)
+            if (h) {
+              displayName = [h.first_name, h.last_name].filter(Boolean).join(" ") || displayName
+              photoUrl = h.profile_photo_url || photoUrl
             }
-          } else if (otherUser.user_type === 'contractor') {
-            const contractorData = contractorProfilesMap.get(otherUserId)
-            if (contractorData) {
-              displayName = contractorData.company_name || displayName
-              photoUrl = contractorData.profile_photo_url || photoUrl
+          } else if (otherUser.user_type === "contractor") {
+            const c = contractorMap.get(otherUserId)
+            if (c) {
+              displayName = c.company_name || displayName
+              photoUrl = c.profile_photo_url || photoUrl
             }
           }
         }
 
         const lastMessage = convData.messages[0]
-        const unreadMessages = convData.messages.filter(
-          msg => msg.recipient_id === currentUser.id && !msg.is_read
-        )
-
-        // Find job from any message in this conversation
-        const messageWithJob = convData.messages.find(m => m.job_id)
-        const jobInfo = messageWithJob?.job_id ? jobsMap.get(messageWithJob.job_id) : undefined
+        const unreadCount = convData.messages.filter(m => m.recipient_id === uid && !m.is_read).length
+        const msgWithJob  = convData.messages.find(m => m.job_id)
+        const jobInfo     = msgWithJob?.job_id ? jobsMap.get(msgWithJob.job_id) : undefined
 
         conversationsData.push({
-          // Prefer a real conversation_id for navigation; fall back to other user's ID
-          // (the conversation page handles both cases)
           id: convData.conversation_id ?? otherUserId,
-          other_user: {
-            id: otherUserId,
-            name: displayName,
-            profile_photo_url: photoUrl
-          },
+          other_user: { id: otherUserId, name: displayName, profile_photo_url: photoUrl },
           last_message: {
-            content: lastMessage.content,
+            content:    lastMessage.content,
             created_at: lastMessage.created_at,
-            is_read: lastMessage.is_read,
-            sender_id: lastMessage.sender_id,
-            job_id: lastMessage.job_id
+            is_read:    lastMessage.is_read,
+            sender_id:  lastMessage.sender_id,
+            job_id:     lastMessage.job_id,
           },
-          unread_count: unreadMessages.length,
+          unread_count: unreadCount,
           job: jobInfo,
-          other_user_last_seen: otherUser?.last_seen_at ?? null
+          other_user_last_seen: otherUser?.last_seen_at ?? null,
         })
       }
 
-      // Sort by most recent
       conversationsData.sort((a, b) =>
         new Date(b.last_message.created_at).getTime() - new Date(a.last_message.created_at).getTime()
       )
 
       setConversations(conversationsData)
-      console.log("[MESSAGES] Set", conversationsData.length, "conversations")
-    } catch (error) {
-      console.error("[MESSAGES] Error:", error)
-      setError(error instanceof Error ? error.message : "Failed to load conversations")
+      lastFetchAt.current = Date.now()
+    } catch (err) {
+      console.error("[MESSAGES] Error:", err)
+      if (isFirstLoad) setError(err instanceof Error ? err.message : "Failed to load conversations")
     } finally {
       setLoading(false)
     }
-  }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetchConversations(true)
+
+    const onVisible = () => { if (document.visibilityState === "visible") fetchConversations() }
+    const onFocus   = () => fetchConversations()
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("focus", onFocus)
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("focus", onFocus)
+    }
+  }, [fetchConversations])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    const now = new Date()
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-
-    if (diffInHours < 1) {
-      return "Just now"
-    } else if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    } else if (diffInHours < 168) {
-      return date.toLocaleDateString([], { weekday: "short" })
-    } else {
-      return date.toLocaleDateString([], { month: "short", day: "numeric" })
-    }
+    const now  = new Date()
+    const diffH = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
+    if (diffH < 1)   return "Just now"
+    if (diffH < 24)  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    if (diffH < 168) return date.toLocaleDateString([], { weekday: "short" })
+    return date.toLocaleDateString([], { month: "short", day: "numeric" })
   }
 
   const handleConversationClick = (conversationId: string) => {
@@ -386,108 +318,65 @@ export default function MessagesPage() {
   }
 
   const handleDeleteConversation = async (otherUserId: string, e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent opening conversation
-
-    if (!confirm("Delete this conversation? This cannot be undone.")) {
-      return
-    }
+    e.stopPropagation()
+    if (!confirm("Delete this conversation? This cannot be undone.")) return
 
     try {
-      // Delete all messages between current user and other user (both directions)
-      const { error: messagesError1 } = await supabase
-        .from("messages")
-        .delete()
-        .eq("sender_id", user.id)
-        .eq("recipient_id", otherUserId)
+      const uid = cachedUser.current?.id
+      if (!uid) return
 
-      if (messagesError1) {
-        console.error("[MESSAGES] Error deleting sent messages:", messagesError1)
-      }
+      await Promise.all([
+        supabase.from("messages").delete().eq("sender_id", uid).eq("recipient_id", otherUserId),
+        supabase.from("messages").delete().eq("sender_id", otherUserId).eq("recipient_id", uid),
+        supabase.from("conversations").delete()
+          .or(`and(participant_1.eq.${uid},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${uid})`),
+      ])
 
-      const { error: messagesError2 } = await supabase
-        .from("messages")
-        .delete()
-        .eq("sender_id", otherUserId)
-        .eq("recipient_id", user.id)
-
-      if (messagesError2) {
-        console.error("[MESSAGES] Error deleting received messages:", messagesError2)
-      }
-
-      // Also try to delete any conversation records involving both users
-      const { error: conversationError } = await supabase
-        .from("conversations")
-        .delete()
-        .or(`and(participant_1.eq.${user.id},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${user.id})`)
-
-      if (conversationError) {
-        console.error("[MESSAGES] Error deleting conversation record:", conversationError)
-        // Don't throw - messages are already deleted
-      }
-
-      // Remove from local state
-      setConversations(prev => prev.filter(conv => conv.other_user.id !== otherUserId))
-    } catch (error) {
-      console.error("[MESSAGES] Error deleting conversation:", error)
+      setConversations(prev => prev.filter(c => c.other_user.id !== otherUserId))
+    } catch (err) {
+      console.error("[MESSAGES] Error deleting conversation:", err)
       alert("Failed to delete conversation")
     }
   }
 
   const toggleConversationSelection = (convId: string) => {
     setSelectedConversations(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(convId)) {
-        newSet.delete(convId)
-      } else {
-        newSet.add(convId)
-      }
-      return newSet
+      const next = new Set(prev)
+      next.has(convId) ? next.delete(convId) : next.add(convId)
+      return next
     })
   }
 
   const toggleSelectAll = () => {
-    if (selectedConversations.size === conversations.length) {
-      setSelectedConversations(new Set())
-    } else {
-      setSelectedConversations(new Set(conversations.map(c => c.id)))
-    }
+    setSelectedConversations(
+      selectedConversations.size === conversations.length
+        ? new Set()
+        : new Set(conversations.map(c => c.id))
+    )
   }
 
   const handleBulkDelete = async () => {
     if (selectedConversations.size === 0) return
-
-    if (!confirm(`Delete ${selectedConversations.size} conversation${selectedConversations.size > 1 ? 's' : ''}? This cannot be undone.`)) {
-      return
-    }
+    if (!confirm(`Delete ${selectedConversations.size} conversation${selectedConversations.size > 1 ? "s" : ""}? This cannot be undone.`)) return
 
     setDeletingBulk(true)
     try {
-      for (const otherUserId of selectedConversations) {
-        // Delete all messages between current user and other user (both directions)
-        await supabase
-          .from("messages")
-          .delete()
-          .eq("sender_id", user.id)
-          .eq("recipient_id", otherUserId)
+      const uid = cachedUser.current?.id
+      if (!uid) return
 
-        await supabase
-          .from("messages")
-          .delete()
-          .eq("sender_id", otherUserId)
-          .eq("recipient_id", user.id)
+      await Promise.all(
+        [...selectedConversations].flatMap(otherUserId => [
+          supabase.from("messages").delete().eq("sender_id", uid).eq("recipient_id", otherUserId),
+          supabase.from("messages").delete().eq("sender_id", otherUserId).eq("recipient_id", uid),
+          supabase.from("conversations").delete()
+            .or(`and(participant_1.eq.${uid},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${uid})`),
+        ])
+      )
 
-        // Also try to delete conversation records
-        await supabase
-          .from("conversations")
-          .delete()
-          .or(`and(participant_1.eq.${user.id},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${user.id})`)
-      }
-
-      // Remove from local state
-      setConversations(prev => prev.filter(conv => !selectedConversations.has(conv.id)))
+      setConversations(prev => prev.filter(c => !selectedConversations.has(c.id)))
       setSelectedConversations(new Set())
-    } catch (error) {
-      console.error("[MESSAGES] Error bulk deleting:", error)
+    } catch (err) {
+      console.error("[MESSAGES] Error bulk deleting:", err)
       alert("Failed to delete some conversations")
     } finally {
       setDeletingBulk(false)
@@ -496,26 +385,19 @@ export default function MessagesPage() {
 
   const getJobStatusBadge = (job?: JobInfo) => {
     if (!job) return null
-
-    // Only show badges for meaningful confirmed/active/completed states.
-    // "Searching" / "POSTED" / "open" are not useful in a conversation context.
     const statusConfig: Record<string, { label: string; className: string; icon: any }> = {
-      CONFIRMED:   { label: 'Confirmed',   className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
-      ACTIVE:      { label: 'In Progress', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',   icon: Play },
-      COMPLETED:   { label: 'Completed',   className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
-      in_progress: { label: 'In Progress', className: 'bg-purple-500/20 text-purple-400 border-purple-500/30',   icon: Play },
-      closed:      { label: 'Completed',   className: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', icon: CheckCircle },
+      CONFIRMED:   { label: "Confirmed",   className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", icon: CheckCircle },
+      ACTIVE:      { label: "In Progress", className: "bg-purple-500/20 text-purple-400 border-purple-500/30",   icon: Play },
+      COMPLETED:   { label: "Completed",   className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", icon: CheckCircle },
+      in_progress: { label: "In Progress", className: "bg-purple-500/20 text-purple-400 border-purple-500/30",   icon: Play },
+      closed:      { label: "Completed",   className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", icon: CheckCircle },
     }
-
-    // job.status takes priority; fall back to matching_status
-    const status = job.status === 'CONFIRMED' || job.status === 'ACTIVE' || job.status === 'COMPLETED'
-      ? job.status
+    const status = ["CONFIRMED", "ACTIVE", "COMPLETED"].includes(job.status ?? "")
+      ? job.status!
       : job.matching_status ?? job.status
-
-    const config = statusConfig[status || '']
-    if (!config) return null // hide badge for POSTED / searching / reviewing / open
+    const config = statusConfig[status ?? ""]
+    if (!config) return null
     const Icon = config.icon
-
     return (
       <Badge variant="outline" className={`${config.className} text-[10px] px-1.5 py-0 h-5 border`}>
         <Icon className="w-2.5 h-2.5 mr-0.5" />
@@ -524,19 +406,15 @@ export default function MessagesPage() {
     )
   }
 
-  const isUrgent = (job?: JobInfo) => {
-    return job?.urgency_type === 'asap' || job?.urgency_type === 'today'
-  }
-
-  const isAccepted = (job?: JobInfo) => {
-    return job?.matching_status === 'closed' || job?.status === 'closed'
-  }
+  const isUrgent   = (job?: JobInfo) => job?.urgency_type === "asap" || job?.urgency_type === "today"
+  const isAccepted = (job?: JobInfo) => job?.matching_status === "closed" || job?.status === "closed"
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-900">
-        <div className="container mx-auto p-4 md:p-6">
-          <div className="text-center text-slate-300 py-12">Loading conversations...</div>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-slate-400">
+          <div className="w-8 h-8 border-2 border-slate-600 border-t-emerald-500 rounded-full animate-spin" />
+          <p className="text-sm">Loading messages…</p>
         </div>
       </div>
     )
@@ -544,39 +422,31 @@ export default function MessagesPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-900">
-        <div className="container mx-auto p-4 md:p-6">
-          <div className="bg-slate-800/90 rounded-xl border border-slate-700/50 p-6">
-            <div className="text-center text-red-400">
-              <p>Error: {error}</p>
-              <Button onClick={() => window.location.reload()} className="mt-4 bg-slate-700 hover:bg-slate-600 text-white">
-                Try Again
-              </Button>
-            </div>
-          </div>
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800/90 rounded-xl border border-slate-700/50 p-6 text-center max-w-sm w-full">
+          <p className="text-red-400 mb-4">{error}</p>
+          <Button onClick={() => fetchConversations(true)} className="bg-slate-700 hover:bg-slate-600 text-white">
+            Try Again
+          </Button>
         </div>
       </div>
     )
   }
 
+  const dashboardHref =
+    userType === "professional" ? "/dashboard/professional" :
+    userType === "company"      ? "/dashboard/company" :
+    userType === "homeowner"    ? "/dashboard/homeowner" :
+    userType === "contractor"   ? "/dashboard/contractor" : "/"
+
   return (
     <div className="min-h-screen bg-slate-900 pb-20 md:pb-6">
       <div className="container mx-auto p-4 md:p-6 max-w-2xl">
+
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-slate-300 hover:text-white hover:bg-slate-800"
-            asChild
-          >
-            <Link href={
-              userType === "professional" ? "/dashboard/professional" :
-              userType === "company" ? "/dashboard/company" :
-              userType === "homeowner" ? "/dashboard/homeowner" :
-              userType === "contractor" ? "/dashboard/contractor" :
-              "/"
-            }>
+          <Button variant="ghost" size="sm" className="text-slate-300 hover:text-white hover:bg-slate-800" asChild>
+            <Link href={dashboardHref}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Link>
@@ -585,10 +455,10 @@ export default function MessagesPage() {
             <MessageCircle className="h-5 w-5 text-emerald-400" />
             Messages
           </h1>
-          <div className="w-16" /> {/* Spacer for centering */}
+          <div className="w-16" />
         </div>
 
-        {/* Action Bar - SpareRoom style */}
+        {/* Action Bar */}
         {conversations.length > 0 && (
           <div className="flex items-center gap-2 mb-3">
             <Button
@@ -626,10 +496,10 @@ export default function MessagesPage() {
         ) : (
           <div className="space-y-1">
             {conversations.map((conversation) => {
-              const urgent = isUrgent(conversation.job)
-              const accepted = isAccepted(conversation.job)
+              const urgent     = isUrgent(conversation.job)
+              const accepted   = isAccepted(conversation.job)
               const isSelected = selectedConversations.has(conversation.id)
-              const hasUnread = conversation.unread_count > 0 && conversation.last_message.sender_id !== user.id
+              const hasUnread  = conversation.unread_count > 0 && conversation.last_message.sender_id !== cachedUser.current?.id
 
               return (
                 <div
@@ -647,8 +517,8 @@ export default function MessagesPage() {
                   }`}
                   onClick={() => handleConversationClick(conversation.id)}
                 >
-                  {/* Checkbox - Always visible like SpareRoom */}
-                  <div className="mr-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                  {/* Checkbox */}
+                  <div className="mr-3 flex-shrink-0" onClick={e => e.stopPropagation()}>
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={() => toggleConversationSelection(conversation.id)}
@@ -656,7 +526,7 @@ export default function MessagesPage() {
                     />
                   </div>
 
-                  {/* Avatar + online dot */}
+                  {/* Avatar + presence dot */}
                   <div className="relative mr-3 flex-shrink-0">
                     <Avatar className="h-10 w-10 border border-slate-600">
                       <AvatarImage src={conversation.other_user.profile_photo_url} />
@@ -672,9 +542,8 @@ export default function MessagesPage() {
 
                   {/* Content */}
                   <div className="flex-1 min-w-0">
-                    {/* Top row: Name + badges */}
                     <div className="flex items-center gap-2 mb-0.5">
-                      <span className={`text-sm truncate ${hasUnread ? 'font-bold text-white' : 'font-medium text-slate-200'}`}>
+                      <span className={`text-sm truncate ${hasUnread ? "font-bold text-white" : "font-medium text-slate-200"}`}>
                         {conversation.other_user.name}
                       </span>
                       {urgent && (
@@ -684,7 +553,6 @@ export default function MessagesPage() {
                       )}
                     </div>
 
-                    {/* Job context row */}
                     {conversation.job && (
                       <div className="flex items-center gap-1.5 mb-0.5">
                         <Briefcase className="h-3 w-3 text-slate-500 flex-shrink-0" />
@@ -693,13 +561,12 @@ export default function MessagesPage() {
                       </div>
                     )}
 
-                    {/* Message preview */}
-                    <p className={`text-xs truncate ${hasUnread ? 'text-slate-300' : 'text-slate-500'}`}>
+                    <p className={`text-xs truncate ${hasUnread ? "text-slate-300" : "text-slate-500"}`}>
                       {conversation.last_message.content}
                     </p>
                   </div>
 
-                  {/* Right side: time + unread */}
+                  {/* Time + unread badge */}
                   <div className="ml-2 flex flex-col items-end gap-1 flex-shrink-0">
                     <span className="text-[10px] text-slate-500">
                       {formatDate(conversation.last_message.created_at)}
@@ -717,7 +584,6 @@ export default function MessagesPage() {
         )}
       </div>
 
-      {/* Rating Modal */}
       {selectedUserToRate && (
         <RateCompanyModal
           open={ratingModalOpen}

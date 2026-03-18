@@ -443,52 +443,55 @@ export function HomeownerJobActions({
   }
 
   return (
-    <div className="flex flex-wrap gap-3">
+    <div className="flex flex-wrap gap-2">
       {/* Mark In Progress — flexible jobs only, while still POSTED */}
       {isFlexibleJob && localStatus === 'POSTED' && (
-        <Button
+        <button
           onClick={handleMarkInProgress}
           disabled={isMarkingInProgress}
-          variant="outline"
-          className="border-purple-500/50 text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-950/30"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
         >
-          <Play className="w-4 h-4 mr-2" />
-          {isMarkingInProgress ? "Updating..." : "Mark as in progress"}
-        </Button>
+          <Play className="w-3.5 h-3.5" />
+          {isMarkingInProgress ? "Updating…" : "In Progress"}
+        </button>
       )}
 
       {/* Edit Button */}
-      <Button onClick={() => setShowEditDialog(true)} variant="outline">
-        <Edit className="w-4 h-4 mr-2" />
-        Edit Job
-      </Button>
+      <button
+        onClick={() => setShowEditDialog(true)}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+      >
+        <Edit className="w-3.5 h-3.5" />
+        Edit
+      </button>
 
-      {/* Toggle Active/Inactive Button */}
-      <Button onClick={handleToggleActive} disabled={isToggling} variant="outline">
-        {isActive ? (
-          <>
-            <EyeOff className="w-4 h-4 mr-2" />
-            Deactivate
-          </>
-        ) : (
-          <>
-            <Eye className="w-4 h-4 mr-2" />
-            Activate
-          </>
-        )}
-      </Button>
+      {/* Toggle Active/Inactive */}
+      <button
+        onClick={handleToggleActive}
+        disabled={isToggling}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-50"
+      >
+        {isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+        {isActive ? "Deactivate" : "Activate"}
+      </button>
 
-      {/* Extend/Renew Button */}
-      <Button onClick={() => setShowExtendDialog(true)} variant="outline">
-        <Clock className="w-4 h-4 mr-2" />
+      {/* Extend */}
+      <button
+        onClick={() => setShowExtendDialog(true)}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+      >
+        <Clock className="w-3.5 h-3.5" />
         Extend
-      </Button>
+      </button>
 
-      {/* Delete Button */}
-      <Button onClick={() => setShowDeleteDialog(true)} variant="destructive">
-        <Trash2 className="w-4 h-4 mr-2" />
+      {/* Delete */}
+      <button
+        onClick={() => setShowDeleteDialog(true)}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
         Delete
-      </Button>
+      </button>
 
       {/* Delete Confirmation — compact mobile-friendly overlay */}
       {showDeleteDialog && (

@@ -12,7 +12,6 @@ import {
   MessageCircle,
   CheckCircle2,
   Clock,
-  Building2,
 } from "lucide-react"
 import { HomeownerApplicationActions } from "./homeowner-application-actions"
 import { JobCompletionModal } from "./job-completion-modal"
@@ -89,7 +88,7 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
     if (app.company_profiles) {
       const p = app.company_profiles
       return {
-        name:      p.company_name || "Company",
+        name:      p.company_name || "Tradesperson",
         title:     p.industry     || "Tradesperson",
         photo:     p.logo_url     || null,
         location:  p.location     || null,
@@ -128,7 +127,18 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
         verified:  false,
       }
     }
-    return null
+    // Fallback: profile lookup failed but application row exists
+    return {
+      name:      "Tradesperson",
+      title:     "Applied",
+      photo:     null,
+      location:  null,
+      profileId: (app as any).company_id ?? (app as any).tradesperson_id ?? null,
+      userId:    null,
+      profileUrl: null,
+      type:      "company" as const,
+      verified:  false,
+    }
   }
 
   const visibleApps = expanded ? applications : applications.slice(0, INITIAL_SHOW)
@@ -192,7 +202,6 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
             <div className="divide-y divide-slate-700/50">
               {visibleApps.map((app) => {
                 const applicant = resolveApplicant(app)
-                if (!applicant) return null
 
                 const initials = applicant.name
                   .split(" ")
@@ -201,7 +210,7 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
                   .toUpperCase()
                   .slice(0, 2)
 
-                const isAccepted = acceptedContractorId && acceptedContractorId === app.contractor_id
+                const isAccepted = acceptedContractorId && acceptedContractorId === applicant.profileId
                 const statusStyle = STATUS_STYLE[app.status] ?? "bg-slate-500/20 text-slate-400 border-slate-500/30"
 
                 return (
@@ -209,78 +218,90 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
                     key={app.id}
                     className={`flex items-start gap-3 px-5 py-4 ${isAccepted ? "bg-emerald-500/5" : ""}`}
                   >
-                    {/* Avatar */}
-                    <Avatar className="h-9 w-9 flex-shrink-0 border border-white/10">
-                      <AvatarImage src={applicant.photo || undefined} alt={applicant.name} />
-                      <AvatarFallback className="bg-slate-700 text-slate-300 text-xs font-semibold">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
+                    {/* Avatar — clickable if profile URL exists */}
+                    {applicant.profileUrl ? (
+                      <Link href={applicant.profileUrl} className="flex-shrink-0 rounded-full ring-2 ring-transparent hover:ring-white/20 transition-all">
+                        <Avatar className="h-11 w-11 border border-white/10">
+                          <AvatarImage src={applicant.photo || undefined} alt={applicant.name} />
+                          <AvatarFallback className="bg-slate-700 text-slate-300 text-sm font-semibold">
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Link>
+                    ) : (
+                      <Avatar className="h-11 w-11 flex-shrink-0 border border-white/10">
+                        <AvatarImage src={applicant.photo || undefined} alt={applicant.name} />
+                        <AvatarFallback className="bg-slate-700 text-slate-300 text-sm font-semibold">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-semibold text-white truncate">{applicant.name}</span>
+                        {applicant.profileUrl ? (
+                          <Link href={applicant.profileUrl} className="text-base font-semibold text-white hover:text-emerald-400 truncate transition-colors">
+                            {applicant.name}
+                          </Link>
+                        ) : (
+                          <span className="text-base font-semibold text-white truncate">{applicant.name}</span>
+                        )}
                         {applicant.verified && (
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                         )}
                         {isAccepted && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                             Selected
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-3 mt-0.5 flex-wrap">
-                        <span className="text-xs text-slate-400 truncate">{applicant.title}</span>
+                        <span className="text-sm text-slate-400 truncate">{applicant.title}</span>
                         {applicant.location && (
-                          <span className="flex items-center gap-0.5 text-xs text-slate-500">
-                            <MapPin className="w-2.5 h-2.5" />
+                          <span className="flex items-center gap-1 text-xs text-slate-500">
+                            <MapPin className="w-3 h-3" />
                             {applicant.location}
                           </span>
                         )}
-                        <span className="flex items-center gap-0.5 text-xs text-slate-600">
-                          <Clock className="w-2.5 h-2.5" />
+                        <span className="flex items-center gap-1 text-xs text-slate-600">
+                          <Clock className="w-3 h-3" />
                           {formatDate(app.applied_at)}
+                        </span>
+                      </div>
+
+                      {/* Status badge */}
+                      <div className="mt-1.5">
+                        <span className={`inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full border ${statusStyle}`}>
+                          {app.status.toUpperCase()}
                         </span>
                       </div>
 
                       {/* Cover letter preview */}
                       {app.cover_letter && (
-                        <p className="mt-1.5 text-xs text-slate-400 line-clamp-2 italic">
+                        <p className="mt-2 text-sm text-slate-400 line-clamp-2 italic">
                           "{app.cover_letter}"
                         </p>
                       )}
 
                       {/* Actions row */}
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full border ${statusStyle}`}>
-                          {app.status.toUpperCase()}
-                        </span>
-
-                        <Link
-                          href={applicant.profileUrl}
-                          className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-white border border-white/10 hover:border-white/25 px-2 py-0.5 rounded-full transition-colors"
-                        >
-                          <Building2 className="w-2.5 h-2.5" />
-                          Profile
-                        </Link>
-
+                      <div className="flex flex-wrap gap-2 mt-3">
                         {homeownerUserId && applicant.userId && (
                           <Link
-                            href={`/messages/new?recipient=${applicant.userId}`}
-                            className="flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-white border border-white/10 hover:border-white/25 px-2 py-0.5 rounded-full transition-colors"
+                            href={`/messages/${applicant.userId}`}
+                            className="flex items-center gap-1.5 text-sm font-semibold text-emerald-300 hover:text-white bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-500/30 px-3 py-2 rounded-lg transition-colors"
                           >
-                            <MessageCircle className="w-2.5 h-2.5" />
+                            <MessageCircle className="w-4 h-4" />
                             Message
                           </Link>
                         )}
 
-                        {/* Accept/Reject controls (contractor only, from old system) */}
-                        {app.contractor_id && !isJobCompleted && (
+                        {/* Accept/Reject controls — works for both company and contractor applicants */}
+                        {applicant.profileId && !isJobCompleted && (
                           <HomeownerApplicationActions
                             applicationId={app.id}
-                            contractorId={app.contractor_id}
+                            contractorId={applicant.profileId}
                             contractorName={applicant.name}
                             jobId={job.id}
                             currentStatus={app.status}

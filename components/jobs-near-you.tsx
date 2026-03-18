@@ -396,13 +396,15 @@ export function JobsNearYou({ userLocation, maxJobs = 5, radiusMiles = 10 }: Job
                     </span>
                   )}
 
-                  {/* CTA */}
+                  {/* CTA — navigate to job detail for messaging */}
                   <Button
                     size="sm"
-                    className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                    className="bg-emerald-500 hover:bg-emerald-600 text-white pointer-events-none"
+                    tabIndex={-1}
+                    aria-hidden="true"
                   >
                     <MessageCircle className="w-4 h-4 mr-1" />
-                    {locale === "pt-BR" ? "Contato" : "Message"}
+                    {locale === "pt-BR" ? "Ver vaga" : "View"}
                   </Button>
                 </div>
               </div>

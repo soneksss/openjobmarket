@@ -7,9 +7,10 @@ interface Props {
   jobId: string
   jobTitle: string
   returnUrl: string
+  triggerClassName?: string
 }
 
-export function DeleteJobInlineButton({ jobId, jobTitle, returnUrl }: Props) {
+export function DeleteJobInlineButton({ jobId, jobTitle, returnUrl, triggerClassName }: Props) {
   const [open, setOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -36,7 +37,7 @@ export function DeleteJobInlineButton({ jobId, jobTitle, returnUrl }: Props) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center justify-center gap-1 py-2 px-3 rounded-xl text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"
+        className={triggerClassName ?? "flex items-center justify-center gap-1 py-2 px-3 rounded-xl text-xs font-medium text-red-400 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-colors"}
         aria-label="Delete job"
       >
         <Trash2 className="h-3.5 w-3.5" />
