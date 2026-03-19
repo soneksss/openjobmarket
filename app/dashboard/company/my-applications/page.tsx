@@ -1,249 +1,219 @@
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Briefcase, ArrowLeft, MapPin, Calendar, DollarSign, Building } from "lucide-react"
+import { Briefcase, ArrowLeft, MapPin, Clock, DollarSign, CheckCircle, XCircle, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { JobExpiryBadge } from "@/components/job-expiry-badge"
 
 export default async function CompanyMyApplicationsPage() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/auth/login")
 
-  if (!user) {
-    redirect("/auth/login")
-  }
-
-  // Get company profile
   const { data: profile } = await supabase
     .from("company_profiles")
     .select("*")
     .eq("user_id", user.id)
     .single()
 
-  if (!profile) {
-    redirect("/onboarding")
-  }
+  if (!profile) redirect("/onboarding")
 
-  // Get all applications submitted BY this company
   const { data: applications } = await supabase
     .from("job_applications")
     .select(`
-      *,
+      id, status, applied_at, cover_letter,
       jobs (
-        id,
-        title,
-        location,
-        budget_min,
-        budget_max,
-        is_tradespeople_job,
-        company_profiles!company_id (
-          company_name,
-          logo_url,
-          user_id
-        ),
-        homeowner_profiles!homeowner_id (
-          first_name,
-          last_name,
-          user_id
-        )
+        id, title, location, budget_min, budget_max, status, expires_at,
+        is_tradespeople_job, confirmed_tradesperson_id,
+        company_profiles!company_id ( company_name, logo_url ),
+        homeowner_profiles!homeowner_id ( first_name, last_name )
       )
     `)
     .eq("company_id", profile.id)
     .order("applied_at", { ascending: false })
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800"
-      case "reviewed":
-        return "bg-blue-100 text-blue-800"
-      case "interview":
-        return "bg-purple-100 text-purple-800"
-      case "accepted":
-        return "bg-green-100 text-green-800"
-      case "rejected":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
+  const appStatusConfig: Record<string, { label: string; className: string; icon: any }> = {
+    PENDING:        { label: "Pending",       className: "bg-amber-500/20 text-amber-400 border-amber-500/30",   icon: Clock },
+    REVIEWED:       { label: "Reviewed",      className: "bg-blue-500/20 text-blue-400 border-blue-500/30",     icon: AlertCircle },
+    ACCEPTED:       { label: "Accepted",      className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", icon: CheckCircle },
+    REJECTED:       { label: "Rejected",      className: "bg-red-500/20 text-red-400 border-red-500/30",        icon: XCircle },
+    AUTO_CANCELLED: { label: "Not Selected",  className: "bg-slate-600/30 text-slate-400 border-slate-600/40", icon: XCircle },
+    WITHDRAWN:      { label: "Withdrawn",     className: "bg-slate-600/30 text-slate-400 border-slate-600/40", icon: XCircle },
   }
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffTime = Math.abs(now.getTime() - date.getTime())
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 1) return "1 day ago"
-    if (diffDays < 7) return `${diffDays} days ago`
-    if (diffDays < 30) return `${Math.ceil(diffDays / 7)} weeks ago`
-    return date.toLocaleDateString()
+  const jobStatusConfig: Record<string, { label: string; className: string }> = {
+    CONFIRMED:  { label: "Confirmed",  className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" },
+    COMPLETED:  { label: "Completed",  className: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
+    CANCELLED:  { label: "Cancelled",  className: "bg-red-500/20 text-red-400 border-red-500/30" },
   }
 
-  const formatSalary = (min?: number, max?: number) => {
+  const formatDate = (d: string) => {
+    const diff = Math.ceil((Date.now() - new Date(d).getTime()) / 86400000)
+    if (diff <= 1) return "Today"
+    if (diff < 7) return `${diff}d ago`
+    if (diff < 30) return `${Math.ceil(diff / 7)}w ago`
+    return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+  }
+
+  const formatBudget = (min?: number, max?: number) => {
     if (!min && !max) return null
-    if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()}`
+    if (min && max) return `£${min.toLocaleString()}–£${max.toLocaleString()}`
     if (min) return `£${min.toLocaleString()}+`
     return `Up to £${max?.toLocaleString()}`
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 md:bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Button variant="ghost" asChild className="text-slate-300 hover:text-white md:text-gray-700 md:hover:text-gray-900">
-            <Link href="/dashboard/company">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Link>
-          </Button>
+    <div className="min-h-screen bg-slate-900">
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard/company"
+            className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Link>
+          <h1 className="text-base font-bold text-white ml-1">My Applications</h1>
+          <span className="ml-auto text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">
+            {applications?.length ?? 0}
+          </span>
         </div>
 
-        <Card className="bg-slate-800 md:bg-white border-slate-700 md:border-gray-200">
-          <CardHeader>
-            <CardTitle className="text-2xl flex items-center text-white md:text-gray-900">
-              <Briefcase className="h-6 w-6 mr-2" />
-              My Applications
-            </CardTitle>
-            <CardDescription className="text-slate-400 md:text-gray-600">
-              View and manage job applications you've submitted ({applications?.length || 0} total)
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!applications || applications.length === 0 ? (
-              <div className="text-center py-12">
-                <Briefcase className="h-16 w-16 mx-auto mb-4 text-slate-500 md:text-gray-400" />
-                <h3 className="text-lg font-semibold mb-2 text-white md:text-gray-900">No Applications Yet</h3>
-                <p className="text-slate-400 md:text-gray-600 mb-6">
-                  You haven't applied to any jobs yet. Browse available jobs and apply to get started.
-                </p>
-                <Button asChild className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                  <Link href="/tasks">
-                    <Briefcase className="h-4 w-4 mr-2" />
-                    Browse Jobs
-                  </Link>
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {applications.map((application) => {
-                  const job = application.jobs
-                  if (!job) return null
+        {/* Empty state */}
+        {!applications || applications.length === 0 ? (
+          <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl px-5 py-14 text-center">
+            <Briefcase className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+            <p className="text-sm font-semibold text-slate-300 mb-1">No applications yet</p>
+            <p className="text-xs text-slate-500 mb-5">Browse available jobs and apply to get started.</p>
+            <Link
+              href="/tasks"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+            >
+              <Briefcase className="w-3.5 h-3.5" />
+              Browse Jobs
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {applications.map((application) => {
+              const job = application.jobs as any
+              if (!job) return null
 
-                  // Determine job poster type
-                  const isCompanyJob = !!job.company_profiles
-                  const isHomeownerJob = !!job.homeowner_profiles
+              const appCfg = appStatusConfig[application.status?.toUpperCase() ?? ""] ?? {
+                label: application.status,
+                className: "bg-slate-600/30 text-slate-400 border-slate-600/40",
+                icon: AlertCircle,
+              }
+              const AppIcon = appCfg.icon
 
-                  const posterName = isCompanyJob
-                    ? job.company_profiles.company_name
-                    : isHomeownerJob
-                    ? `${job.homeowner_profiles.first_name} ${job.homeowner_profiles.last_name}`
-                    : "Unknown Poster"
+              const jobCfg = jobStatusConfig[job.status ?? ""]
 
-                  const posterType = isCompanyJob ? "Company" : isHomeownerJob ? "Homeowner" : "Unknown"
-                  const logoUrl = isCompanyJob ? job.company_profiles.logo_url : null
+              const posterName = job.company_profiles?.company_name
+                ?? (job.homeowner_profiles ? `${job.homeowner_profiles.first_name} ${job.homeowner_profiles.last_name}` : null)
+                ?? "Unknown"
+              const logoUrl = job.company_profiles?.logo_url ?? null
+              const initials = posterName.slice(0, 2).toUpperCase()
+              const budget = formatBudget(job.budget_min, job.budget_max)
 
-                  return (
-                    <Card
-                      key={application.id}
-                      className="hover:shadow-md transition-shadow bg-slate-800 md:bg-white border-slate-700 md:border-gray-200"
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex gap-4">
-                          {/* Logo/Avatar */}
-                          <div className="flex-shrink-0">
-                            {logoUrl ? (
-                              <div className="h-14 w-14 relative rounded-lg overflow-hidden bg-slate-700 md:bg-gray-100">
-                                <Image
-                                  src={logoUrl}
-                                  alt={posterName}
-                                  fill
-                                  className="object-cover"
-                                />
-                              </div>
-                            ) : (
-                              <Avatar className="h-14 w-14">
-                                <AvatarFallback className="bg-emerald-900/50 md:bg-blue-100 text-emerald-400 md:text-blue-600 font-bold">
-                                  {posterName.substring(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
-                          </div>
+              // Is this company the confirmed tradesperson?
+              const isConfirmedForThisJob = job.confirmed_tradesperson_id === profile.id
 
-                          {/* Application Details */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex-1">
-                                <h3 className="text-lg font-bold text-white md:text-gray-900 mb-1">
-                                  {job.title}
-                                </h3>
-                                <p className="text-slate-300 md:text-gray-700 font-medium mb-1">
-                                  {posterName}
-                                  <Badge variant="outline" className="ml-2 text-xs border-slate-600 md:border-gray-300 text-slate-300 md:text-gray-700">
-                                    {posterType}
-                                  </Badge>
-                                </p>
-                                <div className="flex items-center gap-4 text-sm text-slate-400 md:text-gray-600">
-                                  <div className="flex items-center gap-1">
-                                    <MapPin className="h-4 w-4" />
-                                    {job.location}
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Calendar className="h-4 w-4" />
-                                    Applied {formatDate(application.applied_at)}
-                                  </div>
-                                </div>
-                              </div>
-                              <Badge className={getStatusColor(application.status)}>
-                                {application.status}
-                              </Badge>
-                            </div>
+              return (
+                <div
+                  key={application.id}
+                  className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-4 flex gap-3"
+                >
+                  {/* Avatar */}
+                  <div className="flex-shrink-0">
+                    {logoUrl ? (
+                      <div className="h-10 w-10 relative rounded-xl overflow-hidden">
+                        <Image src={logoUrl} alt={posterName} fill className="object-cover" />
+                      </div>
+                    ) : (
+                      <div className="h-10 w-10 rounded-xl bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-300">
+                        {initials}
+                      </div>
+                    )}
+                  </div>
 
-                            {/* Budget */}
-                            {formatSalary(job.budget_min, job.budget_max) && (
-                              <div className="flex items-center gap-2 text-emerald-400 md:text-green-600 font-semibold mb-3">
-                                <DollarSign className="h-4 w-4" />
-                                {formatSalary(job.budget_min, job.budget_max)}
-                              </div>
-                            )}
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    {/* Title row */}
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-bold text-white leading-snug truncate">{job.title}</p>
+                      {/* Application status badge */}
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${appCfg.className}`}>
+                        <AppIcon className="w-2.5 h-2.5" />
+                        {appCfg.label}
+                      </span>
+                    </div>
 
-                            {/* Job Type Badges */}
-                            <div className="flex flex-wrap gap-2 mb-3">
-                              {job.is_tradespeople_job && (
-                                <Badge variant="outline" className="bg-amber-900/30 md:bg-orange-50 text-amber-400 md:text-orange-700 border-amber-700/50 md:border-orange-200">
-                                  Task
-                                </Badge>
-                              )}
-                            </div>
+                    {/* Meta row */}
+                    <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                      {job.location && (
+                        <span className="flex items-center gap-1 text-xs text-slate-400">
+                          <MapPin className="w-3 h-3" />
+                          {job.location}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <Clock className="w-3 h-3" />
+                        {formatDate(application.applied_at)}
+                      </span>
+                      {budget && (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
+                          <DollarSign className="w-3 h-3" />
+                          {budget}
+                        </span>
+                      )}
+                    </div>
 
-                            {/* Action Buttons */}
-                            <div className="flex gap-2">
-                              <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white">
-                                <Link href={`/applications/${application.id}`}>
-                                  View Application
-                                </Link>
-                              </Button>
-                              <Button variant="outline" size="sm" asChild className="border-slate-600 md:border-gray-300 text-slate-300 md:text-gray-700 hover:bg-slate-700 md:hover:bg-gray-100">
-                                <Link href={`/jobs/${job.id}`}>
-                                  View Job
-                                </Link>
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    {/* Expiry countdown — only for pending applications on active jobs */}
+                    {application.status === "PENDING" && job.expires_at && new Date(job.expires_at) > new Date() && (
+                      <div className="mt-1.5">
+                        <JobExpiryBadge expiresAt={job.expires_at} />
+                      </div>
+                    )}
+
+                    {/* Job status badge (only for meaningful states) */}
+                    {(jobCfg || isConfirmedForThisJob) && (
+                      <div className="mt-1.5">
+                        <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                          isConfirmedForThisJob && !jobCfg
+                            ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                            : jobCfg?.className
+                        }`}>
+                          {isConfirmedForThisJob && job.status !== "COMPLETED"
+                            ? "You're confirmed for this job"
+                            : jobCfg?.label}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Action buttons */}
+                    <div className="flex gap-2 mt-3">
+                      <Link
+                        href={`/applications/${application.id}`}
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                      >
+                        View Application
+                      </Link>
+                      <Link
+                        href={`/jobs/${job.id}`}
+                        className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+                      >
+                        View Job
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
       </div>
     </div>
   )

@@ -77,6 +77,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   // Form state
@@ -246,30 +247,31 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     }
 
     setUploading(true)
+    setUploadStatus(null)
 
     // Helper function to upload a file to storage
     const uploadToStorage = async (fileToUpload: File, fileExtension: string) => {
       const fileName = `${user.id}/logo.${fileExtension}`
 
-      // Delete old logo if exists
+      // Fire-and-forget delete of old file — don't await, upsert=true handles overwriting
+      // Awaiting the delete caused the whole upload to hang when Supabase stalled
       if (profile.logo_url) {
-        try {
-          const oldPath = profile.logo_url.split('/').slice(-2).join('/') // Get user_id/filename
-          console.log("[v0] Attempting to delete old logo:", oldPath)
-          await supabase.storage.from("company-logos").remove([oldPath])
-        } catch (deleteError) {
-          console.warn("[v0] Could not delete old logo:", deleteError)
-          // Continue with upload even if deletion fails
-        }
+        const oldPath = profile.logo_url.split('?')[0].split('/').slice(-2).join('/')
+        supabase.storage.from("company-logos").remove([oldPath]).catch(() => {})
       }
 
-      // Upload logo
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      // Upload logo with 30-second timeout
+      const uploadPromise = supabase.storage
         .from("company-logos")
         .upload(fileName, fileToUpload, {
           cacheControl: "3600",
-          upsert: true, // Allow overwriting if file exists
+          upsert: true,
         })
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Upload timed out. Please check your connection.")), 30_000)
+      )
+
+      const { data: uploadData, error: uploadError } = await Promise.race([uploadPromise, timeoutPromise])
 
       if (uploadError) {
         console.warn("[v0] Upload error:", uploadError)
@@ -315,23 +317,24 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
       let publicUrl: string | null = null
       const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const shouldCompress = file.size > 300 * 1024 // compress anything above 300KB
 
-      // For files under 500KB, try to resize. For larger files, upload directly to avoid timeout
-      const shouldResize = file.size < 500 * 1024
-
-      if (shouldResize) {
-        console.log("[v0] File is small, attempting resize...")
+      if (shouldCompress) {
+        console.log("[v0] File is above 300KB, compressing before upload...")
+        setUploadStatus("Optimizing image...")
         try {
-          const resizedFile = await resizeImage(file, 300)
-          console.log("[v0] Image resized:", "New size:", (resizedFile.size / 1024).toFixed(2) + "KB")
+          const resizedFile = await resizeImage(file, 800)
+          console.log("[v0] Image compressed:", "New size:", (resizedFile.size / 1024).toFixed(2) + "KB")
+          setUploadStatus("Uploading...")
           publicUrl = await uploadToStorage(resizedFile, "webp")
         } catch (resizeError) {
-          console.warn("[v0] Resize failed, uploading original file instead:", resizeError)
+          console.warn("[v0] Compress failed, uploading original file instead:", resizeError)
+          setUploadStatus("Uploading...")
           publicUrl = await uploadToStorage(file, fileExtension)
         }
       } else {
-        // Large file - skip resize and upload directly
-        console.log("[v0] File is large, skipping resize and uploading directly...")
+        console.log("[v0] File is small (<300KB), uploading directly...")
+        setUploadStatus("Uploading...")
         publicUrl = await uploadToStorage(file, fileExtension)
       }
 
@@ -341,7 +344,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         setLogoError(false)
         toast({
           title: "✓ Logo Uploaded",
-          description: shouldResize ? "Your logo has been uploaded and optimized." : "Your logo has been uploaded.",
+          description: shouldCompress ? "Your logo has been uploaded and optimized." : "Your logo has been uploaded.",
           duration: 5000,
         })
       }
@@ -355,6 +358,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       })
     } finally {
       setUploading(false)
+      setUploadStatus(null)
     }
   }
 
@@ -521,13 +525,15 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                         alt="Company logo"
                         className="max-h-full max-w-full object-contain"
                         onError={(e) => {
-                          console.warn("[COMPANY-EDIT] Logo failed to load:", logoUrl)
-                          setLogoError(true)
+                          // Retry without the cache-bust parameter if the URL has one
+                          const cleanUrl = logoUrl.split("?")[0]
+                          if (logoUrl !== cleanUrl) {
+                            setLogoUrl(cleanUrl)
+                          } else {
+                            setLogoError(true)
+                          }
                         }}
-                        onLoad={() => {
-                          console.log("[COMPANY-EDIT] Logo loaded successfully:", logoUrl)
-                          setLogoError(false)
-                        }}
+                        onLoad={() => setLogoError(false)}
                       />
                     ) : (
                       <div className="text-xs sm:text-sm font-medium text-slate-400 text-center px-1">
@@ -543,7 +549,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   <Label htmlFor="logo-upload" className="cursor-pointer">
                     <div className="flex items-center space-x-2 px-3 py-2 text-sm border-2 border-slate-600 rounded-md hover:bg-slate-700 hover:border-emerald-500 text-slate-200 transition-colors">
                       <Upload className="h-4 w-4" />
-                      <span>{uploading ? "Uploading..." : "Upload Logo"}</span>
+                      <span>{uploadStatus ?? "Upload Logo"}</span>
                     </div>
                   </Label>
                   <Input

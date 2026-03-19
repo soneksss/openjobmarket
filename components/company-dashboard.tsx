@@ -60,7 +60,7 @@ import Link from "next/link"
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
-import { signOut } from "@/lib/actions"
+import { manualLogout } from "@/hooks/use-auto-logout"
 import pica from "pica"
 import JobExpirationAlerts from "./job-expiration-alerts"
 import { AdminButton } from "@/components/admin-button"
@@ -309,13 +309,15 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   useEffect(() => {
     if (!profile?.id) return
 
-    // On mount: check for any already-confirmed job not yet accepted
+    // On mount: check for any already-confirmed job still within the 15-min acceptance window
     const checkExisting = async () => {
+      const windowStart = new Date(Date.now() - 15 * 60 * 1000).toISOString()
       const { data } = await supabase
         .from("jobs")
         .select("id, title, confirmed_at, homeowner_id")
         .eq("confirmed_tradesperson_id", profile.id)
         .eq("status", "CONFIRMED")
+        .gt("confirmed_at", windowStart)   // ignore offers whose window has already closed
         .order("confirmed_at", { ascending: false })
         .limit(1)
         .maybeSingle()
@@ -1131,7 +1133,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           <div className="py-1">
             {[
               { icon: Map, label: 'Browse Trade Jobs', href: browseJobsUrl, count: undefined },
-              { icon: Briefcase, label: 'Active Jobs (Confirmed)', href: '/dashboard/company/my-applications', count: confirmedJobs.length },
+              { icon: Briefcase, label: 'My Jobs', href: '/dashboard/company/my-jobs', count: confirmedJobs.length },
               { icon: Clock, label: 'Awaiting Response', href: '/dashboard/company/my-applications', count: awaitingResponseJobs.length },
               { icon: MessageCircle, label: 'Messages', href: '/messages', count: unreadMessagesCount },
             ].map(item => (
@@ -1184,7 +1186,10 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
           {/* Sign Out */}
           <div className="py-1">
-            <button onClick={() => signOut()} className="flex items-center gap-3 w-full px-4 py-3.5 hover:bg-slate-800 transition-colors text-red-400">
+            <button
+              onClick={manualLogout}
+              className="flex items-center gap-3 w-full px-4 py-3.5 hover:bg-slate-800 transition-colors text-red-400"
+            >
               <LogOut className="h-5 w-5" />
               <span className="font-medium">Sign Out</span>
             </button>
@@ -1605,7 +1610,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               </Link>
             </div>
 
-            {/* 1. Active Jobs (Confirmed) */}
+            {/* 1. My Jobs */}
             <Card className="overflow-hidden border border-emerald-500/30 shadow-sm rounded-xl bg-slate-800">
               <Collapsible open={isConfirmedJobsExpanded} onOpenChange={setIsConfirmedJobsExpanded}>
                 <CollapsibleTrigger asChild>
@@ -1615,8 +1620,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                         <Briefcase className="h-4 w-4 text-emerald-400" />
                       </div>
                       <div className="flex-1">
-                        <span className="text-sm font-semibold text-white">Active Jobs (Confirmed)</span>
-                        <p className="text-xs text-slate-400">Jobs accepted by the homeowner</p>
+                        <span className="text-sm font-semibold text-white">My Jobs</span>
+                        <p className="text-xs text-slate-400">Jobs confirmed by the homeowner</p>
                       </div>
                       <Badge className="bg-emerald-500/30 text-emerald-300 border-0 text-xs px-2 py-0.5">{confirmedJobs.length}</Badge>
                       <div className="text-slate-400">

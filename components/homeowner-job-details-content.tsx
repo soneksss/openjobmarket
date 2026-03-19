@@ -57,9 +57,11 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
     id: string; name: string; profileId: string
   } | null>(null)
 
-  const isJobAccepted  = job.completion_status === "accepted"
+  const isJobAccepted  = job.completion_status === "accepted" || job.status === "CONFIRMED"
   const isJobCompleted = job.completion_status === "completed"
-  const acceptedContractorId = job.accepted_contractor_id
+  // confirmed_tradesperson_id is set by confirm_tradesperson() RPC (urgent/tradespeople jobs)
+  // accepted_contractor_id is set for flexible job flows — use whichever is present
+  const acceptedContractorId = job.confirmed_tradesperson_id ?? job.accepted_contractor_id
 
   const formatDate = (s: string) =>
     new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
@@ -72,15 +74,17 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
   }
 
   const handleMarkComplete = () => {
-    const acceptedApp = applications.find(a => a.contractor_id === acceptedContractorId)
-    if (acceptedApp?.contractor_profiles) {
-      setSelectedContractor({
-        id:        acceptedApp.contractor_id!,
-        name:      acceptedApp.contractor_profiles.business_name,
-        profileId: acceptedApp.contractor_profiles.id,
-      })
-      setShowCompletionModal(true)
-    }
+    if (!acceptedContractorId) return
+    const acceptedApp = applications.find(
+      (a: any) => (a.company_id ?? a.tradesperson_id) === acceptedContractorId
+    )
+    const applicant = acceptedApp ? resolveApplicant(acceptedApp) : null
+    setSelectedContractor({
+      id:        acceptedContractorId,
+      name:      applicant?.name ?? "Tradesperson",
+      profileId: applicant?.profileId ?? acceptedContractorId,
+    })
+    setShowCompletionModal(true)
   }
 
   // ── Resolve applicant info regardless of profile type ──────────────────
@@ -273,9 +277,19 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
 
                       {/* Status badge */}
                       <div className="mt-1.5">
-                        <span className={`inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full border ${statusStyle}`}>
-                          {app.status.toUpperCase()}
-                        </span>
+                        {isAccepted ? (
+                          <span className="inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                            Confirmed
+                          </span>
+                        ) : app.status === "AUTO_CANCELLED" ? (
+                          <span className="inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full border bg-slate-500/20 text-slate-500 border-slate-500/30">
+                            Not Selected
+                          </span>
+                        ) : (
+                          <span className={`inline-flex text-xs font-semibold px-2.5 py-0.5 rounded-full border ${statusStyle}`}>
+                            {app.status.toUpperCase()}
+                          </span>
+                        )}
                       </div>
 
                       {/* Cover letter preview */}
@@ -287,7 +301,7 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
 
                       {/* Actions row */}
                       <div className="flex flex-wrap gap-2 mt-3">
-                        {homeownerUserId && applicant.userId && (
+                        {homeownerUserId && applicant.userId && !isAccepted && (
                           <Link
                             href={`/messages/${applicant.userId}`}
                             className="flex items-center gap-1.5 text-sm font-semibold text-emerald-300 hover:text-white bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-500/30 px-3 py-2 rounded-lg transition-colors"
@@ -310,6 +324,7 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
                             jobTitle={job.title}
                             jobBudget={formatBudget(job.budget_min, job.budget_max)}
                             homeownerUserId={homeownerUserId}
+                            contractorUserId={applicant.userId}
                           />
                         )}
                       </div>

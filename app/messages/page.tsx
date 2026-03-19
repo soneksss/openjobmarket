@@ -77,8 +77,9 @@ export default function MessagesPage() {
       let currentUserType = cachedUserType.current
 
       if (!currentUser) {
-        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
-        if (authError || !authUser) {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const authUser = sessionData?.session?.user
+        if (!authUser) {
           setError("Please log in to view messages")
           setLoading(false)
           return

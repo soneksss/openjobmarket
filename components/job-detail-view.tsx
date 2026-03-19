@@ -28,6 +28,8 @@ import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import JobApplicationForm from "./job-application-form"
 import { UrgentJobApplySection } from "./urgent-job-apply-section"
+import { JobCountdownTimer } from "./job-countdown-timer"
+import { JobExpiryBadge } from "./job-expiry-badge"
 import FloatingMessageModal from "./floating-message-modal"
 import { useTranslation } from "@/lib/i18n/context"
 import { formatDisplayAddress } from "@/lib/utils"
@@ -48,6 +50,8 @@ interface Job {
   created_at: string
   status?: string
   job_photo_url?: string
+  urgency_type?: string
+  expires_at?: string
   company_profiles?: {
     id: string
     company_name: string
@@ -776,6 +780,19 @@ export default function JobDetailView({
                         {job.work_location}
                       </Badge>
                     </div>
+
+                    {/* Countdown timer — urgent trade jobs only, visible to everyone */}
+                    {job.urgency_type === "urgent" && job.expires_at && (
+                      <div className="mt-3">
+                        <JobCountdownTimer expiresAt={job.expires_at} totalMs={30 * 60 * 1000} />
+                      </div>
+                    )}
+                    {/* Expiry badge — non-urgent jobs with an expiry date */}
+                    {job.urgency_type !== "urgent" && job.expires_at && new Date(job.expires_at) > new Date() && (
+                      <div className="mt-2">
+                        <JobExpiryBadge expiresAt={job.expires_at} />
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardHeader>

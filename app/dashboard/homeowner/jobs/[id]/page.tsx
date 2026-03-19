@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { HomeownerJobActions } from "@/components/homeowner-job-actions"
 import { HomeownerJobDetailsContent } from "@/components/homeowner-job-details-content"
+import { JobCountdownTimer } from "@/components/job-countdown-timer"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -43,7 +44,7 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
       id, title, description, short_description, location, latitude, longitude,
       budget_min, budget_max, budget_period, is_active, expires_at, created_at,
       updated_at, is_tradespeople_job, work_location, homeowner_id, job_photo_url,
-      accepted_contractor_id, completed_at, completion_status, status,
+      accepted_contractor_id, confirmed_tradesperson_id, completed_at, completion_status, status,
       urgency_type, max_responses, applications_count, views_count
     `)
     .eq("id", id)
@@ -157,14 +158,40 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
     <div className="min-h-screen bg-slate-900">
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
 
-        {/* Back */}
-        <Link
-          href="/dashboard/homeowner"
-          className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Link>
+        {/* Top bar: back link + compact action buttons */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <Link
+            href="/dashboard/homeowner/jobs"
+            className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">Back to my jobs</span>
+          </Link>
+
+          <HomeownerJobActions
+            jobId={job.id}
+            jobTitle={job.title}
+            isActive={!!isActive}
+            expiresAt={job.expires_at}
+            jobStatus={job.status}
+            isFlexibleJob={!!(job.is_tradespeople_job && job.urgency_type === "flexible")}
+            urgencyType={job.urgency_type ?? undefined}
+            currentJob={{
+              title: job.title,
+              description: job.description,
+              short_description: job.short_description,
+              location: job.location,
+              latitude: job.latitude,
+              longitude: job.longitude,
+              budget_min: job.budget_min,
+              budget_max: job.budget_max,
+              budget_period: job.budget_period,
+              work_location: job.work_location,
+              job_photo_url: job.job_photo_url,
+            }}
+          />
+        </div>
 
         {/* Header card */}
         <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5">
@@ -197,6 +224,13 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
           </div>
 
           <h1 className="text-xl font-bold text-white mb-4">{job.title}</h1>
+
+          {/* Countdown timer — only for urgent jobs still within their window */}
+          {job.urgency_type === "urgent" && job.expires_at && isActive && (
+            <div className="mb-4">
+              <JobCountdownTimer expiresAt={job.expires_at} totalMs={30 * 60 * 1000} />
+            </div>
+          )}
 
           {/* Meta grid */}
           <div className="grid grid-cols-2 gap-3">
@@ -260,33 +294,6 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
             <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap break-words">{displayDescription}</p>
           </div>
         )}
-
-        {/* Manage actions */}
-        <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-slate-300 mb-3">Manage Job</h2>
-          <HomeownerJobActions
-            jobId={job.id}
-            jobTitle={job.title}
-            isActive={!!isActive}
-            expiresAt={job.expires_at}
-            jobStatus={job.status}
-            isFlexibleJob={!!(job.is_tradespeople_job && job.urgency_type === "flexible")}
-            urgencyType={job.urgency_type ?? undefined}
-            currentJob={{
-              title: job.title,
-              description: job.description,
-              short_description: job.short_description,
-              location: job.location,
-              latitude: job.latitude,
-              longitude: job.longitude,
-              budget_min: job.budget_min,
-              budget_max: job.budget_max,
-              budget_period: job.budget_period,
-              work_location: job.work_location,
-              job_photo_url: job.job_photo_url,
-            }}
-          />
-        </div>
 
         {/* Applications */}
         <HomeownerJobDetailsContent job={job} applications={applications || []} homeownerUserId={user.id} />

@@ -2,20 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Trash2, Edit, Clock, Eye, EyeOff, Calendar, Camera, Upload, X as XIcon, Play } from "lucide-react"
+import { Trash2, Edit, Clock, Eye, EyeOff, Camera, Upload, X as XIcon, Play } from "lucide-react"
 import { createClient } from "@/lib/client"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 
@@ -443,15 +431,15 @@ export function HomeownerJobActions({
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex gap-1.5 sm:gap-2 sm:flex-wrap">
       {/* Mark In Progress — flexible jobs only, while still POSTED */}
       {isFlexibleJob && localStatus === 'POSTED' && (
         <button
           onClick={handleMarkInProgress}
           disabled={isMarkingInProgress}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
         >
-          <Play className="w-3.5 h-3.5" />
+          <Play className="w-3.5 h-3.5 flex-shrink-0" />
           {isMarkingInProgress ? "Updating…" : "In Progress"}
         </button>
       )}
@@ -459,9 +447,9 @@ export function HomeownerJobActions({
       {/* Edit Button */}
       <button
         onClick={() => setShowEditDialog(true)}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
       >
-        <Edit className="w-3.5 h-3.5" />
+        <Edit className="w-3.5 h-3.5 flex-shrink-0" />
         Edit
       </button>
 
@@ -469,28 +457,27 @@ export function HomeownerJobActions({
       <button
         onClick={handleToggleActive}
         disabled={isToggling}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-50"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-50"
       >
-        {isActive ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+        {isActive ? <EyeOff className="w-3.5 h-3.5 flex-shrink-0" /> : <Eye className="w-3.5 h-3.5 flex-shrink-0" />}
         {isActive ? "Deactivate" : "Activate"}
       </button>
 
       {/* Extend */}
       <button
         onClick={() => setShowExtendDialog(true)}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
       >
-        <Clock className="w-3.5 h-3.5" />
+        <Clock className="w-3.5 h-3.5 flex-shrink-0" />
         Extend
       </button>
 
-      {/* Delete */}
+      {/* Delete — icon only */}
       <button
         onClick={() => setShowDeleteDialog(true)}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
+        className="inline-flex items-center justify-center text-xs font-semibold px-2.5 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
       >
         <Trash2 className="w-3.5 h-3.5" />
-        Delete
       </button>
 
       {/* Delete Confirmation — compact mobile-friendly overlay */}
@@ -533,25 +520,25 @@ export function HomeownerJobActions({
       )}
 
       {/* Extend Dialog */}
-      <Dialog open={showExtendDialog} onOpenChange={setShowExtendDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Extend Job Posting</DialogTitle>
-            <DialogDescription>
-              {isUrgentJob
-                ? "Choose how many hours to reopen this urgent job. The search window restarts from now."
-                : "Choose how many days to extend this job posting. The job will be reactivated if it's currently expired."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="extension-value">Extension Period</Label>
+      {showExtendDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xs bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
+            <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
+            <div className="px-5 pt-5 pb-4">
+              <p className="text-base font-bold text-white mb-1">
+                {isUrgentJob ? "Reopen urgent job" : "Extend job posting"}
+              </p>
+              <p className="text-sm text-slate-400 mb-4">
+                {isUrgentJob
+                  ? "Choose how many hours to reopen. The search window restarts from now."
+                  : "Choose how many days to extend. The job will be reactivated if expired."}
+              </p>
               <Select value={extensionValue} onValueChange={setExtensionValue}>
-                <SelectTrigger>
+                <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 {isUrgentJob ? (
-                  <SelectContent>
+                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
                     <SelectItem value="1">1 hour</SelectItem>
                     <SelectItem value="2">2 hours</SelectItem>
                     <SelectItem value="3">3 hours</SelectItem>
@@ -560,224 +547,200 @@ export function HomeownerJobActions({
                     <SelectItem value="24">24 hours</SelectItem>
                   </SelectContent>
                 ) : (
-                  <SelectContent>
+                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
                     <SelectItem value="1">1 day</SelectItem>
                     <SelectItem value="3">3 days</SelectItem>
                     <SelectItem value="7">7 days</SelectItem>
-                    <SelectItem value="14">14 days (2 weeks)</SelectItem>
-                    <SelectItem value="30">30 days (1 month)</SelectItem>
                   </SelectContent>
                 )}
               </Select>
             </div>
+            <div className="flex gap-2 px-4 pb-5">
+              <button
+                onClick={() => setShowExtendDialog(false)}
+                disabled={isExtending}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExtend}
+                disabled={isExtending}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {isExtending ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Extending…</>
+                ) : (
+                  <><Clock className="w-3.5 h-3.5" /> Reopen Job</>
+                )}
+              </button>
+            </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExtendDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleExtend} disabled={isExtending}>
-              {isExtending ? "Extending..." : "Reopen Job"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
 
       {/* Edit Dialog */}
-      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Job</DialogTitle>
-            <DialogDescription>Update your job details below.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Title */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-title">Job Title *</Label>
-              <Input
-                id="edit-title"
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                placeholder="e.g., Plumber needed for bathroom installation"
-              />
+      {showEditDialog && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 flex flex-col max-h-[90vh]">
+            <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400 flex-shrink-0" />
+
+            {/* Header */}
+            <div className="px-5 pt-5 pb-3 flex-shrink-0 border-b border-slate-700/60">
+              <p className="text-base font-bold text-white">Edit Job</p>
+              <p className="text-sm text-slate-400 mt-0.5">Update your job details below.</p>
             </div>
 
-            {/* Short Description */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-short-desc">Short Description</Label>
-              <Input
-                id="edit-short-desc"
-                value={editForm.short_description}
-                onChange={(e) => setEditForm({ ...editForm, short_description: e.target.value })}
-                placeholder="Brief summary (optional)"
-              />
-            </div>
+            {/* Scrollable body */}
+            <div className="overflow-y-auto flex-1 px-5 py-4 space-y-4">
+              {/* Title */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Job Title *</label>
+                <input
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  placeholder="e.g., Plumber needed for bathroom installation"
+                  className="w-full bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                />
+              </div>
 
-            {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-description">Full Description *</Label>
-              <Textarea
-                id="edit-description"
-                value={editForm.description}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                placeholder="Describe the job in detail..."
-                rows={6}
-              />
-            </div>
+              {/* Short Description */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Short Description</label>
+                <input
+                  value={editForm.short_description}
+                  onChange={(e) => setEditForm({ ...editForm, short_description: e.target.value })}
+                  placeholder="Brief summary (optional)"
+                  className="w-full bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                />
+              </div>
 
-            {/* Job Photo */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-jobPhoto">Job Photo (Optional)</Label>
-              <p className="text-sm text-muted-foreground mb-2">
-                Upload a photo to help describe the job (max 5MB)
-              </p>
-              <div className="flex flex-col gap-4">
+              {/* Description */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Full Description *</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="Describe the job in detail..."
+                  rows={5}
+                  className="w-full bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 resize-none"
+                />
+              </div>
+
+              {/* Job Photo */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Job Photo (Optional)</label>
+                <input id="edit-jobPhoto" type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
                 {!jobPhotoUrl ? (
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
-                    <input
-                      id="edit-jobPhoto"
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoSelect}
-                      className="hidden"
-                    />
-                    <label
-                      htmlFor="edit-jobPhoto"
-                      className="cursor-pointer flex flex-col items-center gap-2"
-                    >
-                      <Camera className="h-10 w-10 text-gray-400" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Click to upload a photo
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        JPG, PNG or other image formats
-                      </span>
-                    </label>
-                  </div>
+                  <label
+                    htmlFor="edit-jobPhoto"
+                    className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-700 hover:border-slate-500 rounded-xl p-5 cursor-pointer transition-colors"
+                  >
+                    <Camera className="h-8 w-8 text-slate-500" />
+                    <span className="text-sm text-slate-400">Click to upload a photo</span>
+                    <span className="text-xs text-slate-600">JPG, PNG or other image formats</span>
+                  </label>
                 ) : (
-                  <div className="relative">
-                    <img
-                      src={jobPhotoUrl}
-                      alt="Job preview"
-                      className="w-full max-h-[200px] object-cover rounded-lg shadow-md"
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleRemovePhoto}
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                    >
-                      <XIcon className="h-4 w-4 mr-1" />
-                      Remove
-                    </Button>
-                    <input
-                      id="edit-jobPhoto"
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoSelect}
-                      className="hidden"
-                    />
-                    <label
-                      htmlFor="edit-jobPhoto"
-                      className="absolute bottom-2 right-2 cursor-pointer"
-                    >
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        asChild
-                      >
-                        <span>
-                          <Upload className="h-4 w-4 mr-1" />
-                          Change
-                        </span>
-                      </Button>
-                    </label>
+                  <div className="relative rounded-xl overflow-hidden">
+                    <img src={jobPhotoUrl} alt="Job preview" className="w-full max-h-48 object-cover" />
+                    <div className="absolute top-2 right-2 flex gap-1.5">
+                      <label htmlFor="edit-jobPhoto" className="cursor-pointer inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-900/80 text-slate-200 hover:bg-slate-800 transition-colors">
+                        <Upload className="h-3.5 w-3.5" /> Change
+                      </label>
+                      <button onClick={handleRemovePhoto} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-red-600/80 text-white hover:bg-red-600 transition-colors">
+                        <XIcon className="h-3.5 w-3.5" /> Remove
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
-            </div>
 
-            {/* Location */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-location">Location *</Label>
-              <Input
-                id="edit-location"
-                value={editForm.location}
-                onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
-                placeholder="e.g., London, UK"
-              />
-            </div>
-
-            {/* Budget */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-budget-min">Min Budget (£)</Label>
-                <Input
-                  id="edit-budget-min"
-                  type="number"
-                  value={editForm.budget_min}
-                  onChange={(e) => setEditForm({ ...editForm, budget_min: e.target.value })}
-                  placeholder="500"
+              {/* Location */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Location *</label>
+                <input
+                  value={editForm.location}
+                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  placeholder="e.g., London, UK"
+                  className="w-full bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-budget-max">Max Budget (£)</Label>
-                <Input
-                  id="edit-budget-max"
-                  type="number"
-                  value={editForm.budget_max}
-                  onChange={(e) => setEditForm({ ...editForm, budget_max: e.target.value })}
-                  placeholder="1000"
-                />
+
+              {/* Budget */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Min (£)</label>
+                  <input
+                    type="number"
+                    value={editForm.budget_min}
+                    onChange={(e) => setEditForm({ ...editForm, budget_min: e.target.value })}
+                    placeholder="500"
+                    className="w-full bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Max (£)</label>
+                  <input
+                    type="number"
+                    value={editForm.budget_max}
+                    onChange={(e) => setEditForm({ ...editForm, budget_max: e.target.value })}
+                    placeholder="1000"
+                    className="w-full bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Period</label>
+                  <Select value={editForm.budget_period} onValueChange={(v) => setEditForm({ ...editForm, budget_period: v })}>
+                    <SelectTrigger className="bg-slate-800 border-slate-700 text-white h-[42px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                      <SelectItem value="per_job">Per Job</SelectItem>
+                      <SelectItem value="per_hour">Per Hour</SelectItem>
+                      <SelectItem value="per_day">Per Day</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-budget-period">Period</Label>
-                <Select
-                  value={editForm.budget_period}
-                  onValueChange={(value) => setEditForm({ ...editForm, budget_period: value })}
-                >
-                  <SelectTrigger>
+
+              {/* Work Location */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Work Location</label>
+                <Select value={editForm.work_location} onValueChange={(v) => setEditForm({ ...editForm, work_location: v })}>
+                  <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="per_job">Per Job</SelectItem>
-                    <SelectItem value="per_hour">Per Hour</SelectItem>
-                    <SelectItem value="per_day">Per Day</SelectItem>
+                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
+                    <SelectItem value="on-site">On Site</SelectItem>
+                    <SelectItem value="remote">Remote</SelectItem>
+                    <SelectItem value="hybrid">Hybrid</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* Work Location */}
-            <div className="space-y-2">
-              <Label htmlFor="edit-work-location">Work Location</Label>
-              <Select
-                value={editForm.work_location}
-                onValueChange={(value) => setEditForm({ ...editForm, work_location: value })}
+            {/* Footer */}
+            <div className="flex gap-2 px-5 py-4 border-t border-slate-700/60 flex-shrink-0">
+              <button
+                onClick={() => setShowEditDialog(false)}
+                disabled={isEditing}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors disabled:opacity-40"
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="on-site">On Site</SelectItem>
-                  <SelectItem value="remote">Remote</SelectItem>
-                  <SelectItem value="hybrid">Hybrid</SelectItem>
-                </SelectContent>
-              </Select>
+                Cancel
+              </button>
+              <button
+                onClick={handleEdit}
+                disabled={isEditing || !editForm.title || !editForm.description}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {isEditing ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Saving…</>
+                ) : "Save Changes"}
+              </button>
             </div>
-
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleEdit} disabled={isEditing || !editForm.title || !editForm.description}>
-              {isEditing ? "Saving..." : "Save Changes"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   )
 }

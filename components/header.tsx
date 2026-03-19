@@ -165,20 +165,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
       onSignOut()
       return
     }
-    try {
-      const supabase = createClient()
-      await supabase.auth.signOut()
-      if (typeof window !== 'undefined') {
-        localStorage.clear()
-        sessionStorage.clear()
-        window.location.href = '/'
-      }
-    } catch (error) {
-      console.error('[HEADER] Sign out error:', error)
-      if (typeof window !== 'undefined') {
-        window.location.href = '/'
-      }
-    }
+    await manualLogout()
   }
 
   // Prioritize server user state, fall back to client user
@@ -288,6 +275,24 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
             </div>
 
             <nav className="hidden md:flex items-center space-x-2">
+              {/* Back to Search — shown on any page that isn't the home/search page */}
+              {pathname !== getLocalePath("/") && (
+                <Link href={getLocalePath("/")}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`flex items-center gap-1.5 bg-transparent ${
+                      dark
+                        ? "text-slate-300 hover:text-white hover:bg-white/10"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
+                  >
+                    <Home className="h-4 w-4" />
+                    Back to Search
+                  </Button>
+                </Link>
+              )}
+
               <Link href={getLocalePath("/about")}>
                 <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
                   {t('header.about')}
@@ -408,220 +413,202 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                         <ChevronDown className="hidden sm:block h-3 w-3 sm:h-4 sm:w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 sm:w-64 z-[100]">
-                      {currentUserType === "professional" ? (
+                    <DropdownMenuContent
+                      align="end"
+                      className="w-56 sm:w-60 z-[100] bg-slate-900 border border-slate-700/60 text-slate-200 shadow-xl rounded-xl p-1"
+                    >
+                      {/* Profile header */}
+                      <div className="px-3 py-2.5 border-b border-slate-700/60 mb-1">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                          {currentUserType === "professional" ? t('header.professionalProfile')
+                            : currentUserType === "company"  ? t('header.companyProfile')
+                            : currentUserType === "homeowner" ? "Homeowner"
+                            : currentUserType === "contractor" ? "Contractor"
+                            : t('header.userProfile')}
+                        </p>
+                      </div>
+
+                      {/* Professional */}
+                      {currentUserType === "professional" && (
                         <>
-                          <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
-                            {t('header.professionalProfile')}
-                          </div>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/profile/edit")} className="flex items-center">
-                              <User className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
+                              <User className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard/professional")} className="flex items-center">
-                              <Briefcase className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard/professional")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem disabled className="flex items-center text-muted-foreground">
-                            <FileText className="h-4 w-4 mr-2" />
-                            {t('header.enquiriesComingSoon')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard/professional/saved")} className="flex items-center">
-                              <BookmarkIcon className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard/professional/saved")} className="flex items-center gap-2.5 px-3 py-2">
+                              <BookmarkIcon className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.savedJobs')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/account/settings")} className="flex items-center">
-                              <Settings className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/account/settings")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Settings className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.accountSettings')}
                             </Link>
                           </DropdownMenuItem>
                         </>
-                      ) : currentUserType === "company" ? (
+                      )}
+
+                      {/* Company */}
+                      {currentUserType === "company" && (
                         <>
-                          <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
-                            {t('header.companyProfile')}
-                          </div>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/company/profile/edit")} className="flex items-center">
-                              <Building2 className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/company/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Building2 className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard/company")} className="flex items-center">
-                              <Briefcase className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard/company")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard/company/my-applications")} className="flex items-center">
-                              <FileText className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard/company/my-applications")} className="flex items-center gap-2.5 px-3 py-2">
+                              <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.myApplications')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard/company/subscription")} className="flex items-center">
-                              <CreditCard className="h-4 w-4 mr-2" />
-                              {t('header.subscriptionPlan')}
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem disabled className="flex items-center text-muted-foreground">
-                            <FileText className="h-4 w-4 mr-2" />
-                            {t('header.enquiriesComingSoon')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard/company/saved")} className="flex items-center">
-                              <BookmarkIcon className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard/company/saved")} className="flex items-center gap-2.5 px-3 py-2">
+                              <BookmarkIcon className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.savedJobs')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem disabled className="flex items-center text-muted-foreground">
-                            <User className="h-4 w-4 mr-2" />
-                            {t('header.savedTalents')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/account/settings")} className="flex items-center">
-                              <Settings className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/account/settings")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Settings className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.accountSettings')}
                             </Link>
                           </DropdownMenuItem>
                         </>
-                      ) : currentUserType === "homeowner" ? (
+                      )}
+
+                      {/* Homeowner */}
+                      {currentUserType === "homeowner" && (
                         <>
-                          <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
-                            Homeowner Profile
-                          </div>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard/homeowner/profile")} className="flex items-center">
-                              <User className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard/homeowner/profile")} className="flex items-center gap-2.5 px-3 py-2">
+                              <User className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard/homeowner")} className="flex items-center">
-                              <Briefcase className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard/homeowner")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem disabled className="flex items-center text-muted-foreground">
-                            <FileText className="h-4 w-4 mr-2" />
-                            {t('header.enquiriesComingSoon')}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard/homeowner/jobs")} className="flex items-center">
-                              <Briefcase className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard/homeowner/jobs")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Home className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               My Jobs
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/account/settings")} className="flex items-center">
-                              <Settings className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/account/settings")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Settings className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.accountSettings')}
                             </Link>
                           </DropdownMenuItem>
                         </>
-                      ) : currentUserType === "contractor" ? (
+                      )}
+
+                      {/* Contractor */}
+                      {currentUserType === "contractor" && (
                         <>
-                          <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
-                            Contractor Profile
-                          </div>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/contractor/profile/edit")} className="flex items-center">
-                              <User className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/contractor/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
+                              <User className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard")} className="flex items-center">
-                              <Briefcase className="h-4 w-4 mr-2" />
-                              {t('header.dashboard')}
-                            </Link>
-                          </DropdownMenuItem>
-                        </>
-                      ) : (
-                        <>
-                          <div className="px-3 py-2 text-sm font-medium text-foreground border-b">
-                            {t('header.userProfile')}
-                          </div>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/profile/edit")} className="flex items-center">
-                              <User className="h-4 w-4 mr-2" />
-                              {t('header.editProfile')}
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/dashboard")} className="flex items-center">
-                              <Briefcase className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                         </>
                       )}
-                      <DropdownMenuSeparator />
-                      {isAdmin && (
+
+                      {/* Fallback */}
+                      {!currentUserType && (
                         <>
-                          <div className="px-3 py-2 text-sm font-medium text-purple-600 border-b">
-                            {t('header.adminTools')}
-                          </div>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/admin/dashboard")} className="flex items-center text-purple-600 font-medium">
-                              <Shield className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
+                              <User className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                              {t('header.editProfile')}
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
+                            <Link href={getLocalePath("/dashboard")} className="flex items-center gap-2.5 px-3 py-2">
+                              <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/admin/analytics")} className="flex items-center text-purple-600 font-medium">
-                              <BarChart3 className="h-4 w-4 mr-2" />
+                        </>
+                      )}
+
+                      {/* Admin section */}
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuSeparator className="bg-slate-700/60 my-1" />
+                          <div className="px-3 py-1.5">
+                            <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">Admin</p>
+                          </div>
+                          <DropdownMenuItem asChild className="rounded-lg hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
+                            <Link href={getLocalePath("/admin/dashboard")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
+                              <Shield className="h-4 w-4 flex-shrink-0" />
+                              {t('header.dashboard')}
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild className="rounded-lg hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
+                            <Link href={getLocalePath("/admin/analytics")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
+                              <BarChart3 className="h-4 w-4 flex-shrink-0" />
                               {t('header.analytics')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/admin/settings")} className="flex items-center text-purple-600 font-medium">
-                              <Settings className="h-4 w-4 mr-2" />
-                              {t('header.settings')}
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/admin/users")} className="flex items-center text-purple-600 font-medium">
-                              <User className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
+                            <Link href={getLocalePath("/admin/users")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
+                              <User className="h-4 w-4 flex-shrink-0" />
                               {t('header.manageUsers')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/admin/jobs")} className="flex items-center text-purple-600 font-medium">
-                              <Briefcase className="h-4 w-4 mr-2" />
+                          <DropdownMenuItem asChild className="rounded-lg hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
+                            <Link href={getLocalePath("/admin/jobs")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
+                              <Briefcase className="h-4 w-4 flex-shrink-0" />
                               {t('header.manageJobs')}
                             </Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={getLocalePath("/admin/payments")} className="flex items-center text-purple-600 font-medium">
-                              <CreditCard className="h-4 w-4 mr-2" />
-                              {t('header.payments')}
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
                         </>
                       )}
+
+                      {/* Bottom actions */}
+                      <DropdownMenuSeparator className="bg-slate-700/60 my-1" />
                       <DropdownMenuItem
                         onClick={handleManualRefresh}
                         disabled={isRefreshing}
-                        className="flex items-center"
+                        className="rounded-lg text-slate-400 hover:bg-slate-800 hover:text-slate-200 focus:bg-slate-800 focus:text-slate-200 cursor-pointer flex items-center gap-2.5 px-3 py-2"
                       >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-4 w-4 flex-shrink-0 ${isRefreshing ? 'animate-spin' : ''}`} />
                         {isRefreshing ? t('header.refreshing') : t('header.refreshProfile')}
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onSelect={handleSignOut}
-                        className="flex items-center text-red-600 cursor-pointer"
+                        className="rounded-lg text-red-400 hover:bg-red-500/10 hover:text-red-300 focus:bg-red-500/10 focus:text-red-300 cursor-pointer flex items-center gap-2.5 px-3 py-2"
                       >
-                        <LogOut className="h-4 w-4 mr-2" />
+                        <LogOut className="h-4 w-4 flex-shrink-0" />
                         {t('header.signOut')}
                       </DropdownMenuItem>
                     </DropdownMenuContent>

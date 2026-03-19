@@ -104,6 +104,7 @@ export default async function HomeownerDashboardPage() {
       budget_max,
       budget_period,
       is_active,
+      status,
       expires_at,
       created_at,
       updated_at,

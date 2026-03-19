@@ -33,6 +33,8 @@ import {
   PlayCircle,
   CalendarPlus,
   Zap,
+  UserCheck,
+  Check,
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -1130,38 +1132,69 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
 
       {/* Accept Confirmation Dialog */}
       <AlertDialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Accept Applicant?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div>
-                <span>Are you sure you want to accept <strong>{pendingAccept?.applicantName}</strong> for this job?</span>
-                <div className="mt-3">This will:</div>
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li>Mark this applicant as accepted</li>
-                  <li>Automatically reject all other applications</li>
-                  <li>Open a conversation with the applicant</li>
-                </ul>
+        <AlertDialogContent className="bg-slate-900 border border-slate-700 text-white shadow-2xl shadow-black/60 max-w-md p-0 overflow-hidden">
+          {/* Top accent bar */}
+          <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
+
+          <div className="p-6">
+            <AlertDialogHeader className="items-center text-center sm:text-center">
+              <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                <UserCheck className="h-7 w-7 text-emerald-400" />
               </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={!!actionLoading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleAcceptApplicant}
-              disabled={!!actionLoading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {actionLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Accepting...
-                </>
-              ) : (
-                "Yes, Accept Applicant"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+
+              <AlertDialogTitle className="text-xl font-bold text-white">
+                Accept Applicant?
+              </AlertDialogTitle>
+
+              <AlertDialogDescription asChild>
+                <div className="text-slate-400 text-sm mt-1">
+                  <p>
+                    You&apos;re about to confirm{" "}
+                    <span className="font-semibold text-white">{pendingAccept?.applicantName}</span>{" "}
+                    for this job.
+                  </p>
+
+                  <div className="mt-4 space-y-2 text-left">
+                    {[
+                      "This applicant will be marked as accepted",
+                      "All other applications will be automatically rejected",
+                      "A conversation will be opened with the applicant",
+                    ].map((item) => (
+                      <div key={item} className="flex items-start gap-2.5">
+                        <div className="mt-0.5 h-4 w-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+                          <Check className="h-2.5 w-2.5 text-emerald-400" />
+                        </div>
+                        <span className="text-slate-300 text-xs leading-relaxed">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <AlertDialogFooter className="mt-6 gap-3 sm:gap-3">
+              <AlertDialogCancel
+                disabled={!!actionLoading}
+                className="flex-1 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-600"
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleAcceptApplicant}
+                disabled={!!actionLoading}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white border-0 shadow-lg shadow-emerald-900/40 font-semibold"
+              >
+                {actionLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Accepting…
+                  </>
+                ) : (
+                  "Confirm Applicant"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
 

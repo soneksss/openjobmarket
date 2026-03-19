@@ -84,6 +84,28 @@ export default function ConversationPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // Real-time: keep job status badge in sync with DB changes
+  useEffect(() => {
+    if (!jobContext?.id) return
+    const channel = supabase
+      .channel(`job-status-${jobContext.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'jobs',
+        filter: `id=eq.${jobContext.id}`,
+      }, (payload) => {
+        const updated = payload.new as any
+        setJobContext(prev => prev ? {
+          ...prev,
+          status: updated.status ?? prev.status,
+          matching_status: updated.matching_status ?? prev.matching_status,
+        } : null)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [jobContext?.id])
+
   // Prefill message on first open when navigated from a job context
   useEffect(() => {
     if (prefillApplied.current) return
@@ -278,6 +300,7 @@ export default function ConversationPage() {
       let displayName = 'Deleted User'
       let photoUrl: string | undefined = undefined
       let otherUserType: string | null = null
+      let profileUrl: string | null = null
 
       try {
         const { data: userData, error: userDataError } = await supabase
@@ -315,7 +338,7 @@ export default function ConversationPage() {
               console.log('[CONVERSATION] Step 13a: Fetching company profile...')
               const { data: compData } = await supabase
                 .from('company_profiles')
-                .select('company_name, logo_url')
+                .select('id, company_name, logo_url')
                 .eq('user_id', determinedOtherId)
                 .maybeSingle()
 
@@ -323,12 +346,13 @@ export default function ConversationPage() {
               if (compData) {
                 displayName = compData.company_name || displayName
                 photoUrl = compData.logo_url || photoUrl
+                profileUrl = `/companies/${compData.id}`
               }
             } else if (userData.user_type === 'homeowner') {
               console.log('[CONVERSATION] Step 13a: Fetching homeowner profile...')
               const { data: homeownerData } = await supabase
                 .from('homeowner_profiles')
-                .select('first_name, last_name, profile_photo_url')
+                .select('id, first_name, last_name, profile_photo_url')
                 .eq('user_id', determinedOtherId)
                 .maybeSingle()
 
@@ -337,12 +361,13 @@ export default function ConversationPage() {
                 const fullName = [homeownerData.first_name, homeownerData.last_name].filter(Boolean).join(' ')
                 displayName = fullName || displayName
                 photoUrl = homeownerData.profile_photo_url || photoUrl
+                profileUrl = `/homeowners/${homeownerData.id}`
               }
             } else if (userData.user_type === 'contractor') {
               console.log('[CONVERSATION] Step 13a: Fetching contractor profile...')
               const { data: contractorData } = await supabase
                 .from('contractor_profiles')
-                .select('company_name, profile_photo_url')
+                .select('id, company_name, profile_photo_url')
                 .eq('user_id', determinedOtherId)
                 .maybeSingle()
 
@@ -350,6 +375,7 @@ export default function ConversationPage() {
               if (contractorData) {
                 displayName = contractorData.company_name || displayName
                 photoUrl = contractorData.profile_photo_url || photoUrl
+                profileUrl = `/contractors/${contractorData.id}`
               }
             }
           } catch (profileError) {
@@ -369,7 +395,8 @@ export default function ConversationPage() {
         id: determinedOtherId,
         name: displayName,
         profile_photo_url: photoUrl,
-        user_type: otherUserType
+        user_type: otherUserType,
+        profile_url: profileUrl,
       })
       console.log('[CONVERSATION] Step 14: Other user state set:', displayName)
 
@@ -664,16 +691,33 @@ export default function ConversationPage() {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
-            <Avatar className="h-9 w-9 border border-slate-600 flex-shrink-0">
-              <AvatarImage src={otherUser?.profile_photo_url} />
-              <AvatarFallback className="bg-slate-700 text-slate-300">
-                <User className="h-4 w-4" />
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-white text-sm">{otherUser?.name || 'Unknown User'}</span>
-              <StatusDot lastSeenAt={otherUserLastSeen} />
-            </div>
+            {otherUser?.profile_url ? (
+              <Link href={otherUser.profile_url} className="flex items-center gap-2 group">
+                <Avatar className="h-9 w-9 border border-slate-600 flex-shrink-0 group-hover:ring-2 group-hover:ring-emerald-500/50 transition-all">
+                  <AvatarImage src={otherUser?.profile_photo_url} />
+                  <AvatarFallback className="bg-slate-700 text-slate-300">
+                    <User className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-white text-sm group-hover:text-emerald-400 transition-colors">{otherUser?.name || 'Unknown User'}</span>
+                  <StatusDot lastSeenAt={otherUserLastSeen} />
+                </div>
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Avatar className="h-9 w-9 border border-slate-600 flex-shrink-0">
+                  <AvatarImage src={otherUser?.profile_photo_url} />
+                  <AvatarFallback className="bg-slate-700 text-slate-300">
+                    <User className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium text-white text-sm">{otherUser?.name || 'Unknown User'}</span>
+                  <StatusDot lastSeenAt={otherUserLastSeen} />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Job Context Header */}

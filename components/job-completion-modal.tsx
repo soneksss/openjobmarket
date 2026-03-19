@@ -1,11 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Star, AlertTriangle, CheckCircle, PartyPopper } from "lucide-react"
+import { Star, AlertTriangle, CheckCircle, PartyPopper, X } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
 
@@ -30,62 +26,45 @@ export function JobCompletionModal({
 }: JobCompletionModalProps) {
   const router = useRouter()
   const supabase = createClient()
-  const [rating, setRating] = useState<number>(0)
-  const [hoverRating, setHoverRating] = useState<number>(0)
-  const [reviewText, setReviewText] = useState<string>("")
-  const [loading, setLoading] = useState<boolean>(false)
+  const [rating, setRating] = useState(0)
+  const [hoverRating, setHoverRating] = useState(0)
+  const [reviewText, setReviewText] = useState("")
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<boolean>(false)
-  const [step, setStep] = useState<'confirm' | 'review'>('confirm')
-  const [reviewerType, setReviewerType] = useState<'homeowner' | 'company' | 'contractor' | 'professional'>('homeowner')
+  const [success, setSuccess] = useState(false)
+  const [step, setStep] = useState<"confirm" | "review">("confirm")
+  const [reviewerType, setReviewerType] = useState<"homeowner" | "company" | "contractor" | "professional">("homeowner")
 
-  // Get current user's type when modal opens
   useEffect(() => {
-    if (isOpen) {
-      getUserType()
-    }
+    if (isOpen) getUserType()
   }, [isOpen])
 
   const getUserType = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data: userData } = await supabase
-          .from("users")
-          .select("user_type")
-          .eq("id", user.id)
-          .single()
-
-        if (userData?.user_type) {
-          setReviewerType(userData.user_type as 'homeowner' | 'company' | 'contractor' | 'professional')
-        }
+        const { data } = await supabase.from("users").select("user_type").eq("id", user.id).single()
+        if (data?.user_type) setReviewerType(data.user_type as typeof reviewerType)
       }
-    } catch (error) {
-      console.error("Error getting user type:", error)
-    }
+    } catch {}
   }
 
   const handleMarkComplete = async () => {
     setLoading(true)
     setError(null)
-
     try {
-      // Mark job as completed
       const { error: jobError } = await supabase
         .from("jobs")
         .update({
           completed_at: new Date().toISOString(),
-          completion_status: 'completed',
-          status: 'completed', // Update job lifecycle status
+          completion_status: "completed",
+          status: "COMPLETED",
         })
         .eq("id", jobId)
 
       if (jobError) throw jobError
-
-      // Move to review step
-      setStep('review')
+      setStep("review")
     } catch (err: any) {
-      console.error("Error marking job as complete:", err)
       setError(err.message || "Failed to mark job as complete. Please try again.")
     } finally {
       setLoading(false)
@@ -93,133 +72,133 @@ export function JobCompletionModal({
   }
 
   const handleSubmitReview = async () => {
-    if (rating === 0) {
-      setError("Please select a star rating")
-      return
-    }
+    if (rating === 0) { setError("Please select a star rating"); return }
 
     setLoading(true)
     setError(null)
-
     try {
-      // Submit review via API using new job-based system
       const response = await fetch("/api/reviews", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          jobId: jobId,
+          jobId,
           reviewedUserId: contractorId,
-          reviewedUserType: 'contractor', // Contractor is being reviewed
-          reviewerType: reviewerType, // Current user's type (homeowner/company)
+          reviewedUserType: "contractor",
+          reviewerType,
           rating,
           comment: reviewText.trim(),
         }),
       })
 
       const data = await response.json()
-
       if (!response.ok) {
-        if (data.details && Array.isArray(data.details)) {
-          setError(data.details.join(" "))
-        } else {
-          setError(data.error || "Failed to submit review")
-        }
+        setError(Array.isArray(data.details) ? data.details.join(" ") : data.error || "Failed to submit review")
         return
       }
 
       setSuccess(true)
       setTimeout(() => {
         router.refresh()
-        onClose()
-        // Reset form
-        setRating(0)
-        setReviewText("")
-        setSuccess(false)
-        setStep('confirm')
+        handleClose()
       }, 2000)
-    } catch (err) {
-      console.error("Error submitting review:", err)
+    } catch {
       setError("An unexpected error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleSkipReview = () => {
-    router.refresh()
-    onClose()
+  const handleClose = () => {
+    if (loading) return
     setRating(0)
+    setHoverRating(0)
     setReviewText("")
-    setStep('confirm')
+    setError(null)
+    setSuccess(false)
+    setStep("confirm")
+    onClose()
   }
 
-  const handleClose = () => {
-    if (!loading) {
-      setRating(0)
-      setHoverRating(0)
-      setReviewText("")
-      setError(null)
-      setSuccess(false)
-      setStep('confirm')
-      onClose()
-    }
-  }
+  if (!isOpen) return null
+
+  const ratingLabel = ["", "Poor", "Fair", "Good", "Very Good", "Excellent"][rating] ?? ""
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        {step === 'confirm' ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+        {/* Accent bar */}
+        <div className={`h-1 w-full ${step === "review" && success ? "bg-gradient-to-r from-emerald-500 to-emerald-400" : "bg-gradient-to-r from-emerald-500 to-emerald-400"}`} />
+
+        {/* Close button */}
+        <button
+          onClick={handleClose}
+          disabled={loading}
+          className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors disabled:opacity-40"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {step === "confirm" ? (
           <>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <PartyPopper className="h-5 w-5 text-green-600" />
-                Mark Job as Completed?
-              </DialogTitle>
-              <DialogDescription>
-                Are you sure you want to mark "<strong>{jobTitle}</strong>" as completed?
-                <br />
-                <br />
-                This will:
-                <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                  <li>Close the job posting</li>
-                  <li>Finalize the work with {contractorName}</li>
-                  <li>Allow you to leave a review</li>
-                </ul>
-              </DialogDescription>
-            </DialogHeader>
+            <div className="px-6 pt-6 pb-4 text-center">
+              <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                <PartyPopper className="h-7 w-7 text-emerald-400" />
+              </div>
+              <p className="text-lg font-bold text-white mb-1">Mark Job as Completed?</p>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                You&apos;re about to mark <span className="text-white font-medium">&ldquo;{jobTitle}&rdquo;</span> as completed
+                with <span className="text-white font-medium">{contractorName}</span>.
+              </p>
+              <div className="mt-4 space-y-2 text-left">
+                {["Closes the job posting", `Finalises the work with ${contractorName}`, "Lets you leave a review"].map((item) => (
+                  <div key={item} className="flex items-center gap-2.5 text-xs text-slate-300">
+                    <div className="h-4 w-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="h-2.5 w-2.5 text-emerald-400" />
+                    </div>
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </div>
 
             {error && (
-              <Alert className="border-red-200 bg-red-50">
-                <AlertTriangle className="h-4 w-4 text-red-600" />
-                <AlertDescription className="text-red-800">{error}</AlertDescription>
-              </Alert>
+              <div className="mx-6 mb-3 flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-400">
+                <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                {error}
+              </div>
             )}
 
-            <DialogFooter>
-              <Button variant="outline" onClick={handleClose} disabled={loading}>
+            <div className="flex gap-2 px-6 pb-6">
+              <button
+                onClick={handleClose}
+                disabled={loading}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 transition-colors disabled:opacity-40"
+              >
                 Cancel
-              </Button>
-              <Button onClick={handleMarkComplete} disabled={loading} className="bg-green-600 hover:bg-green-700">
-                {loading ? "Processing..." : "Yes, Mark as Completed"}
-              </Button>
-            </DialogFooter>
+              </button>
+              <button
+                onClick={handleMarkComplete}
+                disabled={loading}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {loading ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Completing…</>
+                ) : "Yes, Mark as Completed"}
+              </button>
+            </div>
           </>
         ) : (
           <>
-            <DialogHeader>
-              <DialogTitle>Leave a Review for {contractorName}</DialogTitle>
-              <DialogDescription>
-                Help others by sharing your experience working with this tradesperson
-              </DialogDescription>
-            </DialogHeader>
+            <div className="px-6 pt-6 pb-2">
+              <p className="text-lg font-bold text-white">Rate {contractorName}</p>
+              <p className="text-sm text-slate-400 mt-0.5">Help others by sharing your experience</p>
+            </div>
 
-            <div className="space-y-6 py-4">
-              {/* Star Rating */}
+            <div className="px-6 py-4 space-y-5">
+              {/* Stars */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Rating *</label>
-                <div className="flex items-center space-x-2">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Rating *</label>
+                <div className="flex items-center gap-1">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button
                       key={star}
@@ -227,82 +206,81 @@ export function JobCompletionModal({
                       onClick={() => setRating(star)}
                       onMouseEnter={() => setHoverRating(star)}
                       onMouseLeave={() => setHoverRating(0)}
-                      className="transition-transform hover:scale-110 focus:outline-none"
                       disabled={loading || success}
+                      className="transition-transform hover:scale-110 focus:outline-none disabled:opacity-50"
                     >
                       <Star
-                        className={`w-10 h-10 ${
+                        className={`w-9 h-9 transition-colors ${
                           (hoverRating || rating) >= star
                             ? "fill-yellow-400 text-yellow-400"
-                            : "fill-gray-200 text-gray-200"
-                        } transition-colors`}
+                            : "fill-slate-700 text-slate-700"
+                        }`}
                       />
                     </button>
                   ))}
                   {rating > 0 && (
-                    <span className="text-sm text-muted-foreground ml-2">
-                      {rating === 1 && "Poor"}
-                      {rating === 2 && "Fair"}
-                      {rating === 3 && "Good"}
-                      {rating === 4 && "Very Good"}
-                      {rating === 5 && "Excellent"}
-                    </span>
+                    <span className="ml-2 text-sm font-semibold text-yellow-400">{ratingLabel}</span>
                   )}
                 </div>
               </div>
 
-              {/* Review Text */}
-              <div className="space-y-2">
-                <label htmlFor="reviewText" className="text-sm font-medium">
-                  Review (Optional)
-                </label>
-                <Textarea
-                  id="reviewText"
-                  placeholder="Tell others about your experience... (minimum 10 characters)"
+              {/* Review text */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Review (optional)</label>
+                <textarea
                   value={reviewText}
                   onChange={(e) => setReviewText(e.target.value)}
+                  placeholder="Tell others about your experience… (min 10 characters)"
                   disabled={loading || success}
-                  rows={5}
+                  rows={4}
                   maxLength={1000}
-                  className="resize-none shadow-sm"
+                  className="w-full bg-slate-800 border border-slate-700 text-white placeholder:text-slate-500 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 resize-none disabled:opacity-50"
                 />
-                <div className="flex justify-between text-xs text-muted-foreground">
+                <div className="flex justify-between text-xs text-slate-500">
                   <span>
                     {reviewText.length > 0 && reviewText.length < 10 && "Minimum 10 characters"}
-                    {reviewText.length >= 10 && "Looking good!"}
+                    {reviewText.length >= 10 && <span className="text-emerald-400">Looks good!</span>}
                   </span>
                   <span>{reviewText.length}/1000</span>
                 </div>
               </div>
 
-              {/* Error Alert */}
               {error && (
-                <Alert className="border-red-200 bg-red-50">
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-red-800">{error}</AlertDescription>
-                </Alert>
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-xs text-red-400">
+                  <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                  {error}
+                </div>
               )}
 
-              {/* Success Alert */}
               {success && (
-                <Alert className="border-green-200 bg-green-50">
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                  <AlertDescription className="text-green-800">Review submitted successfully!</AlertDescription>
-                </Alert>
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-xs text-emerald-400">
+                  <CheckCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  Review submitted successfully!
+                </div>
               )}
             </div>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button variant="ghost" onClick={handleSkipReview} disabled={loading || success} className="w-full sm:w-auto">
-                Skip for Now
-              </Button>
-              <Button onClick={handleSubmitReview} disabled={loading || success || rating === 0} className="w-full sm:w-auto">
-                {loading ? "Submitting..." : "Submit Review"}
-              </Button>
-            </DialogFooter>
+            <div className="flex gap-2 px-6 pb-6">
+              <button
+                onClick={() => { router.refresh(); handleClose() }}
+                disabled={loading || success}
+                className="py-2.5 px-4 rounded-xl text-sm font-semibold text-slate-400 hover:text-white transition-colors disabled:opacity-40"
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleSubmitReview}
+                disabled={loading || success || rating === 0}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
+              >
+                {loading ? (
+                  <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Submitting…</>
+                ) : success ? "Submitted!" : "Submit Review"}
+              </button>
+            </div>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   )
 }

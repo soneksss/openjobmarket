@@ -24,7 +24,9 @@ const CLOSED_STATUSES = new Set(["closed", "filled", "expired", "cancelled", "co
 function isClosed(job: any): boolean {
   if (!job.is_active) return true
   const s = (job.status ?? "").toLowerCase()
-  return CLOSED_STATUSES.has(s)
+  if (CLOSED_STATUSES.has(s)) return true
+  if (job.completion_status === "completed") return true
+  return false
 }
 
 export default async function HomeownerJobsPage({
@@ -47,7 +49,7 @@ export default async function HomeownerJobsPage({
 
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("id, title, location, is_active, created_at, applications_count, views_count, status, expires_at")
+    .select("id, title, location, is_active, created_at, applications_count, views_count, status, completion_status, expires_at")
     .eq("homeowner_id", hp.id)
     .order("created_at", { ascending: false })
 
@@ -64,13 +66,20 @@ export default async function HomeownerJobsPage({
 
   // ── Status config ─────────────────────────────────────────────────────────
   function getStatusConfig(job: any) {
+    const dbStatus = (job.status ?? "").toUpperCase()
+    const isCompleted = dbStatus === "COMPLETED" || job.completion_status === "completed"
+    if (isCompleted) return {
+      label: "Completed",
+      sub: "Job finished",
+      badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+      icon: <CheckCircle2 className="h-4 w-4 text-emerald-400" />,
+    }
     if (isClosed(job)) return {
       label: "Closed",
       sub: "No longer visible to tradespeople",
       badge: "bg-slate-700/60 text-slate-400 border-slate-600/50",
       icon: <XCircle className="h-4 w-4 text-slate-500" />,
     }
-    const dbStatus = (job.status ?? "").toUpperCase()
     if (dbStatus === "CONFIRMED") return {
       label: "Confirmed",
       sub: "Tradesperson selected",
@@ -97,6 +106,7 @@ export default async function HomeownerJobsPage({
 
       {/* ── Header ── */}
       <div className="bg-slate-800 border-b border-slate-700/50">
+        <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 px-4 py-4">
           <Link
             href="/dashboard/homeowner"
@@ -135,9 +145,11 @@ export default async function HomeownerJobsPage({
             History{closedJobs.length > 0 && ` (${closedJobs.length})`}
           </Link>
         </div>
+        </div>{/* /max-w-2xl */}
       </div>
 
       {/* ── Job list ── */}
+      <div className="max-w-2xl mx-auto">
       {allJobs.length === 0 ? (
         <div className="mx-4 mt-8 bg-slate-800/80 border border-slate-700/50 rounded-2xl p-8 text-center">
           <Briefcase className="h-12 w-12 mx-auto mb-3 text-slate-600" />
@@ -268,6 +280,7 @@ export default async function HomeownerJobsPage({
           })}
         </div>
       )}
+      </div>{/* /max-w-2xl */}
     </div>
   )
 }

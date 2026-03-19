@@ -35,7 +35,7 @@ import {
   TrendingUp
 } from "lucide-react"
 import { createClient } from "@/lib/client"
-import { signOut } from "@/lib/actions"
+import { manualLogout } from "@/hooks/use-auto-logout"
 import { useTranslation } from "@/lib/i18n/context"
 import { usePathname, useRouter } from "next/navigation"
 
@@ -407,18 +407,7 @@ export function AccountDashboard({ user, userType, profileData }: AccountDashboa
   }
 
   const handleSignOut = async () => {
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.clear()
-        sessionStorage.clear()
-      }
-      await signOut()
-    } catch (error) {
-      console.error('[ACCOUNT] Sign out error:', error)
-      if (typeof window !== 'undefined') {
-        window.location.href = '/'
-      }
-    }
+    await manualLogout()
   }
 
   // Build profile display name

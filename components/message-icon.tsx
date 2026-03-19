@@ -1,406 +1,80 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { MessageCircle, User, Clock, X } from "lucide-react"
+import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { createClient } from "@/lib/client"
-import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
-
-interface Message {
-  id: string
-  subject: string
-  content: string
-  created_at: string
-  is_read: boolean
-  sender_id: string
-  recipient_id: string
-  conversation_id?: string
-  sender?: {
-    full_name?: string
-    nickname?: string
-    profile_photo_url?: string
-  }
-}
-
-interface Conversation {
-  id: string
-  other_user: {
-    id: string
-    name: string
-    profile_photo_url?: string
-  }
-  last_message: {
-    content: string
-    created_at: string
-    is_read: boolean
-    sender_id: string
-  }
-  unread_count: number
-}
+import { useRouter } from "next/navigation"
 
 interface MessageIconProps {
   user: any
+  iconClassName?: string
 }
 
-export function MessageIcon({ user }: MessageIconProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [loading, setLoading] = useState(false)
+export function MessageIcon({ user, iconClassName }: MessageIconProps) {
   const router = useRouter()
-  const pathname = usePathname()
+  const [unreadCount, setUnreadCount] = useState(0)
   const supabase = createClient()
 
   useEffect(() => {
-    if (pathname?.startsWith('/messages')) return
-
-    if (user?.id) {
-      fetchConversations()
-
-      const subscription = supabase
-        .channel('messages_channel')
-        .on('postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient_id=eq.${user.id}` },
-          () => fetchConversations()
-        )
-        .subscribe()
-
-      const handleMessageSent = () => fetchConversations()
-
-      if (typeof window !== 'undefined') {
-        window.addEventListener('message-sent', handleMessageSent)
-      }
-
-      return () => {
-        subscription.unsubscribe()
-        if (typeof window !== 'undefined') {
-          window.removeEventListener('message-sent', handleMessageSent)
-        }
-      }
-    }
-  }, [user?.id, pathname])
-
-  const fetchConversations = async () => {
     if (!user?.id) return
 
-    setLoading(true)
-    try {
-      // Add timeout protection - reduced to 5 seconds for faster response
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => {
-        controller.abort()
-      }, 5000)
+    let intervalId: ReturnType<typeof setInterval> | null = null
 
-      // Fetch recent messages where user is sender or recipient (limit to last 100 for performance)
-      const { data: messages, error } = await supabase
-        .from("messages")
-        .select(`
-          id,
-          subject,
-          content,
-          created_at,
-          is_read,
-          sender_id,
-          recipient_id,
-          conversation_id
-        `)
-        .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
-        .order("created_at", { ascending: false })
-        .limit(100)
-        .abortSignal(controller.signal)
+    const fetchCount = async () => {
+      try {
+        const { count } = await supabase
+          .from("messages")
+          .select("*", { count: "exact", head: true })
+          .eq("recipient_id", user.id)
+          .eq("is_read", false)
 
-      clearTimeout(timeoutId)
-
-      if (error) {
-        setConversations([])
-        setUnreadCount(0)
-        setLoading(false)
-        return
+        setUnreadCount(count ?? 0)
+      } catch {
+        // silently ignore
       }
+    }
 
-      if (!messages || messages.length === 0) {
-        setConversations([])
-        setUnreadCount(0)
-        setLoading(false)
-        return
-      }
+    fetchCount()
+    intervalId = setInterval(fetchCount, 30_000)
 
-      // Group messages by conversation partner
-      const conversationMap = new Map<string, {
-        messages: typeof messages,
-        other_user_id: string
-      }>()
+    // Also refresh when a message is sent (dispatched from the chat component)
+    const onSent = () => fetchCount()
+    window.addEventListener("message-sent", onSent)
 
-      for (const message of messages || []) {
-        const other_user_id = message.sender_id === user.id ? message.recipient_id : message.sender_id
-
-        if (!conversationMap.has(other_user_id)) {
-          conversationMap.set(other_user_id, {
-            messages: [],
-            other_user_id
-          })
-        }
-
-        conversationMap.get(other_user_id)!.messages.push(message)
-      }
-
-      // OPTIMIZATION: Batch fetch all user IDs at once instead of one by one (fixes N+1 query problem)
-      const userIds = Array.from(conversationMap.keys()).filter(id => id && id !== 'undefined' && id !== 'null')
-
-      if (userIds.length === 0) {
-        setConversations([])
-        setUnreadCount(0)
-        return
-      }
-
-      // Fetch all conversation partner users in one query
-      const { data: users } = await supabase
-        .from("users")
-        .select("id, user_type, full_name, nickname, profile_photo_url, email")
-        .in("id", userIds)
-
-      const usersMap = new Map(users?.map(u => [u.id, u]) || [])
-
-      // Fetch company profiles for company-type users
-      const companyIds = users?.filter(u => u.user_type === 'company').map(u => u.id) || []
-      const { data: companyProfiles } = companyIds.length > 0
-        ? await supabase
-            .from('company_profiles')
-            .select('user_id, company_name, logo_url')
-            .in('user_id', companyIds)
-        : { data: [] }
-
-      const compProfilesMap = new Map(companyProfiles?.map(c => [c.user_id, c]) || [])
-
-      // Now process all conversations with cached data (no more queries)
-      const conversationsData: Conversation[] = []
-      let totalUnread = 0
-
-      for (const [otherUserId, convData] of conversationMap) {
-        const otherUser = usersMap.get(otherUserId)
-        if (!otherUser) {
-          // User may have deleted their account - skip this conversation
-          continue
-        }
-
-        let displayName = otherUser.nickname || otherUser.full_name || otherUser.email || 'Unknown User'
-        let photoUrl = otherUser.profile_photo_url
-
-        // Get profile-specific data from cached maps
-        if (otherUser.user_type === 'company') {
-          const compData = compProfilesMap.get(otherUserId)
-          if (compData) {
-            displayName = compData.company_name || displayName
-            photoUrl = compData.logo_url || photoUrl
-          }
-        }
-
-        const lastMessage = convData.messages[0] // Most recent message
-        const unreadMessages = convData.messages.filter(
-          msg => msg.recipient_id === user.id && !msg.is_read
-        )
-        const unreadCount = unreadMessages.length
-
-        totalUnread += unreadCount
-
-        conversationsData.push({
-          id: otherUserId,
-          other_user: {
-            id: otherUserId,
-            name: displayName,
-            profile_photo_url: photoUrl
-          },
-          last_message: {
-            content: lastMessage.content,
-            created_at: lastMessage.created_at,
-            is_read: lastMessage.is_read,
-            sender_id: lastMessage.sender_id
-          },
-          unread_count: unreadCount
-        })
-      }
-
-      // Sort by last message time
-      conversationsData.sort((a, b) =>
-        new Date(b.last_message.created_at).getTime() - new Date(a.last_message.created_at).getTime()
+    // Realtime: new incoming message
+    const channel = supabase
+      .channel(`msg-badge-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${user.id}` },
+        () => fetchCount()
       )
+      .subscribe()
 
-      setConversations(conversationsData)
-      setUnreadCount(totalUnread)
-    } catch (error: any) {
-      if (error?.name !== 'AbortError') {
-        console.error("[MESSAGE-ICON] Error fetching conversations:", error)
-      }
-      setConversations([])
-      setUnreadCount(0)
-    } finally {
-      setLoading(false)
+    return () => {
+      if (intervalId) clearInterval(intervalId)
+      window.removeEventListener("message-sent", onSent)
+      supabase.removeChannel(channel)
     }
-  }
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60)
-
-    if (diffInHours < 1) {
-      return "Just now"
-    } else if (diffInHours < 24) {
-      return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    } else if (diffInHours < 168) {
-      return date.toLocaleDateString([], { weekday: "short" })
-    } else {
-      return date.toLocaleDateString([], { month: "short", day: "numeric" })
-    }
-  }
-
-  const handleConversationClick = (otherUserId: string) => {
-    setIsOpen(false)
-    router.push(`/messages?with=${otherUserId}`)
-  }
+  }, [user?.id])
 
   if (!user) return null
 
   return (
-    <div className="relative">
-      <Button
-        variant="ghost"
-        size="sm"
-        className="relative p-2"
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        <MessageCircle className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <Badge
-            variant="destructive"
-            className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs min-w-[20px]"
-          >
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </Badge>
-        )}
-      </Button>
-
-      {isOpen && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-
-          {/* Messages Dropdown */}
-          <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:top-full mt-2 sm:w-80 bg-white rounded-lg shadow-lg border z-50">
-            <div className="p-4 border-b">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-lg">Messages</h3>
-                  <p className="text-xs text-gray-500">
-                    {conversations.length} conversations, {unreadCount} unread
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-blue-600 hover:text-blue-700"
-                    onClick={() => {
-                      setIsOpen(false)
-                      router.push('/messages')
-                    }}
-                  >
-                    See all
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <ScrollArea className="max-h-96">
-              {loading ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  Loading conversations...
-                </div>
-              ) : conversations.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm">No messages yet</p>
-                  <p className="text-xs">Start a conversation!</p>
-                </div>
-              ) : (
-                <div className="py-2">
-                  {conversations.slice(0, 8).map((conversation) => (
-                    <div
-                      key={conversation.id}
-                      className="flex items-start p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                      onClick={() => handleConversationClick(conversation.other_user.id)}
-                    >
-                      <Avatar className="h-10 w-10 mr-3">
-                        {conversation.other_user.profile_photo_url ? (
-                          <AvatarImage src={conversation.other_user.profile_photo_url} />
-                        ) : null}
-                        <AvatarFallback>
-                          <User className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="font-medium text-sm truncate">
-                            {conversation.other_user.name}
-                          </p>
-                          <div className="flex items-center gap-1">
-                            {conversation.unread_count > 0 && (
-                              <div className="w-2 h-2 bg-red-500 rounded-full" />
-                            )}
-                            <span className="text-xs text-muted-foreground">
-                              {formatDate(conversation.last_message.created_at)}
-                            </span>
-                          </div>
-                        </div>
-
-                        <p className={`text-sm text-muted-foreground line-clamp-2 ${
-                          conversation.unread_count > 0 && conversation.last_message.sender_id !== user.id
-                            ? 'font-medium text-gray-900'
-                            : ''
-                        }`}>
-                          {conversation.last_message.sender_id === user.id ? 'You: ' : ''}
-                          {conversation.last_message.content}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
-
-            {conversations.length > 8 && (
-              <div className="p-3 border-t">
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  size="sm"
-                  onClick={() => {
-                    setIsOpen(false)
-                    router.push('/messages')
-                  }}
-                >
-                  View all {conversations.length} conversations
-                </Button>
-              </div>
-            )}
-          </div>
-        </>
+    <Button
+      variant="ghost"
+      size="icon"
+      className={`relative ${iconClassName ? "h-auto w-auto p-1" : ""}`}
+      onClick={() => router.push("/messages")}
+      aria-label="Messages"
+    >
+      <MessageCircle className={`h-5 w-5 ${iconClassName ?? ""}`} />
+      {unreadCount > 0 && (
+        <span className="absolute -top-1 -right-1 h-4 w-4 min-w-[16px] rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center leading-none">
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </span>
       )}
-    </div>
+    </Button>
   )
 }

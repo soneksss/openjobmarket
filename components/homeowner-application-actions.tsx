@@ -4,7 +4,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
-import { CheckCircle, XCircle } from "lucide-react"
+import { CheckCircle, XCircle, UserCheck, Check, MessageCircle } from "lucide-react"
+import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -28,6 +29,7 @@ interface HomeownerApplicationActionsProps {
   jobTitle?: string
   jobBudget?: string // Budget display string (e.g., "£500 - £1000")
   homeownerUserId?: string // The homeowner's user_id for sending messages
+  contractorUserId?: string | null // The tradesperson's auth user_id for messaging
 }
 
 export function HomeownerApplicationActions({
@@ -41,6 +43,7 @@ export function HomeownerApplicationActions({
   jobTitle,
   jobBudget,
   homeownerUserId,
+  contractorUserId,
 }: HomeownerApplicationActionsProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -143,24 +146,12 @@ export function HomeownerApplicationActions({
 
       console.log("[HOMEOWNER-ACTIONS] Acceptance successful, opening messages...")
 
-      // Use setTimeout to ensure toast is visible before navigation
+      // Refresh the current page so the confirmed state renders correctly,
+      // then navigate to messages after a short delay
+      router.refresh()
       setTimeout(() => {
-        try {
-          if (contractorData?.user_id) {
-            router.push(`/messages/${contractorData.user_id}`)
-          } else {
-            // Fallback to refresh if we can't get user_id
-            console.error("[HOMEOWNER-ACTIONS] No user_id found for contractor")
-            router.refresh()
-          }
-        } catch (pushError) {
-          console.error("[HOMEOWNER-ACTIONS] Router push failed:", pushError)
-          // Fallback to direct navigation
-          if (contractorData?.user_id) {
-            window.location.href = `/messages/${contractorData.user_id}`
-          } else {
-            window.location.reload()
-          }
+        if (contractorData?.user_id) {
+          router.push(`/messages/${contractorData.user_id}`)
         }
       }, 1500)
     } catch (error: any) {
@@ -193,7 +184,7 @@ export function HomeownerApplicationActions({
     try {
       const { error } = await supabase
         .from("job_applications")
-        .update({ status: "rejected" })
+        .update({ status: "REJECTED" })
         .eq("id", applicationId)
 
       if (error) {
@@ -244,8 +235,36 @@ export function HomeownerApplicationActions({
   }
 
   // Don't show accept/reject buttons if already accepted/rejected or if another contractor is accepted
-  if (currentStatus === "accepted" || currentStatus === "rejected") {
+  const statusLower = currentStatus?.toLowerCase()
+  if (statusLower === "accepted" || statusLower === "rejected" ||
+      statusLower === "auto_cancelled" || statusLower === "withdrawn") {
     return null
+  }
+
+  // This contractor was confirmed — show arrange-visit CTA
+  if (isThisContractorAccepted) {
+    return (
+      <div className="mt-1 space-y-2">
+        <p className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+          <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+          Confirmed — Arrange visit
+        </p>
+        <p className="text-xs text-slate-400">
+          You&apos;ve accepted this tradesperson. Arrange time and details.
+        </p>
+        <div className="flex flex-wrap gap-2 pt-0.5">
+          {contractorUserId && (
+            <Link
+              href={`/messages/${contractorUserId}`}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              Message tradesperson
+            </Link>
+          )}
+        </div>
+      </div>
+    )
   }
 
   if (isJobAlreadyAccepted && !isThisContractorAccepted) {
@@ -280,31 +299,63 @@ export function HomeownerApplicationActions({
 
       {/* Accept Confirmation Dialog */}
       <AlertDialog open={showAcceptDialog} onOpenChange={setShowAcceptDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Accept Contractor?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div>
-                <span>Are you sure you want to accept <strong>{contractorName}</strong> for this job?</span>
-                <div className="mt-3">This will:</div>
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li>Mark this contractor as accepted</li>
-                  <li>Automatically reject all other applications</li>
-                  <li>Allow you to mark the job as completed once work is done</li>
-                </ul>
+        <AlertDialogContent className="bg-slate-900 border border-slate-700 text-white shadow-2xl shadow-black/60 max-w-md p-0 overflow-hidden">
+          {/* Top accent bar */}
+          <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
+
+          <div className="p-6">
+            <AlertDialogHeader className="items-center text-center sm:text-center">
+              {/* Icon */}
+              <div className="mx-auto mb-4 h-14 w-14 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+                <UserCheck className="h-7 w-7 text-emerald-400" />
               </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleAccept}
-              disabled={loading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {loading ? "Accepting..." : "Yes, Accept Contractor"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
+
+              <AlertDialogTitle className="text-xl font-bold text-white">
+                Accept Contractor?
+              </AlertDialogTitle>
+
+              <AlertDialogDescription asChild>
+                <div className="text-slate-400 text-sm mt-1">
+                  <p>
+                    You&apos;re about to confirm{" "}
+                    <span className="font-semibold text-white">{contractorName}</span>{" "}
+                    for this job.
+                  </p>
+
+                  <div className="mt-4 space-y-2 text-left">
+                    {[
+                      "This contractor will be marked as accepted",
+                      "All other applications will be automatically rejected",
+                      "You can mark the job as completed once the work is done",
+                    ].map((item) => (
+                      <div key={item} className="flex items-start gap-2.5">
+                        <div className="mt-0.5 h-4 w-4 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center flex-shrink-0">
+                          <Check className="h-2.5 w-2.5 text-emerald-400" />
+                        </div>
+                        <span className="text-slate-300 text-xs leading-relaxed">{item}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            <AlertDialogFooter className="mt-6 gap-3 sm:gap-3">
+              <AlertDialogCancel
+                disabled={loading}
+                className="flex-1 bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white hover:border-slate-600"
+              >
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleAccept}
+                disabled={loading}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white border-0 shadow-lg shadow-emerald-900/40 font-semibold"
+              >
+                {loading ? "Accepting…" : "Confirm Contractor"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
     </>

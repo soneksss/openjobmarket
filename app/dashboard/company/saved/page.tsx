@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { BookmarkIcon, MapPin, Briefcase, Building, Calendar, DollarSign, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { JobExpiryBadge } from "@/components/job-expiry-badge"
 
 export default async function CompanySavedJobsPage() {
   try {
@@ -251,6 +252,9 @@ export default async function CompanySavedJobsPage() {
 
                       {/* Badges */}
                       <div className="flex flex-wrap gap-1">
+                        {job.expires_at && new Date(job.expires_at) > new Date() && (
+                          <JobExpiryBadge expiresAt={job.expires_at} />
+                        )}
                         {job.is_tradespeople_job && (
                           <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30 text-[10px] px-1.5 py-0">
                             Trade Job
