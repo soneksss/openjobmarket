@@ -32,8 +32,11 @@ export const metadata: Metadata = {
   creator: "Open Job Market",
   publisher: "Open Job Market",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    icon: [
+      { url: "/Logo.png", type: "image/png" },
+    ],
+    apple: "/Logo.png",
+    shortcut: "/Logo.png",
   },
   robots: {
     index: true,
@@ -55,7 +58,7 @@ export const metadata: Metadata = {
     description: 'Connect homeowners with nearby plumbers, electricians, builders and more. Powered by location and availability.',
     images: [
       {
-        url: '/og-image.png',
+        url: '/Logo.png',
         width: 1200,
         height: 630,
         alt: 'Open Job Market',
@@ -66,7 +69,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Open Job Market - Find Local Tradespeople Fast',
     description: 'Connect homeowners with nearby plumbers, electricians, builders and more.',
-    images: ['/og-image.png'],
+    images: ['/Logo.png'],
   },
   alternates: {
     canonical: 'https://www.openjobmarket.com',

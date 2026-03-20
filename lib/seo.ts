@@ -22,7 +22,7 @@ export function generateSEO(config: SEOConfig): Metadata {
     path,
     locale = 'en',
     noindex = false,
-    image = `${baseUrl}/og-image.png`,
+    image = `${baseUrl}/Logo.png`,
     type = 'website',
   } = config
 
