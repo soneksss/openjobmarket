@@ -16,7 +16,6 @@ import { MessageIcon } from "@/components/message-icon"
 import { NotificationBell } from "@/components/notification-bell"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
-import { manualLogout } from "@/hooks/use-auto-logout"
 import { useEffect, useState } from "react"
 import { signOut } from "@/lib/actions"
 import { OnboardingFlow } from "./onboarding/OnboardingFlow"
@@ -219,7 +218,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
       onSignOut()
       return
     }
-    await manualLogout()
+    await signOut()
   }
 
   // Prioritize server user state, fall back to client user
