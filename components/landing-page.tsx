@@ -39,7 +39,11 @@ import { LocationInput } from "@/components/location-input"
 import { MainPageSearch } from "@/components/main-page-search"
 import ActivityTickerCard from "@/components/activity-ticker-card"
 import { industries, allSubcategories } from "@/lib/data/industries"
-import { ProfessionalMap } from "@/components/professional-map"
+import dynamic from "next/dynamic"
+const ProfessionalMap = dynamic(
+  () => import("@/components/professional-map").then(m => m.ProfessionalMap),
+  { ssr: false, loading: () => <div className="w-full h-full bg-slate-800 animate-pulse rounded-xl" /> }
+)
 import {
   Dialog,
   DialogContent,
@@ -616,14 +620,17 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
                     <span className="text-white block" style={{ fontSize: '32px', lineHeight: '1.15' }}>No lead fees.</span>
                   </>
                 ) : (
-                  <div
-                    className="relative w-[calc(100%+2rem)] md:w-full overflow-hidden h-[320px] -mx-4 md:mx-0 md:rounded-2xl"
-                    style={{
-                      backgroundImage: 'url(/Tradespeople.jpg)',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'top center',
-                    }}
-                  >
+                  <div className="relative w-[calc(100%+2rem)] md:w-full overflow-hidden h-[320px] -mx-4 md:mx-0 md:rounded-2xl">
+                    {/* LCP image — explicit <img> so browser can preload and optimise it */}
+                    <img
+                      src="/Tradespeople.jpg"
+                      alt=""
+                      aria-hidden="true"
+                      fetchPriority="high"
+                      loading="eager"
+                      decoding="async"
+                      className="absolute inset-0 w-full h-full object-cover object-top"
+                    />
                     {/* Top gradient — keeps feedback icons readable */}
                     <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent" />
                     {/* Bottom fade — blends into page bg (#0f172a) */}
@@ -834,6 +841,8 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
                   <img
                     src="/live_map.jpg"
                     alt="Live map of nearby trades"
+                    loading="lazy"
+                    decoding="async"
                     className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
 
@@ -888,6 +897,8 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
                     <img
                       src="/Trustpilot.png"
                       alt="Trustpilot reviews"
+                      loading="lazy"
+                      decoding="async"
                       className="h-8 sm:h-10 w-auto"
                     />
                   </a>
@@ -905,6 +916,8 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
                   <img
                     src="/live_map.jpg"
                     alt="Active trades near you on the map"
+                    loading="lazy"
+                    decoding="async"
                     className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60" />

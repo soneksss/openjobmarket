@@ -125,6 +125,11 @@ export default async function RootLayout({
     <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        {/* Preconnect to Supabase (profile images, storage) */}
+        <link rel="preconnect" href="https://mklxzrvhanlndkyeteog.supabase.co" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://mklxzrvhanlndkyeteog.supabase.co" />
+        {/* Preload LCP hero image — critical for homepage above-the-fold paint */}
+        <link rel="preload" as="image" href="/Tradespeople.jpg" fetchPriority="high" />
         {/* Organization schema */}
         <script
           type="application/ld+json"
