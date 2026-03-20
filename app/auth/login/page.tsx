@@ -9,11 +9,11 @@ export const dynamic = 'force-dynamic'
 export default async function LoginPage() {
   const supabase = await createClient()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
   // If user is logged in, redirect to dashboard
-  if (session) {
+  if (user) {
     redirect("/dashboard")
   }
 

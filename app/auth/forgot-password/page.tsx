@@ -6,11 +6,11 @@ export default async function ForgotPasswordPage() {
   // Check if user is already logged in
   const supabase = await createClient()
   const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    data: { user },
+  } = await supabase.auth.getUser()
 
   // If user is logged in, redirect to dashboard
-  if (session) {
+  if (user) {
     redirect("/dashboard")
   }
 

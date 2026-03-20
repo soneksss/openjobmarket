@@ -26,9 +26,9 @@ export function NotificationBell({ iconClassName }: { iconClassName?: string } =
     let channel: ReturnType<typeof supabase.channel> | null = null
 
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-      const uid = session.user.id
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const uid = user.id
       setUserId(uid)
 
       fetchCount(uid)

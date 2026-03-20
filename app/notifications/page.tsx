@@ -110,8 +110,7 @@ export default function NotificationsPage() {
     try {
       await Promise.race([
         (async () => {
-          const { data: sessionData } = await supabase.auth.getSession()
-          const user = sessionData?.session?.user
+          const { data: { user } } = await supabase.auth.getUser()
           if (!user) { router.push("/auth/login"); return }
 
           const { data, error } = await supabase
@@ -121,7 +120,10 @@ export default function NotificationsPage() {
             .order("created_at", { ascending: false })
             .limit(50)
 
-          if (error) console.error("[NOTIFICATIONS] fetch error:", error.message)
+          if (error) {
+            console.error("[NOTIFICATIONS] fetch error:", error.message)
+            throw new Error(error.message)
+          }
 
           const notifs: Notification[] = data || []
           setNotifications(notifs)

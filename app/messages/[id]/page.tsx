@@ -124,11 +124,10 @@ export default function ConversationPage() {
     updatePresence() // best-effort, fire-and-forget
     console.log('[CONVERSATION] fetchConversation called')
     try {
-      console.log('[CONVERSATION] Step 1: Getting session...')
+      console.log('[CONVERSATION] Step 1: Getting user...')
       // Get current user
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[CONVERSATION] Step 2: Session retrieved:', !!session)
-      const currentUser = session?.user
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      console.log('[CONVERSATION] Step 2: User retrieved:', !!currentUser)
       console.log('[CONVERSATION] Step 3: Current user:', currentUser?.id)
 
       if (!currentUser) {
