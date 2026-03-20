@@ -53,16 +53,9 @@ export function JobCompletionModal({
     setLoading(true)
     setError(null)
     try {
-      const { error: jobError } = await supabase
-        .from("jobs")
-        .update({
-          completed_at: new Date().toISOString(),
-          completion_status: "completed",
-          status: "COMPLETED",
-        })
-        .eq("id", jobId)
-
-      if (jobError) throw jobError
+      // Use the SECURITY DEFINER RPC — direct status updates are blocked by trigger
+      const { error: rpcError } = await supabase.rpc("complete_job", { p_job_id: jobId })
+      if (rpcError) throw rpcError
       setStep("review")
     } catch (err: any) {
       setError(err.message || "Failed to mark job as complete. Please try again.")
@@ -83,7 +76,7 @@ export function JobCompletionModal({
         body: JSON.stringify({
           jobId,
           reviewedUserId: contractorId,
-          reviewedUserType: "contractor",
+          reviewedUserType: "company",
           reviewerType,
           rating,
           comment: reviewText.trim(),

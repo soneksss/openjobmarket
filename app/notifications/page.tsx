@@ -70,7 +70,8 @@ function NotifIcon({ type }: { type: string }) {
     case "job_application":  return <Users className="h-4 w-4 text-emerald-400" />
     case "new_message":
     case "message":          return <MessageCircle className="h-4 w-4 text-blue-400" />
-    case "job_accepted":     return <CheckCircle className="h-4 w-4 text-green-400" />
+    case "job_accepted":
+    case "application_status_change": return <CheckCircle className="h-4 w-4 text-green-400" />
     case "job_rejected":     return <AlertCircle className="h-4 w-4 text-red-400" />
     case "job_expiring":     return <Clock className="h-4 w-4 text-amber-400" />
     case "review":           return <Star className="h-4 w-4 text-yellow-400" />
@@ -125,11 +126,9 @@ export default function NotificationsPage() {
           const notifs: Notification[] = data || []
           setNotifications(notifs)
 
-          // Mark unread as read (non-blocking)
-          const unreadIds = notifs.filter((n) => !n.is_read).map((n) => n.id)
-          if (unreadIds.length > 0) {
-            supabase.from("notifications").update({ is_read: true }).in("id", unreadIds)
-          }
+          // Mark ALL unread notifications as read — use a where clause, not ID list,
+          // so notifications beyond the 50-item fetch limit are also cleared.
+          supabase.from("notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false)
 
           // Fetch job statuses for job-linked notifications
           const jobIds = new Set<string>()

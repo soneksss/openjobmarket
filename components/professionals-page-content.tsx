@@ -58,7 +58,7 @@ import { industries, allSubcategories } from "@/lib/data/industries"
 
 // Searchable trades list for autocomplete
 const searchableTrades = [...allSubcategories, ...industries.map((i: { title: string }) => i.title)]
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ReviewsList } from "@/components/reviews-list"
 import ProfessionalDetailView from "@/components/professional-detail-view"
 import CompanyDetailView from "@/components/company-detail-view"
@@ -123,6 +123,7 @@ interface Job {
 
 interface Company {
   id: string
+  user_id?: string
   company_name: string
   description: string
   industry: string
@@ -139,6 +140,8 @@ interface Company {
   price_list?: string
   spoken_languages?: string[]
   created_at: string
+  average_rating?: number
+  reviews_count?: number
 }
 
 interface ProfessionalsPageContentProps {
@@ -299,6 +302,8 @@ export default function ProfessionalsPageContent({
   const [showIndustryDropdown, setShowIndustryDropdown] = useState(false)
   const [customLanguage, setCustomLanguage] = useState("")
   const [sendingMessage, setSendingMessage] = useState<string | null>(null)
+  const [subjectDialog, setSubjectDialog] = useState<{ recipientUserId: string; recipientName: string } | null>(null)
+  const [subjectInput, setSubjectInput] = useState("")
   const [sortBy, setSortBy] = useState<"nearest" | "salary" | "best_match">("best_match")
   const [selectedProfessionalId, setSelectedProfessionalId] = useState<string | null>(null)
   const professionalCardRefs = useRef<{[key: string]: HTMLElement | null}>({})
@@ -800,6 +805,30 @@ export default function ProfessionalsPageContent({
     }
   }
 
+  const openConversation = (recipientUserId: string, recipientName: string) => {
+    if (!currentUser) {
+      setSignUpPrompt({ isOpen: true, action: "message" })
+      return
+    }
+    // Show subject dialog — homeowner provides context before starting a new thread
+    setSubjectInput("")
+    setSubjectDialog({ recipientUserId, recipientName })
+  }
+
+  const startConversation = async () => {
+    if (!currentUser || !subjectDialog) return
+    const subject = subjectInput.trim() || "General enquiry"
+    const p1 = currentUser.id < subjectDialog.recipientUserId ? currentUser.id : subjectDialog.recipientUserId
+    const p2 = currentUser.id < subjectDialog.recipientUserId ? subjectDialog.recipientUserId : currentUser.id
+    const { data, error } = await supabase
+      .from("conversations")
+      .insert({ participant_1: p1, participant_2: p2, subject })
+      .select("id")
+      .single()
+    setSubjectDialog(null)
+    if (data?.id) router.push(`/messages/${data.id}`)
+  }
+
   const handleSendInquiry = async (professionalProfileId: string, professionalName: string, professionalUserId?: string) => {
     if (!currentUser) {
       setSignUpPrompt({ isOpen: true, action: "message" })
@@ -941,6 +970,8 @@ export default function ProfessionalsPageContent({
         phone: item.phone || item.phone_number,
         websiteUrl: item.website_url,
         spokenLanguages: item.spoken_languages,
+        averageRating: item.average_rating,
+        reviewsCount: item.reviews_count,
       }
     }
 
@@ -1726,7 +1757,7 @@ export default function ProfessionalsPageContent({
                                           : (item.nickname || 'Anonymous')}
                                       </p>
 
-                                      {/* Star Rating - Show for professionals */}
+                                      {/* Star Rating */}
                                       {'first_name' in item && (
                                         <div
                                           className="mb-2 cursor-pointer hover:opacity-70 transition-opacity w-fit"
@@ -1750,6 +1781,21 @@ export default function ProfessionalsPageContent({
                                             showCount={true}
                                           />
                                         </div>
+                                      )}
+                                      {isItemCompany && (
+                                        <Link
+                                          href={`/companies/${item.id}`}
+                                          className="mb-2 hover:opacity-70 transition-opacity w-fit flex items-center"
+                                          onClick={(e) => e.stopPropagation()}
+                                          title="View company profile and reviews"
+                                        >
+                                          <CompactStarRating
+                                            rating={item.average_rating || 0}
+                                            reviewCount={item.reviews_count || 0}
+                                            size="sm"
+                                            showCount={true}
+                                          />
+                                        </Link>
                                       )}
 
                                       {formatSalary(item.salary_min, item.salary_max) && (
@@ -2546,6 +2592,46 @@ export default function ProfessionalsPageContent({
                 }}
               />
             </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Subject Dialog — shown when starting a new (non-job) conversation from the map */}
+      {subjectDialog && (
+        <Dialog open={true} onOpenChange={(open) => { if (!open) setSubjectDialog(null) }}>
+          <DialogContent className="bg-slate-800 border-slate-700 text-white z-[10002]">
+            <DialogHeader>
+              <DialogTitle className="text-white">New Message to {subjectDialog.recipientName}</DialogTitle>
+              <DialogDescription className="text-slate-400">
+                Add a subject so the tradesperson knows what this is about.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <input
+                type="text"
+                placeholder="Subject (e.g. Bathroom renovation quote)"
+                value={subjectInput}
+                onChange={(e) => setSubjectInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") startConversation() }}
+                className="w-full px-3 py-2 rounded-md bg-slate-700 border border-slate-600 text-white placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                autoFocus
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setSubjectDialog(null)}
+                className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={startConversation}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Start conversation
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
@@ -3405,7 +3491,7 @@ export default function ProfessionalsPageContent({
                                 </h4>
                                 <p className={`text-xs text-slate-400 ${isExpanded ? '' : 'truncate'}`}>{item.title || item.industry}</p>
 
-                                {/* Star Rating - Show for professionals */}
+                                {/* Star Rating */}
                                 {'first_name' in item && (
                                   <div
                                     className="mt-1 cursor-pointer hover:opacity-70 transition-opacity w-fit"
@@ -3429,6 +3515,21 @@ export default function ProfessionalsPageContent({
                                       showCount={true}
                                     />
                                   </div>
+                                )}
+                                {'company_name' in item && (
+                                  <Link
+                                    href={`/companies/${item.id}`}
+                                    className="mt-1 hover:opacity-70 transition-opacity w-fit flex items-center"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="View company profile and reviews"
+                                  >
+                                    <CompactStarRating
+                                      rating={item.average_rating || 0}
+                                      reviewCount={item.reviews_count || 0}
+                                      size="sm"
+                                      showCount={true}
+                                    />
+                                  </Link>
                                 )}
 
                                 {/* Expected Salary - Show for professionals in short view */}
@@ -3604,22 +3705,10 @@ export default function ProfessionalsPageContent({
                                   {/* Action Buttons - Always visible */}
                                   <div className="flex gap-2">
                                     <Button
-                                      className="flex-1 text-xs py-2 h-10 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
-                                      disabled={currentUser ? !canContact : false}
+                                      className="flex-1 text-xs py-2 h-10 bg-blue-600 hover:bg-blue-700 text-white"
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        if (!currentUser) {
-                                          setSignUpPrompt({ isOpen: true, action: "message" })
-                                          return
-                                        }
-                                        if (canContact) {
-                                          handleSendInquiry(
-                                            item.id,
-                                            isItemProfessional
-                                              ? `${item.first_name} ${item.last_name}`
-                                              : item.company_name
-                                          )
-                                        }
+                                        openConversation(item.user_id, item.company_name || `${item.first_name || ''} ${item.last_name || ''}`.trim())
                                       }}
                                     >
                                       <MessageCircle className="h-3 w-3 mr-2" />
@@ -3629,21 +3718,17 @@ export default function ProfessionalsPageContent({
                                       className="flex-1 text-xs py-2 h-10 bg-emerald-500 hover:bg-emerald-600 text-white"
                                       onClick={(e) => {
                                         e.stopPropagation()
-                                        handleViewProfile(item.id)
+                                        if (isItemCompany) {
+                                          router.push(`/companies/${item.id}`)
+                                        } else {
+                                          handleViewProfile(item.id)
+                                        }
                                       }}
                                     >
                                       <UserIcon className="h-3 w-3 mr-2" />
                                       View Profile
                                     </Button>
                                   </div>
-
-                                  {currentUser && !canContact && (
-                                    <p className="text-xs text-muted-foreground text-center">
-                                      {isItemCompany
-                                        ? "This company is not currently accepting inquiries"
-                                        : "Only employers and tradespeople can contact professionals"}
-                                    </p>
-                                  )}
 
                                   <p className="text-xs text-emerald-500 text-center">
                                     Tap to collapse
@@ -3780,7 +3865,7 @@ export default function ProfessionalsPageContent({
                   Results
                 </h3>
                 <p className={`text-sm ${isModal ? 'text-slate-400' : 'text-gray-600'}`}>
-                  {data.length} {isEmployer ? "professional" : "result"}{data.length !== 1 ? "s" : ""} found - Click to expand
+                  {data.length} {isEmployer ? "professional" : "tradesperson"}{data.length !== 1 ? "s" : ""} found — click to expand
                 </p>
               </div>
 
@@ -3854,31 +3939,45 @@ export default function ProfessionalsPageContent({
                                 }
                               </p>
 
-                              {/* Star Rating - Show for all profiles with reviews */}
-                              <div
-                                className="mt-1 cursor-pointer hover:opacity-70 transition-opacity w-fit"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (item.reviews_count && item.reviews_count > 0) {
-                                    setReviewsModal({
-                                      isOpen: true,
-                                      userId: item.id,
-                                      userType: isProfessional ? 'professional' : 'company',
-                                      userName: isProfessional
-                                        ? `${item.first_name} ${item.last_name}`
-                                        : item.company_name
-                                    })
-                                  }
-                                }}
-                                title={item.reviews_count && item.reviews_count > 0 ? "Click to view reviews" : "No reviews yet"}
-                              >
-                                <CompactStarRating
-                                  rating={item.average_rating || 0}
-                                  reviewCount={item.reviews_count || 0}
-                                  size="sm"
-                                  showCount={true}
-                                />
-                              </div>
+                              {/* Star Rating - professionals open modal, companies navigate to profile */}
+                              {isProfessional ? (
+                                <div
+                                  className="mt-1 cursor-pointer hover:opacity-70 transition-opacity w-fit"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (item.reviews_count && item.reviews_count > 0) {
+                                      setReviewsModal({
+                                        isOpen: true,
+                                        userId: item.id,
+                                        userType: 'professional',
+                                        userName: `${item.first_name} ${item.last_name}`
+                                      })
+                                    }
+                                  }}
+                                  title={item.reviews_count && item.reviews_count > 0 ? "Click to view reviews" : "No reviews yet"}
+                                >
+                                  <CompactStarRating
+                                    rating={item.average_rating || 0}
+                                    reviewCount={item.reviews_count || 0}
+                                    size="sm"
+                                    showCount={true}
+                                  />
+                                </div>
+                              ) : (
+                                <Link
+                                  href={`/companies/${item.id}`}
+                                  className="mt-1 hover:opacity-70 transition-opacity w-fit flex items-center"
+                                  onClick={(e) => e.stopPropagation()}
+                                  title="View company profile and reviews"
+                                >
+                                  <CompactStarRating
+                                    rating={item.average_rating || 0}
+                                    reviewCount={item.reviews_count || 0}
+                                    size="sm"
+                                    showCount={true}
+                                  />
+                                </Link>
+                              )}
 
                               {/* Expected Salary - Show for professionals in short view */}
                               {isProfessional && !isSelected && (item.salary_min || item.salary_max) && (
@@ -3946,23 +4045,25 @@ export default function ProfessionalsPageContent({
                                 )}
                               </div>
 
-                              {/* Extended details - only show when selected */}
-                              {/* Available / Busy badge — right side of desktop card */}
+                              {/* Available / Busy badge */}
                               {(() => {
-                                const hasTradeNotif = 'trade_job_notifications' in item
-                                const hasAvailNow = 'available_now' in item
-                                const isAvail = hasTradeNotif
-                                  ? (item as any).trade_job_notifications === true
-                                  : hasAvailNow
-                                  ? (item as any).available_now === true
-                                  : null
+                                const isItemCompany = 'company_name' in item
+                                let isAvail: boolean | null = null
+                                if (isItemCompany) {
+                                  isAvail = 'open_for_business' in item ? (item as any).open_for_business === true : null
+                                } else {
+                                  const hasTradeNotif = 'trade_job_notifications' in item
+                                  const hasAvailNow = 'available_now' in item
+                                  isAvail = hasTradeNotif ? (item as any).trade_job_notifications === true
+                                    : hasAvailNow ? (item as any).available_now === true : null
+                                }
                                 if (isAvail === true) return (
                                   <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full whitespace-nowrap mt-1 w-fit">
                                     ● Available
                                   </span>
                                 )
                                 if (isAvail === false) return (
-                                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold bg-slate-600/60 text-slate-400 border border-slate-600 px-1.5 py-0.5 rounded-full whitespace-nowrap mt-1 w-fit">
+                                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded-full whitespace-nowrap mt-1 w-fit">
                                     ● Busy
                                   </span>
                                 )
@@ -3970,231 +4071,165 @@ export default function ProfessionalsPageContent({
                               })()}
 
                               {isSelected && (() => {
-                                // Determine item type and contact permission
-                                const isItemProfessional = 'first_name' in item
                                 const isItemCompany = 'company_name' in item
-                                // Anyone can contact companies that are open for business
-                                // Only employers and tradespeople can contact professionals
                                 const canContact = (isItemCompany && item.open_for_business) || currentUserType === "company" || currentUserType === "contractor"
 
+                                const hClass = isModal ? 'text-slate-200' : 'text-gray-900'
+                                const tClass = isModal ? 'text-slate-300' : 'text-gray-600'
+                                const bdrClass = isModal ? 'border-slate-600' : 'border-gray-200'
+                                const badgeCls = `text-xs ${isModal ? 'border-slate-600 text-slate-300' : ''}`
+
                                 return (
-                                <div className="mt-3 pt-3 border-t border-gray-200 space-y-3">
-                                  {/* Full Bio - Only if longer than preview */}
-                                  {item.bio && item.bio.length > 100 && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-gray-900 mb-1">Full Bio</h4>
-                                      <p className="text-sm text-gray-600 leading-relaxed">
-                                        {item.bio}
-                                      </p>
-                                    </div>
-                                  )}
+                                <div className={`mt-3 pt-3 border-t ${bdrClass} space-y-3`}>
 
-                                  {/* Address */}
-                                  {item.location && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-gray-900 mb-1">Address</h4>
-                                      <p className="text-sm text-gray-600">
-                                        {formatAddress(item.location)}
-                                      </p>
-                                    </div>
-                                  )}
+                                  {isItemCompany ? (
+                                    // ── Company expanded view ──────────────────────────────
+                                    <>
+                                      {/* About */}
+                                      {item.description && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>About</h4>
+                                          <p className={`text-sm ${tClass} leading-relaxed`}>{item.description}</p>
+                                        </div>
+                                      )}
 
-                                  {/* All Skills */}
-                                  {item.skills && item.skills.length > 3 && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-gray-900 mb-1">All Skills ({item.skills.length})</h4>
-                                      <div className="flex flex-wrap gap-1">
-                                        {item.skills.map((skill: string, index: number) => (
-                                          <Badge key={index} variant="outline" className="text-xs">
-                                            {skill}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
+                                      {/* Industry */}
+                                      {item.industry && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>Industry</h4>
+                                          <p className={`text-sm ${tClass}`}>{item.industry}</p>
+                                        </div>
+                                      )}
 
-                                  {/* All Languages */}
-                                  {item.spoken_languages && item.spoken_languages.length > 2 && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-gray-900 mb-1">All Languages ({item.spoken_languages.length})</h4>
-                                      <div className="flex flex-wrap gap-1">
-                                        {item.spoken_languages.map((language: string, index: number) => (
-                                          <Badge key={index} variant="outline" className="text-xs flex items-center gap-1">
-                                            <span className="text-sm">{getLanguageFlag(language)}</span>
-                                            {language}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
+                                      {/* Services */}
+                                      {item.skills && item.skills.length > 0 && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>Services</h4>
+                                          <div className="flex flex-wrap gap-1">
+                                            {item.skills.map((skill: string, idx: number) => (
+                                              <Badge key={idx} variant="outline" className={badgeCls}>{skill}</Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
 
-                                  {/* Additional Information */}
-                                  {(item.ready_to_relocate || item.has_driving_licence || item.has_own_transport || item.employment_status || item.is_self_employed || item.experience_level) && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-gray-900 mb-2">Additional Information</h4>
-                                      <div className="space-y-2">
-                                        {item.employment_status && (
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs font-medium text-gray-700">Employment Status:</span>
-                                            <Badge variant="outline" className="text-xs capitalize">
-                                              {item.employment_status.replace('_', ' ')}
-                                            </Badge>
+                                      {/* Languages */}
+                                      {item.spoken_languages && item.spoken_languages.length > 0 && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>Languages</h4>
+                                          <div className="flex flex-wrap gap-1">
+                                            {item.spoken_languages.map((lang: string, idx: number) => (
+                                              <Badge key={idx} variant="outline" className={`${badgeCls} flex items-center gap-1`}>
+                                                <span className="text-sm">{getLanguageFlag(lang)}</span>{lang}
+                                              </Badge>
+                                            ))}
                                           </div>
-                                        )}
-                                        {item.experience_level && (
-                                          <div className="flex items-center gap-2">
-                                            <span className="text-xs font-medium text-gray-700">Experience Level:</span>
-                                            <Badge variant="outline" className="text-xs capitalize">
-                                              {item.experience_level.replace('_', ' ')}
-                                            </Badge>
-                                          </div>
-                                        )}
-                                        {item.has_driving_licence && (
-                                          <div className="flex items-center gap-2">
-                                            <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                                            <span className="text-sm text-gray-700">Has Driving Licence</span>
-                                          </div>
-                                        )}
-                                        {item.has_own_transport && (
-                                          <div className="flex items-center gap-2">
-                                            <CheckCircle className="h-3.5 w-3.5 text-green-600" />
-                                            <span className="text-sm text-gray-700">Has Own Transport</span>
-                                          </div>
-                                        )}
-                                        {item.ready_to_relocate && (
-                                          <div className="flex items-center gap-2">
-                                            <CheckCircle className="h-3.5 w-3.5 text-blue-600" />
-                                            <span className="text-sm text-gray-700">Ready to Relocate</span>
-                                          </div>
-                                        )}
-                                        {item.is_self_employed && (
-                                          <div className="flex items-center gap-2">
-                                            <CheckCircle className="h-3.5 w-3.5 text-purple-600" />
-                                            <span className="text-sm text-gray-700">Self-Employed</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  )}
+                                        </div>
+                                      )}
 
-                                  {/* Availability */}
-                                  {item.availability && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-gray-900 mb-1">Availability</h4>
-                                      <p className="text-sm text-green-600 font-medium">
-                                        {item.availability === 'available_now' ? 'Available now' :
-                                         item.availability === 'available_week' ? 'Available within a week' :
-                                         item.availability === 'available_month' ? 'Available within a month' :
-                                         'Not specified'}
-                                      </p>
-                                    </div>
-                                  )}
-
-                                  {/* Professional Links */}
-                                  {(item.website_url || item.portfolio_url || item.linkedin_url || item.github_url) && (
-                                    <div>
-                                      <h4 className="font-semibold text-sm text-gray-900 mb-2">Professional Links</h4>
-                                      <div className="flex flex-col gap-2">
-                                        {item.website_url && (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full justify-start"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              window.open(item.website_url, '_blank')
-                                            }}
+                                      {/* Website */}
+                                      {item.website_url && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>Website</h4>
+                                          <a
+                                            href={item.website_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`text-sm break-all ${isModal ? 'text-emerald-400 hover:text-emerald-300' : 'text-blue-600 hover:text-blue-800'} underline`}
+                                            onClick={(e) => e.stopPropagation()}
                                           >
-                                            <Globe className="h-3 w-3 mr-2" />
-                                            Personal Website
-                                          </Button>
-                                        )}
-                                        {item.portfolio_url && (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full justify-start"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              window.open(item.portfolio_url, '_blank')
-                                            }}
-                                          >
-                                            <ExternalLink className="h-3 w-3 mr-2" />
-                                            Portfolio
-                                          </Button>
-                                        )}
-                                        {item.linkedin_url && (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full justify-start"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              window.open(item.linkedin_url, '_blank')
-                                            }}
-                                          >
-                                            <ExternalLink className="h-3 w-3 mr-2" />
-                                            LinkedIn Profile
-                                          </Button>
-                                        )}
-                                        {item.github_url && (
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="w-full justify-start"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              window.open(item.github_url, '_blank')
-                                            }}
-                                          >
-                                            <ExternalLink className="h-3 w-3 mr-2" />
-                                            GitHub Profile
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </div>
+                                            {item.website_url.replace(/^https?:\/\//, '')}
+                                          </a>
+                                        </div>
+                                      )}
+
+                                      {/* Address */}
+                                      {item.location && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>Address</h4>
+                                          <p className={`text-sm ${tClass}`}>{formatAddress(item.location)}</p>
+                                        </div>
+                                      )}
+                                    </>
+                                  ) : (
+                                    // ── Professional expanded view ─────────────────────────
+                                    <>
+                                      {item.bio && item.bio.length > 100 && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>Full Bio</h4>
+                                          <p className={`text-sm ${tClass} leading-relaxed`}>{item.bio}</p>
+                                        </div>
+                                      )}
+                                      {item.location && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>Address</h4>
+                                          <p className={`text-sm ${tClass}`}>{formatAddress(item.location)}</p>
+                                        </div>
+                                      )}
+                                      {item.skills && item.skills.length > 3 && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>All Skills ({item.skills.length})</h4>
+                                          <div className="flex flex-wrap gap-1">
+                                            {item.skills.map((skill: string, index: number) => (
+                                              <Badge key={index} variant="outline" className={badgeCls}>{skill}</Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {item.spoken_languages && item.spoken_languages.length > 2 && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>All Languages ({item.spoken_languages.length})</h4>
+                                          <div className="flex flex-wrap gap-1">
+                                            {item.spoken_languages.map((language: string, index: number) => (
+                                              <Badge key={index} variant="outline" className={`${badgeCls} flex items-center gap-1`}>
+                                                <span className="text-sm">{getLanguageFlag(language)}</span>{language}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {item.availability && (
+                                        <div>
+                                          <h4 className={`font-semibold text-sm ${hClass} mb-1`}>Availability</h4>
+                                          <p className="text-sm text-green-500 font-medium">
+                                            {item.availability === 'available_now' ? 'Available now' :
+                                             item.availability === 'available_week' ? 'Available within a week' :
+                                             item.availability === 'available_month' ? 'Available within a month' :
+                                             'Not specified'}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </>
                                   )}
 
                                   {/* Action Buttons */}
-                                  <div className="pt-3 border-t border-gray-200">
+                                  <div className={`pt-3 border-t ${bdrClass}`}>
                                     <div className="flex gap-2">
                                       <Button
-                                        variant="outline"
-                                        className="flex-1"
+                                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          if (canContact) {
-                                            const name = isItemProfessional
-                                              ? `${item.first_name} ${item.last_name}`
-                                              : item.company_name
-                                            handleSendInquiry(item.id, name)
-                                          }
+                                          openConversation(item.user_id, item.company_name || `${item.first_name || ''} ${item.last_name || ''}`.trim())
                                         }}
-                                        disabled={!canContact || sendingMessage === item.id}
                                       >
                                         <MessageCircle className="h-4 w-4 mr-2" />
-                                        Send inquiry
+                                        Message
                                       </Button>
                                       <Button
-                                        className="flex-1"
+                                        className={`flex-1 ${isModal ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
                                         onClick={(e) => {
                                           e.stopPropagation()
-                                          handleViewProfile(item.id)
+                                          if (isItemCompany) {
+                                            router.push(`/companies/${item.id}`)
+                                          } else {
+                                            handleViewProfile(item.id)
+                                          }
                                         }}
                                       >
                                         <UserIcon className="h-4 w-4 mr-2" />
                                         View Profile
                                       </Button>
                                     </div>
-
-                                    {/* Permission explanation if contact is disabled */}
-                                    {currentUser && !canContact && (
-                                      <p className="text-xs text-muted-foreground text-center mt-2">
-                                        {isItemCompany
-                                          ? "This company is not currently accepting inquiries"
-                                          : "Only employers and tradespeople can contact professionals"}
-                                      </p>
-                                    )}
                                   </div>
                                 </div>
                                 )

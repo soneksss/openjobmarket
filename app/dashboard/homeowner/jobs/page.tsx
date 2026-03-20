@@ -18,6 +18,7 @@ import {
   Clock,
 } from "lucide-react"
 import { DeleteJobInlineButton } from "@/components/delete-job-inline-button"
+import { MarkJobNotifsRead } from "@/components/mark-job-notifs-read"
 
 // A job belongs in "History" if it's inactive OR has a terminal status
 const CLOSED_STATUSES = new Set(["closed", "filled", "expired", "cancelled", "completed"])
@@ -103,6 +104,8 @@ export default async function HomeownerJobsPage({
 
   return (
     <div className="min-h-screen bg-slate-900 text-white pb-24">
+      {/* Silently mark job-related notifications as read */}
+      <MarkJobNotifsRead />
 
       {/* ── Header ── */}
       <div className="bg-slate-800 border-b border-slate-700/50">

@@ -59,7 +59,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     // Validate new content
     const newRating = rating !== undefined ? rating : existingReview.rating
-    const newText = reviewText !== undefined ? sanitizeReviewText(reviewText) : existingReview.review_text
+    const newText = reviewText !== undefined ? sanitizeReviewText(reviewText) : existingReview.comment
 
     const validation = validateReview(newRating, newText || "")
 
@@ -76,7 +76,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     // Update the review
     const updateData: any = {}
     if (rating !== undefined) updateData.rating = rating
-    if (reviewText !== undefined) updateData.review_text = newText
+    if (reviewText !== undefined) updateData.comment = newText
+    // Normalize legacy "contractor" type → "company" so the rating trigger
+    // routes to company_profiles (contractor_profiles may not exist)
+    if (existingReview.reviewed_type === "contractor") {
+      updateData.reviewed_type = "company"
+    }
 
     const { data: updatedReview, error: updateError } = await supabase
       .from("reviews")
@@ -88,7 +93,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     if (updateError) {
       console.error("[API] Error updating review:", updateError)
-      return NextResponse.json({ error: "Failed to update review" }, { status: 500 })
+      return NextResponse.json({ error: "Failed to update review", detail: updateError.message, code: updateError.code }, { status: 500 })
     }
 
     return NextResponse.json(

@@ -111,12 +111,16 @@ async function notifyTradespersonConfirmed(
 
   if (!cp?.user_id || !job) return
 
+  // Link to messages so the tradesperson can immediately start chatting
+  const messageUrl = `/messages`
+
   await admin.from("notifications").insert({
-    user_id: cp.user_id,
-    type: "job_accepted",
-    title: "You've been selected!",
-    message: `A homeowner confirmed you for "${job.title}". Accept the job to confirm your spot.`,
-    link_url: `/jobs/${jobId}`,
-    is_read: false,
+    user_id:    cp.user_id,
+    type:       "job_accepted",
+    title:      "Application accepted 🎉",
+    message:    job.title,
+    link_url:   messageUrl,
+    action_url: messageUrl,
+    is_read:    false,
   })
 }

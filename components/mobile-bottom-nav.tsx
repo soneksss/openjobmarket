@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
-import { Home, MessageCircle, Plus, Bookmark, User, Map, Bell } from "lucide-react"
+import { Home, MessageCircle, Plus, Bookmark, User, Map, Bell, Briefcase } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useTranslation } from "@/lib/i18n/context"
 
@@ -58,7 +58,11 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
 
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [unreadJobNotifs, setUnreadJobNotifs] = useState(0)
   const [jobsSearchUrl, setJobsSearchUrl] = useState<string | null>(null)
+
+  // Notification types homeowners receive about their jobs
+  const HOMEOWNER_JOB_NOTIF_TYPES = ["job_application", "job_expiring"]
 
   const base = locale === "pt-BR" ? "/br" : ""
 
@@ -77,12 +81,24 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
 
     fetchMessages()
 
+    // Re-fetch when tab regains focus (catches reads done on /messages page)
+    const onFocus = () => fetchMessages()
+    const onVisible = () => { if (document.visibilityState === "visible") fetchMessages() }
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onVisible)
+
+    // Realtime: INSERT (new message) + UPDATE (mark-as-read)
     const channel = supabase
       .channel("mobile-nav-messages")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, fetchMessages)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, fetchMessages)
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    return () => {
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisible)
+      supabase.removeChannel(channel)
+    }
   }, [userId])
 
   // Fetch unread notification count (for tradesperson nav)
@@ -104,10 +120,46 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
       .channel("mobile-nav-notifications")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, fetchNotifications)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, fetchNotifications)
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, fetchNotifications)
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
   }, [userId])
+
+  // Fetch unread JOB-RELATED notification count (homeowner "My Jobs" badge)
+  useEffect(() => {
+    if (!userId || userType !== "homeowner") return
+
+    const fetchJobNotifs = async () => {
+      const { count } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_read", false)
+        .in("type", HOMEOWNER_JOB_NOTIF_TYPES)
+      setUnreadJobNotifs(count || 0)
+    }
+
+    fetchJobNotifs()
+
+    const onFocus = () => fetchJobNotifs()
+    const onVisible = () => { if (document.visibilityState === "visible") fetchJobNotifs() }
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onVisible)
+
+    const channel = supabase
+      .channel("mobile-nav-job-notifs")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, fetchJobNotifs)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, fetchJobNotifs)
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, fetchJobNotifs)
+      .subscribe()
+
+    return () => {
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisible)
+      supabase.removeChannel(channel)
+    }
+  }, [userId, userType])
 
   // Fetch tradesperson profile to build a personalised jobs search URL
   useEffect(() => {
@@ -203,11 +255,11 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   // ── Homeowner nav ──────────────────────────────────────────────────────────
   if (isHomeowner) {
     const items = [
-      { key: "search",        icon: Home,          label: "Search",       href: `${base}/`,                     isActive: pathname === "/" || pathname === "/br" },
-      { key: "messages",      icon: MessageCircle, label: "Messages",     href: `${base}/messages`,             isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
-      { key: "post",          icon: Plus,          label: "Post",         href: `${base}/jobs/new`,             isActive: !!pathname?.includes("/jobs/new"), isCenter: true },
-      { key: "notifications", icon: Bell,          label: "Alerts",       href: `${base}/notifications`,        isActive: !!pathname?.includes("/notifications"), badge: unreadNotifications },
-      { key: "account",       icon: User,          label: "Account",      href: `${base}/dashboard/homeowner`,  isActive: !!pathname?.includes("/dashboard") },
+      { key: "search",   icon: Home,          label: "Search",   href: `${base}/`,                              isActive: pathname === "/" || pathname === "/br" },
+      { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/messages`,                      isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
+      { key: "post",     icon: Plus,          label: "Post",     href: `${base}/jobs/new`,                      isActive: !!pathname?.includes("/jobs/new"), isCenter: true },
+      { key: "myjobs",   icon: Briefcase,     label: "My Jobs",  href: `${base}/dashboard/homeowner/jobs`,      isActive: !!pathname?.includes("/dashboard/homeowner/jobs"), badge: unreadJobNotifs },
+      { key: "account",  icon: User,          label: "Account",  href: `${base}/dashboard/homeowner`,           isActive: !!pathname?.includes("/dashboard/homeowner") && !pathname?.includes("/jobs") },
     ]
     return <BottomNav items={items} unreadMessages={unreadMessages} unreadNotifications={unreadNotifications} />
   }

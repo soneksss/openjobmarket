@@ -42,6 +42,7 @@ function normalizeTraderResult(item: any) {
   const base = {
     ...item,
     average_rating:    item.rating ?? item.average_rating,
+    reviews_count:     item.reviews_count ?? item.review_count,
     profile_photo_url: item.logo_url,
     coordinates:       { lat: item.latitude, lon: item.longitude },
     type:              item.profile_type,

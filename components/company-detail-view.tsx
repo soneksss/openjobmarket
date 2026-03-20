@@ -575,52 +575,11 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
               </div>
             )}
 
-            {/* Active trade jobs */}
-            <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-2">
-                <Briefcase className="h-3.5 w-3.5" />Trade Jobs Posted
-                {activeJobs.length > 0 && (
-                  <span className="ml-auto text-xs bg-blue-900/50 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded-full">{activeJobs.length}</span>
-                )}
-              </p>
-              {loadingJobs ? (
-                <div className="space-y-2">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="animate-pulse h-10 bg-slate-700 rounded-lg" />
-                  ))}
-                </div>
-              ) : activeJobs.length > 0 ? (
-                <div className="space-y-2">
-                  {activeJobs.map((job) => (
-                    <Link
-                      key={job.id}
-                      href={`/jobs/${job.id}`}
-                      className="flex items-center justify-between p-3 bg-slate-700/50 border border-slate-600 hover:border-emerald-500/50 rounded-lg group transition-colors"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-200 group-hover:text-white truncate font-medium">{job.title}</p>
-                        {job.location && (
-                          <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                            <MapPin className="h-3 w-3 flex-shrink-0" />{job.location}
-                          </p>
-                        )}
-                      </div>
-                      <ExternalLink className="h-3.5 w-3.5 text-slate-500 group-hover:text-emerald-400 flex-shrink-0 ml-3" />
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500 italic">No active trade jobs at the moment.</p>
-              )}
-            </div>
-
             {/* Reviews */}
             <ReviewsList
               userId={company.user_id}
               userType="company"
               title="Reviews"
-              limit={5}
-              showViewAll={true}
             />
           </div>
 

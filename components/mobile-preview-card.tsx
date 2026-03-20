@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -76,6 +77,8 @@ interface CompanyPreviewData {
   phone?: string
   websiteUrl?: string
   spokenLanguages?: string[]
+  averageRating?: number
+  reviewsCount?: number
 }
 
 export type PreviewData = JobPreviewData | ProfessionalPreviewData | CompanyPreviewData
@@ -428,6 +431,20 @@ export function MobilePreviewCard({
                     </Badge>
                   )}
                 </div>
+                {/* Star rating — clickable, navigates to company profile */}
+                <Link
+                  href={`/companies/${data.id}`}
+                  className="mt-1.5 hover:opacity-70 transition-opacity w-fit flex items-center"
+                  onClick={(e) => e.stopPropagation()}
+                  title="View company profile and reviews"
+                >
+                  <CompactStarRating
+                    rating={data.averageRating || 0}
+                    reviewCount={data.reviewsCount || 0}
+                    size="sm"
+                    showCount={true}
+                  />
+                </Link>
               </div>
             </div>
           </div>

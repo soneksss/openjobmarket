@@ -105,8 +105,8 @@ async function notifyTradespersonSelected(
   await admin.from("notifications").insert({
     user_id:    cp.user_id,
     type:       "job_accepted",
-    title:      "You've been selected! 🎉",
-    message:    `A homeowner chose you for "${jobTitle}". Message them now to confirm details.`,
+    title:      "Application accepted 🎉",
+    message:    jobTitle,
     link_url:   messageUrl,
     action_url: messageUrl,
     is_read:    false,

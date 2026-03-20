@@ -20,15 +20,15 @@ export function MessageIcon({ user, iconClassName }: MessageIconProps) {
     if (!user?.id) return
 
     let intervalId: ReturnType<typeof setInterval> | null = null
+    const uid = user.id
 
     const fetchCount = async () => {
       try {
         const { count } = await supabase
           .from("messages")
           .select("*", { count: "exact", head: true })
-          .eq("recipient_id", user.id)
+          .eq("recipient_id", uid)
           .eq("is_read", false)
-
         setUnreadCount(count ?? 0)
       } catch {
         // silently ignore
@@ -38,22 +38,27 @@ export function MessageIcon({ user, iconClassName }: MessageIconProps) {
     fetchCount()
     intervalId = setInterval(fetchCount, 30_000)
 
+    // Re-fetch when user returns to tab (after reading messages in another tab or from /messages page)
+    const onFocus = () => fetchCount()
+    const onVisible = () => { if (document.visibilityState === "visible") fetchCount() }
+    window.addEventListener("focus", onFocus)
+    document.addEventListener("visibilitychange", onVisible)
+
     // Also refresh when a message is sent (dispatched from the chat component)
     const onSent = () => fetchCount()
     window.addEventListener("message-sent", onSent)
 
-    // Realtime: new incoming message
+    // Realtime: new incoming message OR mark-as-read update
     const channel = supabase
-      .channel(`msg-badge-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${user.id}` },
-        () => fetchCount()
-      )
+      .channel(`msg-badge-${uid}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${uid}` }, fetchCount)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `recipient_id=eq.${uid}` }, fetchCount)
       .subscribe()
 
     return () => {
       if (intervalId) clearInterval(intervalId)
+      window.removeEventListener("focus", onFocus)
+      document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("message-sent", onSent)
       supabase.removeChannel(channel)
     }
@@ -61,12 +66,17 @@ export function MessageIcon({ user, iconClassName }: MessageIconProps) {
 
   if (!user) return null
 
+  const handleClick = () => {
+    setUnreadCount(0) // optimistic clear
+    router.push("/messages")
+  }
+
   return (
     <Button
       variant="ghost"
       size="icon"
       className={`relative ${iconClassName ? "h-auto w-auto p-1" : ""}`}
-      onClick={() => router.push("/messages")}
+      onClick={handleClick}
       aria-label="Messages"
     >
       <MessageCircle className={`h-5 w-5 ${iconClassName ?? ""}`} />

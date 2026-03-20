@@ -37,6 +37,7 @@ interface Conversation {
   }
   unread_count: number
   job?: JobInfo
+  subject?: string | null
   other_user_last_seen?: string | null
 }
 
@@ -112,7 +113,7 @@ export default function MessagesPage() {
 
         supabase
           .from("conversations")
-          .select("id, participant_1, participant_2, created_at")
+          .select("id, participant_1, participant_2, created_at, job_id, subject")
           .or(`participant_1.eq.${uid},participant_2.eq.${uid}`)
           .order("created_at", { ascending: false })
           .limit(100),
@@ -123,27 +124,29 @@ export default function MessagesPage() {
       const messages = messagesResult.data ?? []
       const emptyConvs = convsResult.data ?? []
 
+      // Build a map of conversation details for subject/job_id lookups
+      const convsDetailMap = new Map((emptyConvs as any[]).map(c => [c.id, c]))
+
       // ── Step 3: Synthetic "empty" conversations (no messages yet) ────────
-      const coveredUserIds = new Set<string>()
+      const coveredConvIds = new Set<string>()
       for (const msg of messages) {
-        coveredUserIds.add(msg.sender_id === uid ? msg.recipient_id : msg.sender_id)
+        if ((msg as any).conversation_id) coveredConvIds.add((msg as any).conversation_id)
       }
 
       const emptySynthetic: typeof messages = []
       for (const conv of emptyConvs) {
-        const otherId = conv.participant_1 === uid ? conv.participant_2 : conv.participant_1
-        if (!coveredUserIds.has(otherId)) {
-          coveredUserIds.add(otherId)
+        if (!coveredConvIds.has(conv.id)) {
+          const otherId = conv.participant_1 === uid ? conv.participant_2 : conv.participant_1
           emptySynthetic.push({
             id:              `empty-${conv.id}`,
-            subject:         "",
+            subject:         (conv as any).subject ?? "",
             content:         "No messages yet — say hello!",
             created_at:      conv.created_at,
             is_read:         true,
             sender_id:       otherId,
             recipient_id:    uid,
             conversation_id: conv.id,
-            job_id:          null,
+            job_id:          (conv as any).job_id ?? null,
             _empty:          true,
           } as any)
         }
@@ -157,18 +160,21 @@ export default function MessagesPage() {
         return
       }
 
-      // ── Step 4: Group by conversation partner ────────────────────────────
+      // ── Step 4: Group by conversation_id (falls back to user pair for legacy messages) ──
       const conversationMap = new Map<string, { messages: typeof allMessages; other_user_id: string; conversation_id?: string }>()
       for (const msg of allMessages) {
         const otherId = msg.sender_id === uid ? msg.recipient_id : msg.sender_id
-        if (!conversationMap.has(otherId)) {
-          conversationMap.set(otherId, { messages: [], other_user_id: otherId, conversation_id: (msg as any).conversation_id })
+        const convKey = (msg as any).conversation_id ?? `legacy-${[uid, otherId].sort().join("-")}`
+        if (!conversationMap.has(convKey)) {
+          conversationMap.set(convKey, { messages: [], other_user_id: otherId, conversation_id: (msg as any).conversation_id })
         }
-        conversationMap.get(otherId)!.messages.push(msg)
+        conversationMap.get(convKey)!.messages.push(msg)
       }
 
-      const userIds = [...conversationMap.keys()].filter(id => id && id !== "undefined" && id !== "null")
-      const jobIds  = [...new Set(allMessages.filter(m => m.job_id).map(m => m.job_id))] as string[]
+      const userIds = [...conversationMap.values()].map(v => v.other_user_id).filter(id => id && id !== "undefined" && id !== "null")
+      const msgJobIds  = allMessages.filter(m => m.job_id).map(m => m.job_id)
+      const convJobIds = emptyConvs.map(c => (c as any).job_id).filter(Boolean)
+      const jobIds     = [...new Set([...msgJobIds, ...convJobIds])] as string[]
 
       if (userIds.length === 0) {
         setConversations([])
@@ -220,7 +226,8 @@ export default function MessagesPage() {
       // ── Step 7: Build conversation list ──────────────────────────────────
       const conversationsData: Conversation[] = []
 
-      for (const [otherUserId, convData] of conversationMap) {
+      for (const [, convData] of conversationMap) {
+        const otherUserId = convData.other_user_id
         const otherUser = usersMap.get(otherUserId)
         let displayName = "Deleted User"
         let photoUrl: string | undefined
@@ -258,8 +265,10 @@ export default function MessagesPage() {
 
         const lastMessage = convData.messages[0]
         const unreadCount = convData.messages.filter(m => m.recipient_id === uid && !m.is_read).length
-        const msgWithJob  = convData.messages.find(m => m.job_id)
-        const jobInfo     = msgWithJob?.job_id ? jobsMap.get(msgWithJob.job_id) : undefined
+        const convDetail  = convData.conversation_id ? convsDetailMap.get(convData.conversation_id) : undefined
+        const convJobId   = convDetail?.job_id ?? convData.messages.find(m => m.job_id)?.job_id
+        const jobInfo     = convJobId ? jobsMap.get(convJobId) : undefined
+        const subject     = convDetail?.subject ?? null
 
         conversationsData.push({
           id: convData.conversation_id ?? otherUserId,
@@ -273,6 +282,7 @@ export default function MessagesPage() {
           },
           unread_count: unreadCount,
           job: jobInfo,
+          subject,
           other_user_last_seen: otherUser?.last_seen_at ?? null,
         })
       }
@@ -318,7 +328,7 @@ export default function MessagesPage() {
     router.push(`/messages/${conversationId}`)
   }
 
-  const handleDeleteConversation = async (otherUserId: string, e: React.MouseEvent) => {
+  const handleDeleteConversation = async (conversationId: string, otherUserId: string, e: React.MouseEvent) => {
     e.stopPropagation()
     if (!confirm("Delete this conversation? This cannot be undone.")) return
 
@@ -327,13 +337,11 @@ export default function MessagesPage() {
       if (!uid) return
 
       await Promise.all([
-        supabase.from("messages").delete().eq("sender_id", uid).eq("recipient_id", otherUserId),
-        supabase.from("messages").delete().eq("sender_id", otherUserId).eq("recipient_id", uid),
-        supabase.from("conversations").delete()
-          .or(`and(participant_1.eq.${uid},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${uid})`),
+        supabase.from("messages").delete().eq("conversation_id", conversationId),
+        supabase.from("conversations").delete().eq("id", conversationId),
       ])
 
-      setConversations(prev => prev.filter(c => c.other_user.id !== otherUserId))
+      setConversations(prev => prev.filter(c => c.id !== conversationId))
     } catch (err) {
       console.error("[MESSAGES] Error deleting conversation:", err)
       alert("Failed to delete conversation")
@@ -366,11 +374,9 @@ export default function MessagesPage() {
       if (!uid) return
 
       await Promise.all(
-        [...selectedConversations].flatMap(otherUserId => [
-          supabase.from("messages").delete().eq("sender_id", uid).eq("recipient_id", otherUserId),
-          supabase.from("messages").delete().eq("sender_id", otherUserId).eq("recipient_id", uid),
-          supabase.from("conversations").delete()
-            .or(`and(participant_1.eq.${uid},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${uid})`),
+        [...selectedConversations].flatMap(convId => [
+          supabase.from("messages").delete().eq("conversation_id", convId),
+          supabase.from("conversations").delete().eq("id", convId),
         ])
       )
 
@@ -560,6 +566,9 @@ export default function MessagesPage() {
                         <span className="text-xs text-slate-400 truncate">{conversation.job.title}</span>
                         {getJobStatusBadge(conversation.job)}
                       </div>
+                    )}
+                    {!conversation.job && conversation.subject && (
+                      <p className="text-xs text-slate-500 truncate mb-0.5">{conversation.subject}</p>
                     )}
 
                     <p className={`text-xs truncate ${hasUnread ? "text-slate-300" : "text-slate-500"}`}>

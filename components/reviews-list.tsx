@@ -32,16 +32,36 @@ interface Review {
   flag_reason: string | null
   created_at: string
   reviewer_name?: string
+  reviewer_first_name?: string
+  reviewer_last_name?: string
   reviewer_photo?: string
   job_title?: string
 }
 
 interface ReviewsListProps {
   userId: string
-  userType: "homeowner" | "company" | "contractor" | "professional"
+  userType: "homeowner" | "company"
   title?: string
   limit?: number
   showViewAll?: boolean
+}
+
+const DEFAULT_VISIBLE = 5
+
+function formatReviewerName(review: Review): string {
+  const first = review.reviewer_first_name?.trim()
+  const last = review.reviewer_last_name?.trim()
+  if (first && last) return `${first} ${last.charAt(0)}.`
+  if (first) return first
+  return review.reviewer_name || "Anonymous"
+}
+
+function getInitials(review: Review): string {
+  const first = review.reviewer_first_name?.trim()
+  const last = review.reviewer_last_name?.trim()
+  if (first && last) return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase()
+  if (first) return first.charAt(0).toUpperCase()
+  return "U"
 }
 
 export function ReviewsList({
@@ -53,6 +73,7 @@ export function ReviewsList({
 }: ReviewsListProps) {
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(true)
+  const [showAll, setShowAll] = useState(false)
   const [showFlagDialog, setShowFlagDialog] = useState(false)
   const [selectedReview, setSelectedReview] = useState<Review | null>(null)
   const [flagReason, setFlagReason] = useState("")
@@ -69,11 +90,15 @@ export function ReviewsList({
       setLoading(true)
 
       // Get reviews from the view which includes reviewer details
+      // Legacy reviews may have been stored as "contractor" — match both for company profiles
+      const reviewedTypes =
+        userType === "company" ? ["company", "contractor"] : [userType]
+
       let query = supabase
         .from("reviews_with_details")
         .select("*")
         .eq("reviewed_id", userId)
-        .eq("reviewed_type", userType)
+        .in("reviewed_type", reviewedTypes)
         .order("created_at", { ascending: false })
 
       if (limit) {
@@ -169,33 +194,35 @@ export function ReviewsList({
     )
   }
 
+  const visibleCount = limit ?? (showAll ? reviews.length : DEFAULT_VISIBLE)
+  const visibleReviews = reviews.slice(0, visibleCount)
+  const hasMore = reviews.length > visibleCount && !limit
+
   return (
     <>
       <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">{title}</p>
-          {showViewAll && (
-            <span className="text-xs text-slate-500">{reviews.length} review{reviews.length !== 1 ? "s" : ""}</span>
-          )}
+          <span className="text-xs text-slate-500">{reviews.length} review{reviews.length !== 1 ? "s" : ""}</span>
         </div>
 
         <div className="space-y-4">
-          {reviews.map((review) => (
+          {visibleReviews.map((review) => (
             <div key={review.id} className="border-b border-slate-700/50 last:border-0 pb-4 last:pb-0">
               <div className="flex items-start gap-3">
                 <Avatar className="h-9 w-9 flex-shrink-0">
-                  <AvatarImage src={review.reviewer_photo} />
-                  <AvatarFallback className="bg-slate-700 text-slate-300 text-sm">
-                    {review.reviewer_name?.charAt(0) || "U"}
+                  <AvatarImage src={review.reviewer_photo || undefined} />
+                  <AvatarFallback className="bg-slate-700 text-slate-300 text-sm font-medium">
+                    {getInitials(review)}
                   </AvatarFallback>
                 </Avatar>
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div>
-                      <p className="text-sm font-medium text-white">{review.reviewer_name || "Anonymous"}</p>
+                      <p className="text-sm font-medium text-white">{formatReviewerName(review)}</p>
                       <div className="flex items-center gap-2 mt-0.5">
-                        <RatingDisplay rating={review.rating} reviewsCount={0} showCount={false} size="sm" />
+                        <RatingDisplay rating={review.rating} reviewsCount={1} showCount={false} size="sm" />
                         <span className="text-xs text-slate-500">{formatDate(review.created_at)}</span>
                       </div>
                     </div>
@@ -223,6 +250,23 @@ export function ReviewsList({
             </div>
           ))}
         </div>
+
+        {hasMore && (
+          <button
+            onClick={() => setShowAll(true)}
+            className="mt-4 text-xs text-slate-400 hover:text-white transition-colors underline underline-offset-2"
+          >
+            Show all {reviews.length} reviews
+          </button>
+        )}
+        {showAll && reviews.length > DEFAULT_VISIBLE && (
+          <button
+            onClick={() => setShowAll(false)}
+            className="mt-4 text-xs text-slate-400 hover:text-white transition-colors underline underline-offset-2"
+          >
+            Show less
+          </button>
+        )}
       </div>
 
       {/* Flag Review Dialog */}

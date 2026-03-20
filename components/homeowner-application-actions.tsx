@@ -54,19 +54,23 @@ export function HomeownerApplicationActions({
   const isThisContractorAccepted = acceptedContractorId === contractorId
 
   const handleAccept = async () => {
+    // Guard: prevent double-acceptance if job is already confirmed
+    if (isJobAlreadyAccepted) {
+      toast({
+        title: "Already confirmed",
+        description: "A tradesperson has already been confirmed for this job.",
+      })
+      setShowAcceptDialog(false)
+      return
+    }
+
     setLoading(true)
 
     try {
       // ── State machine: atomically confirm the tradesperson ──
-      // confirm_tradesperson() is a SECURITY DEFINER RPC that:
-      //   1. Sets jobs.status → CONFIRMED
-      //   2. Sets jobs.confirmed_tradesperson_id
-      //   3. AUTO_CANCELs all other PENDING applications
-      // The tradesperson then has 15 min to call accept_confirmed_job().
-      // We must NOT update jobs.status or job_applications.status directly.
       const { error: rpcError } = await supabase.rpc("confirm_tradesperson", {
         p_job_id:          jobId,
-        p_tradesperson_id: contractorId,   // must be company_profiles.id
+        p_tradesperson_id: contractorId,
       })
 
       if (rpcError) {
@@ -76,7 +80,7 @@ export function HomeownerApplicationActions({
         throw rpcError
       }
 
-      // Look up contractor's user_id for notification (read-only, safe)
+      // Look up contractor's user_id for the chat message
       const { data: contractorData } = await supabase
         .from("company_profiles")
         .select("user_id")
@@ -85,75 +89,38 @@ export function HomeownerApplicationActions({
 
       toast({
         title: "✅ Tradesperson Confirmed",
-        description: `${contractorName} has been confirmed. They have 15 minutes to accept.`,
+        description: `${contractorName} has been confirmed.`,
       })
 
       setShowAcceptDialog(false)
 
-      // Create notification for the contractor
-      if (contractorData?.user_id) {
+      // Send a short system message to open the conversation
+      if (contractorData?.user_id && homeownerUserId) {
         try {
-          const notificationMessage = `🎉 Congratulations! Your application for "${jobTitle || 'the trade job'}"${jobBudget ? ` (budget: ${jobBudget})` : ''} has been accepted!`
+          const budgetLine = jobBudget ? `\n${jobTitle || "Trade job"} (${jobBudget})` : `\n${jobTitle || "Trade job"}`
+          const messageContent = `Application accepted${budgetLine}\nYou've been selected for this job. Arrange details with the homeowner.`
 
-          const { error: notificationError } = await supabase
-            .from("notifications")
-            .insert({
-              user_id: contractorData.user_id,
-              type: "application_status_change",
-              title: "Application Accepted!",
-              message: notificationMessage,
-              link_url: `/applications/${applicationId}`,
-              is_read: false,
-            })
-
-          if (notificationError) {
-            console.error("[HOMEOWNER-ACTIONS] Failed to create notification:", notificationError)
-          } else {
-            console.log("[HOMEOWNER-ACTIONS] Dashboard notification created successfully")
-          }
-        } catch (notifError) {
-          console.error("[HOMEOWNER-ACTIONS] Notification creation failed:", notifError)
-        }
-
-        // Send automatic system message to start the conversation
-        if (homeownerUserId) {
-          try {
-            const budgetText = jobBudget ? ` (budget: ${jobBudget})` : ''
-            const messageContent = `🎉 Congratulations! Your application for the job "${jobTitle || 'the trade job'}"${budgetText} has been accepted!\n\nPlease reply to discuss further details and arrange the next steps.`
-
-            const { error: messageError } = await supabase
-              .from('messages')
-              .insert({
-                sender_id: homeownerUserId,
-                recipient_id: contractorData.user_id,
-                subject: `Application Accepted: ${jobTitle || 'Trade Job'}`,
-                content: messageContent,
-                message_type: 'direct',
-                job_id: jobId,
-                is_read: false
-              })
-
-            if (messageError) {
-              console.error("[HOMEOWNER-ACTIONS] Failed to send acceptance message:", messageError)
-            } else {
-              console.log("[HOMEOWNER-ACTIONS] Acceptance message sent successfully")
-            }
-          } catch (msgError) {
-            console.error("[HOMEOWNER-ACTIONS] Error sending acceptance message:", msgError)
-          }
+          await supabase.from("messages").insert({
+            sender_id:    homeownerUserId,
+            recipient_id: contractorData.user_id,
+            subject:      `Application Accepted: ${jobTitle || "Trade Job"}`,
+            content:      messageContent,
+            message_type: "direct",
+            job_id:       jobId,
+            is_read:      false,
+          })
+        } catch (msgError) {
+          console.error("[HOMEOWNER-ACTIONS] Error sending acceptance message:", msgError)
         }
       }
 
-      console.log("[HOMEOWNER-ACTIONS] Acceptance successful, opening messages...")
-
-      // Refresh the current page so the confirmed state renders correctly,
-      // then navigate to messages after a short delay
+      // Navigate to the conversation
       router.refresh()
       setTimeout(() => {
         if (contractorData?.user_id) {
           router.push(`/messages/${contractorData.user_id}`)
         }
-      }, 1500)
+      }, 1000)
     } catch (error: any) {
       console.error("[HOMEOWNER-ACTIONS] Error accepting contractor:", error)
 

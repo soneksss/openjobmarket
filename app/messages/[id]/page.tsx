@@ -74,6 +74,7 @@ export default function ConversationPage() {
   const [hasAlreadyResponded, setHasAlreadyResponded] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [otherUserLastSeen, setOtherUserLastSeen] = useState<string | null>(null)
+  const [conversationSubject, setConversationSubject] = useState<string | null>(null)
 
   useEffect(() => {
     fetchConversation()
@@ -143,7 +144,7 @@ export default function ConversationPage() {
       console.log('[CONVERSATION] Step 4.5: Fetching conversation...')
       const { data: conversation, error: convError } = await supabase
         .from("conversations")
-        .select("participant_1, participant_2")
+        .select("participant_1, participant_2, job_id, subject")
         .eq("id", conversationId)
         .maybeSingle()
 
@@ -220,6 +221,7 @@ export default function ConversationPage() {
           ? conversation.participant_2
           : conversation.participant_1
         console.log('[CONVERSATION] Step 4.7: Other user determined from conversation:', determinedOtherId)
+        if (conversation.subject) setConversationSubject(conversation.subject)
       }
 
       // Last resort: ask the server (bypasses RLS on conversations table)
@@ -400,13 +402,12 @@ export default function ConversationPage() {
       })
       console.log('[CONVERSATION] Step 14: Other user state set:', displayName)
 
-      // Fetch ALL messages between current user and other user (regardless of conversation_id)
-      // This ensures all messages are shown together even if they have different conversation_ids
-      console.log('[CONVERSATION] Step 15: Fetching all messages between users:', currentUser.id, 'and', determinedOtherId)
+      // Fetch messages for this specific conversation
+      console.log('[CONVERSATION] Step 15: Fetching messages for conversation:', messageConversationId)
       const { data: messagesData, error } = await supabase
         .from("messages")
         .select("*")
-        .or(`and(sender_id.eq.${currentUser.id},recipient_id.eq.${determinedOtherId}),and(sender_id.eq.${determinedOtherId},recipient_id.eq.${currentUser.id})`)
+        .eq("conversation_id", messageConversationId)
         .order("created_at", { ascending: true })
 
       console.log('[CONVERSATION] Step 16: Messages retrieved:', messagesData?.length || 0, 'error:', error)
@@ -416,8 +417,8 @@ export default function ConversationPage() {
       setMessages(messagesData || [])
       console.log('[CONVERSATION] Step 17: Messages state set')
 
-      // Fetch job context if any message has a job_id, or if navigated here with ?job=
-      const jobId = messagesData?.find(msg => msg.job_id)?.job_id ?? jobParam
+      // Fetch job context — from conversation record, any message job_id, or ?job= param
+      const jobId = (conversation as any)?.job_id ?? messagesData?.find(msg => msg.job_id)?.job_id ?? jobParam
       if (jobId) {
         console.log('[CONVERSATION] Step 17.5: Fetching job context for:', jobId)
         const { data: jobData, error: jobError } = await supabase
@@ -719,6 +720,13 @@ export default function ConversationPage() {
               </div>
             )}
           </div>
+
+          {/* Subject (non-job conversations) */}
+          {!jobContext && conversationSubject && (
+            <div className="mt-2 px-2.5 py-1.5 bg-slate-700/30 rounded-lg border border-slate-600/30">
+              <p className="text-xs text-slate-400 truncate">{conversationSubject}</p>
+            </div>
+          )}
 
           {/* Job Context Header */}
           {jobContext && (
