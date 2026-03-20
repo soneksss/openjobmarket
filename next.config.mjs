@@ -43,14 +43,6 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  webpack: (config, { isServer }) => {
-    config.ignoreWarnings = [
-      { module: /node_modules/ },
-      /Failed to parse source map/,
-      /sourceMapURL could not be parsed/,
-    ]
-    return config
-  },
 }
 
 export default nextConfig

@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info, Bell } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
 import { NotificationBell } from "@/components/notification-bell"
 import { useRouter, usePathname } from "next/navigation"
@@ -23,6 +23,60 @@ import { OnboardingFlow } from "./onboarding/OnboardingFlow"
 import { useLanguageRegion } from "@/contexts/language-region-context"
 import { getDisplayText } from "@/lib/i18n/language-region"
 import { useTranslation } from "@/lib/i18n/context"
+
+// Desktop "My Jobs" button for homeowners — mirrors mobile bottom nav behaviour
+function HomeownerMyJobsButton({ userId }: { userId: string }) {
+  const router = useRouter()
+  const supabase = createClient()
+  const [badge, setBadge] = useState(0)
+
+  useEffect(() => {
+    const JOB_NOTIF_TYPES = ["job_application", "job_expiring"]
+
+    const fetch = async () => {
+      const { count } = await supabase
+        .from("notifications")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_read", false)
+        .in("type", JOB_NOTIF_TYPES)
+      setBadge(count ?? 0)
+    }
+
+    fetch()
+
+    const channel = supabase
+      .channel(`homeowner-jobs-btn-${userId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, fetch)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, fetch)
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` }, fetch)
+      .subscribe()
+
+    const onFocus = () => fetch()
+    window.addEventListener("focus", onFocus)
+    return () => {
+      window.removeEventListener("focus", onFocus)
+      supabase.removeChannel(channel)
+    }
+  }, [userId])
+
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="relative"
+      onClick={() => { setBadge(0); router.push("/dashboard/homeowner/jobs") }}
+      aria-label="My Jobs"
+    >
+      <Briefcase className="h-5 w-5" />
+      {badge > 0 && (
+        <span className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center bg-red-500 text-white text-xs font-bold rounded-full">
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
+    </Button>
+  )
+}
 
 interface HeaderProps {
   user?: any
@@ -362,8 +416,11 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     </Button>
                     {/* Message Icon */}
                     <MessageIcon user={currentUser} />
-                    {/* Notification Bell */}
-                    <NotificationBell />
+                    {/* My Jobs (homeowners) or Notification Bell (tradespeople) */}
+                    {currentUserType === "homeowner"
+                      ? <HomeownerMyJobsButton userId={currentUser.id} />
+                      : <NotificationBell />
+                    }
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
