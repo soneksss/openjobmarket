@@ -150,7 +150,7 @@ export function MobilePreviewCard({
     return (
       <div className="flex flex-col h-full bg-slate-900 animate-in slide-in-from-bottom-4 duration-300">
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain pb-20">
+        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
           {/* Header with close button */}
           <div className="sticky top-0 bg-slate-900 z-10 px-4 pt-4 pb-3 border-b border-slate-700">
             <div className="flex items-start justify-between">
@@ -218,7 +218,7 @@ export function MobilePreviewCard({
         </div>
 
         {/* Sticky Action Buttons */}
-        <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 flex gap-3 shadow-lg">
+        <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 pt-3 flex gap-3 shadow-lg" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
           <Button
             variant="outline"
             className="flex-1 h-12 border-slate-600 text-slate-300 hover:bg-slate-700"
@@ -250,7 +250,7 @@ export function MobilePreviewCard({
     return (
       <div className="flex flex-col h-full bg-slate-900 animate-in slide-in-from-bottom-4 duration-300">
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain pb-20">
+        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
           {/* Header */}
           <div className="sticky top-0 bg-slate-900 z-10 px-4 pt-4 pb-3 border-b border-slate-700">
             <div className="flex items-start gap-3">
@@ -366,7 +366,7 @@ export function MobilePreviewCard({
         </div>
 
         {/* Sticky Action Buttons */}
-        <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 flex gap-3 shadow-lg">
+        <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 pt-3 flex gap-3 shadow-lg" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
           <Button
             variant="outline"
             className="flex-1 h-12 border-slate-600 text-slate-300 hover:bg-slate-700"
@@ -376,7 +376,7 @@ export function MobilePreviewCard({
           </Button>
           {showAction && (
             <Button
-              className="flex-1 h-12 bg-emerald-500 hover:bg-emerald-600"
+              className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white"
               onClick={handleActionClick}
               disabled={actionDisabled}
             >
@@ -394,7 +394,7 @@ export function MobilePreviewCard({
     return (
       <div className="flex flex-col h-full bg-slate-900 animate-in slide-in-from-bottom-4 duration-300">
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto overscroll-contain pb-20">
+        <div className="flex-1 overflow-y-auto overscroll-contain" style={{ paddingBottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}>
           {/* Header */}
           <div className="sticky top-0 bg-slate-900 z-10 px-4 pt-4 pb-3 border-b border-slate-700">
             <div className="flex items-start gap-3">
@@ -521,7 +521,7 @@ export function MobilePreviewCard({
         </div>
 
         {/* Sticky Action Buttons */}
-        <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 py-3 flex gap-3 shadow-lg">
+        <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 pt-3 flex gap-3 shadow-lg" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
           <Button
             variant="outline"
             className="flex-1 h-12 border-slate-600 text-slate-300 hover:bg-slate-700"
@@ -532,7 +532,7 @@ export function MobilePreviewCard({
           </Button>
           {showAction && (
             <Button
-              className="flex-1 h-12 bg-emerald-500 hover:bg-emerald-600"
+              className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white"
               onClick={handleActionClick}
               disabled={actionDisabled}
             >
