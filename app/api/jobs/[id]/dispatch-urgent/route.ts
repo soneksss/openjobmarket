@@ -46,20 +46,50 @@ export async function POST(
 
     // ── 1b. Fallback: query company_profiles directly ───────────────
     // Used when the geospatial RPC finds 0 candidates (no geom set on profiles)
-    // or when the RPC itself errors. Selects companies that have opted in to
-    // trade job notifications and are open for business (up to 10).
+    // or when the RPC itself errors. Filters by job category/industry to ensure
+    // only matching tradespeople receive the notification.
     if (profileIds.length === 0) {
       console.log("[DISPATCH-URGENT] Falling back to direct company_profiles query")
-      const { data: fallback } = await admin
+
+      // Fetch job category for skill-matching
+      const { data: jobData } = await admin
+        .from("jobs")
+        .select("category, title")
+        .eq("id", jobId)
+        .maybeSingle()
+
+      let fallbackQuery = admin
         .from("company_profiles")
-        .select("id")
+        .select("id, industry, services")
         .eq("open_for_business", true)
         .eq("trade_job_notifications", true)
-        .limit(10)
 
-      if (fallback && fallback.length > 0) {
-        profileIds = fallback.map((p: { id: string }) => p.id)
-        console.log(`[DISPATCH-URGENT] Fallback found ${profileIds.length} opted-in company(s)`)
+      const { data: allCandidates } = await fallbackQuery.limit(100)
+
+      if (allCandidates && allCandidates.length > 0) {
+        const jobCategory = (jobData?.category || jobData?.title || "").toLowerCase()
+
+        // Filter by industry/services match if category is available
+        let matched = allCandidates
+        if (jobCategory) {
+          matched = allCandidates.filter((p: { id: string; industry?: string; services?: string[] }) => {
+            const industry = (p.industry || "").toLowerCase()
+            const services = (p.services || []).map((s: string) => s.toLowerCase())
+            return (
+              industry.includes(jobCategory) ||
+              jobCategory.includes(industry) ||
+              services.some((s) => s.includes(jobCategory) || jobCategory.includes(s))
+            )
+          })
+          // If no skill match found, fall back to all opted-in companies (better than 0 dispatches)
+          if (matched.length === 0) {
+            console.log("[DISPATCH-URGENT] No skill-matched candidates, using all opted-in companies")
+            matched = allCandidates
+          }
+        }
+
+        profileIds = matched.slice(0, 10).map((p: { id: string }) => p.id)
+        console.log(`[DISPATCH-URGENT] Fallback found ${profileIds.length} matched company(s) for category: ${jobCategory}`)
       }
     }
 

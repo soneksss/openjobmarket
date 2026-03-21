@@ -1,11 +1,19 @@
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
-import { ArrowLeft, MapPin, Clock, DollarSign, CheckCircle2, Briefcase, MessageCircle } from "lucide-react"
+import { ArrowLeft, MapPin, Clock, CheckCircle2, Briefcase, MessageCircle, History } from "lucide-react"
 import Link from "next/link"
+import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
 
 export const dynamic = "force-dynamic"
 
-export default async function CompanyMyJobsPage() {
+interface PageProps {
+  searchParams: Promise<{ tab?: string }>
+}
+
+export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
+  const { tab } = await searchParams
+  const activeTab = tab === "history" ? "history" : "active"
+
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect("/auth/login")
@@ -18,7 +26,10 @@ export default async function CompanyMyJobsPage() {
 
   if (!profile) redirect("/onboarding")
 
-  // Fetch jobs where this tradesperson is confirmed or has completed work
+  // Active = CONFIRMED (homeowner confirmed us, job in progress)
+  // History = COMPLETED
+  const statusFilter = activeTab === "history" ? ["COMPLETED"] : ["CONFIRMED", "ACTIVE"]
+
   const { data: jobs } = await supabase
     .from("jobs")
     .select(`
@@ -27,7 +38,7 @@ export default async function CompanyMyJobsPage() {
       homeowner_profiles!homeowner_id ( first_name, last_name, user_id )
     `)
     .eq("confirmed_tradesperson_id", profile.id)
-    .in("status", ["CONFIRMED", "COMPLETED"])
+    .in("status", statusFilter)
     .order("confirmed_at", { ascending: false })
 
   const formatBudget = (min?: number, max?: number) => {
@@ -44,6 +55,9 @@ export default async function CompanyMyJobsPage() {
 
   return (
     <div className="min-h-screen bg-slate-900">
+      {/* Mark jobs as viewed when on active tab */}
+      {activeTab === "active" && <MarkTradespersonJobsViewed />}
+
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
 
         {/* Header */}
@@ -61,20 +75,52 @@ export default async function CompanyMyJobsPage() {
           </span>
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-1 bg-slate-800/60 border border-slate-700/60 rounded-xl p-1">
+          <Link
+            href="/dashboard/company/my-jobs?tab=active"
+            className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-lg transition-colors ${
+              activeTab === "active"
+                ? "bg-emerald-600 text-white"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Active
+          </Link>
+          <Link
+            href="/dashboard/company/my-jobs?tab=history"
+            className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-lg transition-colors ${
+              activeTab === "history"
+                ? "bg-slate-600 text-white"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            <History className="w-3.5 h-3.5" />
+            History
+          </Link>
+        </div>
+
         {/* Empty state */}
         {!jobs || jobs.length === 0 ? (
           <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl px-5 py-14 text-center">
             <Briefcase className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-            <p className="text-sm font-semibold text-slate-300 mb-1">No jobs yet</p>
-            <p className="text-xs text-slate-500 mb-5">
-              When a homeowner confirms you for a job it will appear here.
+            <p className="text-sm font-semibold text-slate-300 mb-1">
+              {activeTab === "history" ? "No completed jobs yet" : "No active jobs yet"}
             </p>
-            <Link
-              href="/tasks"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
-            >
-              Browse Jobs
-            </Link>
+            <p className="text-xs text-slate-500 mb-5">
+              {activeTab === "history"
+                ? "Completed jobs will appear here."
+                : "When a homeowner confirms you for a job it will appear here."}
+            </p>
+            {activeTab === "active" && (
+              <Link
+                href="/tasks"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+              >
+                Browse Jobs
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-2">
@@ -112,7 +158,7 @@ export default async function CompanyMyJobsPage() {
                           : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
                       }`}>
                         <CheckCircle2 className="w-2.5 h-2.5" />
-                        {isCompleted ? "Completed" : "Confirmed"}
+                        {isCompleted ? "Completed" : "Active"}
                       </span>
                     </div>
 
@@ -129,8 +175,7 @@ export default async function CompanyMyJobsPage() {
                         {dateLabel}
                       </span>
                       {budget && (
-                        <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
-                          <DollarSign className="w-3 h-3" />
+                        <span className="text-xs font-semibold text-emerald-400">
                           {budget}
                         </span>
                       )}

@@ -282,14 +282,14 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
             <img
               src={job.job_photo_url}
               alt={job.title}
-              className="w-full max-h-64 object-cover"
+              className="w-full max-h-44 sm:max-h-64 object-cover"
             />
           </div>
         )}
 
         {/* Description */}
         {displayDescription && (
-          <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5 overflow-hidden">
+          <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5">
             <h2 className="text-sm font-semibold text-slate-300 mb-2">About this job</h2>
             <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap break-words">{displayDescription}</p>
           </div>

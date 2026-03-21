@@ -2,6 +2,8 @@
 
 import { useState } from "react"
 import { CheckCircle, Send, Zap, PartyPopper, XCircle } from "lucide-react"
+import { createClient } from "@/lib/client"
+import { useRouter } from "next/navigation"
 
 interface UrgentJobApplySectionProps {
   jobId: string
@@ -12,10 +14,24 @@ interface UrgentJobApplySectionProps {
 const QUICK_MESSAGES = ["I can come now", "Available today", "Need more details"]
 
 export function UrgentJobApplySection({ jobId, hasApplied, applicationStatus }: UrgentJobApplySectionProps) {
+  const router = useRouter()
   const [message, setMessage]   = useState("")
   const [loading, setLoading]   = useState(false)
   const [applied, setApplied]   = useState(hasApplied)
+  const [skipped, setSkipped]   = useState(false)
   const [error,   setError]     = useState<string | null>(null)
+
+  const handleSkip = async () => {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        await supabase.from("job_skips").upsert({ job_id: jobId, user_id: user.id }, { onConflict: "job_id,user_id" })
+      }
+    } catch {}
+    setSkipped(true)
+    router.back()
+  }
 
   const handleApply = async () => {
     if (loading) return
@@ -121,24 +137,32 @@ export function UrgentJobApplySection({ jobId, hasApplied, applicationStatus }: 
 
       {error && <p className="text-xs text-red-400">{error}</p>}
 
-      {/* Submit button */}
-      <button
-        onClick={handleApply}
-        disabled={loading}
-        className="w-full flex items-center justify-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-60 text-white font-semibold text-sm py-3 transition-colors"
-      >
-        {loading ? (
-          <>
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-            Sending…
-          </>
-        ) : (
-          <>
-            <Send className="h-4 w-4" />
-            Apply &amp; Send
-          </>
-        )}
-      </button>
+      {/* Buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={handleSkip}
+          className="flex-1 py-3 rounded-lg bg-slate-800 border border-white/10 text-slate-400 hover:text-white hover:bg-slate-700 font-semibold text-sm transition-colors"
+        >
+          Skip
+        </button>
+        <button
+          onClick={handleApply}
+          disabled={loading}
+          className="flex-[2] flex items-center justify-center gap-2 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-60 text-white font-semibold text-sm py-3 transition-colors"
+        >
+          {loading ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+              Sending…
+            </>
+          ) : (
+            <>
+              <Send className="h-4 w-4" />
+              Apply &amp; Send
+            </>
+          )}
+        </button>
+      </div>
     </div>
   )
 }

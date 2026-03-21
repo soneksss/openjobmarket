@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
-import { Home, MessageCircle, Plus, Bookmark, User, Map, Bell, Briefcase } from "lucide-react"
+import { Home, MessageCircle, Plus, Bookmark, User, Map, Briefcase } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useTranslation } from "@/lib/i18n/context"
 
@@ -59,6 +59,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
   const [unreadJobNotifs, setUnreadJobNotifs] = useState(0)
+  const [myJobsBadge, setMyJobsBadge] = useState(0)
   const [jobsSearchUrl, setJobsSearchUrl] = useState<string | null>(null)
 
   // Notification types homeowners receive about their jobs
@@ -125,6 +126,31 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
 
     return () => { supabase.removeChannel(channel) }
   }, [userId])
+
+  // Fetch "My Jobs" badge count for tradespeople (new confirmed jobs not yet viewed)
+  useEffect(() => {
+    if (!userId || userType !== "company") return
+
+    const fetchMyJobsBadge = async () => {
+      const { data, error } = await supabase.rpc("get_my_jobs_badge_count")
+      if (!error && typeof data === "number") setMyJobsBadge(data)
+    }
+
+    fetchMyJobsBadge()
+
+    const onFocus = () => fetchMyJobsBadge()
+    window.addEventListener("focus", onFocus)
+
+    const channel = supabase
+      .channel("mobile-nav-myjobs-badge")
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_applications" }, fetchMyJobsBadge)
+      .subscribe()
+
+    return () => {
+      window.removeEventListener("focus", onFocus)
+      supabase.removeChannel(channel)
+    }
+  }, [userId, userType])
 
   // Fetch unread JOB-RELATED notification count (homeowner "My Jobs" badge)
   useEffect(() => {
@@ -272,7 +298,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
       { key: "home",          icon: Home,          label: "Home",          href: `${base}/`,              isActive: pathname === "/" || pathname === "/br" },
       { key: "messages",      icon: MessageCircle, label: "Messages",      href: `${base}/messages`,      isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
       { key: "jobs",          icon: Map,           label: "Jobs",          href: jobsUrl,                 isActive: false, isCenter: true, centerColor: "bg-orange-500 shadow-orange-500/30 hover:bg-orange-600" },
-      { key: "notifications", icon: Bell,          label: "Alerts",        href: `${base}/notifications`, isActive: !!pathname?.includes("/notifications"), badge: unreadNotifications },
+      { key: "myjobs",        icon: Briefcase,     label: "My Jobs",       href: `${base}/dashboard/company/my-jobs`, isActive: !!pathname?.includes("/dashboard/company/my-jobs"), badge: myJobsBadge },
       { key: "account",       icon: User,          label: "Account",       href: getDashboardUrl(),       isActive: !!pathname?.includes("/dashboard") && !pathname?.includes("/saved") },
     ]
     return <BottomNav items={items} unreadMessages={unreadMessages} unreadNotifications={unreadNotifications} />

@@ -1,9 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { MapPin, Search, RotateCcw, CheckCircle } from "lucide-react"
+import { MapPin, Search, RotateCcw, CheckCircle2 } from "lucide-react"
 import dynamic from "next/dynamic"
 import { Input } from "@/components/ui/input"
 import { useLanguageRegion } from "@/contexts/language-region-context"
@@ -75,6 +73,8 @@ interface MapLocationPickerProps {
   onChange: (location: { latitude: number; longitude: number; address: string } | null) => void
   height?: string
   placeholder?: string
+  /** Show the address search bar inside the map card. Default: false */
+  showSearch?: boolean
 }
 
 export function MapLocationPicker({
@@ -82,8 +82,8 @@ export function MapLocationPicker({
   onChange,
   height = "400px",
   placeholder,
+  showSearch = false,
 }: MapLocationPickerProps) {
-  // Get language/region context for default map center
   const { state: languageRegionState } = useLanguageRegion()
   const defaultCenter = getDefaultMapCenter(languageRegionState.country)
   const { t } = useTranslation()
@@ -103,7 +103,6 @@ export function MapLocationPicker({
       setMapZoom(14)
     }
 
-    // Add Leaflet CSS dynamically on client
     if (typeof window !== "undefined") {
       const link = document.createElement("link")
       link.rel = "stylesheet"
@@ -114,7 +113,6 @@ export function MapLocationPicker({
     }
   }, [value])
 
-  // Update map center when country changes (for Brazilian/Global switching)
   useEffect(() => {
     if (!value) {
       const newCenter = getDefaultMapCenter(languageRegionState.country)
@@ -123,13 +121,9 @@ export function MapLocationPicker({
   }, [languageRegionState.country, value])
 
   const searchLocations = async (query: string) => {
-    if (query.length < 3) {
-      setSuggestions([])
-      return
-    }
+    if (query.length < 3) { setSuggestions([]); return }
     setIsSearching(true)
     try {
-      // Prioritize BR for Brazilian users, include all countries for GLOBAL
       const countryCodes = languageRegionState.country === 'BR' ? 'br,pt,us' : 'gb,us,de,fr,br'
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=${countryCodes}&addressdetails=1`
@@ -164,8 +158,7 @@ export function MapLocationPicker({
 
   const handleMapClick = async (lat: number, lng: number) => {
     const address = await reverseGeocode(lat, lng)
-    const loc = { latitude: lat, longitude: lng, address }
-    onChange(loc)
+    onChange({ latitude: lat, longitude: lng, address })
     setMapCenter([lat, lng])
     setMapZoom(14)
   }
@@ -173,8 +166,7 @@ export function MapLocationPicker({
   const handleSuggestionSelect = (suggestion: LocationSuggestion) => {
     const lat = parseFloat(suggestion.lat)
     const lng = parseFloat(suggestion.lon)
-    const loc = { latitude: lat, longitude: lng, address: formatShortAddress(suggestion) }
-    onChange(loc)
+    onChange({ latitude: lat, longitude: lng, address: formatShortAddress(suggestion) })
     setMapCenter([lat, lng])
     setMapZoom(14)
     setSearchQuery("")
@@ -190,7 +182,7 @@ export function MapLocationPicker({
 
   const resetLocation = () => {
     onChange(null)
-    setMapCenter(defaultCenter) // Use locale-aware default instead of hardcoded London
+    setMapCenter(defaultCenter)
     setMapZoom(6)
     setSearchQuery("")
     setSuggestions([])
@@ -198,127 +190,127 @@ export function MapLocationPicker({
 
   if (!isClient) {
     return (
-      <div className="w-full bg-muted rounded-lg flex items-center justify-center" style={{ height }}>
-        <div className="text-center">
-          <MapPin className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-muted-foreground">{t('mapLocationPicker.loadingMap')}</p>
+      <div
+        className="w-full bg-slate-800/60 border border-slate-700/60 rounded-xl flex items-center justify-center"
+        style={{ height }}
+      >
+        <div className="flex items-center gap-2 text-slate-400 text-sm">
+          <div className="animate-spin h-4 w-4 border-2 border-slate-600 border-t-emerald-400 rounded-full" />
+          Loading map…
         </div>
       </div>
     )
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MapPin className="h-5 w-5" />
-          {t('mapLocationPicker.selectLocationTitle')}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Search input */}
-        <div className="relative">
+    <div className="w-full space-y-0">
+      {/* Optional search bar */}
+      {showSearch && (
+        <div className="relative mb-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
             <Input
               value={searchQuery}
               onChange={handleSearchInputChange}
-              placeholder={t('mapLocationPicker.searchLocationPlaceholder')}
-              className="pl-10"
+              placeholder="Search for an address…"
+              className="pl-10 bg-slate-800/80 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-500"
             />
             {isSearching && (
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full" />
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="animate-spin h-4 w-4 border-2 border-slate-600 border-t-emerald-400 rounded-full" />
               </div>
             )}
           </div>
 
           {suggestions.length > 0 && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+            <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-700 rounded-xl shadow-xl max-h-60 overflow-auto">
               {suggestions.map((s) => (
                 <button
                   key={s.place_id}
                   type="button"
-                  className="w-full px-4 py-3 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0 transition-colors"
+                  className="w-full px-4 py-3 text-left hover:bg-slate-700/60 focus:bg-slate-700/60 focus:outline-none border-b border-slate-700/50 last:border-b-0 transition-colors"
                   onClick={() => handleSuggestionSelect(s)}
                 >
-                  <div className="flex items-start">
-                    <MapPin className="h-4 w-4 text-blue-500 mt-1 mr-3 flex-shrink-0" />
-                    <span className="text-sm text-gray-900 truncate font-medium">{formatShortAddress(s)}</span>
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                    <span className="text-sm text-white truncate">{formatShortAddress(s)}</span>
                   </div>
                 </button>
               ))}
             </div>
           )}
         </div>
+      )}
 
-        {value && (
-          <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <div>
-                <p className="text-sm font-medium text-green-800">{t('mapLocationPicker.locationSelected')}</p>
-                <p className="text-xs text-green-600">{value.address}</p>
-                <p className="text-xs text-green-500">
-                  {value.latitude.toFixed(6)}, {value.longitude.toFixed(6)}
-                </p>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={resetLocation}
-              className="text-green-700 border-green-300 hover:bg-green-100"
-            >
-              <RotateCcw className="h-3 w-3 mr-1" />
-              {t('mapLocationPicker.resetLocation')}
-            </Button>
+      {/* Map */}
+      <div className="relative rounded-xl overflow-hidden" style={{ height }}>
+        {/* Hint label — only shown when no location set */}
+        {!value && (
+          <div className="absolute top-2.5 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/60 text-xs text-slate-300 shadow-lg backdrop-blur-sm">
+              <MapPin className="h-3 w-3 text-emerald-400" />
+              {placeholder || "Tap map to drop pin"}
+            </span>
           </div>
         )}
 
-        <div className="relative rounded-lg overflow-hidden border" style={{ height }}>
-          <MapContainer
-            key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
-            center={mapCenter}
-            zoom={mapZoom}
-            style={{ height: "100%", width: "100%" }}
-            className="z-0"
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <MapClickHandler onLocationSelect={handleMapClick} />
-            {value && (
-              <Marker position={[value.latitude, value.longitude]}>
-                <Popup>
-                  <div className="text-center">
-                    <div className="font-semibold text-gray-900 mb-1">{t('mapLocationPicker.locationSelected')}</div>
-                    <div className="text-sm text-gray-600 mb-2">{value.address}</div>
-                    <div className="text-xs text-gray-500">
-                      {value.latitude.toFixed(6)}, {value.longitude.toFixed(6)}
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            )}
-          </MapContainer>
-
-          {isGeocodingClick && (
-            <div className="absolute inset-0 bg-white/70 flex items-center justify-center z-10">
-              <div className="bg-white rounded-lg shadow-lg p-4 flex items-center gap-2">
-                <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full" />
-                <span className="text-sm text-gray-600">{t('mapLocationPicker.gettingAddress')}</span>
-              </div>
+        {/* Geocoding overlay */}
+        {isGeocodingClick && (
+          <div className="absolute inset-0 bg-slate-900/50 flex items-center justify-center z-[1001] backdrop-blur-[2px]">
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 border border-slate-700 shadow-lg">
+              <div className="animate-spin h-4 w-4 border-2 border-slate-600 border-t-emerald-400 rounded-full" />
+              <span className="text-xs text-slate-300">Confirming location…</span>
             </div>
-          )}
+          </div>
+        )}
 
-        </div>
-      </CardContent>
-    </Card>
+        <MapContainer
+          key={`map-${mapCenter[0]}-${mapCenter[1]}-${mapZoom}`}
+          center={mapCenter}
+          zoom={mapZoom}
+          style={{ height: "100%", width: "100%" }}
+          className="z-0"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          <MapClickHandler onLocationSelect={handleMapClick} />
+          {value && (
+            <Marker position={[value.latitude, value.longitude]}>
+              <Popup>
+                <div className="text-center text-xs">
+                  <div className="font-semibold text-gray-800 mb-0.5">Location pinned</div>
+                  <div className="text-gray-500">{value.latitude.toFixed(5)}, {value.longitude.toFixed(5)}</div>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+        </MapContainer>
+
+        {/* Compact confirmation bar — shown at bottom of map when location is set */}
+        {value && (
+          <div className="absolute bottom-0 left-0 right-0 z-[1000] px-2.5 py-2 bg-slate-900/85 backdrop-blur-sm border-t border-slate-700/60 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+              <span className="text-xs font-semibold text-emerald-300">Location pinned</span>
+              <span className="text-[11px] text-slate-400 truncate ml-1">
+                {value.latitude.toFixed(5)}, {value.longitude.toFixed(5)}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={resetLocation}
+              className="flex items-center gap-1 text-[11px] text-slate-400 hover:text-slate-200 transition-colors flex-shrink-0"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Reset
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
 export default MapLocationPicker
-

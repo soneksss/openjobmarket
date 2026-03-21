@@ -9,6 +9,7 @@ export interface ActiveSearch {
   phase: string
   startedAt: number   // Date.now() when the job was posted — survives page reload
   notifiedCount: number
+  userId?: string     // homeowner who started the search — used to clear on account switch
 }
 
 interface ActiveSearchContextType {

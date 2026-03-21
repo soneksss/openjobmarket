@@ -6,7 +6,12 @@ import { Zap, X, Users, ChevronRight } from "lucide-react"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
 import { createClient } from "@/lib/client"
 
-export function ActiveSearchBar() {
+interface ActiveSearchBarProps {
+  userType?: string | null
+  userId?: string | null
+}
+
+export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {}) {
   const router   = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -63,6 +68,13 @@ export function ActiveSearchBar() {
   }, [poll]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Early return AFTER all hooks ────────────────────────────────────
+  // Only homeowners should see the active search bar
+  if (userType === "company") return null
+  // Clear stale localStorage if the stored search belongs to a different user
+  if (activeSearch && userId && activeSearch.userId && activeSearch.userId !== userId) {
+    clearActiveSearch()
+    return null
+  }
   if (!activeSearch || isOnLivePage) return null
 
   // ── Cancel: deactivate job in DB + clear context ─────────────────────

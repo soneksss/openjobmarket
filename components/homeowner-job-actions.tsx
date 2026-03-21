@@ -431,7 +431,7 @@ export function HomeownerJobActions({
   }
 
   return (
-    <div className="flex gap-1.5 sm:gap-2 sm:flex-wrap">
+    <div className="flex flex-wrap gap-1.5">
       {/* Mark In Progress — flexible jobs only, while still POSTED */}
       {isFlexibleJob && localStatus === 'POSTED' && (
         <button

@@ -631,7 +631,7 @@ export default function JobDetailView({
   }
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-slate-900 overflow-x-hidden">
       {/* Session Error Banner */}
       {sessionError && (
         <div className="bg-red-900/30 border-b border-red-500/30 px-4 py-3">
@@ -652,7 +652,7 @@ export default function JobDetailView({
         </div>
       )}
 
-      <div className="relative container mx-auto px-4 py-6 max-w-4xl overflow-x-hidden">
+      <div className="relative w-full max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
         {/* Back Button */}
         <div className="mb-5">
           <Button
@@ -687,12 +687,12 @@ export default function JobDetailView({
           </div>
         )}
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid lg:grid-cols-3 gap-3 sm:gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-3 sm:space-y-4 min-w-0">
             {/* Job Header */}
-            <Card className="border border-white/10 bg-slate-800/60 shadow-none">
-              <CardHeader className="pb-3">
+            <Card className="border border-white/10 bg-slate-800/60 shadow-none py-4 sm:py-6 gap-4 sm:gap-6">
+              <CardHeader className="px-4 sm:px-6 pb-3">
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                   <div className="flex-1 w-full">
                     {/* Poster row */}
@@ -797,9 +797,9 @@ export default function JobDetailView({
                 </div>
               </CardHeader>
 
-              <CardContent className="pt-0">
-                <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-white/10">
-                  <div className="flex flex-wrap items-center gap-4 text-sm">
+              <CardContent className="px-4 sm:px-6 pt-0">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 border-t border-white/10">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                     <span className="flex items-center text-emerald-400 font-semibold">
                       <DollarSign className="h-4 w-4 mr-1" />
                       {formatSalary(job.budget_min, job.budget_max)}
@@ -813,7 +813,7 @@ export default function JobDetailView({
                       {job.applications_count} applicants
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-shrink-0">
                     {userProfile && (
                       <Button
                         variant="ghost"
@@ -837,19 +837,19 @@ export default function JobDetailView({
             </Card>
 
             {/* Job Description */}
-            <Card className="border border-white/10 bg-slate-800/60 shadow-none">
-              <CardHeader className="pb-2">
+            <Card className="border border-white/10 bg-slate-800/60 shadow-none py-4 sm:py-6 gap-3 sm:gap-6 overflow-hidden">
+              <CardHeader className="px-4 sm:px-6 pb-2">
                 <CardTitle className="text-base text-white">
                   {job.is_tradespeople_job ? "About this job" : "About this role"}
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 sm:px-6">
                 {job.job_photo_url && (
-                  <div className="mb-4">
+                  <div className="mb-4 rounded-lg overflow-hidden w-full">
                     <img
                       src={job.job_photo_url}
                       alt={job.title}
-                      className="w-full max-h-[360px] object-cover rounded-lg"
+                      className="w-full max-w-full max-h-[180px] sm:max-h-[320px] object-cover"
                       onError={(e) => {
                         console.error("[JOB-DETAIL-VIEW] Failed to load image:", job.job_photo_url)
                         e.currentTarget.style.display = 'none'
@@ -860,18 +860,18 @@ export default function JobDetailView({
                     />
                   </div>
                 )}
-                <p className="whitespace-pre-wrap text-slate-300 leading-relaxed text-sm">{job.description}</p>
+                <p className="whitespace-pre-wrap text-slate-300 leading-relaxed text-sm break-words [overflow-wrap:anywhere]">{job.description}</p>
               </CardContent>
             </Card>
 
 
             {/* Skills */}
             {job.skills_required && job.skills_required.length > 0 && (
-              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
-                <CardHeader className="pb-2">
+              <Card className="border border-white/10 bg-slate-800/60 shadow-none py-4 sm:py-6 gap-3 sm:gap-6">
+                <CardHeader className="px-4 sm:px-6 pb-2">
                   <CardTitle className="text-base text-white">Required Skills</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-4 sm:px-6">
                   <div className="flex flex-wrap gap-2">
                     {job.skills_required.map((skill) => (
                       <Badge
@@ -890,8 +890,8 @@ export default function JobDetailView({
 
             {/* Applications panel — visible to homeowner when tab=applications */}
             {showApplicationsTab && (
-              <Card className="border border-white/10 bg-slate-800/60 shadow-none">
-                <CardHeader className="pb-3">
+              <Card className="border border-white/10 bg-slate-800/60 shadow-none py-4 sm:py-6 gap-3 sm:gap-6">
+                <CardHeader className="px-4 sm:px-6 pb-3">
                   <CardTitle className="text-base text-white flex items-center gap-2">
                     <Users className="h-4 w-4 text-emerald-400" />
                     Applications
@@ -900,7 +900,7 @@ export default function JobDetailView({
                     </Badge>
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="px-4 sm:px-6 space-y-3">
                   {jobConfirmed && (
                     <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-600/30 rounded-lg px-3 py-2 mb-1">
                       <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
@@ -1059,7 +1059,7 @@ export default function JobDetailView({
               <UrgentJobApplySection jobId={job.id} hasApplied={applicationSubmitted} applicationStatus={myApplicationStatus} />
             ) : userTypeLoaded && user && userType !== "homeowner" ? (
               <Card className="border border-emerald-500/20 bg-emerald-500/5 shadow-none">
-                <CardContent className="p-6 text-center">
+                <CardContent className="p-4 sm:p-6 text-center">
                   <h3 className="text-base font-semibold mb-2 text-white">
                     {applicationSubmitted ? "Application Submitted" : "Ready to Apply?"}
                   </h3>
@@ -1089,7 +1089,7 @@ export default function JobDetailView({
 
             {!user && (
               <Card className="border border-white/10 bg-slate-800/60 shadow-none">
-                <CardContent className="p-6 text-center">
+                <CardContent className="p-4 sm:p-6 text-center">
                   <h3 className="text-base font-semibold mb-2 text-white">Ready to Apply?</h3>
                   <p className="text-slate-400 mb-5 text-sm leading-relaxed">
                     Sign up to apply for this position and manage your privacy settings.
@@ -1103,9 +1103,9 @@ export default function JobDetailView({
           </div>
 
           {/* Sidebar — hidden on mobile for homeowner trade jobs (no useful company info) */}
-          <div className={`lg:col-span-1 ${job.is_tradespeople_job && !job.company_profiles ? "hidden lg:block" : ""}`}>
-            <Card className="sticky top-6 border border-white/10 bg-slate-800/60 shadow-none">
-              <CardHeader className="pb-2">
+          <div className={`lg:col-span-1 min-w-0 ${job.is_tradespeople_job && !job.company_profiles ? "hidden lg:block" : ""}`}>
+            <Card className="sticky top-6 border border-white/10 bg-slate-800/60 shadow-none py-4 sm:py-6 gap-4 sm:gap-6">
+              <CardHeader className="px-4 sm:px-6 pb-2">
                 <CardTitle className="flex items-center text-base text-white mb-2">
                   {posterLogo ? (
                     <div className="h-7 w-7 flex-shrink-0 relative rounded-full overflow-hidden border border-white/20 bg-slate-700 mr-2">
@@ -1124,7 +1124,7 @@ export default function JobDetailView({
                   <StarRating rating={companyRating.average_rating} totalReviews={companyRating.total_reviews} size="sm" showCount={true} />
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="px-4 sm:px-6 space-y-4">
                 {job.company_profiles?.description && (
                   <p className="text-slate-400 leading-relaxed text-sm">{job.company_profiles.description}</p>
                 )}

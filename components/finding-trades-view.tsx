@@ -345,6 +345,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       notifiedCount,
       phase,
       startedAt:     Date.now() - elapsed * 1000,
+      userId,
     })
     router.push("/")
   }
@@ -777,7 +778,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
 
         {/* MAP */}
-        <div className="h-[45vh] md:h-auto md:flex-1 relative flex-shrink-0 overflow-hidden">
+        <div className="h-[30vh] md:h-auto md:flex-1 relative flex-shrink-0 overflow-hidden">
           <FindingTradesMap
             lat={lat}
             lon={lon}

@@ -3,24 +3,63 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
-import { X } from "lucide-react"
+import { X, Briefcase, PartyPopper } from "lucide-react"
 
+/* ─────────────────────────────────────────────────────────── */
+/* Sound helpers — Web Audio API, no files needed              */
+/* ─────────────────────────────────────────────────────────── */
+function playSound(type: "urgent" | "application" | "accepted") {
+  try {
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+
+    const osc = (freq: number, start: number, duration: number, vol = 0.25) => {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.connect(g); g.connect(ctx.destination)
+      o.type = "sine"; o.frequency.value = freq
+      g.gain.setValueAtTime(0, ctx.currentTime + start)
+      g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration)
+      o.start(ctx.currentTime + start)
+      o.stop(ctx.currentTime + start + duration)
+    }
+
+    if (type === "urgent") {
+      // Two quick ascending tones — attention-grabbing
+      osc(880,  0,    0.18)
+      osc(1100, 0.18, 0.18)
+    } else if (type === "accepted") {
+      // Three-note ascending chime — celebratory (C5 → E5 → G5)
+      osc(523.25, 0,    0.25, 0.3)
+      osc(659.25, 0.2,  0.25, 0.3)
+      osc(783.99, 0.4,  0.5,  0.3)
+    } else {
+      // Single soft ding — friendly notification
+      osc(523.25, 0, 0.9, 0.3)
+    }
+  } catch { /* silently ignore — audio blocked by browser policy */ }
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Shared types & helpers                                      */
+/* ─────────────────────────────────────────────────────────── */
 interface UrgentAlert {
-  notifId: string
-  jobId: string
-  jobTitle: string
-  budget?: string | null
+  notifId:    string
+  jobId:      string
+  jobTitle:   string
+  budget?:    string | null
   distanceMi?: number | null
   expiresAt?: string | null
-  linkUrl: string
-  shownAt: number
+  linkUrl:    string
+  shownAt:    number
   urgencyType?: string | null
 }
 
 const SHOWN_KEY = "ujb_shown"
 const AUTO_SECS = 30
 
-/** Extract UUID from /jobs/{uuid} URL */
 function extractJobId(url: string): string | null {
   const m = url.match(/\/jobs\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i)
   return m ? m[1] : null
@@ -67,7 +106,7 @@ function formatTimeLeft(expiresAt: string): string {
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Notification card                                           */
+/* Urgent job card — tradesperson                              */
 /* ─────────────────────────────────────────────────────────── */
 function UrgentCard({
   alert,
@@ -78,7 +117,7 @@ function UrgentCard({
   onView: () => void
   onSkip: () => void
 }) {
-  const [secs, setSecs] = useState(AUTO_SECS)
+  const [secs,     setSecs]     = useState(AUTO_SECS)
   const [timeLeft, setTimeLeft] = useState<string | null>(
     alert.expiresAt ? formatTimeLeft(alert.expiresAt) : null
   )
@@ -102,16 +141,22 @@ function UrgentCard({
     return () => clearInterval(id)
   }, [alert.expiresAt])
 
-  const progress = (secs / AUTO_SECS) * 100
+  const progress    = (secs / AUTO_SECS) * 100
   const distanceStr = alert.distanceMi != null
     ? `${alert.distanceMi < 0.1 ? "< 0.1" : alert.distanceMi.toFixed(1)} mi away`
     : null
 
   return (
-    <div className="fixed inset-x-0 bottom-0 sm:inset-auto sm:bottom-5 sm:right-5 z-[400] sm:max-w-xs w-full animate-in slide-in-from-bottom-4 sm:slide-in-from-right-4 duration-300">
-      <div className="bg-slate-900 border border-orange-500/50 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden">
-
-        {/* Auto-dismiss progress bar */}
+    // Mobile: full-width from top, rounded bottom corners
+    // Desktop sm+: top-right card, all corners rounded
+    <div className="fixed inset-x-0 top-0 sm:inset-auto sm:top-5 sm:right-5 z-[500] sm:max-w-xs w-full">
+      <div
+        className="bg-slate-900 border-b sm:border border-orange-500/60 rounded-b-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
+        style={{
+          animation: "notifSlideDown 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both",
+        }}
+      >
+        {/* Progress bar — drains as countdown ticks down */}
         <div className="h-1 bg-slate-800 w-full">
           <div
             className="h-full bg-orange-500 transition-all duration-1000 ease-linear"
@@ -121,8 +166,11 @@ function UrgentCard({
 
         {/* Card body */}
         <div className="px-5 pt-4 pb-2">
-          {/* Dismiss button */}
-          <div className="flex justify-end -mt-1 mb-2">
+          {/* Top row: countdown + dismiss */}
+          <div className="flex items-center justify-between -mt-1 mb-3">
+            <span className="text-xs font-bold text-red-500 tabular-nums">
+              {secs}s
+            </span>
             <button
               onClick={onSkip}
               className="text-slate-500 hover:text-slate-300 transition-colors p-1 -mr-1"
@@ -132,14 +180,14 @@ function UrgentCard({
             </button>
           </div>
 
-          {/* Key info — large, scannable */}
-          <div className="space-y-2">
-            <p className="text-lg font-bold text-white leading-tight">
+          {/* Key info */}
+          <div className="space-y-1.5">
+            <p className="text-base font-bold text-white leading-tight">
               🚨 {alert.jobTitle}
             </p>
 
             {alert.budget && (
-              <p className="text-base font-semibold text-emerald-400">
+              <p className="text-sm font-semibold text-emerald-400">
                 💰 {alert.budget}
               </p>
             )}
@@ -157,44 +205,98 @@ function UrgentCard({
             )}
           </div>
 
-          {/* CTA line */}
           <p className="mt-3 text-xs text-slate-500 font-medium tracking-wide uppercase">
             Be first to respond
           </p>
         </div>
 
-        {/* View Job button */}
-        <div className="px-5 pb-5 pt-2">
+        {/* Buttons */}
+        <div className="px-5 pb-5 pt-2 flex gap-2">
+          <button
+            onClick={onSkip}
+            className="flex-1 py-3 rounded-xl text-sm font-bold text-slate-400 bg-slate-800 hover:bg-slate-700 border border-slate-700 active:bg-slate-600 transition-colors"
+          >
+            Skip
+          </button>
           <button
             onClick={onView}
-            className="w-full py-3.5 rounded-xl text-base font-bold text-white bg-orange-600 hover:bg-orange-500 active:bg-orange-700 transition-colors"
+            className="flex-[2] py-3 rounded-xl text-sm font-bold text-white bg-orange-600 hover:bg-orange-500 active:bg-orange-700 transition-colors"
           >
             View Job
           </button>
         </div>
-
       </div>
     </div>
   )
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Main notifier — mounts once in the layout                   */
+/* Accepted toast — "You got the job!" celebration            */
+/* ─────────────────────────────────────────────────────────── */
+function AcceptedToast({
+  title:    jobTitle,
+  linkUrl,
+  onDismiss,
+}: {
+  title:    string
+  linkUrl:  string
+  onDismiss: () => void
+}) {
+  const router = useRouter()
+
+  // Auto-dismiss after 8s
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 8000)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div
+      className="bg-slate-900 border-b sm:border border-emerald-500/70 rounded-b-2xl sm:rounded-2xl shadow-2xl overflow-hidden cursor-pointer"
+      style={{ animation: "notifSlideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
+      onClick={() => { router.push(linkUrl); onDismiss() }}
+    >
+      {/* Celebratory green bar */}
+      <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 w-full" />
+
+      <div className="px-5 py-4 flex items-start gap-3">
+        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center">
+          <PartyPopper className="w-5 h-5 text-emerald-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-emerald-400">You got the job! 🎉</p>
+          <p className="text-sm font-semibold text-white mt-0.5 leading-snug line-clamp-2">{jobTitle}</p>
+          <p className="text-xs text-slate-400 mt-1">The homeowner selected you. Tap to view details.</p>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDismiss() }}
+          className="text-slate-500 hover:text-slate-300 transition-colors p-1 -mr-1 flex-shrink-0"
+          aria-label="Dismiss"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Main notifier — tradesperson                                */
 /* ─────────────────────────────────────────────────────────── */
 export function UrgentJobNotifier({ userId }: { userId: string }) {
   const router   = useRouter()
   const supabase = createClient()
 
-  const [current, setCurrent] = useState<UrgentAlert | null>(null)
-  const [queue,   setQueue]   = useState<UrgentAlert[]>([])
+  const [current,       setCurrent]       = useState<UrgentAlert | null>(null)
+  const [queue,         setQueue]         = useState<UrgentAlert[]>([])
+  const [acceptedAlert, setAcceptedAlert] = useState<{ id: string; title: string; linkUrl: string } | null>(null)
 
-  // Cache user's own coordinates (fetched once)
   const userCoordsRef = useRef<{ lat: number; lon: number } | null>(null)
 
-  /* ── fetch user's own location once ── */
+  /* ── fetch user coords once ── */
   useEffect(() => {
     const fetchUserCoords = async () => {
-      // Try professional_profiles first, then company_profiles
       const { data: pp } = await supabase
         .from("professional_profiles")
         .select("latitude, longitude")
@@ -226,7 +328,7 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     }
   }, [current, queue])
 
-  /* ── build an alert from a notification row ── */
+  /* ── build alert from notification row ── */
   const enqueue = useCallback(async (notif: {
     id: string; title: string; link_url?: string; message?: string
   }) => {
@@ -287,13 +389,15 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
       urgencyType,
     }
 
+    playSound("urgent")
+
     setCurrent((prev) => {
       if (prev) { setQueue((q) => [...q, alert]); return prev }
       return alert
     })
   }, [supabase, userId])
 
-  /* ── load recent unread notifications on mount (last 2 hours) ── */
+  /* ── load recent unread on mount (last 2 hours) ── */
   useEffect(() => {
     const load = async () => {
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
@@ -314,7 +418,7 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
-  /* ── real-time: new INSERT ── */
+  /* ── real-time INSERT ── */
   useEffect(() => {
     const ch = supabase
       .channel(`ujn_${userId}`)
@@ -325,6 +429,15 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
         const n = payload.new as any
         if (n?.type === "urgent_job_dispatch") {
           enqueue({ id: n.id, title: n.title, link_url: n.link_url, message: n.message })
+        } else if (n?.type === "job_accepted") {
+          // Homeowner confirmed this tradesperson — show celebration toast
+          playSound("accepted")
+          setAcceptedAlert({
+            id:      n.id,
+            title:   n.message ?? n.title,
+            linkUrl: n.link_url ?? "/messages",
+          })
+          void supabase.from("notifications").update({ is_read: true }).eq("id", n.id)
         }
       })
       .subscribe()
@@ -332,7 +445,7 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
-  /* ── View Job ── */
+  /* ── View ── */
   const handleView = useCallback(() => {
     if (!current) return
     supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
@@ -351,14 +464,138 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     setCurrent(null)
   }, [current, supabase, userId])
 
-  if (!current) return null
+  if (!current && !acceptedAlert) return null
 
   return (
-    <UrgentCard
-      key={current.notifId}
-      alert={current}
-      onView={handleView}
-      onSkip={handleSkip}
-    />
+    <>
+      {/* Keyframes injected once */}
+      <style>{`
+        @keyframes notifSlideDown {
+          from { opacity: 0; transform: translateY(-100%); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+
+      {/* Urgent job alert takes priority; accepted toast shows below if both present */}
+      {current && (
+        <UrgentCard
+          key={current.notifId}
+          alert={current}
+          onView={handleView}
+          onSkip={handleSkip}
+        />
+      )}
+
+      {/* Accepted toast — shown when no urgent alert is covering it */}
+      {acceptedAlert && !current && (
+        <div className="fixed inset-x-0 top-0 sm:inset-auto sm:top-5 sm:right-5 z-[500] sm:max-w-xs w-full">
+          <AcceptedToast
+            key={acceptedAlert.id}
+            title={acceptedAlert.title}
+            linkUrl={acceptedAlert.linkUrl}
+            onDismiss={() => setAcceptedAlert(null)}
+          />
+        </div>
+      )}
+    </>
+  )
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Homeowner notifier — fires when a tradesperson applies      */
+/* ─────────────────────────────────────────────────────────── */
+interface AppAlert {
+  id:      string
+  title:   string
+  message: string
+  linkUrl: string
+}
+
+function HomeownerToast({
+  alert,
+  onDismiss,
+}: {
+  alert: AppAlert
+  onDismiss: () => void
+}) {
+  const router = useRouter()
+
+  // Auto-dismiss after 6s
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 6000)
+    return () => clearTimeout(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return (
+    <div
+      className="bg-slate-900 border-b sm:border border-emerald-500/60 rounded-b-2xl sm:rounded-2xl shadow-2xl overflow-hidden cursor-pointer"
+      style={{ animation: "notifSlideDown 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
+      onClick={() => { router.push(alert.linkUrl); onDismiss() }}
+    >
+      {/* Accent bar */}
+      <div className="h-1 bg-emerald-500 w-full" />
+
+      <div className="px-5 py-4 flex items-start gap-3">
+        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+          <Briefcase className="w-4 h-4 text-emerald-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-white leading-snug">{alert.title}</p>
+          <p className="text-xs text-slate-400 mt-0.5 leading-relaxed line-clamp-2">{alert.message}</p>
+          <p className="text-xs text-emerald-400 font-medium mt-1.5">Tap to review →</p>
+        </div>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDismiss() }}
+          className="text-slate-500 hover:text-slate-300 transition-colors p-1 -mr-1 flex-shrink-0"
+          aria-label="Dismiss"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export function HomeownerJobNotifier({ userId }: { userId: string }) {
+  const supabase = createClient()
+  const [alerts, setAlerts] = useState<AppAlert[]>([])
+
+  const dismiss = useCallback((id: string) => {
+    setAlerts((prev) => prev.filter((a) => a.id !== id))
+    supabase.from("notifications").update({ is_read: true }).eq("id", id).then(() => {})
+  }, [supabase])
+
+  /* ── real-time INSERT for homeowner ── */
+  useEffect(() => {
+    const ch = supabase
+      .channel(`han_${userId}`)
+      .on("postgres_changes", {
+        event: "INSERT", schema: "public", table: "notifications",
+        filter: `user_id=eq.${userId}`,
+      }, (payload) => {
+        const n = payload.new as any
+        if (n?.type === "job_application") {
+          playSound("application")
+          setAlerts((prev) => [
+            ...prev,
+            { id: n.id, title: n.title, message: n.message ?? "", linkUrl: n.link_url ?? "/dashboard/homeowner/jobs" },
+          ])
+        }
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(ch) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
+
+  if (alerts.length === 0) return null
+
+  // Show only the most recent toast at a time (stack-safe)
+  const top = alerts[alerts.length - 1]
+
+  return (
+    <div className="fixed inset-x-0 top-0 sm:inset-auto sm:top-5 sm:right-5 z-[500] sm:max-w-xs w-full">
+      <HomeownerToast key={top.id} alert={top} onDismiss={() => dismiss(top.id)} />
+    </div>
   )
 }

@@ -1014,6 +1014,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
           notifiedCount: 0,
           phase:         "searching",
           startedAt:     Date.now(),
+          userId,
         })
         setLoading(false)
         router.push(`/jobs/${jobId}/live`)

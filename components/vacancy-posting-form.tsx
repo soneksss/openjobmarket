@@ -1114,6 +1114,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                   } : null}
                   onChange={handleMapLocationSelect}
                   height="400px"
+                  showSearch={true}
                   placeholder="Click on the map to select the job location (mandatory)"
                 />
                 {formData.locationCoords && (

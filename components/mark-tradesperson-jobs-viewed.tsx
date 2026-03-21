@@ -8,7 +8,7 @@ import { createClient } from "@/lib/client"
 export function MarkTradespersonJobsViewed() {
   useEffect(() => {
     const supabase = createClient()
-    supabase.rpc("mark_my_jobs_viewed").catch(() => {})
+    void supabase.rpc("mark_my_jobs_viewed")
   }, [])
 
   return null
