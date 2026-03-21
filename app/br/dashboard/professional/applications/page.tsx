@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Briefcase, ArrowLeft } from "lucide-react"
 import Link from "next/link"
 import ProfessionalApplicationsList from "@/components/professional-applications-list"
+import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
 
 export default async function ProfessionalApplicationsPageBR() {
   const supabase = await createClient()
@@ -49,6 +50,7 @@ export default async function ProfessionalApplicationsPageBR() {
 
   return (
     <div className="min-h-screen bg-muted/50">
+      <MarkTradespersonJobsViewed />
       <div className="container mx-auto px-4 py-8">
         <div className="mb-6">
           <Button variant="ghost" asChild>

@@ -17,6 +17,7 @@ export const metadata = generateSEO({
   locale: 'en',
 })
 
+
 export default async function HomePage() {
 
   // Check if current user is an admin - don't block page rendering if this fails

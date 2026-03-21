@@ -870,28 +870,12 @@ export default function ProfessionalsPageContent({
         }
       }
 
-      // Skip subscription check - allow all messaging for now
-      debug("[DEBUG] Skipping subscription check, allowing all messaging for user:", currentUser.id)
-
-      // Skip block check - allow all messaging for now
-      debug("[DEBUG] Skipping block check, proceeding to open conversation")
-
-      // Generate new conversation ID (will be created when first message is sent)
-      const conversationId = crypto.randomUUID()
-      debug("[DEBUG] Creating new conversation:", conversationId)
-
-      debug("[DEBUG] Opening message modal for conversation:", conversationId)
       debug("[DEBUG] Recipient user_id:", recipientUserId)
 
-      // Open floating message modal instead of navigating
-      setMessageModal({
-        isOpen: true,
-        recipientId: recipientUserId!,
-        recipientName: professionalName,
-        conversationId: conversationId
-      })
+      // Use the same subject-dialog flow as the map list Message buttons
+      openConversation(recipientUserId!, professionalName)
 
-      debug("[DEBUG] Message modal opened successfully")
+      debug("[DEBUG] Subject dialog opened")
     } catch (error) {
       console.error("[ERROR] Error sending inquiry:", error)
       alert("Error sending message. Please try again.")
@@ -3546,13 +3530,22 @@ export default function ProfessionalsPageContent({
                               </div>
                               {/* Available / Busy badge — right side of card */}
                               {(() => {
-                                const hasTradeNotif = 'trade_job_notifications' in item
-                                const hasAvailNow = 'available_now' in item
-                                const isAvail = hasTradeNotif
-                                  ? (item as any).trade_job_notifications === true
-                                  : hasAvailNow
-                                  ? (item as any).available_now === true
-                                  : null
+                                let isAvail: boolean | null = null
+                                if ('company_name' in item) {
+                                  // Trader/company: use open_for_business
+                                  isAvail = item.open_for_business === true ? true
+                                          : item.open_for_business === false ? false
+                                          : null
+                                } else {
+                                  // Professional
+                                  const hasTradeNotif = 'trade_job_notifications' in item
+                                  const hasAvailNow = 'available_now' in item
+                                  isAvail = hasTradeNotif
+                                    ? (item as any).trade_job_notifications === true
+                                    : hasAvailNow
+                                    ? (item as any).available_now === true
+                                    : null
+                                }
                                 if (isAvail === true) return (
                                   <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-full whitespace-nowrap self-start mt-0.5">
                                     ● Available

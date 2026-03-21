@@ -83,11 +83,12 @@ export async function signUp(prevState: any, formData: FormData) {
   }
 }
 
-// Sign out action
+// Sign out action — clears the server-side session cookie.
+// Does NOT redirect; the client handles navigation via window.location.href
+// so the full page reload resets all React state and the browser Supabase cache.
 export async function signOut() {
   const supabase = await createClient()
   await supabase.auth.signOut()
-  redirect("/")
 }
 
 // Sign in action

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { createClient } from "@/lib/client"
+import { signOut as serverSignOut } from "@/lib/actions"
 
 export function useAutoLogout() {
   useEffect(() => {
@@ -23,40 +24,26 @@ export function useAutoLogout() {
 }
 
 export async function manualLogout() {
-  console.log('[LOGOUT] Starting manual logout...')
-
   try {
+    // 1. Clear client-side session (browser SDK cache + localStorage)
     const supabase = createClient()
+    await Promise.race([
+      supabase.auth.signOut(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+    ]).catch(() => {})
 
-    // Create timeout for sign out (3 seconds max)
-    const signOutPromise = supabase.auth.signOut()
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Sign out timeout')), 3000)
-    )
+    // 2. Clear server-side HTTP-only cookie via server action
+    //    Without this the middleware still sees the user as logged in after reload
+    await serverSignOut().catch(() => {})
 
-    try {
-      // Try to sign out with timeout
-      await Promise.race([signOutPromise, timeoutPromise])
-      console.log('[LOGOUT] Sign out successful')
-    } catch (error) {
-      console.warn('[LOGOUT] Sign out timed out or failed, continuing with redirect:', error)
-    }
-
-    // Clear all storage (always do this)
+    // 3. Wipe local storage and hard-reload
     if (typeof window !== 'undefined') {
-      console.log('[LOGOUT] Clearing storage...')
       localStorage.clear()
       sessionStorage.clear()
-
-      // Force reload to clear any cached data
-      console.log('[LOGOUT] Redirecting to /')
       window.location.href = '/'
     }
-  } catch (error) {
-    console.error("[LOGOUT] Error during manual logout:", error)
-    // Force redirect even if logout fails
+  } catch {
     if (typeof window !== 'undefined') {
-      console.log('[LOGOUT] Forcing redirect despite error')
       localStorage.clear()
       sessionStorage.clear()
       window.location.href = '/'

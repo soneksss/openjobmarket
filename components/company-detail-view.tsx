@@ -1,34 +1,31 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
-  Building2,
   MapPin,
   Calendar,
   ArrowLeft,
   MessageCircle,
-  Mail,
-  Phone,
   Globe,
   Users,
   Briefcase,
-  Star,
   Globe2,
-  DollarSign,
+  PoundSterling,
   Sparkles,
   ExternalLink,
-  Clock,
   Bookmark,
   BookmarkCheck,
+  Phone,
+  ShieldCheck,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
-import MessageModal from "./message-modal"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
 import UserReviewsDisplay from "./user-reviews-display"
 import { RatingDisplay } from "./rating-display"
 import { ReviewsList } from "./reviews-list"
@@ -73,6 +70,7 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [showMessageModal, setShowMessageModal] = useState(false)
+  const [subjectInput, setSubjectInput] = useState("")
   const [sessionValidated, setSessionValidated] = useState(false)
   const [activeJobs, setActiveJobs] = useState<any[]>([])
   const [loadingJobs, setLoadingJobs] = useState(true)
@@ -203,7 +201,22 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
       }
       return
     }
+    setSubjectInput("")
     setShowMessageModal(true)
+  }
+
+  const startConversation = async () => {
+    if (!user) return
+    const subject = subjectInput.trim() || "General enquiry"
+    const p1 = user.id < company.user_id ? user.id : company.user_id
+    const p2 = user.id < company.user_id ? company.user_id : user.id
+    const { data, error } = await supabase
+      .from("conversations")
+      .insert({ participant_1: p1, participant_2: p2, subject })
+      .select("id")
+      .single()
+    setShowMessageModal(false)
+    if (data?.id) router.push(`/messages/${data.id}`)
   }
 
   const handleBack = () => {
@@ -225,64 +238,42 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
       .substring(0, 2)
   }
 
-  // Format address to compact format: "Street, City Postcode, Country"
+  // Format address — removes duplicate postcodes, produces: "Street, City POSTCODE, Country"
   const formatAddress = (address: string) => {
     if (!address) return ''
 
-    // Split by comma and remove empty parts
-    const parts = address.split(',').map(p => p.trim()).filter(Boolean)
+    const postcodeRegex = /\b[A-Z]{1,2}\d{1,2}\s?\d[A-Z]{2}\b/gi
+    const postcodeMatch = address.match(postcodeRegex)
+    const postcode = postcodeMatch ? postcodeMatch[0].toUpperCase() : ''
 
+    // Strip all postcodes from parts so they never appear twice
+    const cleaned = address
+      .replace(postcodeRegex, '')
+      .replace(/,\s*,/g, ',')
+      .replace(/,\s*$/, '')
+    const parts = cleaned.split(',').map(p => p.trim()).filter(Boolean)
     if (parts.length === 0) return address
 
-    // Extract key components
-    const street = parts[0] // First part is usually the street
+    const cityKeywords = ['London','Manchester','Birmingham','Leeds','Liverpool','Bristol','Sheffield','Edinburgh','Glasgow','Cardiff']
     let city = ''
-    let postcode = ''
-    let country = parts[parts.length - 1] // Last part is usually country
-
-    // Find postcode (UK format: letters + numbers)
-    const postcodeRegex = /\b[A-Z]{1,2}\d{1,2}\s?\d[A-Z]{2}\b/i
-    const postcodeMatch = address.match(postcodeRegex)
-    if (postcodeMatch) {
-      postcode = postcodeMatch[0]
-    }
-
-    // Find main city name (look for "London", "Manchester", etc. - not borough names)
-    const cityKeywords = ['London', 'Manchester', 'Birmingham', 'Leeds', 'Liverpool', 'Bristol', 'Sheffield', 'Edinburgh', 'Glasgow', 'Cardiff']
     for (const part of parts) {
-      for (const keyword of cityKeywords) {
-        if (part.includes(keyword) && !part.includes('Borough') && !part.includes('Greater')) {
-          city = keyword
-          break
+      for (const kw of cityKeywords) {
+        if (part.includes(kw) && !part.includes('Borough') && !part.includes('Greater')) {
+          city = kw; break
         }
       }
       if (city) break
     }
+    if (!city && parts.length > 1) city = parts[1]
 
-    // If no city found, use second part (after street)
-    if (!city && parts.length > 1) {
-      city = parts[1]
-    }
+    const countryShort: Record<string, string> = { 'United Kingdom': 'UK', 'United States': 'USA', 'United States of America': 'USA' }
+    const lastPart = parts[parts.length - 1]
+    const country = countryShort[lastPart] || lastPart
 
-    // Shorten country names
-    const countryShort: { [key: string]: string } = {
-      'United Kingdom': 'UK',
-      'United States': 'USA',
-      'United States of America': 'USA'
-    }
-    country = countryShort[country] || country
-
-    // Build compact address
-    let compact = street
-    if (city) {
-      compact += `, ${city}`
-    }
-    if (postcode) {
-      compact += ` ${postcode}`
-    }
-    if (country && country !== city) {
-      compact += `, ${country}`
-    }
+    let compact = parts[0]
+    if (city && city !== parts[0]) compact += `, ${city}`
+    if (postcode) compact += ` ${postcode}`
+    if (country && country !== city && country !== parts[0]) compact += `, ${country}`
 
     return compact
   }
@@ -429,24 +420,16 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
           )}
         </div>
 
-        {showMessageModal && user && (
-          <MessageModal
-            isOpen={showMessageModal}
-            onClose={() => setShowMessageModal(false)}
-            professionalId={company.user_id}
-            professionalName={company.company_name}
-            user={user}
-          />
-        )}
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
+
       {/* Sticky back bar */}
-      <div className="sticky top-0 z-10 bg-slate-900/80 backdrop-blur-sm border-b border-slate-800">
-        <div className="container mx-auto px-4 py-3 max-w-5xl">
+      <div className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur-sm border-b border-slate-800">
+        <div className="container mx-auto px-4 py-3 max-w-4xl flex items-center justify-between">
           <button
             onClick={handleBack}
             className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors"
@@ -454,141 +437,204 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             <ArrowLeft className="h-4 w-4" />
             Back
           </button>
+          {isOwnProfile && (
+            <button
+              onClick={() => router.push("/company/profile/edit")}
+              className="text-xs text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Edit Profile
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-blue-950 via-slate-800 to-slate-900 border-b border-slate-700/50">
-        <div className="container mx-auto px-4 py-8 max-w-5xl">
-          <div className="flex items-start gap-5">
-            <Avatar className="h-20 w-20 ring-2 ring-blue-500/30 flex-shrink-0">
-              <AvatarImage src={company.logo_url} alt={company.company_name} />
-              <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-700 text-white font-bold text-2xl">
+      {/* Hero banner */}
+      <div className="bg-gradient-to-b from-blue-950 via-slate-800/80 to-slate-900 border-b border-slate-700/40">
+        <div className="container mx-auto px-4 pt-7 pb-6 max-w-4xl">
+          <div className="flex gap-4 items-start">
+            {/* Logo */}
+            <Avatar className="h-20 w-20 sm:h-24 sm:w-24 ring-2 ring-blue-500/30 flex-shrink-0 rounded-2xl">
+              <AvatarImage src={company.logo_url} alt={company.company_name} className="rounded-2xl" />
+              <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-700 text-white font-bold text-2xl rounded-2xl">
                 {getCompanyInitials()}
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h1 className="text-2xl font-bold text-white">{company.company_name}</h1>
-                  {company.industry && (
-                    <p className="text-sm text-slate-300 mt-0.5">{company.industry}</p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-slate-400">
-                    <span className="flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                      {formatAddress(company.location)}
-                    </span>
-                    {company.company_size && (
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        {company.company_size}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                      Since {new Date(company.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
-                    </span>
-                  </div>
-                </div>
+            {/* Name + meta */}
+            <div className="flex-1 min-w-0 pt-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-white leading-tight">{company.company_name}</h1>
+              {company.industry && (
+                <p className="text-sm text-blue-300 mt-0.5 font-medium">{company.industry}</p>
+              )}
 
-                {isOwnProfile && (
-                  <button
-                    onClick={() => router.push("/company/profile/edit")}
-                    className="text-xs text-slate-400 hover:text-white border border-slate-600 hover:border-slate-400 px-3 py-1.5 rounded-lg transition-colors"
-                  >
-                    Edit Profile
-                  </button>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-xs text-slate-400">
+                {company.location && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3 w-3 flex-shrink-0 text-slate-500" />
+                    {formatAddress(company.location)}
+                  </span>
                 )}
+                {company.company_size && (
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3 w-3 text-slate-500" />
+                    {company.company_size}
+                  </span>
+                )}
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-slate-500" />
+                  Since {new Date(company.created_at).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                </span>
               </div>
 
-              <div className="flex flex-wrap gap-2 mt-3">
+              {/* Badges */}
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
                 {company.service_24_7 && (
-                  <span className="text-xs bg-emerald-900/50 text-emerald-300 border border-emerald-700/50 px-2.5 py-1 rounded-full">24/7 Service</span>
+                  <span className="inline-flex items-center gap-1 text-xs bg-emerald-900/50 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
+                    <ShieldCheck className="h-2.5 w-2.5" />24/7 Service
+                  </span>
                 )}
                 {activeJobs.length > 0 && (
-                  <span className="inline-flex items-center gap-1 text-xs bg-blue-900/50 text-blue-300 border border-blue-700/50 px-2.5 py-1 rounded-full">
-                    <Sparkles className="h-3 w-3" />Hiring
+                  <span className="inline-flex items-center gap-1 text-xs bg-blue-900/50 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded-full">
+                    <Sparkles className="h-2.5 w-2.5" />Hiring
                   </span>
                 )}
               </div>
 
-              <div className="mt-3">
+              <div className="mt-2.5">
                 <RatingDisplay rating={company.average_rating || 0} reviewsCount={company.reviews_count || 0} size="sm" />
               </div>
             </div>
           </div>
+
+          {/* Mobile CTA — visible below sm, hidden on lg (sidebar handles it) */}
+          {!isOwnProfile && (
+            <div className="flex gap-2 mt-5 lg:hidden">
+              <button
+                onClick={handleContactClick}
+                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
+              >
+                <MessageCircle className="h-4 w-4" />
+                {user ? "Message" : "Sign Up to Contact"}
+              </button>
+              <button
+                onClick={handleSaveToggle}
+                disabled={savingState}
+                title={isSaved ? "Unsave" : "Save tradesperson"}
+                className={`px-4 py-2.5 rounded-xl flex items-center justify-center transition-colors border ${
+                  isSaved
+                    ? "bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25"
+                    : "bg-slate-700/60 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+                }`}
+              >
+                {isSaved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* Body */}
-      <div className="container mx-auto px-4 py-6 max-w-5xl">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="container mx-auto px-4 py-6 max-w-4xl">
+        <div className="flex flex-col lg:flex-row gap-6">
 
-          {/* Main column */}
-          <div className="lg:col-span-2 space-y-5">
+          {/* ── Main column ── */}
+          <div className="flex-1 min-w-0 space-y-4">
+
+            {/* Details — mobile only (desktop shows in sidebar) */}
+            {(company.phone_number || company.website_url || company.created_at) && (
+              <section className="lg:hidden bg-slate-800 rounded-2xl border border-slate-700/50 p-5 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Details</p>
+                {company.phone_number && (
+                  <div className="flex items-center gap-2 text-sm text-slate-300">
+                    <Phone className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                    <a href={`tel:${company.phone_number}`} className="hover:text-white transition-colors">{company.phone_number}</a>
+                  </div>
+                )}
+                {company.website_url && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Globe className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                    <a href={company.website_url} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 transition-colors truncate">
+                      Visit Website
+                    </a>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <Calendar className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                  Member since {new Date(company.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                </div>
+              </section>
+            )}
 
             {/* About */}
             {company.description && (
-              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">About</p>
+              <section className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">About</h2>
                 <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{company.description}</p>
-              </div>
+              </section>
             )}
 
             {/* Services */}
             {company.services && company.services.length > 0 && (
-              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
+              <section className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
                   <Briefcase className="h-3.5 w-3.5" />Services
-                </p>
+                </h2>
                 <div className="flex flex-wrap gap-2">
                   {company.services.map((s) => (
-                    <span key={s} className="text-xs bg-slate-700 text-slate-200 border border-slate-600 px-2.5 py-1 rounded-lg">{s}</span>
+                    <span key={s} className="text-xs bg-slate-700 text-slate-200 border border-slate-600/80 px-2.5 py-1 rounded-lg">{s}</span>
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
             {/* Pricing */}
             {company.price_list && (
-              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
-                  <DollarSign className="h-3.5 w-3.5" />Pricing
-                </p>
+              <section className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
+                  <PoundSterling className="h-3.5 w-3.5" />Pricing
+                </h2>
                 <p className="text-sm text-slate-300 whitespace-pre-wrap leading-relaxed">{company.price_list}</p>
-              </div>
+              </section>
             )}
 
             {/* Languages */}
             {company.spoken_languages && company.spoken_languages.length > 0 && (
-              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
+              <section className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
                   <Globe2 className="h-3.5 w-3.5" />Languages
-                </p>
+                </h2>
                 <div className="flex flex-wrap gap-2">
                   {company.spoken_languages.map((lang) => (
-                    <span key={lang} className="text-xs bg-slate-700 text-slate-300 border border-slate-600 px-2.5 py-1 rounded-lg">{lang}</span>
+                    <span key={lang} className="text-xs bg-slate-700 text-slate-300 border border-slate-600/80 px-2.5 py-1 rounded-lg">{lang}</span>
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
-            {/* Reviews */}
-            <ReviewsList
-              userId={company.user_id}
-              userType="company"
-              title="Reviews"
-            />
+            {/* Open Positions */}
+            {!loadingJobs && activeJobs.length > 0 && (
+              <section className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5" />Open Positions
+                </h2>
+                <div className="space-y-1.5">
+                  {activeJobs.map((job) => (
+                    <Link key={job.id} href={`/jobs/${job.id}`} className="flex items-center justify-between p-2.5 bg-slate-700/50 border border-slate-600/60 hover:border-blue-500/50 rounded-xl group transition-colors">
+                      <span className="text-sm text-slate-200 group-hover:text-white truncate">{job.title}</span>
+                      <ExternalLink className="h-3.5 w-3.5 text-slate-500 group-hover:text-blue-400 flex-shrink-0 ml-2" />
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-4">
-            {/* Contact */}
+          {/* ── Sidebar (desktop only) ── */}
+          <div className="hidden lg:flex flex-col gap-4 w-64 flex-shrink-0">
+
+            {/* CTA */}
             {!isOwnProfile && (
-              <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">Contact</p>
+              <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
                 <button
                   onClick={handleContactClick}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm"
@@ -599,9 +645,9 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 <button
                   onClick={handleSaveToggle}
                   disabled={savingState}
-                  className={`mt-2 w-full py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm font-semibold border ${
+                  className={`mt-2 w-full py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm font-medium border ${
                     isSaved
-                      ? "bg-amber-500/15 border-amber-500/40 text-amber-400 hover:bg-amber-500/25"
+                      ? "bg-amber-500/10 border-amber-500/40 text-amber-400 hover:bg-amber-500/20"
                       : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
                   }`}
                 >
@@ -611,61 +657,72 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
               </div>
             )}
 
-            {/* Info */}
-            <div className="bg-slate-800 rounded-xl border border-slate-700/50 p-5 space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Information</p>
+            {/* Quick info — only non-hero fields */}
+            <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5 space-y-3.5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Details</p>
 
-              {company.industry && (
-                <div>
-                  <p className="text-[11px] text-slate-500 mb-0.5">Industry</p>
-                  <p className="text-sm text-white font-medium">{company.industry}</p>
+              {company.phone_number && (
+                <div className="flex items-center gap-2 text-sm text-slate-300">
+                  <Phone className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                  <a href={`tel:${company.phone_number}`} className="hover:text-white transition-colors">{company.phone_number}</a>
                 </div>
               )}
-
-              {company.company_size && (
-                <div>
-                  <p className="text-[11px] text-slate-500 mb-0.5">Company size</p>
-                  <p className="text-sm text-white font-medium">{company.company_size}</p>
-                </div>
-              )}
-
-              <div>
-                <p className="text-[11px] text-slate-500 mb-0.5">Location</p>
-                <p className="text-sm text-white font-medium flex items-start gap-1.5">
-                  <MapPin className="h-3.5 w-3.5 text-slate-400 mt-0.5 flex-shrink-0" />
-                  {formatAddress(company.location)}
-                </p>
-              </div>
 
               {company.website_url && (
-                <div>
-                  <p className="text-[11px] text-slate-500 mb-0.5">Website</p>
+                <div className="flex items-center gap-2 text-sm">
+                  <Globe className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
                   <a
                     href={company.website_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition-colors"
+                    className="text-emerald-400 hover:text-emerald-300 transition-colors truncate"
                   >
-                    <Globe className="h-3.5 w-3.5 flex-shrink-0" />
                     Visit Website
                   </a>
                 </div>
               )}
+
+              <div className="flex items-center gap-2 text-sm text-slate-400">
+                <Calendar className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                Member since {new Date(company.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+              </div>
             </div>
           </div>
         </div>
+
+        {/* ── Reviews — full width, bottom ── */}
+        <div className="mt-6">
+          <ReviewsList
+            userId={company.user_id}
+            userType="company"
+            title="Reviews"
+          />
+        </div>
       </div>
 
-      {/* Message Modal */}
-      {showMessageModal && user && (
-        <MessageModal
-          isOpen={showMessageModal}
-          onClose={() => setShowMessageModal(false)}
-          professionalId={company.user_id}
-          professionalName={company.company_name}
-          user={user}
-        />
-      )}
+      {/* Subject dialog */}
+      <Dialog open={showMessageModal} onOpenChange={(open) => { if (!open) setShowMessageModal(false) }}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-white">
+          <DialogHeader>
+            <DialogTitle className="text-white">New Message to {company.company_name}</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Add a subject so the tradesperson knows what this is about.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="e.g. Plumbing repair quote"
+            value={subjectInput}
+            onChange={(e) => setSubjectInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") startConversation() }}
+            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+            autoFocus
+          />
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowMessageModal(false)}>Cancel</Button>
+            <Button onClick={startConversation}>Start Conversation</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

@@ -11,9 +11,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info, Bell } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
-import { NotificationBell } from "@/components/notification-bell"
+import { TradespersonMyJobsButton } from "@/components/tradesperson-my-jobs-button"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { useEffect, useState } from "react"
@@ -218,7 +218,13 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
       onSignOut()
       return
     }
+    // 1. Clear client-side session (localStorage + memory cache in Supabase browser SDK)
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    // 2. Clear server-side cookie via server action
     await signOut()
+    // 3. Hard reload — resets all React state and forces fresh server render
+    window.location.href = '/'
   }
 
   // Prioritize server user state, fall back to client user
@@ -415,10 +421,10 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                     </Button>
                     {/* Message Icon */}
                     <MessageIcon user={currentUser} />
-                    {/* My Jobs (homeowners) or Notification Bell (tradespeople) */}
+                    {/* My Jobs: homeowners → job list, tradespeople → applications */}
                     {currentUserType === "homeowner"
                       ? <HomeownerMyJobsButton userId={currentUser.id} />
-                      : <NotificationBell />
+                      : <TradespersonMyJobsButton userId={currentUser.id} userType={currentUserType} />
                     }
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

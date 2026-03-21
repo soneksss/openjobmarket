@@ -4,6 +4,7 @@ import { Briefcase, ArrowLeft, MapPin, Clock, DollarSign, CheckCircle, XCircle, 
 import Link from "next/link"
 import Image from "next/image"
 import { JobExpiryBadge } from "@/components/job-expiry-badge"
+import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
 
 export default async function CompanyMyApplicationsPage() {
   const supabase = await createClient()
@@ -64,6 +65,7 @@ export default async function CompanyMyApplicationsPage() {
 
   return (
     <div className="min-h-screen bg-slate-900">
+      <MarkTradespersonJobsViewed />
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
 
         {/* Header */}

@@ -3,24 +3,22 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
-import {
-  Zap, MapPin, X, Clock, Banknote, ChevronRight,
-} from "lucide-react"
+import { X } from "lucide-react"
 
 interface UrgentAlert {
   notifId: string
   jobId: string
   jobTitle: string
-  jobLocation?: string
-  jobDescription?: string
   budget?: string | null
+  distanceMi?: number | null
+  expiresAt?: string | null
   linkUrl: string
   shownAt: number
   urgencyType?: string | null
 }
 
-const SHOWN_KEY  = "ujb_shown"
-const AUTO_SECS  = 30
+const SHOWN_KEY = "ujb_shown"
+const AUTO_SECS = 30
 
 /** Extract UUID from /jobs/{uuid} URL */
 function extractJobId(url: string): string | null {
@@ -49,8 +47,27 @@ function formatBudget(min: number | null, max: number | null, period: string | n
   return `Up to £${max}${p}`
 }
 
+function haversineDistanceMi(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3958.8
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLon = (lon2 - lon1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function formatTimeLeft(expiresAt: string): string {
+  const ms = new Date(expiresAt).getTime() - Date.now()
+  if (ms <= 0) return "Expired"
+  const totalMins = Math.floor(ms / 60000)
+  if (totalMins < 60) return `${totalMins}m left`
+  const hrs = Math.floor(totalMins / 60)
+  const mins = totalMins % 60
+  return mins > 0 ? `${hrs}h ${mins}m left` : `${hrs}h left`
+}
+
 /* ─────────────────────────────────────────────────────────── */
-/* Notification card — quick preview                           */
+/* Notification card                                           */
 /* ─────────────────────────────────────────────────────────── */
 function UrgentCard({
   alert,
@@ -62,8 +79,12 @@ function UrgentCard({
   onSkip: () => void
 }) {
   const [secs, setSecs] = useState(AUTO_SECS)
+  const [timeLeft, setTimeLeft] = useState<string | null>(
+    alert.expiresAt ? formatTimeLeft(alert.expiresAt) : null
+  )
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Auto-dismiss countdown
   useEffect(() => {
     timerRef.current = setInterval(() => setSecs((s) => Math.max(0, s - 1)), 1000)
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
@@ -74,13 +95,23 @@ function UrgentCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secs])
 
+  // Live expiry countdown (updates every 30s)
+  useEffect(() => {
+    if (!alert.expiresAt) return
+    const id = setInterval(() => setTimeLeft(formatTimeLeft(alert.expiresAt!)), 30_000)
+    return () => clearInterval(id)
+  }, [alert.expiresAt])
+
   const progress = (secs / AUTO_SECS) * 100
+  const distanceStr = alert.distanceMi != null
+    ? `${alert.distanceMi < 0.1 ? "< 0.1" : alert.distanceMi.toFixed(1)} mi away`
+    : null
 
   return (
-    <div className="fixed inset-x-0 bottom-0 sm:inset-auto sm:bottom-5 sm:right-5 z-[400] sm:max-w-sm w-full animate-in slide-in-from-bottom-4 sm:slide-in-from-right-4 duration-300">
-      <div className="bg-slate-900 border border-orange-500/40 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden">
+    <div className="fixed inset-x-0 bottom-0 sm:inset-auto sm:bottom-5 sm:right-5 z-[400] sm:max-w-xs w-full animate-in slide-in-from-bottom-4 sm:slide-in-from-right-4 duration-300">
+      <div className="bg-slate-900 border border-orange-500/50 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden">
 
-        {/* Countdown bar */}
+        {/* Auto-dismiss progress bar */}
         <div className="h-1 bg-slate-800 w-full">
           <div
             className="h-full bg-orange-500 transition-all duration-1000 ease-linear"
@@ -88,66 +119,57 @@ function UrgentCard({
           />
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-1">
-          <span className="inline-flex items-center gap-1.5 bg-orange-500/20 text-orange-400 text-xs font-semibold px-2.5 py-1 rounded-full border border-orange-500/30">
-            <Zap className="w-3 h-3 fill-orange-400" />
-            Urgent Job Nearby
-          </span>
-          <button
-            onClick={onSkip}
-            className="text-slate-500 hover:text-slate-300 transition-colors p-1"
-            aria-label="Dismiss"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+        {/* Card body */}
+        <div className="px-5 pt-4 pb-2">
+          {/* Dismiss button */}
+          <div className="flex justify-end -mt-1 mb-2">
+            <button
+              onClick={onSkip}
+              className="text-slate-500 hover:text-slate-300 transition-colors p-1 -mr-1"
+              aria-label="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
 
-        {/* Job summary */}
-        <div className="px-4 py-3 space-y-2">
-          <h2 className="text-base font-bold text-white leading-snug">{alert.jobTitle}</h2>
+          {/* Key info — large, scannable */}
+          <div className="space-y-2">
+            <p className="text-lg font-bold text-white leading-tight">
+              🚨 {alert.jobTitle}
+            </p>
 
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            {alert.jobLocation && (
-              <span className="flex items-center gap-1.5 text-sm text-slate-400">
-                <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                {alert.jobLocation}
-              </span>
-            )}
             {alert.budget && (
-              <span className="flex items-center gap-1.5 text-sm text-emerald-400 font-semibold">
-                <Banknote className="w-3.5 h-3.5 flex-shrink-0" />
-                {alert.budget}
-              </span>
+              <p className="text-base font-semibold text-emerald-400">
+                💰 {alert.budget}
+              </p>
+            )}
+
+            {distanceStr && (
+              <p className="text-sm text-slate-300">
+                📍 {distanceStr}
+              </p>
+            )}
+
+            {timeLeft && (
+              <p className="text-sm text-orange-400 font-medium">
+                ⏳ {timeLeft}
+              </p>
             )}
           </div>
 
-          {alert.jobDescription && (
-            <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-              {alert.jobDescription}
-            </p>
-          )}
-
-          <p className="text-xs text-slate-600 flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            Auto-dismisses in {secs}s · First come, first served
+          {/* CTA line */}
+          <p className="mt-3 text-xs text-slate-500 font-medium tracking-wide uppercase">
+            Be first to respond
           </p>
         </div>
 
-        {/* Buttons */}
-        <div className="flex gap-3 px-4 pb-5 pt-1">
-          <button
-            onClick={onSkip}
-            className="flex-1 py-3 rounded-xl text-sm font-semibold text-slate-400 bg-slate-800 border border-white/10 hover:bg-slate-700 hover:text-white transition-colors"
-          >
-            Skip
-          </button>
+        {/* View Job button */}
+        <div className="px-5 pb-5 pt-2">
           <button
             onClick={onView}
-            className="flex-1 py-3 rounded-xl text-sm font-bold text-white bg-orange-600 hover:bg-orange-500 active:bg-orange-700 transition-colors flex items-center justify-center gap-1.5"
+            className="w-full py-3.5 rounded-xl text-base font-bold text-white bg-orange-600 hover:bg-orange-500 active:bg-orange-700 transition-colors"
           >
-            View &amp; Apply
-            <ChevronRight className="w-4 h-4" />
+            View Job
           </button>
         </div>
 
@@ -165,6 +187,35 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
 
   const [current, setCurrent] = useState<UrgentAlert | null>(null)
   const [queue,   setQueue]   = useState<UrgentAlert[]>([])
+
+  // Cache user's own coordinates (fetched once)
+  const userCoordsRef = useRef<{ lat: number; lon: number } | null>(null)
+
+  /* ── fetch user's own location once ── */
+  useEffect(() => {
+    const fetchUserCoords = async () => {
+      // Try professional_profiles first, then company_profiles
+      const { data: pp } = await supabase
+        .from("professional_profiles")
+        .select("latitude, longitude")
+        .eq("user_id", userId)
+        .maybeSingle()
+      if (pp?.latitude && pp?.longitude) {
+        userCoordsRef.current = { lat: pp.latitude, lon: pp.longitude }
+        return
+      }
+      const { data: cp } = await supabase
+        .from("company_profiles")
+        .select("latitude, longitude")
+        .eq("user_id", userId)
+        .maybeSingle()
+      if (cp?.latitude && cp?.longitude) {
+        userCoordsRef.current = { lat: cp.latitude, lon: cp.longitude }
+      }
+    }
+    fetchUserCoords()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
 
   /* ── advance queue ── */
   useEffect(() => {
@@ -198,36 +249,41 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
 
     markShown(notif.id)
 
-    let jobLocation    = ""
-    let jobDescription = ""
     let urgencyType: string | null = null
     let budget: string | null = null
+    let distanceMi: number | null = null
+    let expiresAt: string | null = null
 
     try {
       const { data: jobData } = await supabase
         .from("jobs")
-        .select("location, description, urgency_type, budget_min, budget_max, budget_period")
+        .select("urgency_type, budget_min, budget_max, budget_period, latitude, longitude, expires_at")
         .eq("id", jobId)
         .maybeSingle()
 
-      // Job was deleted or no longer accessible — silently skip (already marked shown)
       if (!jobData) return
 
-      jobLocation    = jobData.location     ?? ""
-      jobDescription = jobData.description  ?? ""
-      urgencyType    = jobData.urgency_type ?? null
-      budget = formatBudget(jobData.budget_min, jobData.budget_max, jobData.budget_period)
+      urgencyType = jobData.urgency_type ?? null
+      budget      = formatBudget(jobData.budget_min, jobData.budget_max, jobData.budget_period)
+      expiresAt   = jobData.expires_at ?? null
+
+      if (jobData.latitude && jobData.longitude && userCoordsRef.current) {
+        distanceMi = haversineDistanceMi(
+          userCoordsRef.current.lat, userCoordsRef.current.lon,
+          jobData.latitude, jobData.longitude
+        )
+      }
     } catch {}
 
     const alert: UrgentAlert = {
-      notifId:     notif.id,
+      notifId:    notif.id,
       jobId,
-      jobTitle:    notif.title.replace(/^Urgent job near you:\s*/i, ""),
-      jobLocation,
-      jobDescription,
+      jobTitle:   notif.title.replace(/^Urgent job near you:\s*/i, ""),
       budget,
-      linkUrl:     notif.link_url,
-      shownAt:     Date.now(),
+      distanceMi,
+      expiresAt,
+      linkUrl:    notif.link_url,
+      shownAt:    Date.now(),
       urgencyType,
     }
 
@@ -276,18 +332,15 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
-  /* ── View & Apply: navigate to full job page ── */
+  /* ── View Job ── */
   const handleView = useCallback(() => {
     if (!current) return
-    // Mark notification as read (fire-and-forget)
     supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
-    // Navigate to the full job page — the job detail view shows photo, description,
-    // and the UrgentJobApplySection with message textarea + quick-fill buttons.
     router.push(`/jobs/${current.jobId}`)
     setCurrent(null)
   }, [current, supabase, router])
 
-  /* ── Skip: dismiss + record skip so this job never shows again ── */
+  /* ── Skip ── */
   const handleSkip = useCallback(() => {
     if (!current) return
     supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})

@@ -419,12 +419,16 @@ export function MobilePreviewCard({
                 </div>
                 {/* Status badges */}
                 <div className="flex gap-1.5 mt-2">
-                  {data.openForBusiness && (
+                  {data.openForBusiness === true ? (
                     <Badge className="bg-emerald-900/40 text-emerald-400 border border-emerald-700/50 text-xs">
                       <CheckCircle className="h-3 w-3 mr-1" />
-                      Open
+                      Available
                     </Badge>
-                  )}
+                  ) : data.openForBusiness === false ? (
+                    <Badge className="bg-slate-700/60 text-slate-400 border border-slate-600 text-xs">
+                      Busy
+                    </Badge>
+                  ) : null}
                   {data.isHiring && (
                     <Badge className="bg-blue-900/40 text-blue-400 border border-blue-700/50 text-xs">
                       Hiring
@@ -523,12 +527,11 @@ export function MobilePreviewCard({
         {/* Sticky Action Buttons */}
         <div className="absolute bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 px-4 pt-3 flex gap-3 shadow-lg" style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom, 0px))' }}>
           <Button
-            variant="outline"
-            className="flex-1 h-12 border-slate-600 text-slate-300 hover:bg-slate-700"
+            className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-white"
             onClick={() => onViewDetails(data.id)}
           >
             <Building className="h-4 w-4 mr-2" />
-            View Company
+            View Profile
           </Button>
           {showAction && (
             <Button

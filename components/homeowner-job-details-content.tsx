@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
@@ -13,6 +14,7 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react"
+import { createClient } from "@/lib/client"
 import { HomeownerApplicationActions } from "./homeowner-application-actions"
 import { JobCompletionModal } from "./job-completion-modal"
 
@@ -51,7 +53,10 @@ const STATUS_STYLE: Record<string, string> = {
 const INITIAL_SHOW = 3
 
 export function HomeownerJobDetailsContent({ job, applications, homeownerUserId }: JobDetailsContentProps) {
+  const router   = useRouter()
+  const supabase = createClient()
   const [expanded, setExpanded]           = useState(false)
+  const [messagingUserId, setMessagingUserId] = useState<string | null>(null)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
   const [selectedContractor, setSelectedContractor]   = useState<{
     id: string; name: string; profileId: string
@@ -65,6 +70,24 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
 
   const formatDate = (s: string) =>
     new Date(s).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
+
+  const openMessage = async (applicantUserId: string) => {
+    if (!homeownerUserId) return
+    setMessagingUserId(applicantUserId)
+    try {
+      const { data: convId, error } = await supabase.rpc('get_or_create_conversation', {
+        user1_id: homeownerUserId,
+        user2_id: applicantUserId,
+        p_job_id: job.id,
+      })
+      if (error || !convId) throw error ?? new Error('No conversation ID returned')
+      router.push(`/messages/${convId}`)
+    } catch (err) {
+      console.error('[MESSAGE] Failed to open conversation:', err)
+    } finally {
+      setMessagingUserId(null)
+    }
+  }
 
   const formatBudget = (min?: number, max?: number) => {
     if (!min && !max) return undefined
@@ -302,13 +325,14 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
                       {/* Actions row */}
                       <div className="flex flex-wrap gap-2 mt-3">
                         {homeownerUserId && applicant.userId && !isAccepted && (
-                          <Link
-                            href={`/messages/${applicant.userId}`}
-                            className="flex items-center gap-1.5 text-sm font-semibold text-emerald-300 hover:text-white bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-500/30 px-3 py-2 rounded-lg transition-colors"
+                          <button
+                            onClick={() => openMessage(applicant.userId)}
+                            disabled={messagingUserId === applicant.userId}
+                            className="flex items-center gap-1.5 text-sm font-semibold text-emerald-300 hover:text-white bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-500/30 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
                           >
                             <MessageCircle className="w-4 h-4" />
-                            Message
-                          </Link>
+                            {messagingUserId === applicant.userId ? "Opening…" : "Message"}
+                          </button>
                         )}
 
                         {/* Accept/Reject controls — works for both company and contractor applicants */}

@@ -75,6 +75,7 @@ export default function ConversationPage() {
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [otherUserLastSeen, setOtherUserLastSeen] = useState<string | null>(null)
   const [conversationSubject, setConversationSubject] = useState<string | null>(null)
+  const [otherUserProfileId, setOtherUserProfileId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchConversation()
@@ -325,7 +326,7 @@ export default function ConversationPage() {
               console.log('[CONVERSATION] Step 13a: Fetching professional profile...')
               const { data: profData } = await supabase
                 .from('professional_profiles')
-                .select('first_name, last_name, profile_photo_url')
+                .select('id, first_name, last_name, profile_photo_url')
                 .eq('user_id', determinedOtherId)
                 .maybeSingle()
 
@@ -334,6 +335,7 @@ export default function ConversationPage() {
                 const fullName = [profData.first_name, profData.last_name].filter(Boolean).join(' ')
                 displayName = fullName || displayName
                 photoUrl = profData.profile_photo_url || photoUrl
+                setOtherUserProfileId(profData.id)
               }
             } else if (userData.user_type === 'company') {
               console.log('[CONVERSATION] Step 13a: Fetching company profile...')
@@ -348,6 +350,7 @@ export default function ConversationPage() {
                 displayName = compData.company_name || displayName
                 photoUrl = compData.logo_url || photoUrl
                 profileUrl = `/companies/${compData.id}`
+                setOtherUserProfileId(compData.id)
               }
             } else if (userData.user_type === 'homeowner') {
               console.log('[CONVERSATION] Step 13a: Fetching homeowner profile...')
@@ -377,6 +380,7 @@ export default function ConversationPage() {
                 displayName = contractorData.company_name || displayName
                 photoUrl = contractorData.profile_photo_url || photoUrl
                 profileUrl = `/contractors/${contractorData.id}`
+                setOtherUserProfileId(contractorData.id)
               }
             }
           } catch (profileError) {
@@ -608,6 +612,14 @@ export default function ConversationPage() {
         setJobContext(prev => prev ? { ...prev, status: 'COMPLETED', matching_status: 'closed' } : null)
         // Prompt the homeowner to leave a review immediately
         setShowReviewModal(true)
+      } else if (newStatus === 'CONFIRMED') {
+        if (!otherUserProfileId) throw new Error('Tradesperson profile ID not found')
+        const { error } = await supabase.rpc('confirm_tradesperson', {
+          p_job_id: jobContext.id,
+          p_tradesperson_id: otherUserProfileId,
+        })
+        if (error) throw error
+        setJobContext(prev => prev ? { ...prev, status: 'CONFIRMED' } : null)
       } else {
         const { error } = await supabase
           .from('jobs')
@@ -729,53 +741,68 @@ export default function ConversationPage() {
 
           {/* Job Context Header */}
           {jobContext && (
-            <div className="mt-3 p-2.5 bg-slate-700/50 rounded-lg border border-slate-600/50">
-              <div className="flex items-center justify-between gap-2">
+            <div className="mt-2 px-3 py-2 bg-slate-800/70 rounded-xl border border-slate-700/50">
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                {/* Left: icon + title + meta row */}
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="p-1.5 bg-slate-600 rounded-md flex-shrink-0">
-                    <Briefcase className="h-3.5 w-3.5 text-slate-300" />
-                  </div>
+                  <Briefcase className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="font-medium text-xs text-white truncate">{jobContext.title}</p>
-                    {jobContext.location && (
-                      <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-0.5">
-                        <MapPin className="h-2.5 w-2.5" />
-                        <span className="truncate">{jobContext.location}</span>
-                      </div>
-                    )}
-                    {jobContext.created_at && (
-                      <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5">
-                        <Clock className="h-2.5 w-2.5" />
-                        <span>Posted {new Date(jobContext.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
-                      </div>
-                    )}
-                    {/* Response cap counter for flexible jobs */}
-                    {jobContext.urgency_type === 'flexible' && jobContext.max_responses && (
-                      <div className="text-[10px] mt-0.5 font-medium">
-                        {senderRole === 'homeowner' ? (
-                          <span className="text-emerald-400">{responseCount} / {jobContext.max_responses} responded</span>
-                        ) : senderRole === 'contractor' ? (
-                          <span className={responseCount >= jobContext.max_responses ? 'text-red-400' : 'text-amber-400'}>
-                            {Math.max(0, jobContext.max_responses - responseCount)} spots left
+                    <p className="font-semibold text-sm text-white truncate leading-snug">{jobContext.title}</p>
+                    <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5 flex-wrap leading-none">
+                      {jobContext.location && (
+                        <>
+                          <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
+                          <span className="truncate max-w-[90px]">
+                            {jobContext.location.split(',')[1]?.trim() || jobContext.location.split(',')[0]?.trim()}
                           </span>
-                        ) : null}
-                      </div>
-                    )}
+                          <span className="text-slate-600">·</span>
+                        </>
+                      )}
+                      {jobContext.created_at && (
+                        <span>{new Date(jobContext.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                      )}
+                      {jobContext.urgency_type === 'flexible' && jobContext.max_responses && (
+                        <>
+                          <span className="text-slate-600">·</span>
+                          {senderRole === 'homeowner' ? (
+                            <span className="text-emerald-400">{responseCount}/{jobContext.max_responses} responded</span>
+                          ) : senderRole === 'contractor' ? (
+                            <span className={responseCount >= jobContext.max_responses ? 'text-red-400' : 'text-amber-400'}>
+                              {Math.max(0, jobContext.max_responses - responseCount)} spots left
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
+                {/* Right: badge + action */}
                 <div className="flex items-center gap-1.5 flex-shrink-0">
                   {getJobStatusBadge()}
                   {jobContext.is_tradespeople_job && senderRole === 'homeowner' && jobContext.status !== 'COMPLETED' && (
-                    <Button
-                      size="sm"
-                      onClick={() => updateJobStatus('completed')}
-                      disabled={updatingJobStatus}
-                      className="h-7 px-2.5 text-[11px] bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 font-medium"
-                      variant="outline"
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      {updatingJobStatus ? '…' : 'Mark Completed'}
-                    </Button>
+                    jobContext.status === 'CONFIRMED' ? (
+                      <Button
+                        size="sm"
+                        onClick={() => updateJobStatus('completed')}
+                        disabled={updatingJobStatus}
+                        className="h-6 px-2 text-[10px] bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 font-medium"
+                        variant="outline"
+                      >
+                        <CheckCircle className="h-2.5 w-2.5 mr-1" />
+                        {updatingJobStatus ? '…' : 'Done'}
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => updateJobStatus('CONFIRMED')}
+                        disabled={updatingJobStatus}
+                        className="h-6 px-2 text-[10px] bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 font-medium"
+                        variant="outline"
+                      >
+                        <CheckCircle className="h-2.5 w-2.5 mr-1" />
+                        {updatingJobStatus ? '…' : 'Confirm'}
+                      </Button>
+                    )
                   )}
                 </div>
               </div>
@@ -878,9 +905,11 @@ export default function ConversationPage() {
           {/* Quick suggestion chips — shown only on first message when job context is known */}
           {messages.length === 0 && jobContext?.urgency_type && (
             <div className="flex flex-wrap gap-1.5 mb-2">
-              {(jobContext.urgency_type !== 'flexible'
-                ? ["Available now", "I can come today", "What time works for you?"]
-                : ["When would you like this done?", "Happy to provide a quote"]
+              {(senderRole === 'homeowner'
+                ? ["When can you come to take a look?", "What would this job roughly cost?", "Are you available today or tomorrow?", "Do you need more details or photos?"]
+                : jobContext.urgency_type !== 'flexible'
+                  ? ["Available now", "I can come today", "What time works for you?"]
+                  : ["When would you like this done?", "Happy to provide a quote"]
               ).map((chip) => (
                 <button
                   key={chip}
