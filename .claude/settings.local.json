@@ -60,7 +60,10 @@
       "Bash(ls:*)",
       "Bash(xargs:*)",
       "Bash(node:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(head -20 grep -rn \"jobs_tasks\\\\|autoSearch\" C:/Users/sonek/OneDrive/Desktop/MAIN/openjobmarket/components/mobile-bottom-nav.tsx)",
+      "Bash(head -20 grep -n \"type.*urgent\\\\|urgent.*type\\\\|INSERT INTO notif\\\\|You''''ve\" \"C:/Users/sonek/OneDrive/Desktop/MAIN/openjobmarket/supabase/migrations/20260302000005_create_job_events_notification_system.sql\")",
+      "Bash(head -20 grep -rn \"CREATE TABLE.*notifications\\\\|data.*jsonb\\\\|data.*json\" \"C:/Users/sonek/OneDrive/Desktop/MAIN/openjobmarket/supabase/migrations/\")"
     ],
     "deny": [],
     "ask": []

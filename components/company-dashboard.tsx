@@ -309,20 +309,29 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   useEffect(() => {
     if (!profile?.id) return
 
-    // On mount: check for any already-confirmed job still within the 15-min acceptance window
+    // On mount: check for any already-confirmed job still within the 24h window
     const checkExisting = async () => {
-      const windowStart = new Date(Date.now() - 15 * 60 * 1000).toISOString()
+      const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
       const { data } = await supabase
         .from("jobs")
-        .select("id, title, confirmed_at, homeowner_id")
+        .select("id, title, confirmed_at, homeowner_id, budget_min, budget_max, budget_period, location")
         .eq("confirmed_tradesperson_id", profile.id)
         .eq("status", "CONFIRMED")
-        .gt("confirmed_at", windowStart)   // ignore offers whose window has already closed
+        .gt("confirmed_at", windowStart)
         .order("confirmed_at", { ascending: false })
         .limit(1)
         .maybeSingle()
 
-      if (data) setPendingOffer(data as ConfirmedJobOffer)
+      if (data) {
+        // Also fetch the application_id so the Decline button can call the API
+        const { data: app } = await supabase
+          .from("job_applications")
+          .select("id")
+          .eq("job_id", data.id)
+          .eq("company_id", profile.id)
+          .maybeSingle()
+        setPendingOffer({ ...(data as ConfirmedJobOffer), application_id: app?.id ?? null })
+      }
     }
     checkExisting()
 
@@ -337,14 +346,25 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           table: "jobs",
           filter: `confirmed_tradesperson_id=eq.${profile.id}`,
         },
-        (payload) => {
+        async (payload) => {
           const job = payload.new as any
           if (job.status === "CONFIRMED") {
+            const { data: app } = await supabase
+              .from("job_applications")
+              .select("id")
+              .eq("job_id", job.id)
+              .eq("company_id", profile.id)
+              .maybeSingle()
             setPendingOffer({
-              id:           job.id,
-              title:        job.title,
-              confirmed_at: job.confirmed_at,
-              homeowner_id: job.homeowner_id,
+              id:            job.id,
+              title:         job.title,
+              confirmed_at:  job.confirmed_at,
+              homeowner_id:  job.homeowner_id,
+              budget_min:    job.budget_min ?? null,
+              budget_max:    job.budget_max ?? null,
+              budget_period: job.budget_period ?? null,
+              location:      job.location ?? null,
+              application_id: app?.id ?? null,
             })
           } else {
             // Job moved away from CONFIRMED (accepted/cancelled) — clear modal
@@ -1070,10 +1090,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       {pendingOffer && (
         <JobConfirmationModal
           job={pendingOffer}
-          onAccepted={() => {
-            setPendingOffer(null)
-            router.refresh()
-          }}
+          onAccepted={() => setPendingOffer(null)}
           onDismiss={() => setPendingOffer(null)}
         />
       )}

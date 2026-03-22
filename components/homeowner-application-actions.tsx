@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import { CheckCircle, XCircle, UserCheck, Check, MessageCircle } from "lucide-react"
-import Link from "next/link"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -50,6 +49,26 @@ export function HomeownerApplicationActions({
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [showAcceptDialog, setShowAcceptDialog] = useState(false)
+  const [messagingLoading, setMessagingLoading] = useState(false)
+
+  const openMessagesWithUser = async (targetUserId: string) => {
+    setMessagingLoading(true)
+    try {
+      const res = await fetch("/api/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ with_user_id: targetUserId, job_id: jobId }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.conversationId) throw new Error(data.error || "Failed to open conversation")
+      router.push(`/messages/${data.conversationId}`)
+    } catch (err: any) {
+      toast({ title: "Could not open messages", description: err.message, variant: "destructive" })
+    } finally {
+      setMessagingLoading(false)
+    }
+  }
 
   const isThisContractorAccepted = acceptedContractorId === contractorId
 
@@ -114,13 +133,11 @@ export function HomeownerApplicationActions({
         }
       }
 
-      // Navigate to the conversation
+      // Navigate to the conversation (use real conv ID, not user ID)
       router.refresh()
-      setTimeout(() => {
-        if (contractorData?.user_id) {
-          router.push(`/messages/${contractorData.user_id}`)
-        }
-      }, 1000)
+      if (contractorData?.user_id) {
+        setTimeout(() => openMessagesWithUser(contractorData.user_id), 800)
+      }
     } catch (error: any) {
       console.error("[HOMEOWNER-ACTIONS] Error accepting contractor:", error)
 
@@ -149,13 +166,13 @@ export function HomeownerApplicationActions({
     setLoading(true)
 
     try {
+      // Delete the application — removes it from the list immediately
       const { error } = await supabase
         .from("job_applications")
-        .update({ status: "REJECTED" })
+        .delete()
         .eq("id", applicationId)
 
       if (error) {
-        // Handle specific Supabase errors
         if (error.message?.includes('fetch') || error.message?.includes('JWT')) {
           throw new Error("Authentication error. Please refresh the page and try again.")
         }
@@ -163,26 +180,21 @@ export function HomeownerApplicationActions({
       }
 
       toast({
-        title: "Application Rejected",
-        description: `${contractorName}'s application has been rejected.`,
+        title: "Application Removed",
+        description: `${contractorName}'s application has been removed.`,
       })
 
-      // Use setTimeout to ensure toast is visible before refresh
       setTimeout(() => {
         try {
           router.refresh()
-        } catch (refreshError) {
-          console.error("[HOMEOWNER-ACTIONS] Router refresh failed:", refreshError)
-          // Fallback to reload if router.refresh() fails
+        } catch {
           window.location.reload()
         }
-      }, 1000)
+      }, 500)
     } catch (error: any) {
       console.error("[HOMEOWNER-ACTIONS] Error rejecting application:", error)
 
-      // Provide specific error messages based on error type
-      let errorMessage = "Failed to reject application. Please try again."
-
+      let errorMessage = "Failed to remove application. Please try again."
       if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('DISCONNECTED')) {
         errorMessage = "Network connection issue. Please check your connection and try again."
       } else if (error.message?.includes('JWT') || error.message?.includes('auth')) {
@@ -192,7 +204,7 @@ export function HomeownerApplicationActions({
       }
 
       toast({
-        title: "❌ Failed to Reject",
+        title: "❌ Failed to Remove",
         description: errorMessage,
         variant: "destructive",
       })
@@ -201,9 +213,9 @@ export function HomeownerApplicationActions({
     }
   }
 
-  // Don't show accept/reject buttons if already accepted/rejected or if another contractor is accepted
+  // Don't show accept/reject buttons if already accepted/confirmed or withdrawn
   const statusLower = currentStatus?.toLowerCase()
-  if (statusLower === "accepted" || statusLower === "rejected" ||
+  if (statusLower === "accepted" || statusLower === "confirmed" ||
       statusLower === "auto_cancelled" || statusLower === "withdrawn") {
     return null
   }
@@ -221,13 +233,14 @@ export function HomeownerApplicationActions({
         </p>
         <div className="flex flex-wrap gap-2 pt-0.5">
           {contractorUserId && (
-            <Link
-              href={`/messages/${contractorUserId}`}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+            <button
+              onClick={() => openMessagesWithUser(contractorUserId)}
+              disabled={messagingLoading}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-60"
             >
               <MessageCircle className="h-3.5 w-3.5" />
-              Message tradesperson
-            </Link>
+              {messagingLoading ? "Opening…" : "Message tradesperson"}
+            </button>
           )}
         </div>
       </div>

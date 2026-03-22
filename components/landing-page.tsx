@@ -29,6 +29,7 @@ import {
   Target,
   LogIn,
   Info,
+  Briefcase,
 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import Link from "next/link"
@@ -308,8 +309,8 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
   }
 
   const handleNavClick = (path: string) => {
-    if (!isSignedIn && path !== "/") {
-      router.push("/auth/sign-up")
+    if (!isSignedIn && path !== "/" && !path.startsWith("/auth")) {
+      router.push("/auth/login")
     } else {
       router.push(path)
     }
@@ -1869,17 +1870,17 @@ function MobileBottomNavLanding({
     },
     {
       key: "saved",
-      icon: Bookmark,
-      label: "Saved",
-      href: getSavedUrl(),
-      isActive: pathname?.includes("/saved"),
+      icon: Briefcase,
+      label: "My Jobs",
+      href: "/dashboard/professional/applications",
+      isActive: pathname?.includes("/applications"),
       requiresAuth: true,
     },
     {
       key: "account",
       icon: isSignedIn ? User : LogIn,
       label: isSignedIn ? "Account" : "Log In",
-      href: isSignedIn ? getDashboardUrl() : "/auth/sign-up",
+      href: isSignedIn ? getDashboardUrl() : "/auth/login",
       isActive: pathname?.includes("/dashboard") && !pathname?.includes("/saved"),
     },
   ]

@@ -1,16 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { createClient } from "@/lib/client"
-import { Button } from "@/components/ui/button"
-import { Briefcase, Clock, AlertCircle, CheckCircle } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useRouter } from "next/navigation"
+import { PartyPopper, X } from "lucide-react"
 
 export interface ConfirmedJobOffer {
   id: string
   title: string
-  confirmed_at: string   // ISO timestamp — used for 15-min countdown
+  confirmed_at: string
   homeowner_id?: string
+  budget_min?: number | null
+  budget_max?: number | null
+  budget_period?: string | null
+  location?: string | null
+  application_id?: string | null
 }
 
 interface JobConfirmationModalProps {
@@ -19,162 +23,138 @@ interface JobConfirmationModalProps {
   onDismiss: () => void
 }
 
-const WINDOW_SECONDS = 15 * 60   // 15 minutes
+function formatBudget(min: number | null | undefined, max: number | null | undefined, period: string | null | undefined): string | null {
+  if (!min && !max) return null
+  const p = period === "hourly" ? "/hr" : period === "daily" ? "/day" : period === "weekly" ? "/wk" : ""
+  if (min && max && min !== max) return `£${min}–£${max}${p}`
+  if (min && max && min === max) return `£${min}${p}`
+  if (min) return `£${min}+${p}`
+  return `Up to £${max}${p}`
+}
+
+// Extract postcode (e.g. "PO9 5AZ") or first part of address
+function shortLocation(location: string | null | undefined): string | null {
+  if (!location) return null
+  const m = location.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2}/i)
+  if (m) return m[0].toUpperCase()
+  return location.split(",")[0].trim() || null
+}
 
 export function JobConfirmationModal({ job, onAccepted, onDismiss }: JobConfirmationModalProps) {
   const supabase = createClient()
-  const { toast } = useToast()
+  const router   = useRouter()
 
-  const [loading, setLoading]   = useState(false)
-  const [accepted, setAccepted] = useState(false)
-  const [timeLeft, setTimeLeft] = useState(0)
+  const [declining, setDeclining] = useState(false)
+  const [messaging, setMessaging] = useState(false)
 
-  // ── countdown ──────────────────────────────────────────────
-  useEffect(() => {
-    const deadline = new Date(job.confirmed_at).getTime() + WINDOW_SECONDS * 1000
+  const budget   = formatBudget(job.budget_min, job.budget_max, job.budget_period)
+  const location = shortLocation(job.location)
 
-    const tick = () => setTimeLeft(Math.max(0, Math.floor((deadline - Date.now()) / 1000)))
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [job.confirmed_at])
+  const goToJob = () => {
+    router.push(`/jobs/${job.id}`)
+    onDismiss()
+  }
 
-  const expired  = timeLeft === 0
-  const urgent   = !expired && timeLeft < 120   // < 2 min = amber
-  const minutes  = Math.floor(timeLeft / 60)
-  const seconds  = timeLeft % 60
+  const handleViewJob = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    goToJob()
+  }
 
-  // ── accept ─────────────────────────────────────────────────
-  const handleAccept = async () => {
-    if (expired || loading) return
-    setLoading(true)
+  const handleMessage = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setMessaging(true)
+    router.push("/messages")
+    onAccepted()
+  }
+
+  const handleDecline = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDeclining(true)
     try {
-      const { error } = await supabase.rpc("accept_confirmed_job", { p_job_id: job.id })
-      if (error) throw error
-      setAccepted(true)
-      toast({ title: "Job accepted!", description: `"${job.title}" is now active.` })
-      setTimeout(onAccepted, 1500)
-    } catch (err: any) {
-      toast({
-        title: "Could not accept",
-        description: err.message ?? "Please try again.",
-        variant: "destructive",
-      })
+      if (job.application_id) {
+        await fetch(`/api/jobs/${job.id}/tradesperson-decline`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ application_id: job.application_id }),
+        }).catch(() => {})
+      }
     } finally {
-      setLoading(false)
+      setDeclining(false)
+      onDismiss()
     }
   }
 
-  // ── colour token ───────────────────────────────────────────
-  const colour = accepted ? "emerald" : expired ? "red" : urgent ? "amber" : "emerald"
-  const stripClass = {
-    emerald: "bg-emerald-500",
-    red:     "bg-red-500",
-    amber:   "bg-amber-500",
-  }[colour]
-  const ringClass = {
-    emerald: "bg-emerald-500/20",
-    red:     "bg-red-500/20",
-    amber:   "bg-amber-500/20",
-  }[colour]
-  const iconClass = {
-    emerald: "text-emerald-400",
-    red:     "text-red-400",
-    amber:   "text-amber-400",
-  }[colour]
-  const timerClass = accepted || urgent ? (accepted ? "text-emerald-400" : "text-amber-400") : "text-emerald-400"
-  const bannerClass = {
-    emerald: "bg-emerald-500/10 border-emerald-500/20",
-    red:     "bg-red-500/10 border-red-500/20",
-    amber:   "bg-amber-500/10 border-amber-500/20",
-  }[colour]
-
   return (
-    // Full-screen overlay — rendered via portal in the dashboard
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="relative w-full max-w-md mx-4 bg-slate-900 rounded-2xl border border-white/10 shadow-2xl overflow-hidden">
-
-        {/* urgency strip */}
-        <div className={`h-1 w-full ${stripClass} transition-colors duration-500`} />
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer"
+      onClick={goToJob}
+    >
+      <div
+        className="relative w-full max-w-md mx-4 bg-slate-900 rounded-2xl border border-white/10 shadow-2xl overflow-hidden cursor-default"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Celebratory green bar */}
+        <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 w-full" />
 
         <div className="p-6">
+          {/* Close */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onDismiss() }}
+            className="absolute top-4 right-4 text-slate-500 hover:text-slate-300 transition-colors p-1"
+            aria-label="Dismiss"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
-          {/* header */}
-          <div className="flex items-center gap-3 mb-5">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${ringClass}`}>
-              {accepted
-                ? <CheckCircle className={`w-6 h-6 ${iconClass}`} />
-                : expired
-                ? <AlertCircle className={`w-6 h-6 ${iconClass}`} />
-                : <Briefcase className={`w-6 h-6 ${iconClass}`} />
-              }
+          {/* Header */}
+          <div className="flex items-start gap-3 mb-5">
+            <div className="flex-shrink-0 w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <PartyPopper className="w-6 h-6 text-emerald-400" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">
-                {accepted ? "Job Accepted!" : expired ? "Offer Expired" : "You've been selected!"}
-              </h2>
-              <p className="text-slate-400 text-sm">
-                {accepted
-                  ? "The job is now active"
-                  : expired
-                  ? "The acceptance window has closed"
-                  : "A homeowner wants you for this job"
-                }
-              </p>
+              <h2 className="text-xl font-bold text-white">You&apos;re selected for the job</h2>
+              <p className="text-slate-400 text-sm mt-0.5">Review details and arrange a visit</p>
             </div>
           </div>
 
-          {/* job card */}
-          <div className="bg-slate-800 rounded-xl p-4 mb-5">
-            <h3 className="font-semibold text-white text-lg">{job.title}</h3>
-          </div>
+          {/* Job card — clickable to /jobs/{id} */}
+          <button
+            onClick={handleViewJob}
+            className="w-full text-left bg-slate-800 hover:bg-slate-750 rounded-xl p-4 mb-5 space-y-1.5 transition-colors group"
+          >
+            <h3 className="font-semibold text-white text-base group-hover:text-emerald-300 transition-colors">{job.title}</h3>
+            {budget && <p className="text-sm font-semibold text-emerald-400">💰 {budget}</p>}
+            {location && <p className="text-sm text-slate-300">📍 {location}</p>}
+          </button>
 
-          {/* countdown / status */}
-          {!accepted && (
-            <div className={`flex items-center gap-3 rounded-xl p-4 mb-5 border ${bannerClass}`}>
-              <Clock className={`w-5 h-5 flex-shrink-0 ${iconClass}`} />
-              {expired ? (
-                <p className="text-red-300 text-sm font-medium">
-                  The 15-minute window expired. The job may be re-opened to other applicants.
-                </p>
-              ) : (
-                <div>
-                  <p className="text-slate-400 text-xs uppercase tracking-wide mb-0.5">
-                    Accept within
-                  </p>
-                  <p className={`text-3xl font-bold tabular-nums ${timerClass}`}>
-                    {String(minutes).padStart(2, "0")}:{String(seconds).padStart(2, "0")}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* actions */}
-          <div className="flex gap-3">
-            {!accepted && !expired && (
-              <Button
-                className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold h-12 text-base"
-                onClick={handleAccept}
-                disabled={loading}
-              >
-                {loading ? "Accepting…" : "Accept Job"}
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className={`${accepted || expired ? "flex-1" : ""} border-slate-600 text-slate-300 hover:bg-slate-800 h-12`}
-              onClick={onDismiss}
+          {/* Actions */}
+          <div className="flex flex-col gap-2">
+            {/* Primary */}
+            <button
+              onClick={handleViewJob}
+              className="w-full py-3 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 transition-colors"
             >
-              {accepted ? "Close" : expired ? "Close" : "Decide Later"}
-            </Button>
-          </div>
+              View Job
+            </button>
 
-          {!accepted && !expired && (
-            <p className="text-xs text-slate-500 text-center mt-3">
-              If you don't accept in time, the job will return to other applicants.
-            </p>
-          )}
+            {/* Secondary */}
+            <button
+              onClick={handleMessage}
+              disabled={messaging || declining}
+              className="w-full py-3 rounded-xl text-sm font-bold text-slate-200 bg-slate-700 hover:bg-slate-600 border border-slate-600 active:bg-slate-800 transition-colors disabled:opacity-50"
+            >
+              {messaging ? "Opening…" : "Send Message"}
+            </button>
+
+            {/* Tertiary */}
+            <button
+              onClick={handleDecline}
+              disabled={declining || messaging}
+              className="w-full py-2 text-sm text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-50"
+            >
+              {declining ? "Declining…" : "Decline"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

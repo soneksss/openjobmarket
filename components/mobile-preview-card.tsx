@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -19,6 +19,7 @@ import {
   Globe,
   Phone,
   CheckCircle,
+  Zap,
 } from "lucide-react"
 import { CompactStarRating } from "@/components/compact-star-rating"
 
@@ -38,6 +39,9 @@ interface JobPreviewData {
   jobType?: string
   workLocation?: string
   createdAt?: string
+  urgencyType?: string | null
+  expiresAt?: string | null
+  isTradesJob?: boolean
 }
 
 // Professional preview data
@@ -95,6 +99,34 @@ interface MobilePreviewCardProps {
   onAuthRequired?: () => void
 }
 
+function useCountdown(expiresAt?: string | null, urgencyType?: string | null) {
+  const [timeLeft, setTimeLeft] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!expiresAt || !urgencyType || urgencyType === "flexible") {
+      setTimeLeft(null)
+      return
+    }
+
+    const calc = () => {
+      const diff = new Date(expiresAt).getTime() - Date.now()
+      if (diff <= 0) { setTimeLeft("Expired"); return }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      if (h > 0) setTimeLeft(`${h}h ${m}m`)
+      else if (m > 0) setTimeLeft(`${m}m ${s}s`)
+      else setTimeLeft(`${s}s`)
+    }
+
+    calc()
+    const interval = setInterval(calc, urgencyType === "asap" ? 1000 : 60000)
+    return () => clearInterval(interval)
+  }, [expiresAt, urgencyType])
+
+  return timeLeft
+}
+
 export function MobilePreviewCard({
   data,
   onClose,
@@ -106,6 +138,11 @@ export function MobilePreviewCard({
   isAuthenticated = false,
   onAuthRequired,
 }: MobilePreviewCardProps) {
+  const countdownTime = useCountdown(
+    data.type === "job" ? data.expiresAt : undefined,
+    data.type === "job" ? data.urgencyType : undefined
+  )
+
   const handleActionClick = () => {
     if (!isAuthenticated && onAuthRequired) {
       onAuthRequired()
@@ -183,7 +220,23 @@ export function MobilePreviewCard({
                   {data.workLocation}
                 </Badge>
               )}
+              {data.isTradesJob && data.urgencyType && data.urgencyType !== "flexible" && (
+                <Badge className={`text-xs ${data.urgencyType === "asap" ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-orange-500/20 text-orange-400 border-orange-500/30"}`}>
+                  <Zap className="h-3 w-3 mr-1" />
+                  {data.urgencyType === "asap" ? "ASAP" : "Today"}
+                </Badge>
+              )}
             </div>
+
+            {/* Countdown timer for urgent trade jobs */}
+            {data.isTradesJob && countdownTime && countdownTime !== "Expired" && (
+              <div className={`flex items-center gap-2 px-3 py-2 rounded-xl ${data.urgencyType === "asap" ? "bg-red-500/10 border border-red-500/20" : "bg-orange-500/10 border border-orange-500/20"}`}>
+                <Clock className={`h-4 w-4 flex-shrink-0 ${data.urgencyType === "asap" ? "text-red-400" : "text-orange-400"}`} />
+                <span className={`text-sm font-semibold ${data.urgencyType === "asap" ? "text-red-400" : "text-orange-400"}`}>
+                  {countdownTime} remaining
+                </span>
+              </div>
+            )}
 
             {/* Location and Salary */}
             <div className="space-y-2">

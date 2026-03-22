@@ -6,19 +6,26 @@ import { signOut as serverSignOut } from "@/lib/actions"
 
 export function useAutoLogout() {
   useEffect(() => {
-    // DISABLED: This hook was causing users to be logged out during Next.js navigation
-    // The beforeunload/unload events can fire during client-side navigation in Next.js,
-    // not just when closing the browser tab. This created an extremely poor UX.
+    const supabase = createClient()
 
-    // If auto-logout on browser close is needed in the future, consider:
-    // 1. Using window.onbeforeunload with a flag to differentiate navigation vs close
-    // 2. Using sessionStorage to track navigation state
-    // 3. Using a more reliable browser close detection method
-
-    console.log('[AUTO-LOGOUT] Hook is currently disabled to prevent accidental logouts')
+    // Listen for auth state changes.
+    // When a refresh token is invalid, Supabase fires SIGNED_OUT after the failed refresh.
+    // We clear stale localStorage tokens so the 400 error doesn't repeat on every page load.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        // Remove Supabase auth keys from localStorage to prevent stale-token 400 errors
+        if (typeof window !== 'undefined') {
+          Object.keys(localStorage).forEach((key) => {
+            if (key.startsWith('sb-') && key.includes('-auth-token')) {
+              localStorage.removeItem(key)
+            }
+          })
+        }
+      }
+    })
 
     return () => {
-      // No cleanup needed
+      subscription.unsubscribe()
     }
   }, [])
 }

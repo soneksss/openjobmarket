@@ -233,7 +233,23 @@ export function HomeownerJobActions({
     const supabase = createClient()
 
     try {
-      const { error } = await supabase.from("jobs").update({ is_active: !isActive }).eq("id", jobId)
+      const now = new Date()
+      const isExpired = expiresAt ? new Date(expiresAt) < now : false
+      const updateData: any = { is_active: !isActive }
+
+      // When activating an expired job, also reset expires_at so it becomes visible again
+      if (!isActive && isExpired) {
+        const newExpiry = new Date(now)
+        if (isUrgentJob) {
+          newExpiry.setHours(newExpiry.getHours() + 1)
+        } else {
+          newExpiry.setDate(newExpiry.getDate() + 7)
+        }
+        updateData.expires_at = newExpiry.toISOString()
+        updateData.matching_status = "searching"
+      }
+
+      const { error } = await supabase.from("jobs").update(updateData).eq("id", jobId)
 
       if (error) throw error
 

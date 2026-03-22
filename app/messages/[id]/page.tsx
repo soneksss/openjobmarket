@@ -170,19 +170,22 @@ export default function ConversationPage() {
           console.log('[CONVERSATION] ID is a user ID, getting/creating conversation...')
           determinedOtherId = conversationId
 
-          // Get or create the conversation between current user and this user
-          const { data: realConversationId, error: rpcError } = await supabase.rpc(
-            'get_or_create_conversation',
-            { user1_id: currentUser.id, user2_id: conversationId }
-          )
+          // Get or create the conversation — use the API route (admin client) to
+          // bypass GRANT EXECUTE issues that affect certain user types on the RPC
+          const convRes = await fetch('/api/conversations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ with_user_id: conversationId }),
+          })
+          const convJson = await convRes.json()
 
-          if (rpcError || !realConversationId) {
-            console.error('[CONVERSATION] Error creating conversation:', rpcError)
+          if (!convRes.ok || !convJson.conversationId) {
+            console.error('[CONVERSATION] Error creating conversation:', convJson)
             setLoading(false)
             return
           }
 
-          actualConversationId = realConversationId
+          actualConversationId = convJson.conversationId
           console.log('[CONVERSATION] Step 4.7: Conversation created/retrieved:', actualConversationId)
 
           // Update URL to use the real conversation ID (for bookmarking/refresh)

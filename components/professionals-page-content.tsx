@@ -935,6 +935,9 @@ export default function ProfessionalsPageContent({
         jobType: item.job_type,
         workLocation: item.work_location,
         createdAt: item.created_at,
+        urgencyType: item.urgency_type ?? null,
+        expiresAt: item.expires_at ?? null,
+        isTradesJob: !!item.is_tradespeople_job,
       }
     }
 

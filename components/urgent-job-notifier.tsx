@@ -231,50 +231,139 @@ function UrgentCard({
 }
 
 /* ─────────────────────────────────────────────────────────── */
-/* Accepted toast — "You got the job!" celebration            */
+/* Accepted job alert type                                     */
+/* ─────────────────────────────────────────────────────────── */
+interface AcceptedJobAlert {
+  id:             string
+  jobTitle:       string
+  jobId?:         string | null
+  budget?:        string | null
+  location?:      string | null
+  conversationId?: string | null
+  messageUrl?:    string | null
+  applicationId?: string | null
+}
+
+// Extract postcode (e.g. "PO9 5AZ") or first part of address
+function shortLocation(location: string | null | undefined): string | null {
+  if (!location) return null
+  const m = location.match(/[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2}/i)
+  if (m) return m[0].toUpperCase()
+  return location.split(",")[0].trim() || null
+}
+
+/* ─────────────────────────────────────────────────────────── */
+/* Accepted toast — "You're selected for the job"             */
 /* ─────────────────────────────────────────────────────────── */
 function AcceptedToast({
-  title:    jobTitle,
-  linkUrl,
+  alert,
   onDismiss,
 }: {
-  title:    string
-  linkUrl:  string
+  alert:    AcceptedJobAlert
   onDismiss: () => void
 }) {
   const router = useRouter()
+  const [declining, setDeclining] = useState(false)
 
-  // Auto-dismiss after 8s
+  // Auto-dismiss after 20s
   useEffect(() => {
-    const t = setTimeout(onDismiss, 8000)
+    const t = setTimeout(onDismiss, 20000)
     return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const location = shortLocation(alert.location)
+
+  const goToJob = () => {
+    if (alert.jobId) router.push(`/jobs/${alert.jobId}`)
+    onDismiss()
+  }
+
+  const handleViewJob = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    goToJob()
+  }
+
+  const handleMessage = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    const url = alert.messageUrl ?? (alert.conversationId ? `/messages/${alert.conversationId}` : `/messages`)
+    router.push(url)
+    onDismiss()
+  }
+
+  const handleDecline = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!alert.jobId || !alert.applicationId) { onDismiss(); return }
+    setDeclining(true)
+    try {
+      await fetch(`/api/jobs/${alert.jobId}/tradesperson-decline`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ application_id: alert.applicationId }),
+      })
+    } finally {
+      setDeclining(false)
+      onDismiss()
+    }
+  }
 
   return (
     <div
       className="bg-slate-900 border-b sm:border border-emerald-500/70 rounded-b-2xl sm:rounded-2xl shadow-2xl overflow-hidden cursor-pointer"
       style={{ animation: "notifSlideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both" }}
-      onClick={() => { router.push(linkUrl); onDismiss() }}
+      onClick={goToJob}
     >
       {/* Celebratory green bar */}
       <div className="h-1.5 bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-500 w-full" />
 
-      <div className="px-5 py-4 flex items-start gap-3">
-        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center">
-          <PartyPopper className="w-5 h-5 text-emerald-400" />
+      <div className="px-5 pt-4 pb-3">
+        <div className="flex items-start gap-3 mb-2">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-center">
+            <PartyPopper className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-emerald-400">You&apos;re selected for the job</p>
+            <p className="text-sm font-semibold text-white mt-0.5 leading-snug line-clamp-1">{alert.jobTitle}</p>
+            {(alert.budget || location) && (
+              <p className="text-xs text-slate-400 mt-0.5">
+                {[alert.budget, location].filter(Boolean).join(" · ")}
+              </p>
+            )}
+            <p className="text-xs text-slate-500 mt-0.5">Review details and arrange a visit</p>
+          </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDismiss() }}
+            className="text-slate-500 hover:text-slate-300 transition-colors p-1 -mr-1 flex-shrink-0"
+            aria-label="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-emerald-400">You got the job! 🎉</p>
-          <p className="text-sm font-semibold text-white mt-0.5 leading-snug line-clamp-2">{jobTitle}</p>
-          <p className="text-xs text-slate-400 mt-1">The homeowner selected you. Tap to view details.</p>
-        </div>
+      </div>
+
+      {/* Buttons */}
+      <div className="px-4 pb-4 pt-0 flex gap-2" onClick={(e) => e.stopPropagation()}>
+        {/* Primary */}
         <button
-          onClick={(e) => { e.stopPropagation(); onDismiss() }}
-          className="text-slate-500 hover:text-slate-300 transition-colors p-1 -mr-1 flex-shrink-0"
-          aria-label="Dismiss"
+          onClick={handleViewJob}
+          className="flex-[2] py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 transition-colors"
         >
-          <X className="w-4 h-4" />
+          View Job
+        </button>
+        {/* Secondary */}
+        <button
+          onClick={handleMessage}
+          className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-slate-300 bg-slate-700 hover:bg-slate-600 border border-slate-600 transition-colors"
+        >
+          Message
+        </button>
+        {/* Tertiary */}
+        <button
+          onClick={handleDecline}
+          disabled={declining}
+          className="flex-1 py-2.5 text-sm text-slate-500 hover:text-slate-300 transition-colors disabled:opacity-50"
+        >
+          {declining ? "…" : "Decline"}
         </button>
       </div>
     </div>
@@ -290,7 +379,7 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
 
   const [current,       setCurrent]       = useState<UrgentAlert | null>(null)
   const [queue,         setQueue]         = useState<UrgentAlert[]>([])
-  const [acceptedAlert, setAcceptedAlert] = useState<{ id: string; title: string; linkUrl: string } | null>(null)
+  const [acceptedAlert, setAcceptedAlert] = useState<AcceptedJobAlert | null>(null)
 
   const userCoordsRef = useRef<{ lat: number; lon: number } | null>(null)
 
@@ -397,13 +486,28 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     })
   }, [supabase, userId])
 
+  /* ── parse a notification row into AcceptedJobAlert ── */
+  const parseAccepted = useCallback((n: any): AcceptedJobAlert => {
+    const d = n.data ? (typeof n.data === "string" ? JSON.parse(n.data) : n.data) : {}
+    return {
+      id:             n.id,
+      jobTitle:       d.job_title ?? n.title ?? n.message ?? "Job",
+      jobId:          d.job_id ?? null,
+      budget:         d.budget ?? null,
+      location:       d.location ?? null,
+      conversationId: d.conversation_id ?? null,
+      messageUrl:     d.message_url ?? null,
+      applicationId:  d.application_id ?? null,
+    }
+  }, [])
+
   /* ── load recent unread on mount (last 2 hours) ── */
   useEffect(() => {
     const load = async () => {
       const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
       const { data } = await supabase
         .from("notifications")
-        .select("id, title, link_url, message")
+        .select("id, title, link_url, message, data")
         .eq("user_id", userId)
         .eq("type", "urgent_job_dispatch")
         .gte("created_at", twoHoursAgo)
@@ -412,6 +516,28 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
 
       if (data) {
         for (const n of [...data].reverse()) await enqueue(n)
+      }
+
+      // Also load the most recent unread job_accepted notification (last 24h)
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+      const { data: accepted } = await supabase
+        .from("notifications")
+        .select("id, title, message, link_url, data")
+        .eq("user_id", userId)
+        .eq("type", "job_accepted")
+        .eq("is_read", false)
+        .gte("created_at", oneDayAgo)
+        .order("created_at", { ascending: false })
+        .limit(1)
+
+      if (accepted && accepted.length > 0) {
+        const n = accepted[0]
+        const shown = getShown()
+        if (!shown.has(n.id)) {
+          markShown(n.id)
+          playSound("accepted")
+          setAcceptedAlert(parseAccepted(n))
+        }
       }
     }
     load()
@@ -431,12 +557,12 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
           enqueue({ id: n.id, title: n.title, link_url: n.link_url, message: n.message })
         } else if (n?.type === "job_accepted") {
           // Homeowner confirmed this tradesperson — show celebration toast
-          playSound("accepted")
-          setAcceptedAlert({
-            id:      n.id,
-            title:   n.message ?? n.title,
-            linkUrl: n.link_url ?? "/messages",
-          })
+          const shown = getShown()
+          if (!shown.has(n.id)) {
+            markShown(n.id)
+            playSound("accepted")
+            setAcceptedAlert(parseAccepted(n))
+          }
           void supabase.from("notifications").update({ is_read: true }).eq("id", n.id)
         }
       })
@@ -491,8 +617,7 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
         <div className="fixed inset-x-0 top-0 sm:inset-auto sm:top-5 sm:right-5 z-[500] sm:max-w-xs w-full">
           <AcceptedToast
             key={acceptedAlert.id}
-            title={acceptedAlert.title}
-            linkUrl={acceptedAlert.linkUrl}
+            alert={acceptedAlert}
             onDismiss={() => setAcceptedAlert(null)}
           />
         </div>

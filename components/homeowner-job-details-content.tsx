@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   Clock,
 } from "lucide-react"
-import { createClient } from "@/lib/client"
 import { HomeownerApplicationActions } from "./homeowner-application-actions"
 import { JobCompletionModal } from "./job-completion-modal"
 
@@ -54,7 +53,6 @@ const INITIAL_SHOW = 3
 
 export function HomeownerJobDetailsContent({ job, applications, homeownerUserId }: JobDetailsContentProps) {
   const router   = useRouter()
-  const supabase = createClient()
   const [expanded, setExpanded]           = useState(false)
   const [messagingUserId, setMessagingUserId] = useState<string | null>(null)
   const [showCompletionModal, setShowCompletionModal] = useState(false)
@@ -75,13 +73,17 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
     if (!homeownerUserId) return
     setMessagingUserId(applicantUserId)
     try {
-      const { data: convId, error } = await supabase.rpc('get_or_create_conversation', {
-        user1_id: homeownerUserId,
-        user2_id: applicantUserId,
-        p_job_id: job.id,
+      // Use server-side API (admin client) so homeowners can create/access conversations
+      // without needing GRANT EXECUTE on the RPC function
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ with_user_id: applicantUserId, job_id: job.id }),
       })
-      if (error || !convId) throw error ?? new Error('No conversation ID returned')
-      router.push(`/messages/${convId}`)
+      const data = await res.json()
+      if (!res.ok || !data.conversationId) throw new Error(data.error || 'No conversation ID returned')
+      router.push(`/messages/${data.conversationId}`)
     } catch (err) {
       console.error('[MESSAGE] Failed to open conversation:', err)
     } finally {

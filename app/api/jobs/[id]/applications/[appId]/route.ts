@@ -30,7 +30,7 @@ export async function PATCH(
     const admin = createAdminClient()
     const { data: job } = await admin
       .from("jobs")
-      .select("status, homeowner_id, homeowner_profiles!homeowner_id(user_id)")
+      .select("status, title, budget_min, budget_max, budget_period, location, homeowner_id, homeowner_profiles!homeowner_id(user_id)")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -67,7 +67,7 @@ export async function PATCH(
       }
 
       // Notify the tradesperson that they've been confirmed
-      notifyTradespersonConfirmed(jobId, tradesperson_id, admin).catch(console.error)
+      notifyTradespersonConfirmed(jobId, appId, tradesperson_id, admin).catch(console.error)
 
       return NextResponse.json({ success: true, action: "accepted" })
     }
@@ -92,35 +92,47 @@ export async function PATCH(
   }
 }
 
+function formatBudgetStr(min: number | null, max: number | null, period: string | null): string | null {
+  if (!min && !max) return null
+  const p = period === "hourly" ? "/hr" : period === "daily" ? "/day" : period === "weekly" ? "/wk" : ""
+  if (min && max && min !== max) return `£${min}–£${max}${p}`
+  if (min && max && min === max) return `£${min}${p}`
+  if (min) return `£${min}+${p}`
+  return `Up to £${max}${p}`
+}
+
 async function notifyTradespersonConfirmed(
   jobId: string,
+  appId: string,
   tradespersonProfileId: string,
   admin: ReturnType<typeof createAdminClient>
 ) {
-  const { data: job } = await admin
-    .from("jobs")
-    .select("title")
-    .eq("id", jobId)
-    .maybeSingle()
-
-  const { data: cp } = await admin
-    .from("company_profiles")
-    .select("user_id")
-    .eq("id", tradespersonProfileId)
-    .maybeSingle()
+  const [{ data: job }, { data: cp }] = await Promise.all([
+    admin.from("jobs").select("title, budget_min, budget_max, budget_period, location").eq("id", jobId).maybeSingle(),
+    admin.from("company_profiles").select("user_id").eq("id", tradespersonProfileId).maybeSingle(),
+  ])
 
   if (!cp?.user_id || !job) return
 
-  // Link to messages so the tradesperson can immediately start chatting
-  const messageUrl = `/messages`
+  const budget = formatBudgetStr(job.budget_min ?? null, job.budget_max ?? null, job.budget_period ?? null)
+  const jobUrl = `/jobs/${jobId}`
 
   await admin.from("notifications").insert({
     user_id:    cp.user_id,
     type:       "job_accepted",
-    title:      "Application accepted 🎉",
-    message:    job.title,
-    link_url:   messageUrl,
-    action_url: messageUrl,
+    title:      job.title,
+    message:    "Review details and arrange a visit",
+    link_url:   jobUrl,
+    action_url: jobUrl,
     is_read:    false,
+    data: {
+      job_id:          jobId,
+      job_title:       job.title,
+      budget:          budget,
+      location:        job.location ?? null,
+      conversation_id: null,
+      message_url:     "/messages",
+      application_id:  appId,
+    },
   })
 }

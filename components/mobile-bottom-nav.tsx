@@ -193,12 +193,12 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     const isTrade = serverUserType === "company" || clientUserType === "company"
     if (!isTrade) return
 
-    const buildUrl = (lat: number | null, lng: number | null, locationName: string | null, skills: string[]) => {
+    // Use industry= + services= params (single ilike path) instead of skills= (slow multi-column ilike)
+    const buildUrl = (lat: number | null, lng: number | null, industry: string | null, services: string[]) => {
       const params = new URLSearchParams()
       params.set("tab", "jobs_tasks")
       params.set("autoSearch", "true")
       if (lat && lng) {
-        // Use "Near Me" — the actual lat/lng drives the search, not the label
         params.set("location", "Near Me")
         params.set("lat", lat.toString())
         params.set("lng", lng.toString())
@@ -209,10 +209,10 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
         params.set("lng", "-0.1278")
         params.set("radius", "10")
       }
-      const cleanSkills = skills.filter(Boolean).slice(0, 3)
-      if (cleanSkills.length > 0) {
-        params.set("skills", cleanSkills.join(","))
-        params.set("search", cleanSkills[0]) // primary search term
+      if (industry) {
+        params.set("industry", industry)
+        const cleanServices = services.filter(Boolean).slice(0, 2)
+        if (cleanServices.length > 0) params.set("services", cleanServices.join(","))
       }
       return `/?${params.toString()}`
     }
@@ -226,11 +226,8 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
         .maybeSingle()
         .then(({ data }) => {
           if (data) {
-            const skills = [
-              data.industry,
-              ...(Array.isArray(data.services) ? data.services.slice(0, 2) : []),
-            ].filter(Boolean) as string[]
-            setJobsSearchUrl(buildUrl(data.latitude, data.longitude, data.location, skills))
+            const services = Array.isArray(data.services) ? data.services.slice(0, 2) : []
+            setJobsSearchUrl(buildUrl(data.latitude, data.longitude, data.industry, services))
           } else {
             setJobsSearchUrl("/?tab=jobs_tasks&autoSearch=true&location=London%2C+UK&lat=51.5074&lng=-0.1278&radius=10")
           }
@@ -243,11 +240,8 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
         .maybeSingle()
         .then(({ data: prof }) => {
           if (prof) {
-            const skills = [
-              prof.title,
-              ...(Array.isArray(prof.skills) ? prof.skills.slice(0, 2) : []),
-            ].filter(Boolean) as string[]
-            setJobsSearchUrl(buildUrl(prof.latitude, prof.longitude, prof.location, skills))
+            const services = Array.isArray(prof.skills) ? prof.skills.slice(0, 2) : []
+            setJobsSearchUrl(buildUrl(prof.latitude, prof.longitude, prof.title, services))
           } else {
             // Fallback to company_profiles
             supabase.from("company_profiles")
@@ -256,7 +250,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
               .maybeSingle()
               .then(({ data: comp }) => {
                 if (comp) {
-                  setJobsSearchUrl(buildUrl(comp.latitude, comp.longitude, comp.location, [comp.industry].filter(Boolean) as string[]))
+                  setJobsSearchUrl(buildUrl(comp.latitude, comp.longitude, comp.industry, []))
                 } else {
                   setJobsSearchUrl("/?tab=jobs_tasks&autoSearch=true&location=London%2C+UK&lat=51.5074&lng=-0.1278&radius=10")
                 }

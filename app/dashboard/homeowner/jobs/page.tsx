@@ -20,13 +20,14 @@ import {
 import { DeleteJobInlineButton } from "@/components/delete-job-inline-button"
 import { MarkJobNotifsRead } from "@/components/mark-job-notifs-read"
 
-// A job belongs in "History" if it's inactive OR has a terminal status
+// A job belongs in "History" if it's inactive, past its expiry, or has a terminal status
 const CLOSED_STATUSES = new Set(["closed", "filled", "expired", "cancelled", "completed"])
 function isClosed(job: any): boolean {
   if (!job.is_active) return true
   const s = (job.status ?? "").toLowerCase()
   if (CLOSED_STATUSES.has(s)) return true
   if (job.completion_status === "completed") return true
+  if (job.expires_at && new Date(job.expires_at) < new Date()) return true
   return false
 }
 
@@ -55,6 +56,22 @@ export default async function HomeownerJobsPage({
     .order("created_at", { ascending: false })
 
   const allJobs = jobs || []
+
+  // Fetch real applicant counts — exclude cancelled/withdrawn so the number
+  // matches what the homeowner actually sees in the applicants list
+  const jobIds = allJobs.map(j => j.id)
+  const appCountMap = new Map<string, number>()
+  if (jobIds.length > 0) {
+    const { data: appRows } = await supabase
+      .from("job_applications")
+      .select("job_id")
+      .in("job_id", jobIds)
+      .not("status", "in", '("AUTO_CANCELLED","WITHDRAWN")')
+    for (const row of appRows ?? []) {
+      appCountMap.set(row.job_id, (appCountMap.get(row.job_id) ?? 0) + 1)
+    }
+  }
+
   const showHistory = search.status === "closed"
 
   const activeJobs = allJobs.filter((j) => !isClosed(j))
@@ -87,7 +104,7 @@ export default async function HomeownerJobsPage({
       badge: "bg-blue-500/15 text-blue-400 border-blue-500/30",
       icon: <CheckCircle2 className="h-4 w-4 text-blue-400" />,
     }
-    const apps = job.applications_count ?? 0
+    const apps = appCountMap.get(job.id) ?? 0
     if (apps > 0) return {
       label: "Reviewing",
       sub: `${apps} applicant${apps !== 1 ? "s" : ""} — tap View`,
@@ -236,7 +253,7 @@ export default async function HomeownerJobsPage({
                       <div className="flex items-center gap-3 mt-2">
                         <span className="flex items-center gap-1 text-xs text-slate-500">
                           <Users className="h-3 w-3" />
-                          {job.applications_count ?? 0} applicant{(job.applications_count ?? 0) !== 1 ? "s" : ""}
+                          {appCountMap.get(job.id) ?? 0} applicant{(appCountMap.get(job.id) ?? 0) !== 1 ? "s" : ""}
                         </span>
                         <span className="flex items-center gap-1 text-xs text-slate-600">
                           <Eye className="h-3 w-3" />

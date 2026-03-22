@@ -1195,8 +1195,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                           >
                                             <Heart className="h-3 w-3" />
                                           </Button>
-                                          {isSelected && userType === 'company' ? (
-                                            // For companies when selected: Show Apply button
+                                          {isSelected && (
                                             <Button
                                               size="sm"
                                               className="h-8 flex-1 bg-blue-600 hover:bg-blue-700"
@@ -1209,27 +1208,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                                 }
                                               }}
                                             >
-                                              Apply
-                                            </Button>
-                                          ) : isSelected && (
-                                            <Button
-                                              variant="outline"
-                                              size="sm"
-                                              className="h-8 px-3"
-                                              onClick={(e) => {
-                                                e.stopPropagation()
-                                                if (!user) {
-                                                  setShowSignUpDialog(true)
-                                                } else {
-                                                  const recipientId = job.company_profiles?.user_id || job.homeowner_profiles?.user_id
-                                                  if (recipientId) {
-                                                    router.push(`/messages/new?recipient=${recipientId}&jobId=${job.id}&subject=Regarding: ${encodeURIComponent(job.title)}`)
-                                                  }
-                                                }
-                                              }}
-                                            >
-                                              <MessageCircle className="h-3 w-3 mr-1" />
-                                              Contact
+                                              Apply Now
                                             </Button>
                                           )}
                                           <Button
@@ -1245,7 +1224,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                             }}
                                           >
                                             <User className="h-3 w-3 mr-1" />
-                                            {isSelected ? (userType === 'company' ? "View full details" : "View Profile") : "View"}
+                                            {isSelected ? "View Details" : "View"}
                                           </Button>
                                         </div>
                                       </div>

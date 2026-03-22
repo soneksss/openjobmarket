@@ -29,7 +29,7 @@ export async function POST(
     // Verify caller is the homeowner of this job
     const { data: job } = await admin
       .from("jobs")
-      .select("status, title, homeowner_id, homeowner_profiles!homeowner_id(user_id)")
+      .select("status, title, budget_min, budget_max, budget_period, location, homeowner_id, homeowner_profiles!homeowner_id(user_id)")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -74,7 +74,7 @@ export async function POST(
     }
 
     // Notify tradesperson — fire and forget (pass conversationId so the link goes directly to the chat)
-    notifyTradespersonSelected(jobId, company_id, (job as any).title, conversationId, admin).catch(console.error)
+    notifyTradespersonSelected(jobId, company_id, job as any, conversationId, admin).catch(console.error)
 
     return NextResponse.json({ success: true, conversationId })
 
@@ -84,31 +84,49 @@ export async function POST(
   }
 }
 
+function formatBudgetStr(min: number | null, max: number | null, period: string | null): string | null {
+  if (!min && !max) return null
+  const p = period === "hourly" ? "/hr" : period === "daily" ? "/day" : period === "weekly" ? "/wk" : ""
+  if (min && max && min !== max) return `£${min}–£${max}${p}`
+  if (min && max && min === max) return `£${min}${p}`
+  if (min) return `£${min}+${p}`
+  return `Up to £${max}${p}`
+}
+
 async function notifyTradespersonSelected(
   jobId: string,
   companyId: string,
-  jobTitle: string,
+  job: { title: string; budget_min?: number | null; budget_max?: number | null; budget_period?: string | null; location?: string | null },
   conversationId: string | null,
   admin: ReturnType<typeof createAdminClient>
 ) {
-  const { data: cp } = await admin
-    .from("company_profiles")
-    .select("user_id")
-    .eq("id", companyId)
-    .maybeSingle()
+  const [{ data: cp }, { data: appData }] = await Promise.all([
+    admin.from("company_profiles").select("user_id").eq("id", companyId).maybeSingle(),
+    admin.from("job_applications").select("id").eq("job_id", jobId).eq("company_id", companyId).maybeSingle(),
+  ])
 
   if (!cp?.user_id) return
 
-  // Link directly to the conversation if available, otherwise fall back to messages list
-  const messageUrl = conversationId ? `/messages/${conversationId}` : `/messages`
+  const budget  = formatBudgetStr(job.budget_min ?? null, job.budget_max ?? null, job.budget_period ?? null)
+  const jobUrl  = `/jobs/${jobId}`
+  const msgUrl  = conversationId ? `/messages/${conversationId}` : `/messages`
 
   await admin.from("notifications").insert({
     user_id:    cp.user_id,
     type:       "job_accepted",
-    title:      "Application accepted 🎉",
-    message:    jobTitle,
-    link_url:   messageUrl,
-    action_url: messageUrl,
+    title:      job.title,
+    message:    "Review details and arrange a visit",
+    link_url:   jobUrl,
+    action_url: jobUrl,
     is_read:    false,
+    data: {
+      job_id:          jobId,
+      job_title:       job.title,
+      budget:          budget,
+      location:        job.location ?? null,
+      conversation_id: conversationId,
+      message_url:     msgUrl,
+      application_id:  appData?.id ?? null,
+    },
   })
 }

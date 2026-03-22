@@ -330,17 +330,9 @@ export default function MessagesPage() {
 
   const handleDeleteConversation = async (conversationId: string, otherUserId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm("Delete this conversation? This cannot be undone.")) return
-
     try {
-      const uid = cachedUser.current?.id
-      if (!uid) return
-
-      await Promise.all([
-        supabase.from("messages").delete().eq("conversation_id", conversationId),
-        supabase.from("conversations").delete().eq("id", conversationId),
-      ])
-
+      const res = await fetch(`/api/conversations?id=${encodeURIComponent(conversationId)}`, { method: "DELETE" })
+      if (!res.ok) throw new Error(await res.text())
       setConversations(prev => prev.filter(c => c.id !== conversationId))
     } catch (err) {
       console.error("[MESSAGES] Error deleting conversation:", err)
@@ -366,20 +358,11 @@ export default function MessagesPage() {
 
   const handleBulkDelete = async () => {
     if (selectedConversations.size === 0) return
-    if (!confirm(`Delete ${selectedConversations.size} conversation${selectedConversations.size > 1 ? "s" : ""}? This cannot be undone.`)) return
-
     setDeletingBulk(true)
     try {
-      const uid = cachedUser.current?.id
-      if (!uid) return
-
-      await Promise.all(
-        [...selectedConversations].flatMap(convId => [
-          supabase.from("messages").delete().eq("conversation_id", convId),
-          supabase.from("conversations").delete().eq("id", convId),
-        ])
-      )
-
+      const params = [...selectedConversations].map(id => `id=${encodeURIComponent(id)}`).join("&")
+      const res = await fetch(`/api/conversations?${params}`, { method: "DELETE" })
+      if (!res.ok) throw new Error(await res.text())
       setConversations(prev => prev.filter(c => !selectedConversations.has(c.id)))
       setSelectedConversations(new Set())
     } catch (err) {

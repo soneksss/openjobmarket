@@ -9,7 +9,6 @@ import {
   MapPin,
   Calendar,
   Clock,
-  DollarSign,
   AlertCircle,
   Zap,
   Users,
@@ -120,6 +119,11 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
       professional_profiles: null,
     }
   })
+
+  // Real applicant count — exclude cancelled/withdrawn (applications_count column can be stale)
+  const activeAppCount = (appRows ?? []).filter(
+    (a: any) => a.status !== "AUTO_CANCELLED" && a.status !== "WITHDRAWN"
+  ).length
 
   const now = new Date()
   const expiresAt = job.expires_at ? new Date(job.expires_at) : null
@@ -240,7 +244,6 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
             </div>
             {budgetLabel && (
               <div className="flex items-center gap-2 text-sm text-emerald-400 font-semibold">
-                <DollarSign className="w-4 h-4 flex-shrink-0" />
                 {budgetLabel}
               </div>
             )}
@@ -256,7 +259,7 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
             )}
             <div className="flex items-center gap-2 text-sm text-slate-400">
               <Users className="w-4 h-4 text-slate-500 flex-shrink-0" />
-              {job.applications_count || 0} applicant{(job.applications_count || 0) !== 1 ? "s" : ""}
+              {activeAppCount} applicant{activeAppCount !== 1 ? "s" : ""}
             </div>
             <div className="flex items-center gap-2 text-sm text-slate-400">
               <Eye className="w-4 h-4 text-slate-500 flex-shrink-0" />
