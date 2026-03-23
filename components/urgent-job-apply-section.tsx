@@ -61,6 +61,19 @@ export function UrgentJobApplySection({ jobId, hasApplied, applicationStatus }: 
     }
   }
 
+  // ── waiting_optional — still in pool but free to take other jobs ────────
+  if (applicationStatus === "waiting_optional") {
+    return (
+      <div className="rounded-xl border border-slate-600/40 bg-slate-800/60 p-5 text-center space-y-2">
+        <CheckCircle className="h-7 w-7 text-emerald-500 mx-auto" />
+        <p className="text-sm font-semibold text-slate-200">Application sent</p>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          You&apos;ve been waiting 15+ minutes. You&apos;re still in the running — but you&apos;re free to take other jobs in the meantime.
+        </p>
+      </div>
+    )
+  }
+
   // ── Not selected — job filled by another tradesperson ───────────────────
   if (
     applicationStatus === "AUTO_CANCELLED" ||

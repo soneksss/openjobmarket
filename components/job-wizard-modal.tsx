@@ -871,7 +871,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
           ? formData.service
           : null,
         category: formData.postingType === "tradespeople"
-          ? INDUSTRY_TO_CATEGORY[formData.industry] ?? PROFESSION_TO_CATEGORY[formData.profession.trim()] ?? null
+          ? INDUSTRY_TO_CATEGORY[formData.industry] ?? formData.industry ?? PROFESSION_TO_CATEGORY[formData.profession.trim()] ?? null
           : null,
         location: formData.fullAddress,
         latitude: formData.locationCoords?.lat ?? companyProfile?.latitude ?? null,
@@ -1495,8 +1495,18 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
               <div className="px-3 py-2.5 space-y-1.5 text-xs">
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-500">Job</span>
-                  <span className="font-medium text-white text-right truncate max-w-[60%]">{formData.profession || "—"}</span>
+                  <span className="font-medium text-white text-right truncate max-w-[60%]">
+                    {formData.postingType === "tradespeople"
+                      ? (formData.service && formData.service !== "Not sure / Other" ? formData.service : formData.industry) || formData.profession || "—"
+                      : formData.profession || "—"}
+                  </span>
                 </div>
+                {formData.postingType === "tradespeople" && formData.industry && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">Category</span>
+                    <span className="font-medium text-white text-right truncate max-w-[60%]">{formData.industry}</span>
+                  </div>
+                )}
                 {formData.payMin && formData.payMax && (
                   <div className="flex justify-between gap-2">
                     <span className="text-slate-500">Budget</span>
@@ -1512,7 +1522,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                 <div className="flex justify-between gap-2">
                   <span className="text-slate-500">Urgency</span>
                   <span className={`font-medium ${formData.urgencyType === "asap" ? "text-red-400" : "text-blue-400"}`}>
-                    {formData.urgencyType === "asap" ? "ASAP" : formData.urgencyType === "flexible" ? `Flexible · ${formData.flexibleDays}d` : "—"}
+                    {formData.urgencyType === "asap" ? "ASAP" : formData.urgencyType === "today" ? "Today" : formData.urgencyType === "flexible" ? `Flexible · ${formData.flexibleDays}d` : "—"}
                   </span>
                 </div>
                 {formData.jobPhotoUrl && (

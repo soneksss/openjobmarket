@@ -178,6 +178,7 @@ export default function JobDetailView({
   const [applications, setApplications] = useState<ApplicationRecord[]>(jobApplications)
   const [actionLoading, setActionLoading] = useState<string | null>(null) // appId being processed
   const [jobConfirmed, setJobConfirmed] = useState(job.status === "CONFIRMED")
+  const [photoOpen, setPhotoOpen] = useState(false)
   const [messageModal, setMessageModal] = useState<{
     isOpen: boolean
     recipientId: string
@@ -782,13 +783,13 @@ export default function JobDetailView({
                     </div>
 
                     {/* Countdown timer — urgent trade jobs only, visible to everyone */}
-                    {job.urgency_type === "urgent" && job.expires_at && (
+                    {job.urgency_type === "asap" && job.expires_at && (
                       <div className="mt-3">
-                        <JobCountdownTimer expiresAt={job.expires_at} totalMs={30 * 60 * 1000} />
+                        <JobCountdownTimer expiresAt={job.expires_at} totalMs={60 * 60 * 1000} />
                       </div>
                     )}
                     {/* Expiry badge — non-urgent jobs with an expiry date */}
-                    {job.urgency_type !== "urgent" && job.expires_at && new Date(job.expires_at) > new Date() && (
+                    {job.urgency_type !== "asap" && job.expires_at && new Date(job.expires_at) > new Date() && (
                       <div className="mt-2">
                         <JobExpiryBadge expiresAt={job.expires_at} />
                       </div>
@@ -849,14 +850,9 @@ export default function JobDetailView({
                     <img
                       src={job.job_photo_url}
                       alt={job.title}
-                      className="w-full max-w-full max-h-[180px] sm:max-h-[320px] object-cover"
-                      onError={(e) => {
-                        console.error("[JOB-DETAIL-VIEW] Failed to load image:", job.job_photo_url)
-                        e.currentTarget.style.display = 'none'
-                      }}
-                      onLoad={() => {
-                        console.log("[JOB-DETAIL-VIEW] Image loaded successfully:", job.job_photo_url)
-                      }}
+                      className="w-full max-w-full max-h-[180px] sm:max-h-[320px] object-cover cursor-zoom-in hover:opacity-95 transition-opacity"
+                      onClick={() => setPhotoOpen(true)}
+                      onError={(e) => { e.currentTarget.style.display = 'none' }}
                     />
                   </div>
                 )}
@@ -1381,6 +1377,30 @@ export default function JobDetailView({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Photo lightbox */}
+      {photoOpen && job.job_photo_url && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center p-4"
+          onClick={() => setPhotoOpen(false)}
+        >
+          <button
+            onClick={() => setPhotoOpen(false)}
+            className="absolute top-4 right-4 text-white/70 hover:text-white bg-black/40 rounded-full p-2 transition-colors"
+            aria-label="Close"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img
+            src={job.job_photo_url}
+            alt={job.title}
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }

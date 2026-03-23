@@ -1031,9 +1031,15 @@ export default function ProfessionalsPageContent({
     }
   }
 
-  // Handle preview card action (Apply/Message)
+  // Handle preview card action (Apply/Message/Respond)
   const handlePreviewAction = (id: string, name: string) => {
     if (isShowingJobs) {
+      const job = data.find((d: any) => d.id === id)
+      if (job?.is_tradespeople_job) {
+        // Trade jobs use UrgentJobApplySection on the detail page — navigate there
+        router.push(`/jobs/${id}`)
+        return
+      }
       handleApplyToJob(id)
     } else {
       handleSendInquiry(id, name)
@@ -3297,7 +3303,11 @@ export default function ProfessionalsPageContent({
                     onClose={handlePreviewClose}
                     onViewDetails={handlePreviewViewDetails}
                     onAction={handlePreviewAction}
-                    actionLabel={isShowingJobs ? "Apply Now" : "Message"}
+                    actionLabel={
+                      isShowingJobs
+                        ? (mobilePreviewData?.type === "job" && (mobilePreviewData as any).isTradesJob ? "Respond Now" : "Apply Now")
+                        : "Message"
+                    }
                     showAction={true}
                     isAuthenticated={!!currentUser}
                     onAuthRequired={() => setSignUpPrompt({ isOpen: true, action: "message" })}
@@ -3417,6 +3427,22 @@ export default function ProfessionalsPageContent({
                                   </p>
                                 )}
 
+                                {/* Urgency indicator for ASAP trade jobs */}
+                                {item.is_tradespeople_job && item.urgency_type === "asap" && item.expires_at && (() => {
+                                  const diff = new Date(item.expires_at).getTime() - Date.now()
+                                  if (diff <= 0) return null
+                                  const h = Math.floor(diff / 3600000)
+                                  const m = Math.floor((diff % 3600000) / 60000)
+                                  return (
+                                    <div key="urgency" className="flex items-center gap-1.5 mt-1.5 px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20 w-fit">
+                                      <Zap className="h-3 w-3 text-red-400" />
+                                      <span className="text-xs font-semibold text-red-400">
+                                        URGENT · {h > 0 ? `${h}h ${m}m` : `${m}m`} left
+                                      </span>
+                                    </div>
+                                  )
+                                })()}
+
                                 {/* Action Buttons - ALWAYS VISIBLE on mobile */}
                                 <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
                                   <Button
@@ -3431,7 +3457,7 @@ export default function ProfessionalsPageContent({
                                       if (searchParams.lat) params.set('returnLat', searchParams.lat)
                                       if (searchParams.lng) params.set('returnLon', searchParams.lng)
                                       if (searchParams.radius) params.set('returnRadius', searchParams.radius)
-                                      params.set('returnToSearch', 'true') // Flag to show "Back to Search" button
+                                      params.set('returnToSearch', 'true')
                                       const queryString = params.toString()
                                       router.push(`/jobs/${item.id}${queryString ? `?${queryString}` : ''}`)
                                     }}
@@ -3441,17 +3467,21 @@ export default function ProfessionalsPageContent({
                                   </Button>
                                   <Button
                                     size="sm"
-                                    className="h-10 px-4 flex-1 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium touch-manipulation"
+                                    className={`h-10 px-4 flex-1 text-sm font-medium touch-manipulation ${item.is_tradespeople_job ? "bg-orange-500 hover:bg-orange-600" : "bg-emerald-500 hover:bg-emerald-600"} text-white`}
                                     onClick={(e) => {
                                       e.stopPropagation()
-                                      if (currentUser) {
+                                      if (item.is_tradespeople_job) {
+                                        router.push(`/jobs/${item.id}`)
+                                      } else if (currentUser) {
                                         handleApplyToJob(item.id)
                                       } else {
                                         setSignUpPrompt({ isOpen: true, action: "message" })
                                       }
                                     }}
                                   >
-                                    Apply Now
+                                    {item.is_tradespeople_job ? (
+                                      <><Zap className="h-4 w-4 mr-1.5" />Respond</>
+                                    ) : "Apply Now"}
                                   </Button>
                                 </div>
                               </div>

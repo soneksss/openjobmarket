@@ -193,8 +193,8 @@ export default function ConversationPage() {
           if (returnUrl) qs.set('returnUrl', returnUrl)
           if (jobParam) qs.set('job', jobParam)
           const newUrl = qs.toString()
-            ? `/messages/${realConversationId}?${qs.toString()}`
-            : `/messages/${realConversationId}`
+            ? `/messages/${actualConversationId}?${qs.toString()}`
+            : `/messages/${actualConversationId}`
           window.history.replaceState({}, '', newUrl)
           console.log('[CONVERSATION] URL updated to:', newUrl)
         } else {

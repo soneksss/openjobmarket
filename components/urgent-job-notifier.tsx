@@ -14,30 +14,39 @@ function playSound(type: "urgent" | "application" | "accepted") {
     if (!Ctx) return
     const ctx = new Ctx()
 
-    const osc = (freq: number, start: number, duration: number, vol = 0.25) => {
+    // sine tone with sharp attack and fast decay
+    const osc = (freq: number, start: number, duration: number, vol = 0.5, wave: OscillatorType = "sine") => {
       const o = ctx.createOscillator()
       const g = ctx.createGain()
       o.connect(g); g.connect(ctx.destination)
-      o.type = "sine"; o.frequency.value = freq
+      o.type = wave; o.frequency.value = freq
       g.gain.setValueAtTime(0, ctx.currentTime + start)
-      g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01)
+      g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.008)
       g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration)
       o.start(ctx.currentTime + start)
       o.stop(ctx.currentTime + start + duration)
     }
 
     if (type === "urgent") {
-      // Two quick ascending tones — attention-grabbing
-      osc(880,  0,    0.18)
-      osc(1100, 0.18, 0.18)
-    } else if (type === "accepted") {
-      // Three-note ascending chime — celebratory (C5 → E5 → G5)
-      osc(523.25, 0,    0.25, 0.3)
-      osc(659.25, 0.2,  0.25, 0.3)
-      osc(783.99, 0.4,  0.5,  0.3)
+      // Four-note alarm: punchy ascending pattern, loud (tradesperson)
+      osc(660,  0,    0.15, 0.7, "square")
+      osc(880,  0.15, 0.15, 0.7, "square")
+      osc(660,  0.32, 0.12, 0.6, "square")
+      osc(1100, 0.46, 0.25, 0.8, "square")
+      // vibrate if supported (mobile)
+      try { navigator.vibrate?.([200, 80, 200, 80, 400]) } catch {}
+    } else if (type === "application") {
+      // Double chime — loud, clear (homeowner gets a response)
+      osc(880,    0,    0.18, 0.7)
+      osc(1046.5, 0.18, 0.18, 0.7)
+      osc(1318.5, 0.36, 0.4,  0.8)
+      try { navigator.vibrate?.([150, 60, 300]) } catch {}
     } else {
-      // Single soft ding — friendly notification
-      osc(523.25, 0, 0.9, 0.3)
+      // Three-note ascending chime — celebratory (C5 → E5 → G5)
+      osc(523.25, 0,    0.25, 0.55)
+      osc(659.25, 0.2,  0.25, 0.55)
+      osc(783.99, 0.4,  0.5,  0.6)
+      try { navigator.vibrate?.([100, 50, 100, 50, 300]) } catch {}
     }
   } catch { /* silently ignore — audio blocked by browser policy */ }
 }

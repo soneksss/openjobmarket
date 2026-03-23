@@ -282,10 +282,13 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
   }
 
   const handleCategoryClick = (category: string) => {
-    if (isSignedIn) {
-      router.push(`/jobs/new?category=${encodeURIComponent(category)}`)
-    } else {
+    if (!isSignedIn) {
       router.push("/auth/sign-up")
+    } else if (userType === "company") {
+      // Tradespeople browse jobs, they don't post them
+      router.push("/")
+    } else {
+      router.push(`/jobs/new?category=${encodeURIComponent(category)}`)
     }
   }
 
@@ -301,10 +304,13 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
   }
 
   const handlePostJob = () => {
-    if (isSignedIn) {
-      router.push("/jobs/new")
-    } else {
+    if (!isSignedIn) {
       router.push("/auth/sign-up")
+    } else if (userType === "company") {
+      // Tradespeople browse jobs, they don't post them
+      router.push("/")
+    } else {
+      router.push("/jobs/new")
     }
   }
 

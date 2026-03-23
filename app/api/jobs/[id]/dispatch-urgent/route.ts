@@ -118,9 +118,18 @@ export async function POST(
     // ── 3. Fetch job details for notification copy ──────────────────
     const { data: job } = await admin
       .from("jobs")
-      .select("title, location")
+      .select("title, location, search_started_at")
       .eq("id", jobId)
       .maybeSingle()
+
+    // Mark search as started (only once — don't overwrite if already set)
+    if (!(job as any)?.search_started_at) {
+      await admin
+        .from("jobs")
+        .update({ search_started_at: new Date().toISOString(), job_state: "searching" })
+        .eq("id", jobId)
+        .catch(() => {})
+    }
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://openjobmarket.com"
     const jobUrl  = `${baseUrl}/jobs/${jobId}`
@@ -139,6 +148,20 @@ export async function POST(
       }
 
       try {
+        // Skip if tradesperson already has an application for this job
+        const { data: existingApp } = await admin
+          .from("job_applications")
+          .select("id")
+          .eq("job_id", jobId)
+          .eq("company_id", companyProfileId)
+          .maybeSingle()
+
+        if (existingApp) {
+          console.log("[DISPATCH-URGENT] Skipping — already applied:", companyProfileId)
+          skipped++
+          continue
+        }
+
         // 4a. Record dispatch alert (for tracking & the urgent-responses API)
         const { error: alertError } = await admin
           .from("urgent_job_dispatch_alerts")
@@ -152,6 +175,11 @@ export async function POST(
           // Non-fatal — alert tracking is best-effort
           console.error("[DISPATCH-URGENT] Error recording dispatch alert:", alertError.message)
         }
+
+        // 4b. Record in job_notifications_sent for adaptive-search dedup
+        await admin
+          .from("job_notifications_sent")
+          .upsert({ job_id: jobId, company_id: companyProfileId }, { onConflict: "job_id,company_id" })
 
         // 4c. In-app notification to the tradesperson
         const { error: notifError } = await admin
@@ -176,13 +204,72 @@ export async function POST(
       }
     }
 
-    console.log(`[DISPATCH-URGENT] Complete — dispatched: ${dispatched}, skipped: ${skipped}`)
+    console.log(`[DISPATCH-URGENT] Initial dispatch — dispatched: ${dispatched}, skipped: ${skipped}`)
+
+    // ── 5. Adaptive expansion ────────────────────────────────────────────
+    // If fewer than 3 tradespeople were notified, expand the search radius
+    // and notify the next batch via expand_job_search().
+    let expandDispatched = 0
+
+    if (dispatched < 3) {
+      console.log(`[DISPATCH-URGENT] Only ${dispatched} dispatched — triggering adaptive radius expansion`)
+
+      const { data: expanded, error: expandErr } = await admin.rpc("expand_job_search", { p_job_id: jobId })
+
+      if (expandErr) {
+        console.warn("[DISPATCH-URGENT] expand_job_search error (non-fatal):", expandErr.message)
+      } else if (expanded && expanded.length > 0) {
+        // Fetch user_ids for the expanded batch
+        const expandedIds = expanded.map((r: { company_id: string }) => r.company_id)
+
+        const { data: expandedProfiles } = await admin
+          .from("company_profiles")
+          .select("id, user_id")
+          .in("id", expandedIds)
+
+        const expandedUserIdMap = new Map<string, string>(
+          (expandedProfiles ?? []).map((p: { id: string; user_id: string }) => [p.id, p.user_id])
+        )
+
+        for (const { company_id: cid, radius_used } of expanded) {
+          const uid = expandedUserIdMap.get(cid)
+          if (!uid) continue
+
+          try {
+            await admin.from("notifications").insert({
+              user_id:  uid,
+              type:     "urgent_job_dispatch",
+              title:    `Urgent job near you: ${job?.title ?? "New job"}`,
+              message:  `A new urgent job has been posted${job?.location ? ` in ${job.location}` : ""}. Tap to respond quickly — first come, first served.`,
+              link_url: jobUrl,
+              is_read:  false,
+            })
+
+            await admin.from("urgent_job_dispatch_alerts").insert({
+              job_id:        jobId,
+              company_id:    cid,
+              dispatch_type: "push",
+            }).throwOnError().then(() => {}).catch(() => {})
+
+            expandDispatched++
+            console.log(`[DISPATCH-URGENT] Expanded dispatch: company=${cid} radius=${radius_used}mi`)
+          } catch (err) {
+            console.error("[DISPATCH-URGENT] Expanded dispatch error:", cid, err)
+          }
+        }
+      }
+    }
+
+    const totalDispatched = dispatched + expandDispatched
+    console.log(`[DISPATCH-URGENT] Complete — initial: ${dispatched}, expanded: ${expandDispatched}, total: ${totalDispatched}`)
 
     return NextResponse.json({
-      success:    true,
-      dispatched,
+      success:         true,
+      dispatched:      totalDispatched,
+      initial:         dispatched,
+      expanded:        expandDispatched,
       skipped,
-      total:      profileIds.length,
+      total:           profileIds.length,
     })
 
   } catch (error) {

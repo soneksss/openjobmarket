@@ -51,6 +51,9 @@ interface CompanyProfile {
   average_rating?: number
   reviews_count?: number
   created_at: string
+  business_type?: "limited_company" | "sole_trader" | null
+  insurance_document_url?: string | null
+  insurance_expiry_date?: string | null
 }
 
 interface User {
@@ -317,6 +320,17 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 <Sparkles className="h-2.5 w-2.5" />Hiring
               </span>
             )}
+            {company.business_type === "limited_company" && (
+              <span className="text-xs bg-purple-800/50 text-purple-300 border border-purple-700/50 px-2 py-0.5 rounded-full">Ltd</span>
+            )}
+            {company.business_type === "sole_trader" && (
+              <span className="text-xs bg-slate-700/60 text-slate-300 border border-slate-600/50 px-2 py-0.5 rounded-full">Sole trader</span>
+            )}
+            {company.insurance_document_url && (
+              <span className="inline-flex items-center gap-1 text-xs bg-emerald-800/50 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
+                ✓ Insured{company.insurance_expiry_date ? ` (exp ${new Date(company.insurance_expiry_date).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" })})` : ""}
+              </span>
+            )}
           </div>
         </div>
 
@@ -496,6 +510,17 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 {activeJobs.length > 0 && (
                   <span className="inline-flex items-center gap-1 text-xs bg-blue-900/50 text-blue-300 border border-blue-700/50 px-2 py-0.5 rounded-full">
                     <Sparkles className="h-2.5 w-2.5" />Hiring
+                  </span>
+                )}
+                {company.business_type === "limited_company" && (
+                  <span className="text-xs bg-purple-800/50 text-purple-300 border border-purple-700/50 px-2 py-0.5 rounded-full">Ltd</span>
+                )}
+                {company.business_type === "sole_trader" && (
+                  <span className="text-xs bg-slate-700/60 text-slate-300 border border-slate-600/50 px-2 py-0.5 rounded-full">Sole trader</span>
+                )}
+                {company.insurance_document_url && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-emerald-800/50 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
+                    ✓ Insured{company.insurance_expiry_date ? ` (exp ${new Date(company.insurance_expiry_date).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" })})` : ""}
                   </span>
                 )}
               </div>

@@ -47,13 +47,19 @@ export async function POST(
       .eq("id", company_id)
       .maybeSingle()
 
-    // Get or create the conversation so the homeowner lands directly in the chat
+    // Get or create the conversation so the homeowner lands directly in the chat.
+    // Use admin client + all 4 params to avoid "ambiguous overload" and GRANT issues.
     let conversationId: string | null = null
     if (cp?.user_id) {
-      const { data: convId } = await supabase.rpc("get_or_create_conversation", {
-        user1_id: user.id,
-        user2_id: cp.user_id,
+      const { data: convId, error: convErr } = await admin.rpc("get_or_create_conversation", {
+        user1_id:  user.id,
+        user2_id:  cp.user_id,
+        p_job_id:  jobId,
+        p_subject: null,
       })
+      if (convErr) {
+        console.error("[CONFIRM] get_or_create_conversation error:", convErr.message)
+      }
       conversationId = convId ?? null
     }
 

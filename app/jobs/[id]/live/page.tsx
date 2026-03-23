@@ -37,6 +37,8 @@ export default async function LiveJobPage({ params }: PageProps) {
     longitude: number | null
     urgency_type: string | null
     search_radius_miles: number | null
+    expires_at: string | null
+    job_state: string | null
     homeowner_id: string | null
     company_id: string | null
   } | null = null
@@ -46,7 +48,7 @@ export default async function LiveJobPage({ params }: PageProps) {
 
     const { data, error } = await admin
       .from("jobs")
-      .select("id, title, location, latitude, longitude, urgency_type, search_radius_miles, homeowner_id, company_id")
+      .select("id, title, location, latitude, longitude, urgency_type, search_radius_miles, expires_at, job_state, homeowner_id, company_id")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -104,6 +106,8 @@ export default async function LiveJobPage({ params }: PageProps) {
         longitude:           job.longitude           ?? null,
         urgency_type:        job.urgency_type        ?? null,
         search_radius_miles: job.search_radius_miles ?? null,
+        expires_at:          job.expires_at          ?? null,
+        job_state:           job.job_state           ?? null,
       }}
       userId={user!.id}
     />

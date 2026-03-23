@@ -2,7 +2,7 @@ import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
 
 // Safe empty response — never triggers a 500 in the frontend poll
-const EMPTY_OK = { success: true, responses: [], notifiedCount: 0, searchRadius: null }
+const EMPTY_OK = { success: true, responses: [], notifiedCount: 0, searchRadius: null, jobState: null, applicationCount: 0 }
 
 // GET - Poll for urgent job responses (homeowner's live-search page)
 export async function GET(
@@ -18,10 +18,10 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Fetch job — intentionally omit `search_state` which may not exist yet
+    // Fetch job
     const { data: job } = await supabase
       .from("jobs")
-      .select("id, urgency_type, search_radius_miles, homeowner_id, company_id")
+      .select("id, urgency_type, search_radius_miles, homeowner_id, company_id, job_state")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -62,7 +62,20 @@ export async function GET(
       adminClient = supabase as any
     }
 
-    // Fetch PENDING applications from tradespeople (company accounts)
+    // Advance job state machine + mark waiting_optional — fire-and-forget style but awaited
+    // so the returned job_state reflects the latest transition.
+    let currentJobState: string | null = (job as any).job_state ?? null
+    try {
+      const [{ data: advancedState }] = await Promise.all([
+        adminClient.rpc("advance_job_state", { p_job_id: jobId }),
+        adminClient.rpc("mark_applications_waiting_optional", { p_job_id: jobId }),
+      ])
+      if (advancedState) currentJobState = advancedState
+    } catch {
+      // Non-fatal — state machine is best-effort
+    }
+
+    // Fetch active applications from tradespeople — PENDING + waiting_optional
     const { data: applications, error: appsError } = await adminClient
       .from("job_applications")
       .select(`
@@ -73,7 +86,7 @@ export async function GET(
       `)
       .eq("job_id", jobId)
       .not("company_id", "is", null)
-      .eq("status", "PENDING")
+      .in("status", ["PENDING", "waiting_optional"])
       .order("applied_at", { ascending: false })
 
     if (appsError) {
@@ -115,10 +128,12 @@ export async function GET(
       .filter(Boolean)
 
     return NextResponse.json({
-      success:      true,
+      success:          true,
       responses,
       notifiedCount,
-      searchRadius: job.search_radius_miles,
+      searchRadius:     job.search_radius_miles,
+      jobState:         currentJobState,
+      applicationCount: responses.length,
     })
 
   } catch (error) {
@@ -183,6 +198,12 @@ export async function POST(
         { status: isBusinessRule ? 409 : 500 }
       )
     }
+
+    // ── Advance job state so homeowner sees pending_homeowner instantly ──
+    try {
+      const adm = createAdminClient()
+      await adm.rpc("advance_job_state", { p_job_id: jobId })
+    } catch {}
 
     // ── Store cover letter / message if provided ──────────────────────
     if (message) {

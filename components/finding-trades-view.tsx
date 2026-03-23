@@ -6,7 +6,7 @@ import dynamic from "next/dynamic"
 import {
   ArrowLeft, CheckCircle2, MessageCircle, Phone,
   Star, MapPin, Users, Zap, X, Edit, UserPlus,
-  PartyPopper, Minimize2, Bell, AlertCircle, Clock, StopCircle,
+  PartyPopper, Minimize2, Bell, AlertCircle, Clock, StopCircle, TimerOff, RefreshCw,
 } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
@@ -23,8 +23,9 @@ type Phase =
   | "expanding"      // no response after 2.5 min → expand
   | "all_responded"  // multiple responses in
   | "no_trades"      // confirmed: nobody available
+  | "timed_out"      // 1-hour window expired
 
-type SearchingPhase = Exclude<Phase, "no_trades">
+type SearchingPhase = Exclude<Phase, "no_trades" | "timed_out">
 
 type TradeStatus = "waiting" | "accepted" | "declined"
 
@@ -56,6 +57,7 @@ interface Job {
   urgency_type: string | null
   search_radius_miles: number | null
   expires_at?: string | null
+  job_state?: string | null
 }
 
 interface FindingTradesViewProps {
@@ -218,6 +220,32 @@ function SkeletonCard({ index, elapsed }: { index: number; elapsed: number }) {
 }
 
 /* ─────────────────────────────────────────────────────────────────── */
+/* Sound helper — plays when a trade responds on the live search page  */
+/* ─────────────────────────────────────────────────────────────────── */
+function playTradeResponseSound() {
+  try {
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const osc = (freq: number, start: number, dur: number, vol = 0.6) => {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.connect(g); g.connect(ctx.destination)
+      o.type = "sine"; o.frequency.value = freq
+      g.gain.setValueAtTime(0, ctx.currentTime + start)
+      g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.008)
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+      o.start(ctx.currentTime + start)
+      o.stop(ctx.currentTime + start + dur)
+    }
+    osc(880,    0,    0.18)
+    osc(1046.5, 0.18, 0.18)
+    osc(1318.5, 0.36, 0.45, 0.7)
+    try { navigator.vibrate?.([150, 60, 300]) } catch {}
+  } catch {}
+}
+
+/* ─────────────────────────────────────────────────────────────────── */
 /* Component                                                           */
 /* ─────────────────────────────────────────────────────────────────── */
 export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
@@ -236,6 +264,11 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   const [isExpanding, setIsExpanding]             = useState(false)
   const [notifyRequested, setNotifyRequested]     = useState(false)
   const [stopped, setStopped]                     = useState(false)
+  const [timeLeft, setTimeLeft]                   = useState<number>(() => {
+    if (!job.expires_at) return 3600
+    const diff = Math.floor((new Date(job.expires_at).getTime() - Date.now()) / 1000)
+    return Math.max(0, Math.min(diff, 3600))
+  })
 
   const lat = job.latitude  ?? 51.5074
   const lon = job.longitude ?? -0.1278
@@ -249,19 +282,30 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     if (!job.expires_at) return
     const remaining = new Date(job.expires_at).getTime() - Date.now()
     if (remaining <= 0) {
-      // Job's search window already closed — stop immediately
       setStopped(true)
+      setPhase("timed_out")
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
-    } else {
-      // Auto-stop when window closes
-      const t = setTimeout(() => {
-        setStopped(true)
-        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
-      }, remaining)
-      return () => clearTimeout(t)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  /* ── countdown tick: timeLeft → 0 → timed_out ── */
+  useEffect(() => {
+    if (stopped || !job.expires_at) return
+    const t = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setStopped(true)
+          setPhase("timed_out")
+          if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(t)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stopped])
 
   /* ── elapsed ticker ── */
   useEffect(() => {
@@ -375,6 +419,24 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     router.push("/dashboard/homeowner")
   }
 
+  const handleExtendSearch = async () => {
+    const newExpiry = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+    try {
+      await supabase.from("jobs").update({ expires_at: newExpiry, search_state: "active_search" }).eq("id", job.id)
+    } catch {}
+    setTimeLeft(3600)
+    setStopped(false)
+    setPhase("sent")
+  }
+
+  const handleLeaveJobLive = async () => {
+    try {
+      await supabase.from("jobs").update({ search_state: "completed", is_active: true }).eq("id", job.id)
+    } catch {}
+    clearActiveSearch()
+    router.push("/dashboard/homeowner")
+  }
+
   const handleContactMore = () => {
     if (phase !== "expanding") triggerExpand()
   }
@@ -393,6 +455,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       const data = await res.json()
       if (data.notifiedCount) setNotifiedCount(data.notifiedCount)
       if (!data.notifiedCount && data.responses?.length > 0) setNotifiedCount(data.responses.length)
+      if (data.jobState) setDbJobState(data.jobState)
       if (data.responses?.length > 0) {
         const now = Date.now()
         setTrades((prev) => {
@@ -415,7 +478,9 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
             lng:           r.lng ?? null,
           }))
           const ids = new Set(prev.map((t) => t.id))
-          return [...prev, ...incoming.filter((t) => !ids.has(t.id))]
+          const newOnes = incoming.filter((t) => !ids.has(t.id))
+          if (newOnes.length > 0) playTradeResponseSound()
+          return [...prev, ...newOnes]
         })
         if (data.responses.length > 1) setPhase("all_responded")
       }
@@ -449,6 +514,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     return () => { supabase.removeChannel(channel) }
   }, [job.id, supabase, poll, stopped])
 
+  const [dbJobState, setDbJobState] = useState<string | null>(job.job_state ?? null)
   const [confirmingId, setConfirmingId] = useState<string | null>(null)
 
   // Get or create conversation then open the dark /messages/:id view
@@ -496,6 +562,91 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     } finally {
       setConfirmingId(null)
     }
+  }
+
+  /* ─────────────────────────────────────────────────────────────────── */
+  /* TIMED OUT SCREEN                                                    */
+  /* ─────────────────────────────────────────────────────────────────── */
+  if (phase === "timed_out") {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col bg-slate-900 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/60 flex-shrink-0">
+          <button
+            onClick={() => router.back()}
+            className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Back</span>
+          </button>
+          <div className="text-center">
+            <p className="text-sm font-semibold text-white flex items-center justify-center gap-1.5">
+              <TimerOff className="w-4 h-4 text-red-400" />
+              Search Timed Out
+            </p>
+            <p className="text-xs text-slate-400">{job.title} · {radiusMiles} mi radius</p>
+          </div>
+          <div className="w-16" />
+        </div>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center overflow-y-auto">
+          <div className="w-20 h-20 rounded-full bg-red-500/10 border border-red-500/25 flex items-center justify-center mb-6 animate-pop-in">
+            <TimerOff className="w-10 h-10 text-red-400" />
+          </div>
+          <h2 className="text-xl font-bold text-white mb-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+            1-hour search window ended
+          </h2>
+          {trades.length > 0 ? (
+            <p className="text-sm text-slate-400 mb-8 max-w-xs animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+              {trades.length} tradesperson{trades.length !== 1 ? "s have" : " has"} already applied. Choose below or extend your search.
+            </p>
+          ) : (
+            <p className="text-sm text-slate-400 mb-8 max-w-xs animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+              No one responded in time. You can extend the search or leave your job live to receive replies later.
+            </p>
+          )}
+          <div className="w-full max-w-sm space-y-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
+            <button
+              onClick={handleExtendSearch}
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-red-500 hover:bg-red-400 text-white transition-all duration-200 active:scale-[0.98] text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                <RefreshCw className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm leading-tight">Extend Search +1 Hour</p>
+                <p className="text-xs text-red-100/80 font-normal mt-0.5">Keep notifying nearby tradespeople</p>
+              </div>
+            </button>
+
+            <button
+              onClick={handleLeaveJobLive}
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-700 hover:bg-slate-600 text-white border border-slate-600/60 transition-all duration-200 active:scale-[0.98] text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-600 flex items-center justify-center flex-shrink-0">
+                <Clock className="w-5 h-5 text-slate-300" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm leading-tight">Leave Job Live</p>
+                <p className="text-xs text-slate-400 font-normal mt-0.5">Trades can still find and apply to your job</p>
+              </div>
+            </button>
+
+            <button
+              onClick={handleCancelRequest}
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-800/60 border border-slate-700/50 hover:bg-slate-700/60 hover:border-red-500/30 text-white transition-all duration-200 active:scale-[0.98] text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-slate-700/80 flex items-center justify-center flex-shrink-0">
+                <X className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm leading-tight text-red-300">Cancel Request</p>
+                <p className="text-xs text-slate-400 font-normal mt-0.5">Remove the job completely</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
@@ -683,7 +834,19 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     },
   }
 
-  const activeBanner = stopped ? stoppedBanner : banners[phase as SearchingPhase]
+  // When DB state says tradespeople have applied, show a "Respond soon!" nudge
+  // regardless of the local phase — homeowner should see they have applicants.
+  const pendingHomeownerBanner = {
+    bg: "bg-amber-500/15 border-amber-500/30",
+    icon: <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 animate-pulse" />,
+    title: <span className="text-sm font-semibold text-amber-200">Trades are waiting for you — respond soon!</span>,
+    sub:   <span className="text-xs text-amber-400/80">Review the applicants below and choose one to confirm.</span>,
+  }
+
+  const activeBanner =
+    stopped                              ? stoppedBanner :
+    dbJobState === "pending_homeowner" && trades.length > 0 ? pendingHomeownerBanner :
+    banners[phase as SearchingPhase]
 
   /* ─────────────────────────────────────────────────────────────────── */
   /* MAIN RENDER                                                         */
@@ -709,6 +872,18 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
             {stopped ? "Search Complete" : "Finding Available Trades"}
           </p>
           <p className="text-xs text-slate-400">{job.title} · {radiusMiles} mi radius</p>
+          {!stopped && job.expires_at && (
+            <div className={`inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${
+              timeLeft < 300
+                ? "bg-red-500/20 text-red-300 animate-pulse"
+                : timeLeft < 600
+                ? "bg-orange-500/15 text-orange-300"
+                : "bg-slate-700/60 text-slate-400"
+            }`}>
+              <Clock className="w-2.5 h-2.5" />
+              {fmt(timeLeft)} left
+            </div>
+          )}
         </div>
 
         <button

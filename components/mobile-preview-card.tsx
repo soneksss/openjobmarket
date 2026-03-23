@@ -99,8 +99,20 @@ interface MobilePreviewCardProps {
   onAuthRequired?: () => void
 }
 
+function calcTimeLeft(expiresAt?: string | null, urgencyType?: string | null): string | null {
+  if (!expiresAt || !urgencyType || urgencyType === "flexible") return null
+  const diff = new Date(expiresAt).getTime() - Date.now()
+  if (diff <= 0) return "Expired"
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const s = Math.floor((diff % 60000) / 1000)
+  if (h > 0) return `${h}h ${m}m`
+  if (m > 0) return `${m}m ${s}s`
+  return `${s}s`
+}
+
 function useCountdown(expiresAt?: string | null, urgencyType?: string | null) {
-  const [timeLeft, setTimeLeft] = useState<string | null>(null)
+  const [timeLeft, setTimeLeft] = useState<string | null>(() => calcTimeLeft(expiresAt, urgencyType))
 
   useEffect(() => {
     if (!expiresAt || !urgencyType || urgencyType === "flexible") {
@@ -108,17 +120,7 @@ function useCountdown(expiresAt?: string | null, urgencyType?: string | null) {
       return
     }
 
-    const calc = () => {
-      const diff = new Date(expiresAt).getTime() - Date.now()
-      if (diff <= 0) { setTimeLeft("Expired"); return }
-      const h = Math.floor(diff / 3600000)
-      const m = Math.floor((diff % 3600000) / 60000)
-      const s = Math.floor((diff % 60000) / 1000)
-      if (h > 0) setTimeLeft(`${h}h ${m}m`)
-      else if (m > 0) setTimeLeft(`${m}m ${s}s`)
-      else setTimeLeft(`${s}s`)
-    }
-
+    const calc = () => setTimeLeft(calcTimeLeft(expiresAt, urgencyType))
     calc()
     const interval = setInterval(calc, urgencyType === "asap" ? 1000 : 60000)
     return () => clearInterval(interval)
@@ -282,12 +284,13 @@ export function MobilePreviewCard({
           </Button>
           {showAction && (
             <Button
-              className="flex-1 h-12 bg-emerald-500 hover:bg-emerald-600"
+              className={`flex-1 h-12 ${data.type === "job" && data.isTradesJob ? "bg-orange-500 hover:bg-orange-600" : "bg-emerald-500 hover:bg-emerald-600"}`}
               onClick={handleActionClick}
               disabled={actionDisabled}
             >
+              {data.type === "job" && data.isTradesJob && <Zap className="h-4 w-4 mr-1.5" />}
               {actionLabel}
-              <ChevronRight className="h-4 w-4 ml-1" />
+              {!(data.type === "job" && data.isTradesJob) && <ChevronRight className="h-4 w-4 ml-1" />}
             </Button>
           )}
         </div>

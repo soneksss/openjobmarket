@@ -1822,7 +1822,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           // names (e.g. "Electrical & Electronic Engineering") match simplified job industry names
           // (e.g. "Electrical"). Split on spaces, &, commas; take first word > 3 chars.
           const industryKeyword = autoIndustry.split(/[\s&,/]+/).find(w => w.length > 3) || autoIndustry
-          query = query.ilike("industry", `%${industryKeyword}%`)
+          // Also include jobs with no industry set (homeowner-posted jobs often have industry=null)
+          query = query.or(`industry.ilike.%${industryKeyword}%,industry.is.null`)
           if (autoServices.length > 0) {
             // Show jobs whose service matches one of the tradesperson's services, OR has no service (null)
             const serviceOrParts = autoServices.map(s => `service.eq.${s}`).join(',')

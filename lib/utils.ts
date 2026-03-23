@@ -50,9 +50,9 @@ export function formatDisplayAddress(fullAddress?: string | null): string {
     country = 'BR'
   }
 
-  // Build the short address
+  // Build the short address — skip street if it IS the postcode (e.g. location = "PO9 5AZ")
   const resultParts: string[] = []
-  if (street) resultParts.push(street)
+  if (street && street.toUpperCase() !== postcode?.toUpperCase()) resultParts.push(street)
   if (postcode) resultParts.push(postcode)
   if (country) resultParts.push(country)
 

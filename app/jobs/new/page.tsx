@@ -31,6 +31,11 @@ export default async function NewJobPage() {
 
     console.log("[v0] User type:", userData?.user_type)
 
+    // Block tradesperson (company) users — they browse jobs, not post them
+    if (userData?.user_type === "company") {
+      redirect("/dashboard/company")
+    }
+
     // Handle homeowner users - use the same JobWizardModal as companies
     if (userData?.user_type === "homeowner") {
       const { data: homeownerProfile, error: homeownerError } = await supabase

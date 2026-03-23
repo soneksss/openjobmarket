@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Upload, ArrowLeft, Building2, MapPin, Eye, EyeOff, Trash2 } from "lucide-react"
+import { Upload, ArrowLeft, Building2, MapPin, Eye, EyeOff, Trash2, ShieldCheck, FileText, Calendar } from "lucide-react"
 import { createClient } from "@/lib/client"
 import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
@@ -64,6 +64,11 @@ interface CompanyProfile {
   spoken_languages?: string[]
   service_24_7?: boolean
   price_list?: string
+  business_type?: "limited_company" | "sole_trader" | null
+  company_registration_number?: string | null
+  registered_address?: string | null
+  insurance_document_url?: string | null
+  insurance_expiry_date?: string | null
 }
 
 interface CompanyProfileEditFormProps {
@@ -112,6 +117,14 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
   const [spokenLanguages, setSpokenLanguages] = useState<string[]>(profile.spoken_languages || [])
   const [service24_7, setService24_7] = useState(profile.service_24_7 || false)
   const [priceList, setPriceList] = useState(profile.price_list || "")
+
+  // Business type verification fields
+  const [businessType, setBusinessType] = useState<"limited_company" | "sole_trader" | null>(profile.business_type || null)
+  const [companyRegNumber, setCompanyRegNumber] = useState(profile.company_registration_number || "")
+  const [registeredAddress, setRegisteredAddress] = useState(profile.registered_address || "")
+  const [insuranceDocUrl, setInsuranceDocUrl] = useState(profile.insurance_document_url || "")
+  const [insuranceExpiry, setInsuranceExpiry] = useState(profile.insurance_expiry_date || "")
+  const [uploadingInsurance, setUploadingInsurance] = useState(false)
 
   const supabase = createClient()
 
@@ -368,6 +381,30 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     )
   }
 
+  const handleInsuranceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const MAX_MB = 5
+    if (file.size > MAX_MB * 1024 * 1024) {
+      toast({ title: "File too large", description: `Max ${MAX_MB}MB allowed.`, variant: "destructive", duration: 4000 })
+      return
+    }
+    setUploadingInsurance(true)
+    try {
+      const ext = file.name.split(".").pop() || "pdf"
+      const path = `insurance/${profile.id}/${Date.now()}.${ext}`
+      const { error: upErr } = await supabase.storage.from("company-logos").upload(path, file, { upsert: true })
+      if (upErr) throw upErr
+      const { data: urlData } = supabase.storage.from("company-logos").getPublicUrl(path)
+      setInsuranceDocUrl(urlData.publicUrl)
+      toast({ title: "Document uploaded", description: "Insurance document saved.", duration: 3000 })
+    } catch (err: any) {
+      toast({ title: "Upload failed", description: err?.message || "Try again.", variant: "destructive", duration: 4000 })
+    } finally {
+      setUploadingInsurance(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -395,6 +432,11 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         spoken_languages: spokenLanguages,
         service_24_7: service24_7,
         price_list: priceList || null,
+        business_type: businessType || null,
+        company_registration_number: companyRegNumber || null,
+        registered_address: registeredAddress || null,
+        insurance_document_url: insuranceDocUrl || null,
+        insurance_expiry_date: insuranceExpiry || null,
       }
 
       console.log("[COMPANY-EDIT] Update data:", {
@@ -898,6 +940,129 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   Add common service prices to help customers understand costs. Companies with clear pricing attract more customers.
                 </p>
               </div>
+            </div>
+
+            {/* ── Business Type & Verification ───────────────────────── */}
+            <div className="space-y-4 pt-6 border-t border-slate-700/50">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-blue-400" />
+                <h3 className="text-base font-semibold text-white">Business Type <span className="text-slate-500 text-sm font-normal">(Optional)</span></h3>
+              </div>
+              <p className="text-xs text-slate-400">
+                Adding business verification builds trust with customers and shows on your public profile.
+              </p>
+
+              {/* Type selector */}
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setBusinessType(businessType === "limited_company" ? null : "limited_company")}
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold border transition-colors ${
+                    businessType === "limited_company"
+                      ? "bg-blue-500/20 border-blue-500/60 text-blue-300"
+                      : "bg-slate-700/40 border-slate-600/50 text-slate-400 hover:border-slate-500"
+                  }`}
+                >
+                  Limited Company
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBusinessType(businessType === "sole_trader" ? null : "sole_trader")}
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold border transition-colors ${
+                    businessType === "sole_trader"
+                      ? "bg-blue-500/20 border-blue-500/60 text-blue-300"
+                      : "bg-slate-700/40 border-slate-600/50 text-slate-400 hover:border-slate-500"
+                  }`}
+                >
+                  Sole Trader
+                </button>
+              </div>
+
+              {/* Limited company fields */}
+              {businessType === "limited_company" && (
+                <div className="space-y-3 p-4 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-slate-300">Company Registration Number</Label>
+                    <Input
+                      placeholder="e.g. 12345678"
+                      value={companyRegNumber}
+                      onChange={(e) => setCompanyRegNumber(e.target.value)}
+                      className="text-sm bg-slate-700/50 border-slate-600 focus:border-blue-500 text-white placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-slate-300">Registered Address</Label>
+                    <Input
+                      placeholder="Registered office address"
+                      value={registeredAddress}
+                      onChange={(e) => setRegisteredAddress(e.target.value)}
+                      className="text-sm bg-slate-700/50 border-slate-600 focus:border-blue-500 text-white placeholder:text-slate-500"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-slate-300">Insurance Document (Employers / Public Liability)</Label>
+                    <div className="flex items-center gap-3">
+                      <label className={`flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        uploadingInsurance ? "opacity-50 cursor-not-allowed" : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700"
+                      }`}>
+                        <FileText className="w-4 h-4" />
+                        {uploadingInsurance ? "Uploading…" : insuranceDocUrl ? "Replace" : "Upload PDF / Image"}
+                        <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleInsuranceUpload} disabled={uploadingInsurance} />
+                      </label>
+                      {insuranceDocUrl && (
+                        <span className="text-xs text-emerald-400 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" /> Uploaded
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-slate-300 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" /> Insurance Expiry Date
+                    </Label>
+                    <Input
+                      type="date"
+                      value={insuranceExpiry}
+                      onChange={(e) => setInsuranceExpiry(e.target.value)}
+                      className="text-sm bg-slate-700/50 border-slate-600 focus:border-blue-500 text-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Sole trader fields */}
+              {businessType === "sole_trader" && (
+                <div className="space-y-3 p-4 rounded-xl bg-slate-800/60 border border-slate-700/50">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-slate-300">Public Liability Insurance Document</Label>
+                    <div className="flex items-center gap-3">
+                      <label className={`flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        uploadingInsurance ? "opacity-50 cursor-not-allowed" : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700"
+                      }`}>
+                        <FileText className="w-4 h-4" />
+                        {uploadingInsurance ? "Uploading…" : insuranceDocUrl ? "Replace" : "Upload PDF / Image"}
+                        <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleInsuranceUpload} disabled={uploadingInsurance} />
+                      </label>
+                      {insuranceDocUrl && (
+                        <span className="text-xs text-emerald-400 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" /> Uploaded
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-slate-300 flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5" /> Insurance Expiry Date
+                    </Label>
+                    <Input
+                      type="date"
+                      value={insuranceExpiry}
+                      onChange={(e) => setInsuranceExpiry(e.target.value)}
+                      className="text-sm bg-slate-700/50 border-slate-600 focus:border-blue-500 text-white"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Delete Account Section */}

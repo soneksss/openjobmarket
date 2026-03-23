@@ -157,6 +157,7 @@ export default function MessagesPage() {
       if (allMessages.length === 0) {
         setConversations([])
         lastFetchAt.current = Date.now()
+        setLoading(false)
         return
       }
 
@@ -179,6 +180,7 @@ export default function MessagesPage() {
       if (userIds.length === 0) {
         setConversations([])
         lastFetchAt.current = Date.now()
+        setLoading(false)
         return
       }
 
@@ -304,11 +306,15 @@ export default function MessagesPage() {
   useEffect(() => {
     fetchConversations(true)
 
+    // Safety: if loading is still true after 8s, force it off to prevent permanent spinner
+    const safetyTimer = setTimeout(() => setLoading(false), 8000)
+
     const onVisible = () => { if (document.visibilityState === "visible") fetchConversations() }
     const onFocus   = () => fetchConversations()
     document.addEventListener("visibilitychange", onVisible)
     window.addEventListener("focus", onFocus)
     return () => {
+      clearTimeout(safetyTimer)
       document.removeEventListener("visibilitychange", onVisible)
       window.removeEventListener("focus", onFocus)
     }

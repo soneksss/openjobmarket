@@ -371,7 +371,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                 <Button variant="ghost" asChild>
                   <Link href={getLocalePath("/dashboard")}>{t('header.dashboard')}</Link>
                 </Button>
-                {currentUserType === "company" && (
+                {currentUserType === "homeowner" && (
                   <Button asChild className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">
                     <Link href={getLocalePath("/jobs/new")}>{t('header.postJob')}</Link>
                   </Button>

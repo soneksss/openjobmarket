@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { Zap, X, Users, ChevronRight } from "lucide-react"
+import { Zap, X, Users, ChevronRight, Clock } from "lucide-react"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
 import { createClient } from "@/lib/client"
 
@@ -131,7 +131,7 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
           <p className="text-sm font-semibold text-white truncate leading-tight">
             {activeSearch.jobTitle}
           </p>
-          <p className={`text-xs leading-tight mt-0.5 truncate ${hasResponse ? "text-emerald-100" : "text-slate-400"}`}>
+          <p className={`text-xs font-medium leading-tight mt-0.5 truncate ${hasResponse ? "text-emerald-100" : "text-slate-200"}`}>
             {message}
           </p>
         </div>
@@ -139,19 +139,20 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
         <div className="flex items-center gap-2 flex-shrink-0">
           {notifiedCount > 0 && (
             <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-              hasResponse ? "bg-white/20 text-white" : "bg-slate-700 text-slate-300"
+              hasResponse ? "bg-white/20 text-white" : "bg-orange-500/20 text-orange-300"
             }`}>
               <Users className="w-3 h-3" />
               {notifiedCount}
             </span>
           )}
-          <ChevronRight className={`w-4 h-4 ${hasResponse ? "text-emerald-200" : "text-slate-500"}`} />
+          <ChevronRight className={`w-4 h-4 ${hasResponse ? "text-emerald-200" : "text-slate-300"}`} />
         </div>
       </button>
 
       {/* Bottom row: elapsed + cancel */}
-      <div className="flex items-center justify-between px-4 pb-2 -mt-1">
-        <span className="text-[11px] text-slate-500">
+      <div className="flex items-center justify-between px-4 pb-2.5 -mt-0.5">
+        <span className="flex items-center gap-1 text-xs font-medium text-slate-300">
+          <Clock className="w-3 h-3 text-slate-400" />
           {elapsed > 0
             ? `${Math.floor(elapsed / 60)}m ${elapsed % 60}s elapsed`
             : "Just started"}
@@ -159,9 +160,9 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
         <button
           onClick={handleCancel}
           disabled={cancelling}
-          className="flex items-center gap-1 text-[11px] font-semibold text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
+          className="flex items-center gap-1 text-xs font-semibold text-red-400 hover:text-red-300 disabled:opacity-50 transition-colors"
         >
-          <X className="w-3 h-3" />
+          <X className="w-3.5 h-3.5" />
           {cancelling ? "Cancelling…" : "Cancel search"}
         </button>
       </div>
