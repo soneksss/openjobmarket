@@ -479,6 +479,7 @@ export default function ConversationPage() {
   }
 
   const handleSendMessage = async () => {
+    console.log('[CONVERSATION] handleSendMessage called, otherUserId:', otherUserId, 'sending:', sending, 'hasMsg:', !!newMessage.trim())
     if (!newMessage.trim() || sending || !otherUserId) return
 
     // Response cap check for flexible jobs
@@ -493,31 +494,25 @@ export default function ConversationPage() {
     try {
       console.log('[CONVERSATION] Sending message with conversation_id:', actualConvId, 'to recipient:', otherUserId)
 
-      // Use the tracked conversation ID (already created/validated in fetchConversation)
       const finalConversationId = actualConvId
 
-      const { error } = await supabase
-        .from("messages")
-        .insert({
-          sender_id: user.id,
+      // Use server-side API to bypass client-side RLS restrictions
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
           recipient_id: otherUserId,
-          subject: messages.length > 0 ? "Reply" : "New Message",
           content: newMessage.trim(),
-          conversation_id: finalConversationId,
-          message_type: "direct",
           job_id: jobContext?.id ?? null,
+          conversation_id: finalConversationId,
           sender_role: senderRole,
-          is_read: false,
-          share_personal_info: false
-        })
+        }),
+      })
 
-      if (error) {
-        console.error('[CONVERSATION] Insert error CODE:', error.code)
-        console.error('[CONVERSATION] Insert error MESSAGE:', error.message)
-        console.error('[CONVERSATION] Insert error DETAILS:', error.details)
-        console.error('[CONVERSATION] Insert error HINT:', error.hint)
-        console.error('[CONVERSATION] Full error:', error)
-        throw error
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? `Failed to send message (${res.status})`)
       }
 
       // Add message to local state
@@ -559,23 +554,25 @@ export default function ConversationPage() {
 
     setSending(true)
     try {
-      const { error } = await supabase
-        .from("messages")
-        .insert({
-          sender_id: user.id,
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
           recipient_id: otherUserId,
-          subject: "Quote",
           content: `Sent a quote for £${amount.toFixed(2)}`,
+          job_id: jobContext?.id ?? null,
           conversation_id: actualConvId,
+          sender_role: senderRole,
           message_type: "quote",
           metadata: { amount, currency: "GBP" },
-          job_id: jobContext?.id ?? null,
-          sender_role: senderRole,
-          is_read: false,
-          share_personal_info: false
-        })
+        }),
+      })
 
-      if (error) throw error
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error ?? `Failed to send quote (${res.status})`)
+      }
 
       setQuoteAmount("")
       setShowQuoteInput(false)

@@ -20,11 +20,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { recipient_id, content, job_id, conversation_id } = body as {
+    const { recipient_id, content, job_id, conversation_id, sender_role, message_type, metadata } = body as {
       recipient_id: string
       content: string
       job_id?: string
       conversation_id?: string
+      sender_role?: string
+      message_type?: string
+      metadata?: Record<string, unknown>
     }
 
     if (!recipient_id || !content?.trim()) {
@@ -138,8 +141,12 @@ export async function POST(request: NextRequest) {
         content: content.trim(),
         subject: "New Message",
         conversation_id: conversation_id ?? null,
-        message_type: "direct",
+        message_type: message_type ?? "direct",
         job_id: job_id ?? null,
+        sender_role: sender_role ?? senderType ?? null,
+        metadata: metadata ?? null,
+        is_read: false,
+        share_personal_info: false,
       })
       .select()
       .single()

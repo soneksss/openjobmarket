@@ -1073,7 +1073,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                                 timeInfo.isExpired
                                                   ? "bg-gray-100 text-gray-500"
                                                   : job.urgency_type === "asap"
-                                                  ? "bg-red-100 text-red-700 animate-pulse"
+                                                  ? "bg-red-100 text-red-700"
                                                   : job.urgency_type === "today"
                                                   ? "bg-orange-100 text-orange-700"
                                                   : "bg-blue-100 text-blue-700"
@@ -1709,7 +1709,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                     timeInfo.isExpired
                                       ? "bg-gray-100 text-gray-500"
                                       : job.urgency_type === "asap"
-                                      ? "bg-red-100 text-red-700 animate-pulse"
+                                      ? "bg-red-100 text-red-700"
                                       : job.urgency_type === "today"
                                       ? "bg-orange-100 text-orange-700"
                                       : "bg-blue-100 text-blue-700"
@@ -1735,6 +1735,46 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                               {job.short_description || job.description}
                             </p>
                           </div>
+
+                          {/* View Job / Respond buttons — always visible on desktop panel */}
+                          {!isSelected && (
+                            job.is_tradespeople_job && (job.urgency_type === "asap" || job.urgency_type === "today") ? (
+                              <div className="flex gap-2 mt-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1 text-xs"
+                                  asChild
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Link href={buildJobUrl(job.id)}>
+                                    <ExternalLink className="h-3.5 w-3.5 mr-1" />
+                                    View Job
+                                  </Link>
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  className="flex-1 text-xs bg-orange-600 hover:bg-orange-700 text-white"
+                                  asChild
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Link href={buildJobUrl(job.id)}>
+                                    <Zap className="h-3.5 w-3.5 mr-1" />
+                                    Respond
+                                  </Link>
+                                </Button>
+                              </div>
+                            ) : (
+                              <Link
+                                href={buildJobUrl(job.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline mt-1"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                View Job
+                              </Link>
+                            )
+                          )}
 
                           {/* Extended details - only show when selected */}
                           {isSelected && (
@@ -2180,7 +2220,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                                     timeInfo.isExpired
                                       ? "bg-gray-100 text-gray-500"
                                       : job.urgency_type === "asap"
-                                      ? "bg-red-100 text-red-700 animate-pulse"
+                                      ? "bg-red-100 text-red-700"
                                       : job.urgency_type === "today"
                                       ? "bg-orange-100 text-orange-700"
                                       : "bg-blue-100 text-blue-700"

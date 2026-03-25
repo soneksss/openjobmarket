@@ -18,8 +18,15 @@ import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { useEffect, useState } from "react"
 import { signOut } from "@/lib/actions"
-import { OnboardingFlow } from "./onboarding/OnboardingFlow"
+import dynamic from "next/dynamic"
 import { useLanguageRegion } from "@/contexts/language-region-context"
+
+// Lazy-load OnboardingFlow — it pulls in framer-motion + all onboarding steps.
+// Only loaded when the user actually opens the modal (showOnboarding === true).
+const OnboardingFlow = dynamic(
+  () => import("./onboarding/OnboardingFlow").then((m) => ({ default: m.OnboardingFlow })),
+  { ssr: false }
+)
 import { getDisplayText } from "@/lib/i18n/language-region"
 import { useTranslation } from "@/lib/i18n/context"
 

@@ -94,14 +94,16 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
   const [phoneNumber, setPhoneNumber] = useState(profile.phone_number || "")
   const [location, setLocation] = useState(profile.location || "")
   const [fullAddress, setFullAddress] = useState(profile.full_address || "")
-  // Add cache-busting to logo URL to prevent stale cache issues
-  const getLogoUrlWithCacheBust = (url: string | undefined) => {
-    if (!url) return ""
-    // Add timestamp as cache-buster
-    const separator = url.includes("?") ? "&" : "?"
-    return `${url}${separator}t=${Date.now()}`
-  }
-  const [logoUrl, setLogoUrl] = useState(getLogoUrlWithCacheBust(profile.logo_url))
+  // Initialize with the plain URL — cache-busting is applied after mount to avoid hydration mismatch
+  const [logoUrl, setLogoUrl] = useState(profile.logo_url || "")
+
+  useEffect(() => {
+    if (profile.logo_url) {
+      const separator = profile.logo_url.includes("?") ? "&" : "?"
+      setLogoUrl(`${profile.logo_url}${separator}t=${Date.now()}`)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [logoError, setLogoError] = useState(false)
 
   // Privacy toggle states

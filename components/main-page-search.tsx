@@ -154,6 +154,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   const signinRequiredCacheRef = useRef<{ value: boolean | null; timestamp: number } | null>(null)
   const SIGNIN_CACHE_TTL = 60000 // 1 minute cache
 
+  // Periodic refresh for trade jobs map (keeps urgent job list up-to-date)
+  const lastModalSearchParamsRef = useRef<any>(null)
+
   // Admin setting: show/hide vacancies and jobseekers tabs
   const [vacanciesJobseekersEnabled, setVacanciesJobseekersEnabled] = useState(true)
 
@@ -187,6 +190,36 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   useEffect(() => {
     debug('[AUTOCOMPLETE] Component mounted, search type:', selectedSearchType)
   }, [])
+
+  // Restore modal state when the user returns via the Back button from a job detail page
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem('ojm_returning') !== '1') return
+      sessionStorage.removeItem('ojm_returning')
+      const raw = sessionStorage.getItem('ojm_modal_state')
+      if (!raw) return
+      const saved = JSON.parse(raw)
+      if (!saved || Date.now() - saved.savedAt > 10 * 60 * 1000) return // ignore if > 10 min old
+      setMapResults(saved.mapResults || [])
+      setMapCenter(saved.mapCenter || [50.8058, -1.0872])
+      setModalSearchType(saved.modalSearchType || null)
+      setShowMapModal(true)
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Persist modal state to sessionStorage whenever it is open with results
+  useEffect(() => {
+    if (!showMapModal || mapResults.length === 0) return
+    try {
+      sessionStorage.setItem('ojm_modal_state', JSON.stringify({
+        mapResults,
+        mapCenter,
+        modalSearchType,
+        savedAt: Date.now(),
+      }))
+    } catch {}
+  }, [showMapModal, mapResults, mapCenter, modalSearchType])
 
   // Fetch admin settings for vacancies/jobseekers toggle
   useEffect(() => {
@@ -2228,6 +2261,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
   // Handle search updates within modal without navigation
   const handleModalSearchUpdate = async (params: any) => {
+    // Store params so periodic refresh can re-use them
+    lastModalSearchParamsRef.current = params
     try {
       let results: any[] = []
       // "any" is a sentinel value meaning "no specific query, location-based only" — treat as empty
@@ -2434,6 +2469,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     }
   }
 
+
+  // Auto-refresh trade jobs map every 2 minutes so urgent jobs stay current
+  useEffect(() => {
+    if (!showMapModal || modalSearchType !== "jobs_tasks") return
+    const id = setInterval(() => {
+      if (lastModalSearchParamsRef.current) {
+        handleModalSearchUpdate(lastModalSearchParamsRef.current)
+      }
+    }, 120000)
+    return () => clearInterval(id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showMapModal, modalSearchType])
 
   // Tab configuration with icons - order changes based on user type
   // Companies see Trade Jobs first, others see Tradespeople first
@@ -3501,7 +3548,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               handleSearch("jobs_tasks")
             }}
             onModalClose={() => {
-              debug('[MAIN-PAGE-SEARCH] Modal closing, redirecting to landing page')
+              debug('[MAIN-PAGE-SEARCH] Modal closing')
               // Cancel ongoing search
               if (searchAbortControllerRef.current) {
                 searchAbortControllerRef.current.abort()
@@ -3510,9 +3557,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               // Dispatch event to show BannerMap again
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new Event('mainPageSearchClose'))
+                // Silently remove legacy URL params (autoSearch, tab, lat, lng…) without
+                // triggering any Next.js navigation or re-render — just clean the address bar
+                window.history.replaceState({}, '', '/')
               }
-              // Redirect immediately - don't close modal first to avoid flash
-              router.push("/")
+              // Close modal in-place — keep state so results survive a re-open
+              setShowMapModal(false)
             }}
           />
         </div>

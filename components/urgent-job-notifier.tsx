@@ -55,14 +55,16 @@ function playSound(type: "urgent" | "application" | "accepted") {
 /* Shared types & helpers                                      */
 /* ─────────────────────────────────────────────────────────── */
 interface UrgentAlert {
-  notifId:    string
-  jobId:      string
-  jobTitle:   string
-  budget?:    string | null
-  distanceMi?: number | null
-  expiresAt?: string | null
-  linkUrl:    string
-  shownAt:    number
+  notifId:      string
+  jobId:        string
+  jobTitle:     string
+  budget?:      string | null
+  distanceMi?:  number | null
+  expiresAt?:   string | null
+  postedAt?:    string | null   // job created_at — shown as "X min ago"
+  matchReason?: string | null   // why the tradesperson was notified
+  linkUrl:      string
+  shownAt:      number
   urgencyType?: string | null
 }
 
@@ -102,6 +104,15 @@ function haversineDistanceMi(lat1: number, lon1: number, lat2: number, lon2: num
   const a = Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+function formatTimeAgo(isoDate: string): string {
+  const secs = Math.floor((Date.now() - new Date(isoDate).getTime()) / 1000)
+  if (secs < 60) return `${secs}s ago`
+  const mins = Math.floor(secs / 60)
+  if (mins < 60) return `${mins}min ago`
+  const hrs = Math.floor(mins / 60)
+  return `${hrs}h ago`
 }
 
 function formatTimeLeft(expiresAt: string): string {
@@ -154,6 +165,7 @@ function UrgentCard({
   const distanceStr = alert.distanceMi != null
     ? `${alert.distanceMi < 0.1 ? "< 0.1" : alert.distanceMi.toFixed(1)} mi away`
     : null
+  const postedAgo   = alert.postedAt ? formatTimeAgo(alert.postedAt) : null
 
   return (
     // Mobile: full-width from top, rounded bottom corners
@@ -207,6 +219,12 @@ function UrgentCard({
               </p>
             )}
 
+            {postedAgo && (
+              <p className="text-sm text-slate-400">
+                ⏱ {postedAgo}
+              </p>
+            )}
+
             {timeLeft && (
               <p className="text-sm text-orange-400 font-medium">
                 ⏳ {timeLeft}
@@ -214,9 +232,19 @@ function UrgentCard({
             )}
           </div>
 
-          <p className="mt-3 text-xs text-slate-500 font-medium tracking-wide uppercase">
-            Be first to respond
-          </p>
+          {/* Match reason + CTA */}
+          <div className="mt-3 flex items-center justify-between">
+            {alert.matchReason ? (
+              <span className="text-xs text-emerald-500/80 font-medium">
+                ✓ {alert.matchReason}
+              </span>
+            ) : (
+              <span />
+            )}
+            <span className="text-xs text-slate-500 font-medium tracking-wide uppercase">
+              Be first
+            </span>
+          </div>
         </div>
 
         {/* Buttons */}
@@ -390,11 +418,27 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
   const [queue,         setQueue]         = useState<UrgentAlert[]>([])
   const [acceptedAlert, setAcceptedAlert] = useState<AcceptedJobAlert | null>(null)
 
-  const userCoordsRef = useRef<{ lat: number; lon: number } | null>(null)
+  const userCoordsRef      = useRef<{ lat: number; lon: number } | null>(null)
+  const companyProfileIdRef = useRef<string | null>(null)
+  // In-memory job-ID cache — prevents real-time + poll race causing double popup
+  // Each entry auto-expires after 5 minutes
+  const shownJobIdsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
-  /* ── fetch user coords once ── */
+  /* ── fetch user coords + company profile ID once ── */
   useEffect(() => {
     const fetchUserCoords = async () => {
+      // Company profile (tradesperson) — grab id + coords together
+      const { data: cp } = await supabase
+        .from("company_profiles")
+        .select("id, latitude, longitude")
+        .eq("user_id", userId)
+        .maybeSingle()
+      if (cp?.id) companyProfileIdRef.current = cp.id
+      if (cp?.latitude && cp?.longitude) {
+        userCoordsRef.current = { lat: cp.latitude, lon: cp.longitude }
+        return
+      }
+      // Fall back to professional_profiles for coords
       const { data: pp } = await supabase
         .from("professional_profiles")
         .select("latitude, longitude")
@@ -402,15 +446,6 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
         .maybeSingle()
       if (pp?.latitude && pp?.longitude) {
         userCoordsRef.current = { lat: pp.latitude, lon: pp.longitude }
-        return
-      }
-      const { data: cp } = await supabase
-        .from("company_profiles")
-        .select("latitude, longitude")
-        .eq("user_id", userId)
-        .maybeSingle()
-      if (cp?.latitude && cp?.longitude) {
-        userCoordsRef.current = { lat: cp.latitude, lon: cp.longitude }
       }
     }
     fetchUserCoords()
@@ -437,6 +472,11 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     const jobId = extractJobId(notif.link_url)
     if (!jobId) return
 
+    // In-memory job-ID check — blocks race between real-time + poll for same job
+    if (shownJobIdsRef.current.has(jobId)) return
+    const cleanupTimer = setTimeout(() => shownJobIdsRef.current.delete(jobId), 5 * 60 * 1000)
+    shownJobIdsRef.current.set(jobId, cleanupTimer)
+
     try {
       const { data: skip } = await supabase
         .from("job_skips")
@@ -453,11 +493,12 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     let budget: string | null = null
     let distanceMi: number | null = null
     let expiresAt: string | null = null
+    let postedAt: string | null = null
 
     try {
       const { data: jobData } = await supabase
         .from("jobs")
-        .select("urgency_type, budget_min, budget_max, budget_period, latitude, longitude, expires_at")
+        .select("urgency_type, budget_min, budget_max, budget_period, latitude, longitude, expires_at, created_at")
         .eq("id", jobId)
         .maybeSingle()
 
@@ -466,6 +507,7 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
       urgencyType = jobData.urgency_type ?? null
       budget      = formatBudget(jobData.budget_min, jobData.budget_max, jobData.budget_period)
       expiresAt   = jobData.expires_at ?? null
+      postedAt    = jobData.created_at ?? null
 
       if (jobData.latitude && jobData.longitude && userCoordsRef.current) {
         distanceMi = haversineDistanceMi(
@@ -476,14 +518,16 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     } catch {}
 
     const alert: UrgentAlert = {
-      notifId:    notif.id,
+      notifId:     notif.id,
       jobId,
-      jobTitle:   notif.title.replace(/^Urgent job near you:\s*/i, ""),
+      jobTitle:    notif.title.replace(/^Urgent job near you:\s*/i, ""),
       budget,
       distanceMi,
       expiresAt,
-      linkUrl:    notif.link_url,
-      shownAt:    Date.now(),
+      postedAt,
+      matchReason: "Matched your skills",
+      linkUrl:     notif.link_url,
+      shownAt:     Date.now(),
       urgencyType,
     }
 
@@ -580,10 +624,134 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
+  /* ── Active poll: catch any new unread urgent_job_dispatch notifications ── */
+  /* Runs every 4 s — covers cases where real-time subscription missed an INSERT  */
+  useEffect(() => {
+    const checkNotifications = async () => {
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+      const shown = getShown()
+      const { data } = await supabase
+        .from("notifications")
+        .select("id, title, link_url, message")
+        .eq("user_id", userId)
+        .eq("type", "urgent_job_dispatch")
+        .eq("is_read", false)
+        .gte("created_at", twoHoursAgo)
+        .limit(5)
+      if (data) {
+        // Deduplicate by job ID — extract from link_url (e.g. /jobs/abc123)
+        const seenJobIds = new Set<string>()
+        for (const n of data) {
+          const jobId = n.link_url?.split("/jobs/")[1]?.split("?")[0]
+          // Skip if already shown by notif ID, in-memory job cache, localStorage, or this poll cycle
+          if (shown.has(n.id)) continue
+          if (jobId && (shownJobIdsRef.current.has(jobId) || shown.has(`job_${jobId}`) || seenJobIds.has(jobId))) continue
+          if (jobId) seenJobIds.add(jobId)
+          await enqueue(n)
+        }
+      }
+    }
+    const id = setInterval(checkNotifications, 4000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, enqueue])
+
+  /* ── Direct job scan: fallback when dispatch found 0 tradespeople ── */
+  /* Runs on mount + every 30 s. Finds active urgent trade jobs not yet seen. */
+  useEffect(() => {
+    const scanUrgentJobs = async () => {
+      const cpId = companyProfileIdRef.current
+      if (!cpId) return
+
+      const shown       = getShown()
+      const now         = new Date().toISOString()
+      const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+
+      const { data: urgentJobs } = await supabase
+        .from("jobs")
+        .select("id, title, budget_min, budget_max, budget_period, latitude, longitude, expires_at, urgency_type, created_at")
+        .eq("is_active", true)
+        .eq("is_tradespeople_job", true)
+        .in("urgency_type", ["asap", "today"])
+        .gt("expires_at", now)
+        .eq("status", "POSTED")
+        .gte("created_at", twoHoursAgo)
+        .limit(3)
+
+      if (!urgentJobs?.length) return
+
+      for (const job of urgentJobs) {
+        const syntheticId = `job_${job.id}`
+        // Check both localStorage and in-memory cache
+        if (shown.has(syntheticId) || shownJobIdsRef.current.has(job.id)) continue
+
+        // Skip if already applied
+        const { data: existingApp } = await supabase
+          .from("job_applications")
+          .select("id")
+          .eq("job_id", job.id)
+          .eq("company_id", cpId)
+          .maybeSingle()
+        if (existingApp) { markShown(syntheticId); continue }
+
+        // Skip if user already dismissed this job
+        const { data: skip } = await supabase
+          .from("job_skips")
+          .select("id")
+          .eq("job_id", job.id)
+          .eq("user_id", userId)
+          .maybeSingle()
+        if (skip) { markShown(syntheticId); continue }
+
+        markShown(syntheticId)
+        // Also mark in-memory cache to block poll/real-time for same job
+        const cleanupTimer = setTimeout(() => shownJobIdsRef.current.delete(job.id), 5 * 60 * 1000)
+        shownJobIdsRef.current.set(job.id, cleanupTimer)
+
+        const budget = formatBudget(job.budget_min, job.budget_max, job.budget_period)
+        let distanceMi: number | null = null
+        if (job.latitude && job.longitude && userCoordsRef.current) {
+          distanceMi = haversineDistanceMi(
+            userCoordsRef.current.lat, userCoordsRef.current.lon,
+            job.latitude, job.longitude
+          )
+        }
+
+        const alert: UrgentAlert = {
+          notifId:     syntheticId,
+          jobId:       job.id,
+          jobTitle:    job.title,
+          budget,
+          distanceMi,
+          expiresAt:   job.expires_at ?? null,
+          postedAt:    job.created_at ?? null,
+          matchReason: distanceMi != null && distanceMi <= 5 ? "Near your location" : "Urgent job nearby",
+          linkUrl:     `/jobs/${job.id}`,
+          shownAt:     Date.now(),
+          urgencyType: job.urgency_type ?? null,
+        }
+
+        playSound("urgent")
+        setCurrent((prev) => {
+          if (prev) { setQueue((q) => [...q, alert]); return prev }
+          return alert
+        })
+      }
+    }
+
+    scanUrgentJobs()
+    const id = setInterval(scanUrgentJobs, 30000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId])
+
   /* ── View ── */
   const handleView = useCallback(() => {
     if (!current) return
-    supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
+    // Only update notifications table for real notification IDs (not synthetic job_ IDs)
+    if (!current.notifId.startsWith("job_")) {
+      supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
+    }
     router.push(`/jobs/${current.jobId}`)
     setCurrent(null)
   }, [current, supabase, router])
@@ -591,7 +759,9 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
   /* ── Skip ── */
   const handleSkip = useCallback(() => {
     if (!current) return
-    supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
+    if (!current.notifId.startsWith("job_")) {
+      supabase.from("notifications").update({ is_read: true }).eq("id", current.notifId).then(() => {})
+    }
     supabase.from("job_skips")
       .insert({ job_id: current.jobId, user_id: userId })
       .then(() => {})

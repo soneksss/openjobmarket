@@ -160,7 +160,8 @@ export default async function JobDetailPage({
 
   let userProfile = null
   let hasApplied = false
-  let companyStatus = null
+  let companyStatus = null        // poster activity status { isActive: true }
+  let applicationStatus: string | null = null  // tradesperson's application status string
   let isJobOwner = false
   let jobApplications: any[] = []
   let serverUserType: string | null = null
@@ -222,8 +223,18 @@ export default async function JobDetailPage({
               console.error("[JOB-DETAIL] Error checking application status:", applicationError)
             } else {
               hasApplied = !!application
-              companyStatus = application?.status ?? null
-              console.log("[JOB-DETAIL] Application status:", { hasApplied, applicationId: application?.id, status: companyStatus })
+              applicationStatus = application?.status ?? null
+
+              // confirm_tradesperson() never changes the winner's application status
+              // (it stays PENDING). Detect confirmation by checking confirmed_tradesperson_id.
+              const isConfirmedTradesperson =
+                (job.status === "CONFIRMED" || job.status === "COMPLETED") &&
+                job.confirmed_tradesperson_id === profile.id
+              if (isConfirmedTradesperson) {
+                applicationStatus = "CONFIRMED"
+              }
+
+              console.log("[JOB-DETAIL] Application status:", { hasApplied, applicationId: application?.id, status: applicationStatus, isConfirmedTradesperson })
             }
           }
         } else if (userData?.user_type === "homeowner") {
@@ -421,7 +432,7 @@ export default async function JobDetailPage({
         userProfile={userProfile}
         hasApplied={hasApplied}
         companyStatus={companyStatus}
-        applicationStatus={companyStatus}
+        applicationStatus={applicationStatus}
         searchParams={search}
         companyRating={companyRating}
         companyReviews={companyReviews}

@@ -321,12 +321,12 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     return () => clearTimeout(t)
   }, [stopped])
 
-  /* ── no_trades: been in "sent" for 20 s with 0 notified and no responses ── */
+  /* ── no_trades: been in "sent" for 90 s with 0 notified and no responses ── */
   useEffect(() => {
     if (stopped || phase !== "sent" || notifiedCount !== 0 || trades.length > 0) return
     const t = setTimeout(() => {
       setPhase((p) => p === "sent" ? "no_trades" : p)
-    }, 20000)
+    }, 90000)
     return () => clearTimeout(t)
   }, [stopped, phase, notifiedCount, trades.length])
 

@@ -489,6 +489,8 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
     }
   }
 
+  console.log('🔥 THIS IS THE CARD BEING RENDERED', job.id)
+
   return (
     <>
       <Card
@@ -750,19 +752,35 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                     </Button>
                   )}
 
-                  {/* CTA: Trade Jobs = Message, Vacancies = Apply */}
+                  {/* CTA: Trade Jobs = View Job + Respond, Vacancies = Apply */}
                   {job.is_tradespeople_job ? (
-                    <Button
-                      size="sm"
-                      className="h-9 px-4 sm:h-7 sm:px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-sm sm:text-xs touch-manipulation font-medium"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleContactClick()
-                      }}
-                    >
-                      <MessageCircle className="h-4 w-4 sm:h-3 sm:w-3 mr-1.5" />
-                      {t('jobs.message')}
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-9 px-3 sm:h-7 sm:px-2 text-sm sm:text-xs touch-manipulation font-medium"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          // Flag so the modal restores when the user comes back
+                          try { sessionStorage.setItem('ojm_returning', '1') } catch {}
+                          router.push(`/jobs/${job.id}`)
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4 sm:h-3 sm:w-3 mr-1.5" />
+                        View Job
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-9 px-3 sm:h-7 sm:px-2 bg-orange-600 hover:bg-orange-700 text-white text-sm sm:text-xs touch-manipulation font-medium"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleApplyClick()
+                        }}
+                      >
+                        <Zap className="h-4 w-4 sm:h-3 sm:w-3 mr-1.5" />
+                        Respond
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       size="sm"

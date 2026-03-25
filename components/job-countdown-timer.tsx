@@ -23,10 +23,12 @@ export function JobCountdownTimer({
   expiresAt,
   totalMs = 30 * 60 * 1000,
 }: JobCountdownTimerProps) {
-  const [remaining, setRemaining] = useState(() => calcRemaining(expiresAt))
+  // null = not yet mounted (avoids SSR/client Date.now() mismatch)
+  const [remaining, setRemaining] = useState<number | null>(null)
 
   useEffect(() => {
-    // Update every second
+    // Set real value immediately after mount, then tick every second
+    setRemaining(calcRemaining(expiresAt))
     const id = setInterval(() => {
       const r = calcRemaining(expiresAt)
       setRemaining(r)
@@ -34,6 +36,9 @@ export function JobCountdownTimer({
     }, 1000)
     return () => clearInterval(id)
   }, [expiresAt])
+
+  // Render nothing until mounted (server output stays empty → no hydration mismatch)
+  if (remaining === null) return null
 
   const expired = remaining === 0
   const pct = Math.min(100, Math.max(0, (remaining / totalMs) * 100))

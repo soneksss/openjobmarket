@@ -118,17 +118,20 @@ export async function POST(
     // ── 3. Fetch job details for notification copy ──────────────────
     const { data: job } = await admin
       .from("jobs")
-      .select("title, location, search_started_at")
+      .select("title, location")
       .eq("id", jobId)
       .maybeSingle()
 
-    // Mark search as started (only once — don't overwrite if already set)
-    if (!(job as any)?.search_started_at) {
+    // Mark search as started — best-effort, requires timing migration to be applied.
+    // Wrapped in try/catch so a missing column never breaks the dispatch.
+    try {
       await admin
         .from("jobs")
         .update({ search_started_at: new Date().toISOString(), job_state: "searching" })
         .eq("id", jobId)
-        .catch(() => {})
+        .is("search_started_at" as any, null) // only set on first dispatch
+    } catch {
+      // Column doesn't exist yet (migration pending) — non-fatal
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://openjobmarket.com"

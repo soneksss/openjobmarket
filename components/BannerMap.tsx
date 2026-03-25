@@ -5,7 +5,12 @@ import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { MapPin, Star, Briefcase, Clock, Search, ChevronDown, X } from "lucide-react"
-import { OnboardingFlow } from "./onboarding/OnboardingFlow"
+import dynamic from "next/dynamic"
+
+const OnboardingFlow = dynamic(
+  () => import("./onboarding/OnboardingFlow").then((m) => ({ default: m.OnboardingFlow })),
+  { ssr: false }
+)
 
 const AUTO_ADVANCE_MS = 3500
 const AUTO_PAUSE_AFTER_CLICK_MS = 8000

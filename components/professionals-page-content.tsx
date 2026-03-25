@@ -2802,7 +2802,8 @@ export default function ProfessionalsPageContent({
                       <button
                         onClick={() => {
                           setIsFullScreenMode(false)
-                          router.push('/professionals')
+                          if (isModal && onModalClose) onModalClose()
+                          else router.push('/professionals')
                         }}
                         className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-colors"
                         title="Back"
