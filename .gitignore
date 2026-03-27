@@ -36,3 +36,4 @@ Null
 **/Null
 * text=auto
 # macOS
+import { SpeedInsights } from "@vercel/speed-insights/next"
