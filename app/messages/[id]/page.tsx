@@ -133,6 +133,7 @@ export default function ConversationPage() {
 
       if (!currentUser) {
         console.log('[CONVERSATION] No user found, redirecting to login')
+        setLoading(false)
         router.push('/login')
         return
       }
@@ -254,54 +255,47 @@ export default function ConversationPage() {
 
       setOtherUserId(determinedOtherId)
 
-      // Fetch current user's profile photo
-      console.log('[CONVERSATION] Step 5: Fetching current user data...')
-      const { data: currentUserData, error: currentUserError } = await supabase
-        .from("users")
-        .select("user_type, profile_photo_url")
-        .eq("id", currentUser.id)
-        .single()
+      // Fetch current user data, other user base data, and messages in parallel —
+      // none of these depend on each other so there's no reason to run them sequentially.
+      const [
+        { data: currentUserData },
+        { data: userData, error: userDataError },
+        { data: messagesData, error: messagesError },
+      ] = await Promise.all([
+        supabase.from("users").select("user_type, profile_photo_url").eq("id", currentUser.id).single(),
+        supabase.from("users").select("user_type, full_name, nickname, profile_photo_url, email, last_seen_at").eq("id", determinedOtherId).maybeSingle(),
+        supabase.from("messages").select("*").eq("conversation_id", actualConversationId).order("created_at", { ascending: true }),
+      ])
 
-      console.log('[CONVERSATION] Step 6: Current user data retrieved:', !!currentUserData, 'error:', currentUserError)
-
+      // ── Current user ──
       if (currentUserData) {
         setSenderRole(currentUserData.user_type)
         let currentPhoto = currentUserData.profile_photo_url
-        console.log('[CONVERSATION] Step 7: Current user type:', currentUserData.user_type)
-
-        // Get profile-specific photo
         if (currentUserData.user_type === 'professional') {
-          console.log('[CONVERSATION] Step 8a: Fetching professional profile photo...')
-          const { data: profData } = await supabase
-            .from('professional_profiles')
-            .select('profile_photo_url')
-            .eq('user_id', currentUser.id)
-            .maybeSingle()
-
-          console.log('[CONVERSATION] Step 8b: Professional photo retrieved:', !!profData?.profile_photo_url)
-          if (profData?.profile_photo_url) {
-            currentPhoto = profData.profile_photo_url
-          }
+          const { data: profData } = await supabase.from('professional_profiles').select('profile_photo_url').eq('user_id', currentUser.id).maybeSingle()
+          if (profData?.profile_photo_url) currentPhoto = profData.profile_photo_url
         } else if (currentUserData.user_type === 'company') {
-          console.log('[CONVERSATION] Step 8a: Fetching company logo...')
-          const { data: compData } = await supabase
-            .from('company_profiles')
-            .select('logo_url')
-            .eq('user_id', currentUser.id)
-            .maybeSingle()
-
-          console.log('[CONVERSATION] Step 8b: Company logo retrieved:', !!compData?.logo_url)
-          if (compData?.logo_url) {
-            currentPhoto = compData.logo_url
-          }
+          const { data: compData } = await supabase.from('company_profiles').select('logo_url').eq('user_id', currentUser.id).maybeSingle()
+          if (compData?.logo_url) currentPhoto = compData.logo_url
         }
-
         setCurrentUserPhoto(currentPhoto)
-        console.log('[CONVERSATION] Step 9: Current user photo set')
       }
 
+      // ── Messages ──
+      if (messagesError) throw messagesError
+      setMessages(messagesData || [])
+
+      // Mark unread as read (fire-and-forget — don't block UI on this)
+      const unreadIds = (messagesData || [])
+        .filter(msg => msg.recipient_id === currentUser.id && !msg.is_read)
+        .map(msg => msg.id)
+      if (unreadIds.length > 0) {
+        supabase.from("messages").update({ is_read: true }).in("id", unreadIds).then(() => {})
+      }
+
+      // ── Other user's info ──
       // Fetch other user's info with error handling for deleted users
-      console.log('[CONVERSATION] Step 10: Fetching other user data for ID:', determinedOtherId)
+      console.log('[CONVERSATION] Fetching other user profile for ID:', determinedOtherId)
       let displayName = 'Deleted User'
       let photoUrl: string | undefined = undefined
       let otherUserType: string | null = null
@@ -406,25 +400,8 @@ export default function ConversationPage() {
         user_type: otherUserType,
         profile_url: profileUrl,
       })
-      console.log('[CONVERSATION] Step 14: Other user state set:', displayName)
-
-      // Fetch messages for this specific conversation
-      console.log('[CONVERSATION] Step 15: Fetching messages for conversation:', messageConversationId)
-      const { data: messagesData, error } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", messageConversationId)
-        .order("created_at", { ascending: true })
-
-      console.log('[CONVERSATION] Step 16: Messages retrieved:', messagesData?.length || 0, 'error:', error)
-
-      if (error) throw error
-
-      setMessages(messagesData || [])
-      console.log('[CONVERSATION] Step 17: Messages state set')
-
       // Fetch job context — from conversation record, any message job_id, or ?job= param
-      const jobId = (conversation as any)?.job_id ?? messagesData?.find(msg => msg.job_id)?.job_id ?? jobParam
+      const jobId = (conversation as any)?.job_id ?? (messagesData || []).find((msg: any) => msg.job_id)?.job_id ?? jobParam
       if (jobId) {
         console.log('[CONVERSATION] Step 17.5: Fetching job context for:', jobId)
         const { data: jobData, error: jobError } = await supabase
@@ -452,24 +429,7 @@ export default function ConversationPage() {
         }
       }
 
-      // Mark unread messages as read
-      const unreadMessageIds = messagesData
-        ?.filter(msg => msg.recipient_id === currentUser.id && !msg.is_read)
-        .map(msg => msg.id) || []
-
-      console.log('[CONVERSATION] Step 18: Unread messages to mark:', unreadMessageIds.length)
-
-      if (unreadMessageIds.length > 0) {
-        await supabase
-          .from("messages")
-          .update({ is_read: true })
-          .in("id", unreadMessageIds)
-        console.log('[CONVERSATION] Step 19: Unread messages marked as read')
-      }
-
-      console.log('[CONVERSATION] Step 20: Setting loading to false')
       setLoading(false)
-      console.log('[CONVERSATION] Step 21: fetchConversation completed successfully')
     } catch (error) {
       console.error("[CONVERSATION] Error caught:", error)
       console.error("[CONVERSATION] Error type:", typeof error)

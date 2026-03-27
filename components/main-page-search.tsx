@@ -11,6 +11,7 @@ import { Search, Users, Hammer, Map, X, Target, MapPin, SlidersHorizontal, HardH
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import { ProfessionalMap } from "@/components/professional-map"
 import ProfessionalsPageContent from "@/components/professionals-page-content"
+import { MapPreloader } from "@/components/map-preloader"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
@@ -3152,6 +3153,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         </Dialog>
         </div>
       </div>
+
+      {/* Preload Leaflet + tile cache in background so modal opens instantly */}
+      <MapPreloader center={mapCenter} zoom={6} />
 
       {/* Full-Screen Map Modal - Uses Same Component as Professionals Page */}
       {showMapModal && (

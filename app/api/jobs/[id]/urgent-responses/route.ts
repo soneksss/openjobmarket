@@ -198,10 +198,46 @@ export async function POST(
     }
 
     // ── Advance job state so homeowner sees pending_homeowner instantly ──
+    const adm = createAdminClient()
     try {
-      const adm = createAdminClient()
       await adm.rpc("advance_job_state", { p_job_id: jobId })
     } catch {}
+
+    // ── Mark tradesperson as responded (Uber dispatch response tracking) ──────
+    // Resolves company_profiles.id for this user, then marks the dispatch alert.
+    try {
+      const { data: cp } = await adm
+        .from("company_profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle()
+
+      if (cp?.id) {
+        await adm
+          .from("urgent_job_dispatch_alerts")
+          .update({ responded: true, responded_at: new Date().toISOString() })
+          .eq("job_id", jobId)
+          .eq("company_id", cp.id)
+
+        // Check if >= 3 responders → mark dispatch completed
+        const { count } = await adm
+          .from("urgent_job_dispatch_alerts")
+          .select("*", { count: "exact", head: true })
+          .eq("job_id", jobId)
+          .eq("responded", true)
+
+        if ((count ?? 0) >= 3) {
+          await adm
+            .from("jobs")
+            .update({ dispatch_state: "completed" })
+            .eq("id", jobId)
+          console.log(`[URGENT-RESPONSES] 3 responders reached — dispatch completed for job=${jobId}`)
+        }
+      }
+    } catch (err) {
+      // Non-fatal — dispatch tracking should never block the application
+      console.warn("[URGENT-RESPONSES] Response tracking error (non-fatal):", err)
+    }
 
     // ── Store cover letter / message if provided ──────────────────────
     if (message) {

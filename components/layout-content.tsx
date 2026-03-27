@@ -15,6 +15,7 @@ import { parseLanguageRegionCookie, LANGUAGE_REGION_COOKIE, DEFAULT_STATE } from
 import { ActiveSearchProvider } from "@/lib/contexts/active-search-context"
 import { ActiveSearchBar } from "@/components/active-search-bar"
 import { UrgentJobNotifier, HomeownerJobNotifier } from "@/components/urgent-job-notifier"
+import { PushSubscriptionManager } from "@/components/push-subscription-manager"
 
 interface LayoutContentProps {
   children: React.ReactNode
@@ -94,7 +95,11 @@ function LayoutInner({ children, user, userType, serverLocale }: LayoutContentPr
         <ActiveSearchBar userType={userType} userId={user?.id} />
         {/* Live urgent job alert for company (tradesperson) users */}
         {userType === "company" && user?.id && (
-          <UrgentJobNotifier userId={user.id} />
+          <>
+            <UrgentJobNotifier userId={user.id} />
+            {/* Register web push subscription so alerts arrive even when tab is closed */}
+            <PushSubscriptionManager />
+          </>
         )}
         {/* Live application alert for homeowner users */}
         {userType === "homeowner" && user?.id && (
