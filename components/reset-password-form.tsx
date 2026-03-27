@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,19 +12,34 @@ import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 
 interface ResetPasswordFormProps {
-  accessToken: string
-  refreshToken: string
+  code?: string          // PKCE flow (new Supabase default)
+  accessToken?: string   // Legacy implicit flow
+  refreshToken?: string
 }
 
-export default function ResetPasswordForm({ accessToken, refreshToken }: ResetPasswordFormProps) {
+export default function ResetPasswordForm({ code, accessToken, refreshToken }: ResetPasswordFormProps) {
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [sessionReady, setSessionReady] = useState(!code) // if no code, legacy tokens are used inline
   const router = useRouter()
   const pathname = usePathname()
+
+  // PKCE flow: exchange the code for a session on mount
+  useEffect(() => {
+    if (!code) return
+    const supabase = createClient()
+    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+      if (error) {
+        setError("This reset link has expired or is invalid. Please request a new one.")
+      } else {
+        setSessionReady(true)
+      }
+    })
+  }, [code])
 
   // Detect if user is on BR route
   const isOnBrRoute = pathname?.startsWith('/br')
@@ -73,14 +88,14 @@ export default function ResetPasswordForm({ accessToken, refreshToken }: ResetPa
     try {
       const supabase = createClient()
 
-      // Set the session using the tokens from the URL
-      const { error: sessionError } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      })
-
-      if (sessionError) {
-        throw sessionError
+      // Legacy implicit flow: set session from URL tokens
+      // PKCE flow: session already set via exchangeCodeForSession on mount
+      if (!code && accessToken && refreshToken) {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        if (sessionError) throw sessionError
       }
 
       // Update the password
@@ -114,6 +129,17 @@ export default function ResetPasswordForm({ accessToken, refreshToken }: ResetPa
     } finally {
       setIsLoading(false)
     }
+  }
+
+  if (!sessionReady && !error) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardContent className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <span className="ml-3 text-muted-foreground">Verifying reset link…</span>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (

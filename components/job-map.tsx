@@ -3,11 +3,8 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
 
-import { useEffect, useMemo, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { MapPin, PoundSterlingIcon } from "lucide-react"
+import { useEffect, useMemo, useRef, useState, memo } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 import dynamic from "next/dynamic"
 import { useLanguageRegion } from "@/contexts/language-region-context"
 import { getDefaultMapCenter } from "@/lib/i18n/language-region"
@@ -76,14 +73,13 @@ const MapSizeHandler = dynamic(
       function MapSizeHandlerComponent() {
         const map = useMap()
 
-        // Single invalidation on mount (300ms gives tiles time to settle)
+        // Invalidate size once the map is fully initialized (more reliable than a fixed timeout)
         useEffect(() => {
           if (!map) return
-          const timer = setTimeout(() => {
-            debug("[JobMap] Invalidating map size on mount")
+          map.whenReady(() => {
+            debug("[JobMap] Invalidating map size on ready")
             map.invalidateSize({ pan: false })
-          }, 300)
-          return () => clearTimeout(timer)
+          })
         }, [map])
 
         // Watch for container size changes
@@ -221,54 +217,80 @@ export function JobMap({
   selectedJobId = null,
   onJobSelect,
 }: JobMapProps) {
-  const [isClient, setIsClient] = useState(false)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
+  const [tilesReady, setTilesReady] = useState(false)
+  const tileLoadCount = useRef(0)
 
   // Get language/region context for default map center
   const { state: languageRegionState } = useLanguageRegion()
   const defaultCenter = getDefaultMapCenter(languageRegionState.country)
 
   useEffect(() => {
-    setIsClient(true)
+    if (typeof window === 'undefined') return
 
-    // Load Leaflet if not already loaded
-    const loadLeaflet = () => {
-      if (typeof window !== 'undefined' && !(window as any).L) {
-        debug('[JOB-MAP] Leaflet not loaded, loading now...')
+    // Load Leaflet CSS programmatically so it's confirmed ready before the map renders.
+    // Inserting the <link> inline in JSX causes a flash: the map container mounts first,
+    // then the browser fetches + applies the stylesheet — resulting in a brief unstyled state.
+    const loadCSS = (): Promise<void> => {
+      if ((window as any).__leafletCssLoaded) return Promise.resolve()
+      return new Promise((resolve) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+        link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='
+        link.crossOrigin = ''
+        link.onload = () => { ;(window as any).__leafletCssLoaded = true; resolve() }
+        link.onerror = () => resolve() // fail gracefully — map will still render
+        document.head.appendChild(link)
+      })
+    }
 
-        // Load Leaflet JS (CSS is loaded inline in the component)
+    const loadJS = (): Promise<void> => {
+      if ((window as any).L) return Promise.resolve()
+
+      if ((window as any).__leafletLoading) {
+        // Another instance is mid-load — poll until done
+        return new Promise((resolve) => {
+          const poll = setInterval(() => {
+            if ((window as any).L) { clearInterval(poll); resolve() }
+          }, 50)
+        })
+      }
+
+      // First instance — guard against concurrent loads
+      ;(window as any).__leafletLoading = true
+      debug('[JOB-MAP] Leaflet not loaded, loading now...')
+
+      return new Promise((resolve) => {
         const script = document.createElement('script')
         script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
         script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='
         script.crossOrigin = ''
         script.onload = () => {
+          ;(window as any).__leafletLoading = false
           debug('[JOB-MAP] Leaflet script loaded successfully')
-          setLeafletLoaded(true)
+          resolve()
         }
         script.onerror = () => {
+          ;(window as any).__leafletLoading = false
           console.error('[JOB-MAP] Failed to load Leaflet script')
+          resolve() // resolve anyway so Promise.all doesn't hang
         }
         document.head.appendChild(script)
-      } else if ((window as any).L) {
-        debug('[JOB-MAP] Leaflet already loaded')
-        setLeafletLoaded(true)
-      }
+      })
     }
 
-    loadLeaflet()
+    // Both CSS and JS must be ready before we render the map container
+    Promise.all([loadCSS(), loadJS()]).then(() => setLeafletLoaded(true))
   }, [])
 
   const validCenter: [number, number] =
     center && center[0] && center[1] && !isNaN(center[0]) && !isNaN(center[1]) ? center : defaultCenter
 
-  debug("[v0] JobMap using center coordinates:", validCenter, "for country:", languageRegionState.country)
-
   const jobsWithCoordinates = useMemo(
     () => jobs.filter((job) => job.latitude && job.longitude && !isNaN(job.latitude) && !isNaN(job.longitude)),
     [jobs],
   )
-
-  debug("[v0] Jobs with valid coordinates:", jobsWithCoordinates.length, "out of", jobs.length)
 
   const formatSalary = (min?: number, max?: number) => {
     if (!min && !max) return "Salary not specified"
@@ -277,33 +299,33 @@ export function JobMap({
     return `Up to ${max?.toLocaleString()}`
   }
 
-  if (!isClient || !leafletLoaded) {
-    return (
-      <div className="w-full h-full bg-muted rounded-lg flex items-center justify-center">
-        <div className="text-center">
-          <MapPin className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading map...</p>
-        </div>
-      </div>
-    )
+  if (!leafletLoaded) {
+    return <Skeleton className="w-full h-full rounded-lg" />
   }
 
   return (
-    <div className="w-full h-full">
-      <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossOrigin=""
-      />
+    <div className="w-full h-full relative">
       <style>{`@keyframes pulse{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.6);opacity:.1}}`}</style>
-      <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%" }} className="rounded-lg" zoomControl={false} {...({} as any)}>
+      {/* Skeleton overlay — shown until tiles are painted, prevents the blue Leaflet background flash */}
+      {!tilesReady && <Skeleton className="absolute inset-0 rounded-lg z-[1000]" />}
+      <div
+        className="w-full h-full"
+        style={{ opacity: tilesReady ? 1 : 0, transition: 'opacity 0.2s ease' }}
+      >
+      <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%", background: "#f3f4f6" }} className="rounded-lg" zoomControl={false} {...({} as any)}>
         <ZoomControl position="bottomleft" {...({} as any)} />
         <MapSizeHandler />
         <JobCenterer selectedJob={selectedJobId ? jobs.find(j => j.id === selectedJobId) : null} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          eventHandlers={{
+            tileload: () => {
+              tileLoadCount.current += 1
+              // Reveal after 4 tiles — enough for a coherent view without waiting for all tiles
+              if (!tilesReady && tileLoadCount.current >= 4) setTilesReady(true)
+            },
+          }}
           {...({} as any)}
         />
         {showRadius && radiusCenter && (
@@ -375,8 +397,9 @@ export function JobMap({
         {/* Map click handler component */}
         {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
       </MapContainer>
+      </div>
     </div>
   )
 }
 
-export default JobMap
+export default memo(JobMap)

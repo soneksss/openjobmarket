@@ -75,6 +75,11 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
     clearActiveSearch()
     return null
   }
+  // Auto-clear if the job has passed its TTL (e.g. 60-min ASAP job already expired)
+  if (activeSearch?.expiresAt && Date.now() > activeSearch.expiresAt) {
+    clearActiveSearch()
+    return null
+  }
   if (!activeSearch || isOnLivePage) return null
 
   // ── Cancel: deactivate job in DB + clear context ─────────────────────

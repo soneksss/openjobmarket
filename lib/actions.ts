@@ -2,6 +2,7 @@
 
 import { createClient, createAdminClient } from "@/lib/server"
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 
 // Sign up action
 export async function signUp(prevState: any, formData: FormData) {
@@ -154,8 +155,13 @@ export async function forgotPassword(prevState: any, formData: FormData) {
   try {
     console.log("[v0] Starting password reset process for:", email.toString())
 
+    const headersList = await headers()
+    const host = headersList.get("host") || "localhost:3000"
+    const proto = host.includes("localhost") ? "http" : "https"
+    const siteUrl = `${proto}://${host}`
+
     const { error } = await supabase.auth.resetPasswordForEmail(email.toString(), {
-      redirectTo: `${process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || "http://localhost:3000"}/auth/reset-password`,
+      redirectTo: `${siteUrl}/auth/reset-password`,
     })
 
     if (error) {

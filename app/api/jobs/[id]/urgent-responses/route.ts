@@ -62,20 +62,18 @@ export async function GET(
       adminClient = supabase as any
     }
 
-    // Advance job state machine + mark waiting_optional — fire-and-forget style but awaited
-    // so the returned job_state reflects the latest transition.
+    // Advance job state machine — fire-and-forget but awaited so the returned
+    // job_state reflects the latest transition.
     let currentJobState: string | null = (job as any).job_state ?? null
     try {
-      const [{ data: advancedState }] = await Promise.all([
-        adminClient.rpc("advance_job_state", { p_job_id: jobId }),
-        adminClient.rpc("mark_applications_waiting_optional", { p_job_id: jobId }),
-      ])
+      const { data: advancedState } = await adminClient.rpc("advance_job_state", { p_job_id: jobId })
       if (advancedState) currentJobState = advancedState
     } catch {
       // Non-fatal — state machine is best-effort
     }
 
-    // Fetch active applications from tradespeople — PENDING + waiting_optional
+    // Fetch active applications from tradespeople — PENDING and ACCEPTED only
+    // ("waiting_optional" is NOT a valid application_status enum value — never use it here)
     const { data: applications, error: appsError } = await adminClient
       .from("job_applications")
       .select(`
@@ -86,7 +84,7 @@ export async function GET(
       `)
       .eq("job_id", jobId)
       .not("company_id", "is", null)
-      .in("status", ["PENDING", "waiting_optional"])
+      .in("status", ["PENDING"])
       .order("applied_at", { ascending: false })
 
     if (appsError) {

@@ -128,6 +128,22 @@ export default async function RootLayout({
         {/* Preconnect to Supabase (profile images, storage) */}
         <link rel="preconnect" href="https://mklxzrvhanlndkyeteog.supabase.co" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://mklxzrvhanlndkyeteog.supabase.co" />
+        {/* Preload Leaflet so the map modal opens without flash or delay */}
+        <link rel="preconnect" href="https://unpkg.com" />
+        <link
+          rel="preload"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          as="style"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossOrigin=""
+        />
+        <link
+          rel="preload"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          as="script"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossOrigin=""
+        />
         {/* Organization schema */}
         <script
           type="application/ld+json"

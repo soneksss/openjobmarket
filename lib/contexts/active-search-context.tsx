@@ -10,6 +10,7 @@ export interface ActiveSearch {
   startedAt: number   // Date.now() when the job was posted — survives page reload
   notifiedCount: number
   userId?: string     // homeowner who started the search — used to clear on account switch
+  expiresAt?: number  // Date.now() + TTL — bar auto-hides after this timestamp
 }
 
 interface ActiveSearchContextType {
@@ -30,10 +31,18 @@ export function ActiveSearchProvider({ children }: { children: ReactNode }) {
   const [activeSearch, setActiveSearchState] = useState<ActiveSearch | null>(null)
 
   // Hydrate from localStorage on mount (avoids SSR mismatch)
+  // Auto-discard if the job has already expired
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) setActiveSearchState(JSON.parse(raw))
+      if (!raw) return
+      const saved: ActiveSearch = JSON.parse(raw)
+      // If expiresAt is set and in the past, wipe it so the bar never re-appears
+      if (saved.expiresAt && Date.now() > saved.expiresAt) {
+        localStorage.removeItem(STORAGE_KEY)
+        return
+      }
+      setActiveSearchState(saved)
     } catch {}
   }, [])
 

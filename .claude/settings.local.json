@@ -63,7 +63,11 @@
       "Bash(cd:*)",
       "Bash(head -20 grep -rn \"jobs_tasks\\\\|autoSearch\" C:/Users/sonek/OneDrive/Desktop/MAIN/openjobmarket/components/mobile-bottom-nav.tsx)",
       "Bash(head -20 grep -n \"type.*urgent\\\\|urgent.*type\\\\|INSERT INTO notif\\\\|You''''ve\" \"C:/Users/sonek/OneDrive/Desktop/MAIN/openjobmarket/supabase/migrations/20260302000005_create_job_events_notification_system.sql\")",
-      "Bash(head -20 grep -rn \"CREATE TABLE.*notifications\\\\|data.*jsonb\\\\|data.*json\" \"C:/Users/sonek/OneDrive/Desktop/MAIN/openjobmarket/supabase/migrations/\")"
+      "Bash(head -20 grep -rn \"CREATE TABLE.*notifications\\\\|data.*jsonb\\\\|data.*json\" \"C:/Users/sonek/OneDrive/Desktop/MAIN/openjobmarket/supabase/migrations/\")",
+      "Bash(grep -r \"application_status\\\\|PENDING\\\\|ACCEPTED\\\\|waiting_optional\\\\|enum.*status\" \"C:\\\\Users\\\\sonek\\\\OneDrive\\\\Desktop\\\\MAIN\\\\openjobmarket\\\\supabase\\\\migrations\"\" --include=\"*.sql\" | grep -i \"enum)",
+      "Bash(application_status \")",
+      "Bash(echo \"SELECT prosrc FROM pg_proc WHERE proname = ''''advance_job_state'''' AND pronamespace = ''''public''''::regnamespace;\")",
+      "Bash(echo \"SELECT proname FROM pg_proc WHERE proname = ''''mark_applications_waiting_optional'''';\")"
     ],
     "deny": [],
     "ask": []

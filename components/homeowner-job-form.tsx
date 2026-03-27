@@ -145,8 +145,10 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
       // Reset loading before redirect/showing urgent search
       setIsLoading(false)
 
-      // If urgent job (ASAP/Today), show the urgent search overlay
+      // If urgent job (ASAP/Today), dispatch push notifications then show the urgent search overlay
       if (isUrgentJob && insertedJob?.id) {
+        // Fire-and-forget: notify nearby tradespeople
+        fetch(`/api/jobs/${insertedJob.id}/dispatch-urgent`, { method: "POST" }).catch(() => {})
         setPostedJobId(insertedJob.id)
         setShowUrgentSearch(true)
         return

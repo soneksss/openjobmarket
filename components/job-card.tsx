@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, forwardRef } from "react"
+import { useState, useEffect, forwardRef, memo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -489,8 +489,6 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
     }
   }
 
-  console.log('🔥 THIS IS THE CARD BEING RENDERED', job.id)
-
   return (
     <>
       <Card
@@ -974,4 +972,4 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
 
 JobCard.displayName = "JobCard"
 
-export default JobCard
+export default memo(JobCard)

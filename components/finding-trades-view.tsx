@@ -389,6 +389,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       notifiedCount,
       phase,
       startedAt:     Date.now() - elapsed * 1000,
+      expiresAt:     activeSearch?.expiresAt,   // preserve TTL from original set
       userId,
     })
     router.push("/")

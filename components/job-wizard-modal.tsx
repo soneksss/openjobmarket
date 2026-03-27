@@ -1007,6 +1007,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
           description: "Finding the best available trades near you…",
           variant: "default",
         })
+        // ASAP expires in 60 min, today/other urgent jobs in 3 hours
+        const ttlMs = formData.urgencyType === "asap" ? 60 * 60 * 1000 : 3 * 60 * 60 * 1000
         setActiveSearch({
           jobId,
           jobTitle: formData.profession.trim() || "Job",
@@ -1014,6 +1016,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
           notifiedCount: 0,
           phase:         "searching",
           startedAt:     Date.now(),
+          expiresAt:     Date.now() + ttlMs,
           userId,
         })
         setLoading(false)

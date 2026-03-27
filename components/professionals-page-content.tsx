@@ -3,7 +3,7 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo, memo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -173,7 +173,7 @@ interface ProfessionalsPageContentProps {
   onViewAllJobs?: () => void
 }
 
-export default function ProfessionalsPageContent({
+function ProfessionalsPageContent({
   data,
   user,
   userType,
@@ -189,8 +189,17 @@ export default function ProfessionalsPageContent({
   const currentSearchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState(searchParams.search || "")
 
-  // Debug: Log user prop
-  debug("[PROFESSIONALS-PAGE-CONTENT] User prop:", user, "UserType:", userType)
+  // Track viewport to mount only one JobMap (mobile OR desktop) — never both simultaneously
+  const [isDesktopLayout, setIsDesktopLayout] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)')
+    setIsDesktopLayout(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setIsDesktopLayout(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
 
   // Local user state - falls back to fetching if prop is null
   const [currentUser, setCurrentUser] = useState<any>(user)
@@ -347,15 +356,6 @@ export default function ProfessionalsPageContent({
     conversationId: string
   } | null>(null)
 
-  // Debug: Log message modal state changes
-  useEffect(() => {
-    debug('[PROFESSIONALS-PAGE] 📬 Message modal state changed:', messageModal)
-    if (messageModal?.isOpen) {
-      debug('[PROFESSIONALS-PAGE] ✅ Message modal should now be visible')
-      debug('[PROFESSIONALS-PAGE] User available?', !!currentUser, currentUser?.id)
-    }
-  }, [messageModal, currentUser])
-
   // Banner state
   const [isBannerDismissed, setIsBannerDismissed] = useState(false)
 
@@ -436,11 +436,6 @@ export default function ProfessionalsPageContent({
       }
     }
   }, [searchParams.search, searchParams.location, searchParams.lat, searchParams.lng, searchParams.traders, isModal])
-
-  // Debug: Monitor showMapPicker state changes
-  useEffect(() => {
-    debug('[MAP-PICKER] showMapPicker state changed to:', showMapPicker)
-  }, [showMapPicker])
 
   // Clear filter parameters for unregistered users
   // Skip this if in modal mode - we don't want to redirect when shown as a modal
@@ -619,9 +614,7 @@ export default function ProfessionalsPageContent({
   }
 
   const handleMapPickerClick = () => {
-    debug('[MAP-PICKER] Button clicked, opening map picker modal')
     setShowMapPicker(true)
-    debug('[MAP-PICKER] showMapPicker state set to true')
   }
 
   const handleMapLocationPick = (lat: number, lon: number) => {
@@ -731,24 +724,16 @@ export default function ProfessionalsPageContent({
     return parts[0] || location
   }
 
-  // Debug logging for coordinate data
-  debug("[PROFESSIONALS-PAGE] Data received:", data)
-  debug("[PROFESSIONALS-PAGE] First item coordinates:", data[0] ? {
-    latitude: data[0].latitude,
-    longitude: data[0].longitude,
-    location: data[0].location
-  } : "No data")
-
-  const dataWithCoordinates = data.filter(
-    (item) => "latitude" in item && "longitude" in item && item.latitude && item.longitude,
+  const dataWithCoordinates = useMemo(
+    () => data.filter((item) => "latitude" in item && "longitude" in item && item.latitude && item.longitude),
+    [data],
   )
-
-  debug("[PROFESSIONALS-PAGE] Data with coordinates:", dataWithCoordinates.length, "out of", data.length)
 
   // Always show map in modal mode; otherwise show only when we have data or a non-default center
   const shouldShowMap = isModal || center[0] !== 50.8058 || center[1] !== -1.0872 || dataWithCoordinates.length > 0
 
-  debug("[PROFESSIONALS-PAGE] Should show map:", shouldShowMap, "Center:", center)
+  // Stable tuple for JobMap — avoids creating a new array reference every render
+  const jobMapCenter = useMemo<[number, number]>(() => [center[0], center[1]], [center[0], center[1]])
 
   // Sort data based on selected criteria
   const sortedData = [...data].sort((a, b) => {
@@ -840,18 +825,14 @@ export default function ProfessionalsPageContent({
       // If user_id not provided, fetch it from the profile
       let recipientUserId = professionalUserId
       if (!recipientUserId) {
-        debug("[DEBUG] Fetching user_id for profile:", professionalProfileId)
-
-        // Try professional_profiles first
+        // Try professional_profiles first, then company_profiles
         let { data: profileData } = await supabase
           .from('professional_profiles')
           .select('user_id')
           .eq('id', professionalProfileId)
           .single()
 
-        // If not found, try company_profiles
         if (!profileData) {
-          debug("[DEBUG] Not found in professional_profiles, trying company_profiles")
           const { data: companyData } = await supabase
             .from('company_profiles')
             .select('user_id')
@@ -862,7 +843,6 @@ export default function ProfessionalsPageContent({
 
         if (profileData) {
           recipientUserId = profileData.user_id
-          debug("[DEBUG] Found user_id:", recipientUserId)
         } else {
           console.error("[ERROR] Could not find user_id for profile:", professionalProfileId)
           alert("Error: Could not find user. Please try again.")
@@ -870,17 +850,11 @@ export default function ProfessionalsPageContent({
         }
       }
 
-      debug("[DEBUG] Recipient user_id:", recipientUserId)
-
-      // Use the same subject-dialog flow as the map list Message buttons
       openConversation(recipientUserId!, professionalName)
-
-      debug("[DEBUG] Subject dialog opened")
     } catch (error) {
       console.error("[ERROR] Error sending inquiry:", error)
       alert("Error sending message. Please try again.")
     } finally {
-      debug("[DEBUG] Cleaning up sendingMessage state")
       setSendingMessage(null)
     }
   }
@@ -1520,7 +1494,7 @@ export default function ProfessionalsPageContent({
                       {isShowingJobs ? (
                         <JobMap
                           jobs={dataWithCoordinates as any}
-                          center={[center[0], center[1]]}
+                          center={jobMapCenter}
                           zoom={10}
                           height="100%"
                           showRadius={!!selectedLocationCoords}
@@ -2356,7 +2330,7 @@ export default function ProfessionalsPageContent({
 
       {/* Map Picker Modal */}
       {showMapPicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999999] flex items-center justify-center p-4" onClick={() => debug('[MAP-PICKER] Modal backdrop clicked')}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[999999] flex items-center justify-center p-4">
           <div className="bg-white rounded-lg w-full max-w-4xl h-[80vh] flex flex-col relative z-[1000000]">
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -2395,10 +2369,7 @@ export default function ProfessionalsPageContent({
                   <div className="flex items-center gap-3">
                     <Target className="h-5 w-5 text-emerald-600 flex-shrink-0" />
                     <label className="text-sm font-semibold text-gray-900 whitespace-nowrap">Search Radius:</label>
-                    <Select value={mapPickerRadius} onValueChange={(value) => {
-                      debug('[MAP-PICKER] Radius changed to:', value)
-                      setMapPickerRadius(value)
-                    }}>
+                    <Select value={mapPickerRadius} onValueChange={setMapPickerRadius}>
                       <SelectTrigger className="w-28 h-9 text-sm font-medium border-gray-300 bg-white">
                         <SelectValue />
                       </SelectTrigger>
@@ -2469,23 +2440,10 @@ export default function ProfessionalsPageContent({
       )}
 
       {/* Floating Message Modal */}
-      {(() => {
-        debug('[PROFESSIONALS-PAGE] Modal render check:', {
-          messageModalExists: !!messageModal,
-          messageModalIsOpen: messageModal?.isOpen,
-          userExists: !!currentUser,
-          userId: currentUser?.id,
-          shouldRender: messageModal?.isOpen && currentUser
-        })
-        return null
-      })()}
       {messageModal?.isOpen && currentUser && (
         <FloatingMessageModal
           isOpen={messageModal.isOpen}
-          onClose={() => {
-            debug('[PROFESSIONALS-PAGE] Closing message modal')
-            setMessageModal(null)
-          }}
+          onClose={() => setMessageModal(null)}
           recipientId={messageModal.recipientId}
           recipientName={messageModal.recipientName}
           conversationId={messageModal.conversationId}
@@ -3242,11 +3200,11 @@ export default function ProfessionalsPageContent({
               resultsCount={data.length}
               resultsLabel={isShowingJobs ? "Jobs" : isEmployer ? "Professionals" : isShowingTraders ? "Traders" : "Results"}
               mapContent={
-                shouldShowMap && (
+                !isDesktopLayout && shouldShowMap && (
                   isShowingJobs ? (
                     <JobMap
                       jobs={dataWithCoordinates as any}
-                      center={[center[0], center[1]]}
+                      center={jobMapCenter}
                       zoom={10}
                       height="100%"
                       showRadius={!!selectedLocationCoords}
@@ -3785,11 +3743,11 @@ export default function ProfessionalsPageContent({
             {/* Map Panel */}
             <Panel defaultSize={60} minSize={30} className="relative" style={{ minHeight: '400px' }}>
               <div className="absolute inset-0">
-              {shouldShowMap && (
+              {isDesktopLayout && shouldShowMap && (
                 isShowingJobs ? (
                   <JobMap
                     jobs={dataWithCoordinates as any}
-                    center={[center[0], center[1]]}
+                    center={jobMapCenter}
                     zoom={10}
                     height="100%"
                     showRadius={!!selectedLocationCoords}
@@ -4322,3 +4280,5 @@ export default function ProfessionalsPageContent({
     </div>
   )
 }
+
+export default memo(ProfessionalsPageContent)

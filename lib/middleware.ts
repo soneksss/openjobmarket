@@ -239,7 +239,15 @@ export async function middleware(req: NextRequest) {
     return res;
   } catch (err) {
     console.error("MIDDLEWARE ERROR:", err);
-    return res; // fail open
+    // For protected routes, an auth error means we can't verify the session —
+    // redirect to login rather than letting the broken request through (which
+    // can cause the page to 404 or 500 instead of a clean auth redirect).
+    if (isProtected) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/auth/login";
+      return NextResponse.redirect(url);
+    }
+    return res; // fail open for public routes only
   }
 }
 

@@ -43,8 +43,9 @@ export async function GET(request: NextRequest) {
           .maybeSingle()
 
         if (userError || !userData) {
-          console.log("[v0] Auth callback - user not found in users table, redirecting to search page")
-          return NextResponse.redirect(`${origin}/`)
+          // New OAuth user — no users table row yet. Send to onboarding to pick account type.
+          console.log("[v0] Auth callback - new OAuth user, redirecting to onboarding")
+          return NextResponse.redirect(`${origin}/onboarding`)
         }
 
         // Role-based redirects using database function for consistent routing

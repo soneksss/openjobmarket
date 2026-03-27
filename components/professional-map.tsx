@@ -1,11 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MapPin, MessageCircle } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
 import dynamic from "next/dynamic"
 import { createClient } from "@/lib/client"
 import { useRouter, usePathname } from "next/navigation"
@@ -51,15 +47,10 @@ const MapSizeHandler = dynamic(
       function MapSizeHandlerComponent() {
         const map = useMap()
 
-        // Fix map size after initial render (for resizable panels)
+        // Invalidate size once the map is fully initialized (more reliable than a fixed timeout)
         useEffect(() => {
-          const timer = setTimeout(() => {
-            if (map) {
-              console.log("[ProfessionalMap] Invalidating map size to fix tiles")
-              map.invalidateSize()
-            }
-          }, 300)
-          return () => clearTimeout(timer)
+          if (!map) return
+          map.whenReady(() => map.invalidateSize({ pan: false }))
         }, [map])
 
         // Watch for container size changes
@@ -68,7 +59,6 @@ const MapSizeHandler = dynamic(
 
           const container = map.getContainer()
           const resizeObserver = new ResizeObserver(() => {
-            console.log("[ProfessionalMap] Container resized, invalidating map size")
             map.invalidateSize()
           })
 
@@ -201,8 +191,9 @@ export function ProfessionalMap({
   const { state: languageRegionState } = useLanguageRegion()
   const defaultCenter = getDefaultMapCenter(languageRegionState.country)
 
-  const [isClient, setIsClient] = useState(false)
-  const [sendingMessage, setSendingMessage] = useState<string | null>(null)
+  const [leafletLoaded, setLeafletLoaded] = useState(false)
+  const [tilesReady, setTilesReady] = useState(false)
+  const tileLoadCount = useRef(0)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -223,7 +214,44 @@ export function ProfessionalMap({
   }
 
   useEffect(() => {
-    setIsClient(true)
+    if (typeof window === 'undefined') return
+
+    const loadCSS = (): Promise<void> => {
+      if ((window as any).__leafletCssLoaded) return Promise.resolve()
+      return new Promise((resolve) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+        link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY='
+        link.crossOrigin = ''
+        link.onload = () => { ;(window as any).__leafletCssLoaded = true; resolve() }
+        link.onerror = () => resolve()
+        document.head.appendChild(link)
+      })
+    }
+
+    const loadJS = (): Promise<void> => {
+      if ((window as any).L) return Promise.resolve()
+      if ((window as any).__leafletLoading) {
+        return new Promise((resolve) => {
+          const poll = setInterval(() => {
+            if ((window as any).L) { clearInterval(poll); resolve() }
+          }, 50)
+        })
+      }
+      ;(window as any).__leafletLoading = true
+      return new Promise((resolve) => {
+        const script = document.createElement('script')
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+        script.integrity = 'sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo='
+        script.crossOrigin = ''
+        script.onload = () => { ;(window as any).__leafletLoading = false; resolve() }
+        script.onerror = () => { ;(window as any).__leafletLoading = false; resolve() }
+        document.head.appendChild(script)
+      })
+    }
+
+    Promise.all([loadCSS(), loadJS()]).then(() => setLeafletLoaded(true))
   }, [])
 
   // Use provided center or fallback to region-specific default
@@ -235,36 +263,21 @@ export function ProfessionalMap({
   // Filter professionals that have coordinates
   const professionalsWithCoordinates = professionals.filter((prof) => prof.coordinates?.lat && prof.coordinates?.lon)
 
-  console.log(
-    `[v0] ProfessionalMap rendering with ${professionalsWithCoordinates.length} professionals at center [${center.lat}, ${center.lon}]`,
-  )
-
-  if (!isClient) {
-    return (
-      <div className="w-full bg-muted rounded-lg flex items-center justify-center" style={{ height }}>
-        <div className="text-center">
-          <MapPin className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-muted-foreground">Loading interactive map...</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {professionalsWithCoordinates.length} professionals with location data
-          </p>
-        </div>
-      </div>
-    )
+  if (!leafletLoaded) {
+    return <Skeleton className="w-full rounded-lg" style={{ height }} />
   }
 
   return (
-    <div className="w-full" style={{ height }}>
-      <link
-        rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossOrigin=""
-      />
+    <div className="w-full relative" style={{ height }}>
+      {!tilesReady && <Skeleton className="absolute inset-0 rounded-lg z-[1000]" />}
+      <div
+        className="w-full h-full"
+        style={{ opacity: tilesReady ? 1 : 0, transition: 'opacity 0.2s ease' }}
+      >
       <MapContainer
         center={centerArray}
         zoom={zoom}
-        style={{ height: "100%", width: "100%" }}
+        style={{ height: "100%", width: "100%", background: "#f3f4f6" }}
         className="rounded-lg"
         zoomControl={false}
         {...({} as any)}
@@ -275,6 +288,12 @@ export function ProfessionalMap({
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          eventHandlers={{
+            tileload: () => {
+              tileLoadCount.current += 1
+              if (!tilesReady && tileLoadCount.current >= 4) setTilesReady(true)
+            },
+          }}
           {...({} as any)}
         />
         {professionalsWithCoordinates.map((professional) => {
@@ -327,6 +346,7 @@ export function ProfessionalMap({
         {/* Map click handler component */}
         {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
       </MapContainer>
+      </div>
     </div>
   )
 }
