@@ -1024,7 +1024,7 @@ function ProfessionalsPageContent({
   const hasSearchParams = searchParams.search || searchParams.location || searchParams.lat || searchParams.lng
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-slate-900">
       {/* Skip hero section when in modal mode */}
       {!isModal && (
         <div>
@@ -3741,7 +3741,7 @@ function ProfessionalsPageContent({
           {/* Desktop: Resizable Panels - Map on left, List on right */}
           <PanelGroup direction="horizontal" className="!hidden md:!flex flex-1 overflow-hidden">
             {/* Map Panel */}
-            <Panel defaultSize={60} minSize={30} className="relative" style={{ minHeight: '400px' }}>
+            <Panel defaultSize={60} minSize={30} className="relative bg-gray-100" style={{ minHeight: '400px' }}>
               <div className="absolute inset-0">
               {isDesktopLayout && shouldShowMap && (
                 isShowingJobs ? (

@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
+import { revalidateTag } from "next/cache"
 
 // POST /api/jobs/[id]/confirm
 // Body: { company_id }  — company_profiles.id of the tradesperson to confirm
@@ -79,6 +80,7 @@ export async function POST(
       return NextResponse.json({ error: rpcError.message }, { status: 422 })
     }
 
+    revalidateTag(`jobs-user-${user.id}`)
     // Notify tradesperson — fire and forget (pass conversationId so the link goes directly to the chat)
     notifyTradespersonSelected(jobId, company_id, job as any, conversationId, admin).catch(console.error)
 

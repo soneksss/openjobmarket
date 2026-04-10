@@ -3,11 +3,12 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
 
-import { useEffect, useMemo, useRef, useState, memo } from "react"
+import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import dynamic from "next/dynamic"
 import { useLanguageRegion } from "@/contexts/language-region-context"
 import { getDefaultMapCenter } from "@/lib/i18n/language-region"
+import { createClient } from "@/lib/client"
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
@@ -126,6 +127,73 @@ const MapClickHandler = dynamic(
   { ssr: false },
 )
 
+interface ViewportBounds {
+  north: number
+  south: number
+  east: number
+  west: number
+}
+
+// Listens to moveend + zoomend, debounces 300ms, emits viewport bounds.
+// Defined outside JobMap so the dynamic import runs once, not on every render.
+const ViewportHandler = dynamic(
+  () =>
+    Promise.all([import("react-leaflet"), import("react")]).then(([leafletMod, reactMod]) => {
+      const { useMapEvents } = leafletMod
+      const { useEffect, useRef } = reactMod
+
+      function boundsChangedSignificantly(prev: ViewportBounds, next: ViewportBounds): boolean {
+        const latDiff = Math.abs(prev.north - next.north) + Math.abs(prev.south - next.south)
+        const lngDiff = Math.abs(prev.east  - next.east)  + Math.abs(prev.west  - next.west)
+        return latDiff + lngDiff > 0.02
+      }
+
+      function ViewportHandlerComponent({
+        onViewportChange,
+      }: {
+        onViewportChange: (bounds: ViewportBounds) => void
+      }) {
+        const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null)
+        const prevBoundsRef = useRef<ViewportBounds | null>(null)
+
+        const emit = (map: any) => {
+          if (debounceRef.current) clearTimeout(debounceRef.current)
+          debounceRef.current = setTimeout(() => {
+            const b = map.getBounds()
+            const bounds: ViewportBounds = {
+              north: b.getNorth(),
+              south: b.getSouth(),
+              east:  b.getEast(),
+              west:  b.getWest(),
+            }
+            if (!prevBoundsRef.current || boundsChangedSignificantly(prevBoundsRef.current, bounds)) {
+              prevBoundsRef.current = bounds
+              onViewportChange(bounds)
+            }
+          }, 300)
+        }
+
+        const map = useMapEvents({
+          moveend: () => emit(map),
+          zoomend: () => emit(map),
+        })
+
+        // Fire once immediately after map is ready (initial load)
+        useEffect(() => {
+          map.whenReady(() => emit(map))
+          return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+          }
+        }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+        return null
+      }
+
+      return ViewportHandlerComponent
+    }),
+  { ssr: false },
+)
+
 // Component to center map on selected job
 const JobCenterer = dynamic(
   () =>
@@ -189,7 +257,10 @@ interface Job {
 }
 
 interface JobMapProps {
-  jobs: Job[]
+  jobs?: Job[]
+  /** When true, ignores the jobs prop after first render and re-fetches on every
+   *  map moveend/zoomend via get_jobs_in_viewport RPC (debounced 300ms). */
+  enableViewportSearch?: boolean
   center?: [number, number]
   zoom?: number
   height?: string
@@ -204,7 +275,8 @@ interface JobMapProps {
 }
 
 export function JobMap({
-  jobs,
+  jobs = [],
+  enableViewportSearch = false,
   center,
   zoom = 6,
   height = "500px",
@@ -220,6 +292,31 @@ export function JobMap({
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [tilesReady, setTilesReady] = useState(false)
   const tileLoadCount = useRef(0)
+
+  // Viewport search state — populated after first moveend/zoomend when enabled
+  const [viewportJobs, setViewportJobs] = useState<Job[]>([])
+  const [viewportFetched, setViewportFetched] = useState(false)
+  const supabase = useMemo(() => createClient(), [])
+
+  const requestIdRef = useRef(0)
+
+  const handleViewportChange = useCallback(async (bounds: ViewportBounds) => {
+    requestIdRef.current += 1
+    const requestId = requestIdRef.current
+    try {
+      const { data, error } = await supabase.rpc('get_jobs_in_viewport', bounds)
+      if (requestId !== requestIdRef.current) return // superseded by a newer request
+      if (error) {
+        debug('[JOB-MAP] Viewport RPC error:', error.message)
+        return
+      }
+      setViewportJobs((data as Job[]) ?? [])
+      setViewportFetched(true)
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return
+      debug('[JOB-MAP] Viewport fetch failed:', err)
+    }
+  }, [supabase])
 
   // Get language/region context for default map center
   const { state: languageRegionState } = useLanguageRegion()
@@ -287,9 +384,13 @@ export function JobMap({
   const validCenter: [number, number] =
     center && center[0] && center[1] && !isNaN(center[0]) && !isNaN(center[1]) ? center : defaultCenter
 
+  // After the first viewport fetch completes, use live results; otherwise fall back to
+  // the prop (server-rendered initial data or empty array).
+  const displayJobs = enableViewportSearch && viewportFetched ? viewportJobs : jobs
+
   const jobsWithCoordinates = useMemo(
-    () => jobs.filter((job) => job.latitude && job.longitude && !isNaN(job.latitude) && !isNaN(job.longitude)),
-    [jobs],
+    () => displayJobs.filter((job) => job.latitude && job.longitude && !isNaN(job.latitude) && !isNaN(job.longitude)),
+    [displayJobs],
   )
 
   const formatSalary = (min?: number, max?: number) => {
@@ -306,24 +407,25 @@ export function JobMap({
   return (
     <div className="w-full h-full relative">
       <style>{`@keyframes pulse{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.6);opacity:.1}}`}</style>
-      {/* Skeleton overlay — shown until tiles are painted, prevents the blue Leaflet background flash */}
-      {!tilesReady && <Skeleton className="absolute inset-0 rounded-lg z-[1000]" />}
-      <div
-        className="w-full h-full"
-        style={{ opacity: tilesReady ? 1 : 0, transition: 'opacity 0.2s ease' }}
-      >
-      <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%", background: "#f3f4f6" }} className="rounded-lg" zoomControl={false} {...({} as any)}>
+      {/* Solid cover — hides the map (including any blue ocean tiles) until enough tiles have painted */}
+      {!tilesReady && (
+        <div className="absolute inset-0 rounded-lg bg-slate-200 z-[1000]" />
+      )}
+      <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%", background: "#e2e8f0" }} className="rounded-lg" zoomControl={false} {...({} as any)}>
         <ZoomControl position="bottomleft" {...({} as any)} />
         <MapSizeHandler />
-        <JobCenterer selectedJob={selectedJobId ? jobs.find(j => j.id === selectedJobId) : null} />
+        <JobCenterer selectedJob={selectedJobId ? displayJobs.find(j => j.id === selectedJobId) : null} />
+        {enableViewportSearch && (
+          <ViewportHandler onViewportChange={handleViewportChange} />
+        )}
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           eventHandlers={{
+            load: () => { if (!tilesReady) setTilesReady(true) },
             tileload: () => {
               tileLoadCount.current += 1
-              // Reveal after 4 tiles — enough for a coherent view without waiting for all tiles
-              if (!tilesReady && tileLoadCount.current >= 4) setTilesReady(true)
+              if (!tilesReady && tileLoadCount.current >= 12) setTilesReady(true)
             },
           }}
           {...({} as any)}
@@ -397,7 +499,6 @@ export function JobMap({
         {/* Map click handler component */}
         {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
       </MapContainer>
-      </div>
     </div>
   )
 }

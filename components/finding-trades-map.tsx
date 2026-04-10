@@ -37,10 +37,13 @@ export default function FindingTradesMap({
 
   /* ── initialise map once ── */
   useEffect(() => {
-    if (!document.querySelector('link[href*="leaflet@1"]')) {
+    if (!(window as any).__leafletCssLoaded) {
       const link = document.createElement("link")
       link.rel = "stylesheet"
       link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      link.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      link.crossOrigin = ""
+      link.onload = () => { (window as any).__leafletCssLoaded = true }
       document.head.appendChild(link)
     }
 
@@ -129,10 +132,21 @@ export default function FindingTradesMap({
       }, 90)
     }
 
-    if (window.L) { init() } else {
+    if (window.L) {
+      init()
+    } else if ((window as any).__leafletLoading) {
+      // Another component is mid-load — poll until ready
+      const poll = setInterval(() => {
+        if (window.L) { clearInterval(poll); init() }
+      }, 50)
+    } else {
+      ;(window as any).__leafletLoading = true
       const script = document.createElement("script")
       script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      script.onload = init
+      script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      script.crossOrigin = ""
+      script.onload = () => { ;(window as any).__leafletLoading = false; init() }
+      script.onerror = () => { ;(window as any).__leafletLoading = false }
       document.head.appendChild(script)
     }
 

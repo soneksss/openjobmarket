@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
+import { revalidateTag } from "next/cache"
 
 /**
  * POST /api/jobs
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
 
+    revalidateTag(`jobs-user-${user.id}`)
     console.log("[POST /api/jobs] Job created:", payload.id)
     return NextResponse.json({ success: true, jobId: payload.id })
 

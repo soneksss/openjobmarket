@@ -299,7 +299,13 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
         )}
 
         {/* Applications */}
-        <HomeownerJobDetailsContent job={job} applications={applications || []} homeownerUserId={user.id} />
+        <HomeownerJobDetailsContent
+          job={job}
+          applications={applications || []}
+          homeownerUserId={user.id}
+          homeownerName={`${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim()}
+          homeownerAddress={profile.location ?? ""}
+        />
 
         {/* Expired warning */}
         {!isActive && (

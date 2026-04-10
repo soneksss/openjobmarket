@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { ArrowLeft, MapPin, Clock, CheckCircle2, Briefcase, MessageCircle, History } from "lucide-react"
 import Link from "next/link"
 import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
+import { MarkJobCompleteButton } from "@/components/mark-job-complete-button"
 
 export const dynamic = "force-dynamic"
 
@@ -186,7 +187,7 @@ export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
                     )}
 
                     {/* Actions */}
-                    <div className="flex gap-2 mt-3">
+                    <div className="flex gap-2 mt-3 flex-wrap">
                       {homeowner?.user_id && (
                         <Link
                           href={`/messages/${homeowner.user_id}?job=${job.id}`}
@@ -202,6 +203,9 @@ export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
                       >
                         View Job
                       </Link>
+                      {!isCompleted && (
+                        <MarkJobCompleteButton jobId={job.id} jobTitle={job.title} />
+                      )}
                     </div>
                   </div>
                 </div>

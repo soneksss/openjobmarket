@@ -1,12 +1,14 @@
 "use client"
 
 import type React from "react"
+import { useEffect } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import { Toaster } from "@/components/toaster"
 import { MobileBottomNav } from "@/components/mobile-bottom-nav"
 import { useAutoLogout } from "@/hooks/use-auto-logout"
+import { createClient } from "@/lib/client"
 import { I18nProvider } from "@/lib/i18n/context"
 import { getLocaleFromPathname, type Locale } from "@/lib/i18n/config"
 import { LanguageRegionProvider } from "@/contexts/language-region-context"
@@ -21,11 +23,12 @@ interface LayoutContentProps {
   children: React.ReactNode
   user: any
   userType: string | null
+  isAdmin?: boolean
   serverLocale?: Locale
 }
 
 /* Inner component — can safely use useActiveSearch (provided above it) */
-function LayoutInner({ children, user, userType, serverLocale }: LayoutContentProps) {
+function LayoutInner({ children, user, userType, isAdmin, serverLocale }: LayoutContentProps) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const isAdminRoute = pathname?.startsWith("/admin")
@@ -75,6 +78,19 @@ function LayoutInner({ children, user, userType, serverLocale }: LayoutContentPr
   // Enable auto-logout for authenticated users
   useAutoLogout()
 
+  // Background session drift protection — runs once on mount, never blocks rendering.
+  // Validates the local INITIAL_SESSION against the Supabase server.
+  // Only signs out on a clean "no user" response — network errors are ignored so a
+  // flaky connection can never log someone out.
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (!error && !data.user) {
+        supabase.auth.signOut()
+      }
+    })
+  }, [])
+
   if (isAdminRoute) {
     return (
       <I18nProvider initialLocale={locale}>
@@ -90,7 +106,7 @@ function LayoutInner({ children, user, userType, serverLocale }: LayoutContentPr
   return (
     <I18nProvider initialLocale={locale}>
       <LanguageRegionProvider initialState={getInitialLanguageRegionState()}>
-        <Header user={user} userType={(userType as "company" | "professional" | undefined) || undefined} dark={true} />
+        <Header user={user} userType={(userType as "company" | "professional" | undefined) || undefined} isAdmin={isAdmin} dark={true} />
         {/* Sticky bar shown when user has minimised an active trade search */}
         <ActiveSearchBar userType={userType} userId={user?.id} />
         {/* Live urgent job alert for company (tradesperson) users */}
@@ -127,3 +143,4 @@ export function LayoutContent(props: LayoutContentProps) {
     </ActiveSearchProvider>
   )
 }
+

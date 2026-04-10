@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
+import { revalidateTag } from "next/cache"
 
 /**
  * DELETE /api/jobs/[id]
@@ -69,6 +70,7 @@ export async function DELETE(
       return NextResponse.json({ error: deleteError.message }, { status: 500 })
     }
 
+    revalidateTag(`jobs-user-${user.id}`)
     console.log("[DELETE /api/jobs/[id]] Deleted job:", jobId)
     return NextResponse.json({ success: true })
 

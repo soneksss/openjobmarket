@@ -14,6 +14,8 @@ type Props = {
   companyProfile: any
   userType: "company" | "homeowner"
   redirectPath?: string // Optional redirect path after successful job posting
+  initialIndustry?: string
+  initialService?: string
 }
 
 type JobFormData = {
@@ -406,7 +408,7 @@ const getAllLanguages = (isPtBR: boolean) =>
     name: isPtBR ? v.ptBR : v.en,
   }))
 
-export default function JobWizardModal({ companyProfile, userType, redirectPath }: Props) {
+export default function JobWizardModal({ companyProfile, userType, redirectPath, initialIndustry, initialService }: Props) {
   const supabase = createClient()
   const router = useRouter()
   const { toast } = useToast()
@@ -456,6 +458,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
   }
 
   // Autocomplete state
+  const [showIndustryDropdown, setShowIndustryDropdown] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([])
   const [languageInput, setLanguageInput] = useState("")
@@ -468,8 +471,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
     urgencyType: "",
     flexibleDays: 1,
     profession: "",
-    industry: "",
-    service: "",
+    industry: initialIndustry ?? "",
+    service: initialService ?? "",
     shortDescription: "",
     longDescription: "",
     payMin: "",
@@ -992,14 +995,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
       const isFlexible = formData.urgencyType === "flexible"
 
       if (isFlexible) {
-        // Flexible jobs: simple confirmation, no live-tracking, no active search bar
-        toast({
-          title: "✅ Job Posted!",
-          description: "Your job is live on the map. Nearby tradespeople have been notified.",
-          variant: "default",
-        })
+        // Flexible jobs: redirect to jobs list with confirmation banner
         setLoading(false)
-        router.push(`/jobs/${jobId}`)
+        router.push(`/dashboard/homeowner/jobs?posted=${jobId}`)
       } else {
         // Urgent (ASAP/Today): uber-style live tracking
         toast({
@@ -1065,7 +1063,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
         }
 
         return (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {/* Vacancy shortcut for company users */}
             {userType === "company" && vacancyEnabled && (
               <div className="text-center">
@@ -1079,27 +1077,50 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
               </div>
             )}
 
-            <h3 className="text-lg font-semibold text-white">Job / Task Details</h3>
+            <h3 className="text-base font-semibold text-white">Job / Task Details</h3>
 
             {/* Industry dropdown */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-white">
+              <label className="block text-sm font-medium mb-1 text-white">
                 Type of trade needed <span className="text-red-400">*</span>
               </label>
               <div className="relative">
-                <select
-                  value={formData.industry}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, industry: e.target.value, service: "" }))}
-                  className="w-full border rounded-xl p-3 pr-10 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white appearance-none"
+                {/* Custom trade picker — larger touch targets than native <select> */}
+                <button
+                  type="button"
+                  onClick={() => setShowIndustryDropdown((v) => !v)}
+                  className="w-full flex items-center justify-between border rounded-xl px-4 py-3 shadow-sm bg-slate-700 border-slate-600 text-white text-base focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <option value="">Select a trade…</option>
-                  {TRADE_INDUSTRIES.map((ind) => (
-                    <option key={ind.title} value={ind.title}>
-                      {ind.icon} {ind.title}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  <span className={formData.industry ? "text-white" : "text-slate-400"}>
+                    {formData.industry
+                      ? `${TRADE_INDUSTRIES.find(i => i.title === formData.industry)?.icon ?? ""} ${formData.industry}`
+                      : "Select a trade…"}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showIndustryDropdown ? "rotate-180" : ""}`} />
+                </button>
+
+                {showIndustryDropdown && (
+                  <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-y-auto max-h-[calc(70vh-5rem)]">
+                    {TRADE_INDUSTRIES.map((ind) => (
+                      <button
+                        key={ind.title}
+                        type="button"
+                        onClick={() => {
+                          setFormData((prev) => ({ ...prev, industry: ind.title, service: "" }))
+                          setShowIndustryDropdown(false)
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-700/50 last:border-0 ${
+                          formData.industry === ind.title
+                            ? "bg-emerald-600/20 text-emerald-300"
+                            : "text-slate-100 hover:bg-slate-700 active:bg-slate-600"
+                        }`}
+                      >
+                        <span className="text-lg">{ind.icon}</span>
+                        <span>{ind.title}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1109,7 +1130,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
               if (!selectedInd || selectedInd.services.length === 0) return null
               return (
                 <div>
-                  <label className="block text-sm font-medium mb-2 text-white">
+                  <label className="block text-sm font-medium mb-1 text-white">
                     Specific service{" "}
                     <span className="text-slate-400 font-normal text-xs">(recommended)</span>
                   </label>
@@ -1117,11 +1138,11 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                     <select
                       value={formData.service}
                       onChange={(e) => setFormData((prev) => ({ ...prev, service: e.target.value }))}
-                      className="w-full border rounded-xl p-3 pr-10 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white appearance-none"
+                      className="w-full border rounded-xl p-3 pr-10 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white text-base appearance-none"
                     >
                       <option value="">Not sure / Any</option>
                       {selectedInd.services.map((svc) => (
-                        <option key={svc} value={svc}>{svc}</option>
+                        <option key={svc} value={svc} className="text-base py-3">{svc}</option>
                       ))}
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -1135,30 +1156,30 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-white">
+              <label className="block text-sm font-medium mb-1 text-white">
                 Description <span className="text-red-400">*</span>
               </label>
               <textarea
                 value={formData.shortDescription}
                 onChange={(e) => setFormData((prev) => ({ ...prev, shortDescription: e.target.value }))}
-                className="w-full h-32 border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                className="w-full h-28 border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 text-sm"
                 placeholder="Describe the job (size, problem, location in house)"
                 maxLength={1000}
               />
-              <p className="text-xs text-slate-400 mt-1">{formData.shortDescription.length}/1000</p>
+              <p className="text-xs text-slate-500 mt-0.5">{formData.shortDescription.length}/1000</p>
             </div>
 
             {/* Budget */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-white">Budget (optional)</label>
-              <div className="grid grid-cols-2 gap-2 md:gap-4">
+              <label className="block text-sm font-medium mb-1 text-white">Budget (optional)</label>
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-slate-400 mb-1">Min £</label>
                   <input
                     type="number"
                     value={formData.payMin}
                     onChange={(e) => setFormData((prev) => ({ ...prev, payMin: e.target.value }))}
-                    className="w-full border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                    className="w-full border rounded-xl p-2.5 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
                     placeholder="0"
                   />
                 </div>
@@ -1168,7 +1189,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
                     type="number"
                     value={formData.payMax}
                     onChange={(e) => setFormData((prev) => ({ ...prev, payMax: e.target.value }))}
-                    className="w-full border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                    className="w-full border rounded-xl p-2.5 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
                     placeholder="0"
                   />
                 </div>
@@ -1177,10 +1198,11 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
 
             {/* Photo */}
             <div>
-              <label className="block text-sm font-medium mb-2 text-white">Photo (optional)</label>
-              <p className="text-xs text-slate-400 mb-2">Add a photo to help tradespeople understand the job</p>
+              <label className="block text-sm font-medium mb-1 text-white">
+                Photo <span className="text-slate-500 font-normal text-xs">(optional)</span>
+              </label>
               {!formData.jobPhotoUrl ? (
-                <div className="border-2 border-dashed border-slate-600 rounded-xl p-4 text-center bg-slate-800/50">
+                <div className="border-2 border-dashed border-slate-600 rounded-xl p-3 text-center bg-slate-800/50">
                   <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" id="job-photo-gallery" />
                   <input type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} className="hidden" id="job-photo-camera" />
                   <div className="flex gap-3 justify-center">
@@ -1602,7 +1624,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath 
             </div>
 
             {/* Content */}
-            <div className="flex-1 min-h-0 p-4 md:p-6 pb-36 md:pb-6 overflow-y-auto bg-slate-900 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+            <div className="flex-1 min-h-0 p-4 md:p-6 pb-40 md:pb-6 overflow-y-auto bg-slate-900 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
               {renderStep()}
               {err && <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 text-sm rounded-lg">{err}</div>}
             </div>

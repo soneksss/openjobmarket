@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { LandingPage } from "@/components/landing-page"
-import { getAdminUser } from "@/lib/admin-auth"
 import { createClient } from "@/lib/server"
+import { getHomePageBootstrap } from "@/lib/bootstrap"
 import Link from "next/link"
 import { generateSEO } from "@/lib/seo"
 import { HomeClientWrapper } from "@/components/home-client-wrapper"
@@ -9,7 +9,6 @@ import { HomeClientWrapper } from "@/components/home-client-wrapper"
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
 
-// SEO Metadata
 export const metadata = generateSEO({
   title: 'Find Local Tradespeople & Post Jobs | Open Job Market',
   description: 'The fastest way to connect homeowners with local tradespeople. Post jobs in seconds, get fast replies from nearby trades. Free to post, no subscription required.',
@@ -17,78 +16,27 @@ export const metadata = generateSEO({
   locale: 'en',
 })
 
-
 export default async function HomePage() {
-
-  // Check if current user is an admin - don't block page rendering if this fails
-  let adminUser = null
-  try {
-    adminUser = await getAdminUser()
-  } catch (error) {
-    console.warn("Failed to check admin user:", error)
-    // Continue rendering page without admin check
-  }
-
-  // Check if user is logged in and get user type
+  // createClient() has AbortSignal.timeout(3000) on every fetch — no separate withTimeout needed
   const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
 
-  let userType: string | null = null
-  if (user) {
-    const { data: userData } = await supabase
-      .from("users")
-      .select("user_type")
-      .eq("id", user.id)
-      .single()
-
-    userType = userData?.user_type || null
+  // Round-trip 1: auth
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user ?? null
+  } catch {
+    // AbortError (timeout) or ECONNRESET — render as signed out
   }
 
-  // Fetch profile location + skills server-side (no client race condition)
-  let profileLocation: { location: string; latitude: number; longitude: number } | null = null
-  let profileSkills: string[] = []
-  let profileIndustry: string | null = null
-  let profileServices: string[] = []
-  if (user) {
-    const { data: cp } = await supabase
-      .from("company_profiles")
-      .select("location, latitude, longitude, industry, services")
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (cp?.latitude && cp?.longitude) {
-      profileLocation = { location: cp.location || "", latitude: cp.latitude, longitude: cp.longitude }
-    }
-    if (cp) {
-      profileIndustry = cp.industry || null
-      profileServices = Array.isArray(cp.services) ? cp.services.filter(Boolean) : []
-      // Combine for legacy skills-based fallback
-      const skills: string[] = []
-      if (cp.industry) skills.push(cp.industry)
-      if (Array.isArray(cp.services)) skills.push(...cp.services)
-      profileSkills = skills.filter(Boolean)
-    }
-
-    if (!cp) {
-      const { data: pp } = await supabase
-        .from("professional_profiles")
-        .select("location, latitude, longitude, skills, title")
-        .eq("user_id", user.id)
-        .maybeSingle()
-
-      if (pp?.latitude && pp?.longitude) {
-        profileLocation = { location: pp.location || "", latitude: pp.latitude, longitude: pp.longitude }
-      }
-      const skills: string[] = []
-      if (pp?.title) skills.push(pp.title)
-      if (Array.isArray(pp?.skills)) skills.push(...pp.skills)
-      profileSkills = skills.filter(Boolean)
-    }
-  }
+  // Round-trip 2+: profile + adminSettings — served from cache, Supabase only on miss
+  const bootstrap = await getHomePageBootstrap(user)
+  const { adminSettings, userType, profileLocation, profileSkills, profileIndustry, profileServices } = bootstrap
+  const isAdmin = userType === 'admin'
 
   return (
     <HomeClientWrapper>
-      {adminUser && (
+      {isAdmin && (
         <div className="w-full bg-slate-800 border-b border-slate-700 py-1.5">
           <div className="container mx-auto px-4">
             <div className="flex justify-center">
@@ -110,6 +58,7 @@ export default async function HomePage() {
         isSignedIn={!!user}
         user={user}
         userType={userType}
+        adminSettings={adminSettings}
         profileLocation={profileLocation}
         profileSkills={profileSkills}
         profileIndustry={profileIndustry}

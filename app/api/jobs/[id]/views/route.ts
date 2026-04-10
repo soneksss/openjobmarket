@@ -1,95 +1,70 @@
-import { createClient } from "@/lib/server"
+import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id: jobId } = await params
     const supabase = await createClient()
 
-    // Get the current user (optional - views can be tracked for anonymous users too)
     const { data: { user } } = await supabase.auth.getUser()
 
-    // Get the job to verify it exists and get current views_count
-    const { data: job, error: fetchError } = await supabase
+    // Use admin client so the UPDATE is never blocked by RLS
+    const admin = createAdminClient()
+
+    // Verify job exists + get owner IDs
+    const { data: job, error: fetchError } = await admin
       .from("jobs")
       .select("id, views_count, company_id, homeowner_id")
       .eq("id", jobId)
-      .single()
+      .maybeSingle()
 
     if (fetchError || !job) {
-      return NextResponse.json(
-        { error: "Job not found" },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: "Job not found" }, { status: 404 })
     }
 
-    // Don't count view if the viewer is the job owner
+    // Don't count views from the job owner
     if (user) {
-      // Check if user is the company owner
       if (job.company_id) {
-        const { data: companyProfile } = await supabase
+        const { data: cp } = await admin
           .from("company_profiles")
           .select("user_id")
           .eq("id", job.company_id)
-          .single()
-
-        if (companyProfile?.user_id === user.id) {
-          return NextResponse.json({
-            success: true,
-            views_count: job.views_count || 0,
-            skipped: true,
-            reason: "owner_view"
-          })
+          .maybeSingle()
+        if (cp?.user_id === user.id) {
+          return NextResponse.json({ success: true, views_count: job.views_count ?? 0, skipped: true })
         }
       }
-
-      // Check if user is the homeowner owner
       if (job.homeowner_id) {
-        const { data: homeownerProfile } = await supabase
+        const { data: hp } = await admin
           .from("homeowner_profiles")
           .select("user_id")
           .eq("id", job.homeowner_id)
-          .single()
-
-        if (homeownerProfile?.user_id === user.id) {
-          return NextResponse.json({
-            success: true,
-            views_count: job.views_count || 0,
-            skipped: true,
-            reason: "owner_view"
-          })
+          .maybeSingle()
+        if (hp?.user_id === user.id) {
+          return NextResponse.json({ success: true, views_count: job.views_count ?? 0, skipped: true })
         }
       }
     }
 
-    // Increment the views_count
-    const newViewsCount = (job.views_count || 0) + 1
-
-    const { error: updateError } = await supabase
+    // Atomic increment via admin client (bypasses RLS that would block a viewer updating the job)
+    const { data: updated, error: updateError } = await admin
       .from("jobs")
-      .update({ views_count: newViewsCount })
+      .update({ views_count: (job.views_count ?? 0) + 1 })
       .eq("id", jobId)
+      .select("views_count")
+      .maybeSingle()
 
     if (updateError) {
-      console.error("[JOB-VIEWS] Error updating views count:", updateError)
-      return NextResponse.json(
-        { error: "Failed to update views count" },
-        { status: 500 }
-      )
+      console.error("[JOB-VIEWS] Update error:", updateError.message)
+      return NextResponse.json({ error: "Failed to update views" }, { status: 500 })
     }
 
-    return NextResponse.json({
-      success: true,
-      views_count: newViewsCount
-    })
+    return NextResponse.json({ success: true, views_count: updated?.views_count ?? (job.views_count ?? 0) + 1 })
   } catch (error) {
     console.error("[JOB-VIEWS] Unexpected error:", error)
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }

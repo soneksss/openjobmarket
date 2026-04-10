@@ -30,6 +30,25 @@ import {
   LogIn,
   Info,
   Briefcase,
+  Flame,
+  BatteryCharging,
+  Building2,
+  Layers,
+  Paintbrush,
+  LayoutGrid,
+  Hammer,
+  UtensilsCrossed,
+  Leaf,
+  TreePine,
+  Grid3x3,
+  Key,
+  Package,
+  Trash2,
+  Truck,
+  DoorOpen,
+  Shield,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import Link from "next/link"
@@ -70,20 +89,54 @@ interface LandingPageProps {
   isSignedIn: boolean
   user?: any
   userType?: string | null
+  adminSettings?: { vacanciesJobseekersEnabled: boolean }
   profileLocation?: { location: string; latitude: number; longitude: number } | null
   profileSkills?: string[]
   profileIndustry?: string | null
   profileServices?: string[]
 }
 
-// Problem-based help items
+// Problem-based help items — industry/service values match TRADE_INDUSTRIES exactly
 const helpItems = [
-  { label: "Fix a leak",      icon: Droplets,   searchTerm: "Plumber",     category: "Plumbing",   iconBg: "bg-blue-500/15",   iconColor: "text-blue-400",   border: "hover:border-blue-500/50",   shadow: "group-hover:shadow-blue-500/20"   },
-  { label: "Electrical work", icon: Zap,         searchTerm: "Electrician", category: "Electrical", iconBg: "bg-yellow-500/15", iconColor: "text-yellow-400", border: "hover:border-yellow-500/50", shadow: "group-hover:shadow-yellow-500/20" },
-  { label: "Painting",        icon: PaintBucket, searchTerm: "Painter",     category: "Painting",   iconBg: "bg-pink-500/15",   iconColor: "text-pink-400",   border: "hover:border-pink-500/50",   shadow: "group-hover:shadow-pink-500/20"   },
-  { label: "Cleaning",        icon: Sparkles,    searchTerm: "Cleaner",     category: "Cleaning",   iconBg: "bg-purple-500/15", iconColor: "text-purple-400", border: "hover:border-purple-500/50", shadow: "group-hover:shadow-purple-500/20" },
-  { label: "Mount TV",        icon: Tv,          searchTerm: "Handyman",    category: "Handyman",   iconBg: "bg-cyan-500/15",   iconColor: "text-cyan-400",   border: "hover:border-cyan-500/50",   shadow: "group-hover:shadow-cyan-500/20"   },
-  { label: "Repairs",         icon: Wrench,      searchTerm: "Handyman",    category: "Repairs",    iconBg: "bg-orange-500/15", iconColor: "text-orange-400", border: "hover:border-orange-500/50", shadow: "group-hover:shadow-orange-500/20" },
+  // Plumbing & Heating
+  { label: "Fix a leak",         icon: Droplets,        category: "Plumbing",          industry: "Plumbing & Heating",      service: "Plumber",                 iconBg: "bg-blue-500/20",    iconColor: "text-blue-400",    border: "hover:border-blue-500/40",    shadow: "group-hover:shadow-blue-500/10"    },
+  { label: "Boiler repair",      icon: Flame,           category: "Plumbing",          industry: "Plumbing & Heating",      service: "Boiler Repair",           iconBg: "bg-blue-500/20",    iconColor: "text-blue-400",    border: "hover:border-blue-500/40",    shadow: "group-hover:shadow-blue-500/10"    },
+  // Electrical
+  { label: "Electrician",        icon: Zap,             category: "Electrical",        industry: "Electrical",              service: "Electrician",             iconBg: "bg-yellow-500/20",  iconColor: "text-yellow-400",  border: "hover:border-yellow-500/40",  shadow: "group-hover:shadow-yellow-500/10"  },
+  { label: "EV charger",         icon: BatteryCharging, category: "Electrical",        industry: "Electrical",              service: "EV Charger Installation", iconBg: "bg-yellow-500/20",  iconColor: "text-yellow-400",  border: "hover:border-yellow-500/40",  shadow: "group-hover:shadow-yellow-500/10"  },
+  // Construction & Renovation
+  { label: "Extension",          icon: Building2,       category: "Construction",      industry: "Construction & Renovation", service: "Extension Specialist",  iconBg: "bg-stone-500/20",   iconColor: "text-stone-400",   border: "hover:border-stone-500/40",   shadow: "group-hover:shadow-stone-500/10"   },
+  { label: "Bricklaying",        icon: Layers,          category: "Construction",      industry: "Construction & Renovation", service: "Bricklayer",            iconBg: "bg-stone-500/20",   iconColor: "text-stone-400",   border: "hover:border-stone-500/40",   shadow: "group-hover:shadow-stone-500/10"   },
+  // Plastering & Rendering
+  { label: "Plastering",         icon: Paintbrush,      category: "Plastering",        industry: "Plastering & Rendering",  service: "Plasterer",               iconBg: "bg-amber-500/20",   iconColor: "text-amber-400",   border: "hover:border-amber-500/40",   shadow: "group-hover:shadow-amber-500/10"   },
+  { label: "Rendering",          icon: LayoutGrid,      category: "Plastering",        industry: "Plastering & Rendering",  service: "Rendering Specialist",    iconBg: "bg-amber-500/20",   iconColor: "text-amber-400",   border: "hover:border-amber-500/40",   shadow: "group-hover:shadow-amber-500/10"   },
+  // Painting & Decorating
+  { label: "Painting",           icon: PaintBucket,     category: "Painting & Decorating", industry: "Painting & Decorating", service: "Painter & Decorator",  iconBg: "bg-pink-500/20",    iconColor: "text-pink-400",    border: "hover:border-pink-500/40",    shadow: "group-hover:shadow-pink-500/10"    },
+  { label: "Wallpapering",       icon: LayoutGrid,      category: "Painting & Decorating", industry: "Painting & Decorating", service: "Wallpapering",         iconBg: "bg-pink-500/20",    iconColor: "text-pink-400",    border: "hover:border-pink-500/40",    shadow: "group-hover:shadow-pink-500/10"    },
+  // Roofing
+  { label: "Roof repair",        icon: HardHat,         category: "Roofing",           industry: "Roofing",                 service: "Roof Repair",             iconBg: "bg-cyan-500/20",    iconColor: "text-cyan-400",    border: "hover:border-cyan-500/40",    shadow: "group-hover:shadow-cyan-500/10"    },
+  { label: "Guttering",          icon: Home,            category: "Roofing",           industry: "Roofing",                 service: "Guttering",               iconBg: "bg-cyan-500/20",    iconColor: "text-cyan-400",    border: "hover:border-cyan-500/40",    shadow: "group-hover:shadow-cyan-500/10"    },
+  // Carpentry & Joinery
+  { label: "Carpentry",          icon: Hammer,          category: "Carpentry",         industry: "Carpentry & Joinery",     service: "Carpenter",               iconBg: "bg-orange-500/20",  iconColor: "text-orange-400",  border: "hover:border-orange-500/40",  shadow: "group-hover:shadow-orange-500/10"  },
+  { label: "Kitchen fitting",    icon: UtensilsCrossed, category: "Carpentry",         industry: "Carpentry & Joinery",     service: "Kitchen Fitter",          iconBg: "bg-orange-500/20",  iconColor: "text-orange-400",  border: "hover:border-orange-500/40",  shadow: "group-hover:shadow-orange-500/10"  },
+  // Gardening & Landscaping
+  { label: "Gardening",          icon: Leaf,            category: "Gardening",         industry: "Gardening & Landscaping", service: "Gardener",                iconBg: "bg-green-500/20",   iconColor: "text-green-400",   border: "hover:border-green-500/40",   shadow: "group-hover:shadow-green-500/10"   },
+  { label: "Landscaping",        icon: TreePine,        category: "Gardening",         industry: "Gardening & Landscaping", service: "Landscaper",              iconBg: "bg-green-500/20",   iconColor: "text-green-400",   border: "hover:border-green-500/40",   shadow: "group-hover:shadow-green-500/10"   },
+  // Flooring & Tiling
+  { label: "Tiling",             icon: Grid3x3,         category: "Flooring",          industry: "Flooring & Tiling",       service: "Tiler",                   iconBg: "bg-teal-500/20",    iconColor: "text-teal-400",    border: "hover:border-teal-500/40",    shadow: "group-hover:shadow-teal-500/10"    },
+  { label: "Flooring",           icon: Layers,          category: "Flooring",          industry: "Flooring & Tiling",       service: "Flooring Specialist",     iconBg: "bg-teal-500/20",    iconColor: "text-teal-400",    border: "hover:border-teal-500/40",    shadow: "group-hover:shadow-teal-500/10"    },
+  // Cleaning
+  { label: "Cleaning",           icon: Sparkles,        category: "Cleaning",          industry: "Cleaning",                service: "Domestic Cleaner",        iconBg: "bg-violet-500/20",  iconColor: "text-violet-400",  border: "hover:border-violet-500/40",  shadow: "group-hover:shadow-violet-500/10"  },
+  { label: "End of tenancy",     icon: Key,             category: "Cleaning",          industry: "Cleaning",                service: "End of Tenancy Cleaner",  iconBg: "bg-violet-500/20",  iconColor: "text-violet-400",  border: "hover:border-violet-500/40",  shadow: "group-hover:shadow-violet-500/10"  },
+  // Handyman / Small Jobs
+  { label: "Handyman",           icon: Wrench,          category: "General Handyman",  industry: "Handyman / Small Jobs",   service: "Handyman",                iconBg: "bg-slate-500/25",   iconColor: "text-slate-300",   border: "hover:border-slate-400/40",   shadow: "group-hover:shadow-slate-500/10"   },
+  { label: "Furniture assembly", icon: Package,         category: "General Handyman",  industry: "Handyman / Small Jobs",   service: "Furniture Assembly",      iconBg: "bg-slate-500/25",   iconColor: "text-slate-300",   border: "hover:border-slate-400/40",   shadow: "group-hover:shadow-slate-500/10"   },
+  // Waste Removal
+  { label: "House clearance",    icon: Trash2,          category: "General Handyman",  industry: "Waste Removal",           service: "House Clearance",         iconBg: "bg-red-500/15",     iconColor: "text-red-400",     border: "hover:border-red-500/40",     shadow: "group-hover:shadow-red-500/10"     },
+  { label: "Man & Van",          icon: Truck,           category: "General Handyman",  industry: "Waste Removal",           service: "Man & Van",               iconBg: "bg-red-500/15",     iconColor: "text-red-400",     border: "hover:border-red-500/40",     shadow: "group-hover:shadow-red-500/10"     },
+  // Fencing & Gates
+  { label: "Fencing",            icon: Shield,          category: "Carpentry",         industry: "Fencing & Gates",         service: "Fence Installer",         iconBg: "bg-emerald-500/20", iconColor: "text-emerald-400", border: "hover:border-emerald-500/40", shadow: "group-hover:shadow-emerald-500/10" },
+  { label: "Gate installation",  icon: DoorOpen,        category: "Carpentry",         industry: "Fencing & Gates",         service: "Gate Installation",       iconBg: "bg-emerald-500/20", iconColor: "text-emerald-400", border: "hover:border-emerald-500/40", shadow: "group-hover:shadow-emerald-500/10" },
 ]
 
 // Build searchable list: subcategories + industry titles
@@ -108,7 +161,7 @@ const allLanguages = [
   "Azerbaijani", "Georgian", "Armenian", "Maltese", "Welsh", "Irish", "Scottish Gaelic"
 ].sort()
 
-export function LandingPage({ isSignedIn, user, userType, profileLocation: serverProfileLocation, profileSkills = [], profileIndustry = null, profileServices = [] }: LandingPageProps) {
+export function LandingPage({ isSignedIn, user, userType, adminSettings, profileLocation: serverProfileLocation, profileSkills = [], profileIndustry = null, profileServices = [] }: LandingPageProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -134,6 +187,11 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
   const [feedbackSubmitted, setFeedbackSubmitted] = useState<"like" | "dislike" | null>(null)
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
+
+  const categoryScrollRef = useRef<HTMLDivElement>(null)
+  const scrollCategories = (dir: "left" | "right") => {
+    categoryScrollRef.current?.scrollBy({ left: dir === "left" ? -260 : 260, behavior: "smooth" })
+  }
 
   // Map Picker state
   const [showMapPicker, setShowMapPicker] = useState(false)
@@ -281,14 +339,17 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
     router.push(`/?${params.toString()}`)
   }
 
-  const handleCategoryClick = (category: string) => {
+  const handleCategoryClick = (category: string, industry?: string, service?: string) => {
     if (!isSignedIn) {
       router.push("/auth/sign-up")
     } else if (userType === "company") {
       // Tradespeople browse jobs, they don't post them
       router.push("/")
     } else {
-      router.push(`/jobs/new?category=${encodeURIComponent(category)}`)
+      const params = new URLSearchParams({ category })
+      if (industry) params.set("industry", industry)
+      if (service) params.set("service", service)
+      router.push(`/jobs/new?${params.toString()}`)
     }
   }
 
@@ -482,7 +543,7 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
 
         {/* Main Search Component with results */}
         <div className="container mx-auto px-2 sm:px-4">
-          <MainPageSearch initialUser={user} initialUserType={userType} />
+          <MainPageSearch initialUser={user} initialUserType={userType} adminSettings={adminSettings} profileLocation={serverProfileLocation} />
         </div>
 
         {/* Mobile Bottom Nav — only for logged-out users; logged-in users use global MobileBottomNav */}
@@ -627,7 +688,7 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
                     <span className="text-white block" style={{ fontSize: '32px', lineHeight: '1.15' }}>No lead fees.</span>
                   </>
                 ) : (
-                  <div className="relative w-[calc(100%+2rem)] md:w-full overflow-hidden h-[320px] -mx-4 md:mx-0 md:rounded-2xl">
+                  <div className="relative w-[calc(100%+2rem)] md:w-full overflow-hidden h-[320px] md:h-[460px] -mx-4 md:mx-0 md:rounded-2xl bg-slate-900">
                     {/* LCP image — explicit <img> so browser can preload and optimise it */}
                     <img
                       src="/Tradespeople.jpg"
@@ -636,21 +697,24 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
                       fetchPriority="high"
                       loading="eager"
                       decoding="async"
-                      className="absolute inset-0 w-full h-full object-cover object-top"
+                      className="absolute inset-0 w-full h-full object-cover object-top md:object-contain md:object-center"
                     />
                     {/* Top gradient — keeps feedback icons readable */}
                     <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent" />
                     {/* Bottom fade — blends into page bg (#0f172a) */}
                     <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent to-[#0f172a]" />
-                    {/* Text starts from the vertical middle of the photo */}
-                    <div className="absolute inset-x-0 px-4" style={{ top: '22%' }}>
-                      <p className="font-black text-white leading-tight drop-shadow-lg" style={{ fontSize: '36px' }}>
-                        Find nearby tradespeople<br /><span className="text-emerald-400" style={{ fontSize: '36px' }}>in minutes.</span>
-                      </p>
-                      <p className="mt-3 font-semibold text-white/80 drop-shadow-md leading-snug" style={{ fontSize: '18px' }}>
-                        Like <span className="text-orange-400 font-bold">Uber</span> for urgent jobs
-                        <span className="mx-2 text-white/30">·</span>
-                        Like <span className="text-emerald-400 font-bold">Airbnb</span> for flexible projects
+                    {/* Activity ticker — top-left corner of hero photo */}
+                    <div className="absolute top-3 left-4">
+                      <ActivityTickerCard
+                        inline
+                        className="bg-slate-900/80 backdrop-blur-sm rounded-full px-3 py-1 border border-slate-700/50 justify-start"
+                        textClassName="text-[11px] font-semibold text-emerald-300 whitespace-nowrap"
+                      />
+                    </div>
+                    {/* Text anchored to the bottom of the photo, just above the search bar overlap */}
+                    <div className="absolute inset-x-0 bottom-16 md:bottom-4 px-4">
+                      <p className="font-black text-white drop-shadow-lg text-[20px] md:text-[28px]" style={{ lineHeight: '1.15' }}>
+                        Get multiple quotes from local tradespeople in minutes<br /><span className="text-emerald-400">— no middleman, no hassle</span>
                       </p>
                     </div>
                   </div>
@@ -693,22 +757,19 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
             {/* Dynamic Visual CTA - Changes based on active tab */}
             {activeTab === "jobs" ? null : (
               <div className="mb-6 -mt-16 md:mt-4 relative z-10">
-                {/* Action bar */}
+                {/* Fake search bar → opens job posting */}
                 <div
-                  className="flex items-center gap-2 bg-slate-800 border border-slate-600 hover:border-emerald-500 rounded-xl p-2 transition-all duration-200 cursor-pointer max-w-xl mx-auto shadow-lg shadow-black/30"
+                  className="flex items-center gap-3 bg-white hover:bg-gray-50 active:bg-gray-100 rounded-full px-4 py-3.5 transition-all duration-200 cursor-text max-w-xl mx-auto shadow-2xl shadow-black/40 group"
                   onClick={handlePostJob}
                 >
-                  <div className="flex-1 px-3 py-2.5 text-white text-sm sm:text-base select-none">
-                    What do you need help with today?
+                  {/* Left magnifier in orange circle */}
+                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-orange-500 group-hover:bg-orange-400 transition-colors flex items-center justify-center shadow-md shadow-orange-500/40">
+                    <Search className="h-4 w-4 text-white" />
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handlePostJob() }}
-                    className="flex-shrink-0 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-bold px-5 py-2.5 rounded-lg text-sm sm:text-base transition-colors whitespace-nowrap shadow-md shadow-emerald-500/30"
-                  >
-                    Post Job →
-                  </button>
+                  <span className="flex-1 text-gray-400 text-sm sm:text-base select-none font-medium">
+                    Describe your project or problem…
+                  </span>
                 </div>
-
               </div>
             )}
 
@@ -835,48 +896,56 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
 
               /* ── HOMEOWNERS: Premium map section ── */
               <div className="mt-2">
-                <h2 className="text-2xl sm:text-3xl font-semibold text-center mb-3 text-emerald-400">
-                  See trades near you — instantly.
+                <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-4">
+                  What do you need help with?
                 </h2>
 
-                {/* Map container */}
-                <div
-                  onClick={handleSearch}
-                  className="relative h-48 md:h-80 rounded-2xl overflow-hidden border border-slate-700/50 hover:border-emerald-400/60 transition-all duration-300 shadow-2xl shadow-black/60 cursor-pointer group"
-                >
-                  {/* Map image */}
-                  <img
-                    src="/live_map.jpg"
-                    alt="Live map of nearby trades"
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
+                {/* Category horizontal scroll */}
+                <div className="relative mb-6">
+                  {/* Left arrow */}
+                  <button
+                    onClick={() => scrollCategories("left")}
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-slate-700/90 border border-slate-600/60 text-slate-300 hover:text-white hover:bg-slate-600 transition-colors shadow-md"
+                    aria-label="Scroll left"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
 
-                  {/* Top label — live activity ticker */}
-                  <div className="absolute top-3 left-3 w-fit max-w-[calc(100%-24px)]">
-                    <ActivityTickerCard
-                      inline
-                      className="bg-slate-900/80 backdrop-blur-sm rounded-full px-3 py-1 border border-slate-700/50 justify-start"
-                      textClassName="text-[11px] font-semibold text-emerald-300 whitespace-nowrap"
-                    />
+                  {/* Scroll container */}
+                  <div
+                    ref={categoryScrollRef}
+                    className="flex gap-2 overflow-x-auto px-9 pb-1"
+                    style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                  >
+                    {helpItems.map((item) => (
+                      <button
+                        key={item.label}
+                        onClick={() => handleCategoryClick(item.category, item.industry, item.service)}
+                        className={`group flex-shrink-0 flex flex-col items-center gap-1.5 py-3 px-2.5 w-20 rounded-xl bg-slate-800/70 border border-slate-700/50 ${item.border} hover:bg-slate-800 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-sm hover:shadow-md ${item.shadow}`}
+                      >
+                        <div className={`w-8 h-8 rounded-lg ${item.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
+                          <item.icon className={`h-4 w-4 ${item.iconColor}`} />
+                        </div>
+                        <span className="text-[10px] font-semibold text-slate-300 group-hover:text-white transition-colors leading-tight text-center w-full">
+                          {item.label}
+                        </span>
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Gradient — subtle dark at bottom for button readability */}
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/60" />
-
-                  {/* Open Live Map button */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2">
-                    <div className="flex items-center gap-2 bg-emerald-500 group-hover:bg-emerald-400 active:bg-emerald-600 text-white px-6 py-2.5 rounded-full shadow-lg shadow-emerald-500/40 font-semibold text-sm transition-colors whitespace-nowrap">
-                      <Map className="h-4 w-4 flex-shrink-0" />
-                      Open Live Map
-                    </div>
-                  </div>
+                  {/* Right arrow */}
+                  <button
+                    onClick={() => scrollCategories("right")}
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-slate-700/90 border border-slate-600/60 text-slate-300 hover:text-white hover:bg-slate-600 transition-colors shadow-md"
+                    aria-label="Scroll right"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
                 </div>
 
-                {/* Trust strip — below map, 2×2 grid */}
+                {/* Trust strip — below category grid */}
                 {/* Trust items — no boxes */}
-                <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3">
+                <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 max-w-2xl mx-auto">
                   {[
                     { label: "Verified local trades",         sub: "Every trade is vetted" },
                     { label: "Real reviews & portfolios",     sub: "See their past work" },
@@ -948,32 +1017,6 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
         </div>
       </section>
 
-      {/* Category Grid — Homeowners tab only */}
-      {activeTab === "tradespeople" && (
-        <section className="py-8">
-          <div className="container mx-auto px-4">
-            <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6">
-              What do you need help with?
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-w-2xl mx-auto">
-              {helpItems.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => handleCategoryClick(item.category)}
-                  className={`group flex flex-col items-center gap-1.5 sm:gap-3 py-3 px-2 sm:py-6 sm:px-4 rounded-xl sm:rounded-2xl bg-slate-800/70 border border-slate-700/50 ${item.border} hover:bg-slate-800 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-sm hover:shadow-lg ${item.shadow}`}
-                >
-                  <div className={`w-7 h-7 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl ${item.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-                    <item.icon className={`h-3.5 w-3.5 sm:h-7 sm:w-7 ${item.iconColor}`} />
-                  </div>
-                  <span className="text-xs sm:text-base font-semibold text-slate-200 group-hover:text-white transition-colors leading-tight text-center">
-                    {item.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Value Props / How It Works — tab-aware */}
       <section className="py-6">
@@ -1442,7 +1485,8 @@ export function LandingPage({ isSignedIn, user, userType, profileLocation: serve
       <section className="py-10 border-t border-slate-800/50">
         <div className="container mx-auto px-4 max-w-2xl">
           <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-8">
-            Why Homeowners Choose <span className="text-emerald-400">Open Job Market</span>
+            Why Homeowners Choose{" "}
+            <span className="text-emerald-400 text-xl sm:text-2xl whitespace-nowrap">Open Job Market</span>
           </h2>
 
           <div className="grid grid-cols-2 gap-4">

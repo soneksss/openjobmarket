@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info, Map } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
 import { TradespersonMyJobsButton } from "@/components/tradesperson-my-jobs-button"
 import { useRouter, usePathname } from "next/navigation"
@@ -87,6 +87,8 @@ function HomeownerMyJobsButton({ userId }: { userId: string }) {
 interface HeaderProps {
   user?: any
   userType?: "professional" | "company"
+  /** Pre-resolved server-side — eliminates client-side admin status query */
+  isAdmin?: boolean
   showAuth?: boolean
   onSignOut?: () => void
   profilePhotoUrl?: string
@@ -97,7 +99,7 @@ interface HeaderProps {
   dark?: boolean
 }
 
-export function Header({ user, userType, showAuth = true, onSignOut, profilePhotoUrl, showProfessionalsPageButtons = false, isModal = false, onModalClose, dark = false }: HeaderProps) {
+export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true, onSignOut, profilePhotoUrl, showProfessionalsPageButtons = false, isModal = false, onModalClose, dark = false }: HeaderProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { t, locale } = useTranslation()
@@ -105,7 +107,7 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   const [clientUserType, setClientUserType] = useState(userType)
   const [isLoading, setIsLoading] = useState(false) // Don't show loading by default
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(serverIsAdmin ?? false)
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [showAboutModal, setShowAboutModal] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -138,86 +140,50 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
   useEffect(() => {
     const supabase = createClient()
 
-    // If we have a server user, check if they're an admin
-    if (user) {
-      const checkAdminStatus = async () => {
-        try {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('user_type')
-            .eq('id', user.id)
-            .single()
+    // If server already resolved admin status, skip the client-side query entirely
+    if (user && serverIsAdmin !== undefined) return
 
+    // Server user present but admin status not pre-resolved (e.g. non-layout render)
+    if (user) {
+      supabase
+        .from('users')
+        .select('user_type')
+        .eq('id', user.id)
+        .single()
+        .then(({ data: userData }) => {
           setIsAdmin(userData?.user_type === 'admin')
-        } catch (err) {
+        })
+        .catch((err) => {
           console.error('[HEADER] Failed to check admin status:', err)
-        }
-      }
-      checkAdminStatus()
+        })
       return
     }
 
-    // Initial auth check - only if no server user
-    const checkAuth = async () => {
-      try {
-        const { data: { user: authUser }, error } = await supabase.auth.getUser()
-
-        if (error) {
-          setClientUser(null)
-          setClientUserType(undefined)
-          return
-        }
-
-        if (authUser) {
-          // Fetch user type
-          const { data: userData } = await supabase
-            .from('users')
-            .select('user_type')
-            .eq('id', authUser.id)
-            .single()
-
-          setClientUser(authUser)
-          setClientUserType(userData?.user_type as "professional" | "company")
-          setIsAdmin(userData?.user_type === 'admin')
-        } else {
-          setClientUser(null)
-          setClientUserType(undefined)
-        }
-      } catch (err) {
-        console.error('[HEADER] Auth check failed:', err)
-      }
-    }
-
-    if (!user) {
-      checkAuth()
-    }
-
-    // Listen for auth state changes (only if no server user)
-    if (!user) {
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          // User just signed in
+    // No server user — use onAuthStateChange to detect current and future auth state.
+    // INITIAL_SESSION fires synchronously from local storage (no network call).
+    // This replaces the old getUser() approach which could hang and freeze navigation.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
+        try {
           const { data: userData } = await supabase
             .from('users')
             .select('user_type')
             .eq('id', session.user.id)
             .single()
-
           setClientUser(session.user)
           setClientUserType(userData?.user_type as "professional" | "company")
           setIsAdmin(userData?.user_type === 'admin')
-        } else if (event === 'SIGNED_OUT') {
-          // User signed out
-          setClientUser(null)
-          setClientUserType(undefined)
-          setIsAdmin(false)
+        } catch {
+          setClientUser(session.user)
         }
-      })
-
-      return () => {
-        subscription.unsubscribe()
+      } else if (event === 'SIGNED_OUT') {
+        setClientUser(null)
+        setClientUserType(undefined)
+        setIsAdmin(false)
       }
-    }
+    })
+
+    return () => { subscription.unsubscribe() }
   }, [user]) // Re-run if user prop changes
 
   const handleSignOut = async () => {
@@ -389,6 +355,16 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
 
           {showAuth && (
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Live Map — mobile only, homepage only, homeowners + logged-out users */}
+              {pathname === getLocalePath("/") && (currentUserType === "homeowner" || !currentUser) && (
+                <Link
+                  href={getLocalePath("/?tab=traders&autoSearch=true")}
+                  className="md:hidden flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
+                >
+                  <Map className="h-3.5 w-3.5" />
+                  Live Map
+                </Link>
+              )}
               {/* Language & Region Selector - Hidden when user is signed in */}
               {!currentUser && (
                 <Button
@@ -426,6 +402,19 @@ export function Header({ user, userType, showAuth = true, onSignOut, profilePhot
                         "/dashboard"
                       )}>{t('header.dashboard')}</Link>
                     </Button>
+                    {/* Live Map — desktop, homepage only */}
+                    {pathname === getLocalePath("/") && (currentUserType === "homeowner" || !currentUserType) && (
+                      <Button
+                        asChild
+                        size="sm"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-xs gap-1.5"
+                      >
+                        <Link href={getLocalePath("/?tab=traders&autoSearch=true")}>
+                          <Map className="h-3.5 w-3.5" />
+                          Live Map
+                        </Link>
+                      </Button>
+                    )}
                     {/* Message Icon */}
                     <MessageIcon user={currentUser} />
                     {/* My Jobs: homeowners → job list, tradespeople → applications */}

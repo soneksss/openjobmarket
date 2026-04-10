@@ -269,15 +269,14 @@ export function ProfessionalMap({
 
   return (
     <div className="w-full relative" style={{ height }}>
-      {!tilesReady && <Skeleton className="absolute inset-0 rounded-lg z-[1000]" />}
-      <div
-        className="w-full h-full"
-        style={{ opacity: tilesReady ? 1 : 0, transition: 'opacity 0.2s ease' }}
-      >
+      {/* Solid cover — hides the map (including any blue ocean tiles) until enough tiles have painted */}
+      {!tilesReady && (
+        <div className="absolute inset-0 rounded-lg bg-slate-200 z-[1000]" />
+      )}
       <MapContainer
         center={centerArray}
         zoom={zoom}
-        style={{ height: "100%", width: "100%", background: "#f3f4f6" }}
+        style={{ height: "100%", width: "100%", background: "#e2e8f0" }}
         className="rounded-lg"
         zoomControl={false}
         {...({} as any)}
@@ -289,9 +288,10 @@ export function ProfessionalMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           eventHandlers={{
+            load: () => { if (!tilesReady) setTilesReady(true) },
             tileload: () => {
               tileLoadCount.current += 1
-              if (!tilesReady && tileLoadCount.current >= 4) setTilesReady(true)
+              if (!tilesReady && tileLoadCount.current >= 12) setTilesReady(true)
             },
           }}
           {...({} as any)}
@@ -346,7 +346,6 @@ export function ProfessionalMap({
         {/* Map click handler component */}
         {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
       </MapContainer>
-      </div>
     </div>
   )
 }

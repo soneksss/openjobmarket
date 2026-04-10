@@ -131,6 +131,7 @@ interface JobDetailViewProps {
   isJobOwner?: boolean
   jobApplications?: ApplicationRecord[]
   serverUserType?: string | null
+  hasReviewedHomeowner?: boolean
 }
 
 export default function JobDetailView({
@@ -146,6 +147,7 @@ export default function JobDetailView({
   isJobOwner = false,
   jobApplications = [],
   serverUserType = null,
+  hasReviewedHomeowner = false,
 }: JobDetailViewProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -328,24 +330,13 @@ export default function JobDetailView({
   const [sessionValidated, setSessionValidated] = useState(false)
   const [sessionError, setSessionError] = useState<string | null>(null)
 
-  // Track job view on mount
+  // Track job view on mount — deduplicated per session so refreshing doesn't inflate count
   useEffect(() => {
-    const trackJobView = async () => {
-      try {
-        const response = await fetch(`/api/jobs/${job.id}/views`, {
-          method: 'POST',
-        })
-        if (response.ok) {
-          const data = await response.json()
-          console.log("[JOB-DETAIL-VIEW] View tracked:", data)
-        }
-      } catch (error) {
-        // Silently fail - view tracking is not critical
-        console.error("[JOB-DETAIL-VIEW] Error tracking view:", error)
-      }
-    }
-
-    trackJobView()
+    const sessionKey = `viewed_job_${job.id}`
+    if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(sessionKey)) return
+    fetch(`/api/jobs/${job.id}/views`, { method: "POST", credentials: "include" })
+      .then((r) => r.ok && sessionStorage.setItem(sessionKey, "1"))
+      .catch(() => {})
   }, [job.id])
 
   useEffect(() => {
@@ -1052,7 +1043,15 @@ export default function JobDetailView({
             {/* Homeowners never see Apply — they post jobs, not apply to them */}
             {userTypeLoaded && user && job.is_tradespeople_job && (userType === "company" || userType === "contractor") ? (
               // Tradesperson viewing a trade job → inline apply with message
-              <UrgentJobApplySection jobId={job.id} hasApplied={applicationSubmitted} applicationStatus={myApplicationStatus} />
+              <UrgentJobApplySection
+                jobId={job.id}
+                jobTitle={job.title}
+                hasApplied={applicationSubmitted}
+                applicationStatus={myApplicationStatus}
+                homeownerUserId={job.homeowner_profiles?.user_id}
+                homeownerName={job.homeowner_profiles ? `${job.homeowner_profiles.first_name} ${job.homeowner_profiles.last_name}`.trim() : undefined}
+                hasReviewedHomeowner={hasReviewedHomeowner}
+              />
             ) : userTypeLoaded && user && userType !== "homeowner" ? (
               <Card className="border border-emerald-500/20 bg-emerald-500/5 shadow-none">
                 <CardContent className="p-4 sm:p-6 text-center">
@@ -1173,9 +1172,13 @@ export default function JobDetailView({
       <Dialog open={showReviewsModal} onOpenChange={setShowReviewsModal}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-slate-900 border border-white/10">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-white">Company Reviews</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-white">
+              {job.homeowner_profiles ? "Homeowner Reviews" : "Company Reviews"}
+            </DialogTitle>
             <DialogDescription className="text-slate-400">
-              View all reviews and ratings for this company
+              {job.homeowner_profiles
+                ? `Reviews from tradespeople who worked with ${job.homeowner_profiles.first_name}`
+                : "View all reviews and ratings for this company"}
             </DialogDescription>
           </DialogHeader>
 

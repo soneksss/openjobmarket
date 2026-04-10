@@ -34,6 +34,8 @@ interface JobDetailsContentProps {
   job: any
   applications: Application[]
   homeownerUserId?: string
+  homeownerName?: string
+  homeownerAddress?: string
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -51,7 +53,7 @@ const STATUS_STYLE: Record<string, string> = {
 
 const INITIAL_SHOW = 3
 
-export function HomeownerJobDetailsContent({ job, applications, homeownerUserId }: JobDetailsContentProps) {
+export function HomeownerJobDetailsContent({ job, applications, homeownerUserId, homeownerName, homeownerAddress }: JobDetailsContentProps) {
   const router   = useRouter()
   const [expanded, setExpanded]           = useState(false)
   const [messagingUserId, setMessagingUserId] = useState<string | null>(null)
@@ -349,8 +351,15 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId 
                             acceptedContractorId={acceptedContractorId}
                             jobTitle={job.title}
                             jobBudget={formatBudget(job.budget_min, job.budget_max)}
+                            budgetMin={job.budget_min}
+                            budgetMax={job.budget_max}
                             homeownerUserId={homeownerUserId}
                             contractorUserId={applicant.userId}
+                            homeownerName={homeownerName}
+                            homeownerAddress={homeownerAddress}
+                            tradespersonAddress={applicant.location ?? undefined}
+                            jobAddress={job.location ?? undefined}
+                            jobDescription={job.description ?? undefined}
                           />
                         )}
                       </div>

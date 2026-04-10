@@ -18,39 +18,27 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   const { locale } = useTranslation()
   const supabase = createClient()
 
-  // Client-side auth fallback — kicks in if server-side auth didn't find the user
+  // Client-side fallback — only used when server auth failed (ECONNRESET, etc.)
+  // Never calls getUser() — that can hang and freeze navigation.
+  // INITIAL_SESSION fires instantly from local storage; SIGNED_IN / SIGNED_OUT track transitions.
   const [clientUser, setClientUser] = useState<{ id: string; user_metadata?: any } | null>(null)
   const [clientUserType, setClientUserType] = useState<string | null>(null)
-  const [authChecked, setAuthChecked] = useState(!!serverUser)
 
   useEffect(() => {
-    if (serverUser) { setAuthChecked(true); return }
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (user) {
-        setClientUser(user)
-        const { data } = await supabase.from("users").select("user_type").eq("id", user.id).maybeSingle()
-        setClientUserType(data?.user_type ?? user.user_metadata?.user_type ?? null)
-      }
-      setAuthChecked(true)
-    })
-  }, [serverUser])
+    if (serverUser) return // Server already has correct state — nothing to do
 
-  // Listen for auth state changes (sign-in/sign-out) — mirrors what the Header does
-  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
+      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
         const { data } = await supabase.from("users").select("user_type").eq("id", session.user.id).maybeSingle()
         setClientUser(session.user)
         setClientUserType(data?.user_type ?? session.user.user_metadata?.user_type ?? null)
-        setAuthChecked(true)
       } else if (event === 'SIGNED_OUT') {
         setClientUser(null)
         setClientUserType(null)
-        setAuthChecked(true)
       }
     })
     return () => { subscription.unsubscribe() }
-  }, [])
+  }, [serverUser])
 
   const user = serverUser ?? clientUser
   const userType = serverUserType ?? clientUserType
@@ -260,7 +248,6 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     }
   }, [userId, userType])
 
-  if (!authChecked) return null
   if (!user) return null
 
   const getDashboardUrl = () => {

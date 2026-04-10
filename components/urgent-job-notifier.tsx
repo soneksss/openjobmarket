@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import { X, Briefcase, PartyPopper } from "lucide-react"
+import { useActiveSearch } from "@/lib/contexts/active-search-context"
 
 /* ─────────────────────────────────────────────────────────── */
 /* Sound helpers — Web Audio API, no files needed              */
@@ -864,11 +865,53 @@ function HomeownerToast({
 export function HomeownerJobNotifier({ userId }: { userId: string }) {
   const supabase = createClient()
   const [alerts, setAlerts] = useState<AppAlert[]>([])
+  const { activeSearch, setActiveSearch } = useActiveSearch()
 
   const dismiss = useCallback((id: string) => {
     setAlerts((prev) => prev.filter((a) => a.id !== id))
     supabase.from("notifications").update({ is_read: true }).eq("id", id).then(() => {})
   }, [supabase])
+
+  /* ── Restore active-search bar if localStorage was cleared ── */
+  useEffect(() => {
+    if (activeSearch) return // already set, nothing to recover
+    ;(async () => {
+      try {
+        // Find the homeowner's profile id first
+        const { data: hp } = await supabase
+          .from("homeowner_profiles")
+          .select("id")
+          .eq("user_id", userId)
+          .maybeSingle()
+        if (!hp?.id) return
+
+        // Look for an active urgent job that hasn't expired yet
+        const { data: jobs } = await supabase
+          .from("jobs")
+          .select("id, title, expires_at, urgency_type, created_at")
+          .eq("homeowner_id", hp.id)
+          .eq("is_active", true)
+          .in("urgency_type", ["asap", "today"])
+          .gt("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+
+        if (!jobs || jobs.length === 0) return
+        const job = jobs[0]
+
+        setActiveSearch({
+          jobId: job.id,
+          jobTitle: job.title ?? "Urgent job",
+          tradesCount: 0,
+          notifiedCount: 0,
+          phase: "searching",
+          startedAt: new Date(job.created_at).getTime(),
+          userId,
+          expiresAt: job.expires_at ? new Date(job.expires_at).getTime() : undefined,
+        })
+      } catch {}
+    })()
+  }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── real-time INSERT for homeowner ── */
   useEffect(() => {

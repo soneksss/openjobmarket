@@ -38,7 +38,9 @@ export function ActiveSearchProvider({ children }: { children: ReactNode }) {
       if (!raw) return
       const saved: ActiveSearch = JSON.parse(raw)
       // If expiresAt is set and in the past, wipe it so the bar never re-appears
-      if (saved.expiresAt && Date.now() > saved.expiresAt) {
+      // Fallback: if expiresAt is missing, use startedAt + 4 h as the max TTL
+      const effectiveExpiry = saved.expiresAt ?? (saved.startedAt ? saved.startedAt + 4 * 60 * 60 * 1000 : null)
+      if (effectiveExpiry && Date.now() > effectiveExpiry) {
         localStorage.removeItem(STORAGE_KEY)
         return
       }

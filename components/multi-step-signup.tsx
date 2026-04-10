@@ -338,8 +338,15 @@ export default function MultiStepSignup() {
 
   return (
     <div className="w-full max-w-md mx-auto">
-      <Card className="bg-slate-900 border-slate-700 shadow-2xl">
-        <CardHeader className="pb-4">
+      {/* Brand mark above card */}
+      <div className="flex items-center justify-center gap-2 mb-6">
+        <span className="text-white font-bold text-lg tracking-tight">Open Job Market</span>
+      </div>
+
+      <Card className="bg-slate-900 border border-slate-700/60 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_32px_64px_rgba(0,0,0,0.6)] ring-1 ring-white/[0.04]">
+        {/* Thin emerald top accent */}
+        <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent rounded-t-xl" />
+        <CardHeader className="pb-4 pt-6">
           <CardTitle className="text-2xl text-white text-center">{t('signup.title')}</CardTitle>
           <CardDescription className="text-slate-400 text-center">
             {t('signup.step')} {currentStep} {t('signup.of')} 2

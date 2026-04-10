@@ -63,6 +63,8 @@ interface MainPageSearchProps {
   externalSearchQuery?: string
   initialUser?: any
   initialUserType?: string | null
+  adminSettings?: { vacanciesJobseekersEnabled: boolean }
+  profileLocation?: { location: string; latitude: number; longitude: number } | null
 }
 
 // Maps a specific trade title to a broader related search term for stage-2 fallback.
@@ -74,7 +76,7 @@ function getRelatedTrade(query: string): string | null {
     plumber: 'Plumbing', 'plumbing engineer': 'Plumbing',
     carpenter: 'Carpentry', joiner: 'Joinery',
     painter: 'Painting', decorator: 'Painting', 'painter and decorator': 'Painting',
-    plasterer: 'Plastering', roofer: 'Roofing', tiler: 'Tiling',
+    plasterer: 'Plastering & Rendering', roofer: 'Roofing', tiler: 'Tiling',
     bricklayer: 'Bricklaying', builder: 'Construction', 'general builder': 'Construction',
     scaffolder: 'Scaffolding', welder: 'Welding', fabricator: 'Fabrication',
     'gas engineer': 'Gas', 'heating engineer': 'Heating', 'hvac engineer': 'HVAC',
@@ -86,7 +88,7 @@ function getRelatedTrade(query: string): string | null {
   return map[q] ?? null
 }
 
-export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initialUser, initialUserType }: MainPageSearchProps = {}) {
+export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initialUser, initialUserType, adminSettings, profileLocation }: MainPageSearchProps = {}) {
   const { t, locale } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -167,8 +169,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   // Periodic refresh for trade jobs map (keeps urgent job list up-to-date)
   const lastModalSearchParamsRef = useRef<any>(null)
 
-  // Admin setting: show/hide vacancies and jobseekers tabs
-  const [vacanciesJobseekersEnabled, setVacanciesJobseekersEnabled] = useState(true)
+  // Admin setting: show/hide vacancies and jobseekers tabs — initialized from server bootstrap
+  const [vacanciesJobseekersEnabled, setVacanciesJobseekersEnabled] = useState(
+    adminSettings?.vacanciesJobseekersEnabled ?? true
+  )
 
   // Ref to track processed restoration URLs (prevent infinite loop)
   const processedRestorationRef = useRef<string | null>(null)
@@ -231,20 +235,6 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     } catch {}
   }, [showMapModal, mapResults, mapCenter, modalSearchType])
 
-  // Fetch admin settings for vacancies/jobseekers toggle
-  useEffect(() => {
-    const fetchAdminSettings = async () => {
-      try {
-        const { data, error } = await supabase.rpc('get_public_admin_settings')
-        if (!error && data) {
-          setVacanciesJobseekersEnabled(data.vacancies_jobseekers_enabled ?? true)
-        }
-      } catch (err) {
-        console.error('[MAIN-PAGE-SEARCH] Error fetching admin settings:', err)
-      }
-    }
-    fetchAdminSettings()
-  }, [])
 
   // Redirect to valid tab if current tab is hidden
   useEffect(() => {
@@ -408,7 +398,9 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     }
   }, [externalSearchQuery, selectedLocation])
 
-  // Check auth state and user type
+  // Check auth state and user type.
+  // Skip the network getUser() call when the server already resolved auth via initialUser.
+  // onAuthStateChange handles live sign-in/sign-out transitions regardless.
   useEffect(() => {
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -467,7 +459,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         setUserProfile(null)
       }
     }
-    checkUser()
+    // Only call getUser() (network) when server did not provide auth state
+    if (!initialUser) checkUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setUser(session?.user || null)
@@ -689,11 +682,26 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       // only if geolocation is denied or unavailable.
       const searchTypeToUse = (tab === 'vacancies' || tab === 'jobs_tasks' || tab === 'talents' || tab === 'traders') ? tab : 'jobs_tasks'
 
+      // Portsmouth fallback coords (used when no location is known)
+      const PORTSMOUTH = { lat: 50.8058, lon: -1.0872 }
+
       if (latParam && lngParam) {
         // Profile coords in URL — always use them (registered business location takes priority)
         setSelectedLocation({ lat: parseFloat(latParam), lon: parseFloat(lngParam) })
         setLocation(locationParam || "")
         setDistance(radiusParam || "10")
+        setRestoreSearch(searchTypeToUse)
+      } else if (tab === 'traders') {
+        // Live Map opened — centre on profile location, fall back to Portsmouth + 5mi
+        if (profileLocation?.latitude && profileLocation?.longitude) {
+          setSelectedLocation({ lat: profileLocation.latitude, lon: profileLocation.longitude })
+          setLocation(profileLocation.location || "Your area")
+          setDistance(radiusParam || "10")
+        } else {
+          setSelectedLocation(PORTSMOUTH)
+          setLocation("Portsmouth, UK")
+          setDistance("5")
+        }
         setRestoreSearch(searchTypeToUse)
       } else if (tab === 'jobs_tasks' && typeof navigator !== 'undefined' && navigator.geolocation) {
         // No profile coords — try browser geolocation as fallback

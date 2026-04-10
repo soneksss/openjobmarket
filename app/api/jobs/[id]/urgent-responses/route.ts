@@ -2,7 +2,7 @@ import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
 
 // Safe empty response — never triggers a 500 in the frontend poll
-const EMPTY_OK = { success: true, responses: [], notifiedCount: 0, searchRadius: null, jobState: null, applicationCount: 0 }
+const EMPTY_OK = { success: true, responses: [], alertedTrades: [], notifiedCount: 0, searchRadius: null, jobState: null, applicationCount: 0 }
 
 // GET - Poll for urgent job responses (homeowner's live-search page)
 export async function GET(
@@ -91,14 +91,49 @@ export async function GET(
       console.error("[URGENT-RESPONSES GET] job_applications query error:", appsError.message, appsError)
     }
 
-    // Notified count
+    // Notified count + alerted trades (dispatched but not yet responded)
     let notifiedCount = 0
+    let alertedTrades: any[] = []
     try {
-      const { count } = await adminClient
+      const { data: allAlerts, count } = await adminClient
         .from("urgent_job_dispatch_alerts")
-        .select("*", { count: "exact", head: true })
+        .select("company_id, responded", { count: "exact" })
         .eq("job_id", jobId)
       notifiedCount = count ?? 0
+
+      // Build alerted trades list (dispatched but haven't applied yet)
+      const respondedIds = new Set((applications ?? []).map((a: any) => a.company_id))
+      const alertedIds = (allAlerts ?? [])
+        .filter((a: any) => !a.responded && !respondedIds.has(a.company_id))
+        .map((a: any) => a.company_id)
+
+      if (alertedIds.length > 0) {
+        const { data: alertProfiles } = await adminClient
+          .from("company_profiles")
+          .select("id, user_id, company_name, logo_url")
+          .in("id", alertedIds)
+
+        // Try to get viewed_at (graceful — column may not exist in DB yet)
+        const viewedAtMap = new Map<string, string | null>()
+        try {
+          const { data: viewData, error: viewErr } = await adminClient
+            .from("urgent_job_dispatch_alerts")
+            .select("company_id, viewed_at")
+            .eq("job_id", jobId)
+            .in("company_id", alertedIds)
+          if (!viewErr && viewData) {
+            viewData.forEach((v: any) => viewedAtMap.set(v.company_id, v.viewed_at ?? null))
+          }
+        } catch {}
+
+        alertedTrades = (alertProfiles ?? []).map((p: any) => ({
+          id:        p.id,
+          user_id:   p.user_id,
+          name:      p.company_name || "A tradesperson",
+          avatar_url: p.logo_url ?? null,
+          viewed_at: viewedAtMap.get(p.id) ?? null,
+        }))
+      }
     } catch {}
 
     const responses = (applications ?? [])
@@ -128,6 +163,7 @@ export async function GET(
     return NextResponse.json({
       success:          true,
       responses,
+      alertedTrades,
       notifiedCount,
       searchRadius:     job.search_radius_miles,
       jobState:         currentJobState,

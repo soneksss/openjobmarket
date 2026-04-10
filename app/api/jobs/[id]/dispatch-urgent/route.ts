@@ -164,7 +164,7 @@ export async function POST(
         }
 
         // Insert alert row (push_attempted=false until notifyOne sets it)
-        await admin
+        const { error: insertErr } = await admin
           .from("urgent_job_dispatch_alerts")
           .insert({
             job_id:         jobId,
@@ -174,10 +174,7 @@ export async function POST(
             push_sent:      false,
             responded:      false,
           })
-          .then(() => {})
-          .catch((err: any) => {
-            console.error("[DISPATCH-URGENT] Alert insert failed:", err?.message)
-          })
+        if (insertErr) console.error("[DISPATCH-URGENT] Alert insert failed:", insertErr.message)
 
         await notifyOne(admin, { companyProfileId, userId }, {
           jobId, jobTitle: job?.title, location: job?.location, jobUrl,
@@ -235,8 +232,6 @@ export async function POST(
                 push_sent:      false,
                 responded:      false,
               })
-              .then(() => {})
-              .catch(() => {})
 
             await notifyOne(admin, { companyProfileId: cid, userId: uid }, {
               jobId, jobTitle: job?.title, location: job?.location, jobUrl,

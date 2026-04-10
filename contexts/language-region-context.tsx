@@ -138,7 +138,6 @@ export function LanguageRegionProvider({
         ? getLocalizedPath(pathWithoutLocale, 'pt-BR')
         : pathWithoutLocale // Global = no prefix
 
-      console.log('[Language Switch] Redirecting from', pathname, 'to', newPath)
       router.push(newPath)
     } else {
       // Language-only change - just refresh to update content

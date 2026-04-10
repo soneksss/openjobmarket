@@ -1,25 +1,47 @@
 "use client"
 
-import { useState } from "react"
-import { CheckCircle, Send, Zap, PartyPopper, XCircle } from "lucide-react"
+import { useState, useEffect } from "react"
+import { CheckCircle, Send, Zap, PartyPopper, XCircle, Star } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
+import ReviewSubmissionModal from "./review-submission-modal"
 
 interface UrgentJobApplySectionProps {
   jobId: string
+  jobTitle?: string
   hasApplied: boolean
   applicationStatus?: string | null
+  homeownerUserId?: string
+  homeownerName?: string
+  hasReviewedHomeowner?: boolean
 }
 
 const QUICK_MESSAGES = ["I can come now", "Available today", "Need more details"]
 
-export function UrgentJobApplySection({ jobId, hasApplied, applicationStatus }: UrgentJobApplySectionProps) {
+export function UrgentJobApplySection({
+  jobId,
+  jobTitle = "this job",
+  hasApplied,
+  applicationStatus,
+  homeownerUserId,
+  homeownerName,
+  hasReviewedHomeowner = false,
+}: UrgentJobApplySectionProps) {
   const router = useRouter()
-  const [message, setMessage]   = useState("")
-  const [loading, setLoading]   = useState(false)
-  const [applied, setApplied]   = useState(hasApplied)
-  const [skipped, setSkipped]   = useState(false)
-  const [error,   setError]     = useState<string | null>(null)
+
+  // Mark this job as viewed — lets homeowner's live tracker show "Reviewing your job" (blue state)
+  useEffect(() => {
+    fetch(`/api/jobs/${jobId}/mark-viewed`, { method: "POST", credentials: "include" }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId])
+
+  const [message, setMessage]       = useState("")
+  const [loading, setLoading]       = useState(false)
+  const [applied, setApplied]       = useState(hasApplied)
+  const [skipped, setSkipped]       = useState(false)
+  const [error,   setError]         = useState<string | null>(null)
+  const [showReviewModal, setShowReviewModal] = useState(false)
+  const [reviewed, setReviewed]     = useState(hasReviewedHomeowner)
 
   const handleSkip = async () => {
     try {
@@ -99,6 +121,54 @@ export function UrgentJobApplySection({ jobId, hasApplied, applicationStatus }: 
         <p className="text-sm text-slate-300">The homeowner chose you for this job.</p>
         <p className="text-xs text-slate-400">Check your messages to confirm details.</p>
       </div>
+    )
+  }
+
+  // ── Job completed — tradesperson can review the homeowner ────────────────
+  if (applicationStatus === "JOB_COMPLETED") {
+    return (
+      <>
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 space-y-3">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle className="h-5 w-5 text-emerald-400 flex-shrink-0" />
+            <p className="text-sm font-semibold text-white">Job completed</p>
+          </div>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            The homeowner marked this job as complete. Help the community by leaving a review.
+          </p>
+          {reviewed ? (
+            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-900/20 border border-emerald-600/30 rounded-lg px-3 py-2">
+              <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+              You've already reviewed this homeowner.
+            </div>
+          ) : homeownerUserId ? (
+            <button
+              onClick={() => setShowReviewModal(true)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-colors"
+            >
+              <Star className="h-4 w-4" />
+              Rate this Homeowner
+            </button>
+          ) : null}
+        </div>
+
+        {homeownerUserId && (
+          <ReviewSubmissionModal
+            isOpen={showReviewModal}
+            onClose={() => setShowReviewModal(false)}
+            jobId={jobId}
+            jobTitle={jobTitle}
+            reviewedUserId={homeownerUserId}
+            reviewedUserName={homeownerName ?? "Homeowner"}
+            reviewedUserType="homeowner"
+            reviewerType="company"
+            onSuccess={() => {
+              setReviewed(true)
+              setShowReviewModal(false)
+            }}
+          />
+        )}
+      </>
     )
   }
 

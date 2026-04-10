@@ -113,20 +113,15 @@ export default function LoginForm() {
         }
 
         if (!userData?.user_type) {
-          router.refresh()
           router.push(isOnBrRoute ? "/br" : "/")
           return
         }
 
         // Admins go to admin dashboard; all other users land on the home page
-        // where role-appropriate content is shown (For Homeowners / For Tradespeople)
         if (userData.user_type === "admin") {
-          router.refresh()
           router.push("/admin/dashboard")
         } else {
-          const home = isOnBrRoute ? "/br" : "/"
-          router.refresh()
-          router.push(home)
+          router.push(isOnBrRoute ? "/br" : "/")
         }
       }
     } catch (error: unknown) {

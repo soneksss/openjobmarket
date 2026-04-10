@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import CompanyDashboard from "@/components/company-dashboard"
+import { getDashboardBootstrap } from "@/lib/bootstrap"
 
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
@@ -20,6 +21,9 @@ export default async function CompanyDashboardPage() {
   }
 
   console.log("[v0] User found:", user.id)
+
+  // Bootstrap: adminSettings + future featureFlags/permissions (cached, shared across requests)
+  await getDashboardBootstrap(user.id)
 
   // Get company profile
   let profile: any = null

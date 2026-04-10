@@ -19,30 +19,6 @@ export function createClient() {
         autoRefreshToken: true,
         detectSessionInUrl: true,
       },
-      global: {
-        fetch: async (url, options) => {
-          try {
-            const res = await fetch(url, options)
-            // Silently clear stale tokens when the refresh endpoint returns 400
-            if (
-              res.status === 400 &&
-              typeof url === 'string' &&
-              url.includes('grant_type=refresh_token')
-            ) {
-              if (typeof window !== 'undefined') {
-                Object.keys(localStorage).forEach((key) => {
-                  if (key.startsWith('sb-') && key.includes('-auth-token')) {
-                    localStorage.removeItem(key)
-                  }
-                })
-              }
-            }
-            return res
-          } catch (err) {
-            throw err
-          }
-        },
-      },
     }
   )
 

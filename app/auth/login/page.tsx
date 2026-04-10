@@ -8,9 +8,14 @@ export const dynamic = 'force-dynamic'
 
 export default async function LoginPage() {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user ?? null
+  } catch {
+    // AbortError (3s timeout) — render login form without redirect
+  }
 
   // If user is logged in, redirect to dashboard
   if (user) {

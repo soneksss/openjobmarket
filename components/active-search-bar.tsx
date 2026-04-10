@@ -67,20 +67,29 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [poll]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Clear stale/expired search via effect — never during render
+  useEffect(() => {
+    if (!activeSearch) return
+    // Wrong user
+    if (userId && activeSearch.userId && activeSearch.userId !== userId) {
+      clearActiveSearch()
+      return
+    }
+    // Expired TTL
+    const effectiveExpiry = activeSearch.expiresAt ?? (activeSearch.startedAt ? activeSearch.startedAt + 4 * 60 * 60 * 1000 : null)
+    if (effectiveExpiry && Date.now() > effectiveExpiry) {
+      clearActiveSearch()
+    }
+  }, [activeSearch?.jobId, activeSearch?.userId, activeSearch?.expiresAt, userId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Early return AFTER all hooks ────────────────────────────────────
-  // Only homeowners should see the active search bar
   if (userType === "company") return null
-  // Clear stale localStorage if the stored search belongs to a different user
-  if (activeSearch && userId && activeSearch.userId && activeSearch.userId !== userId) {
-    clearActiveSearch()
-    return null
-  }
-  // Auto-clear if the job has passed its TTL (e.g. 60-min ASAP job already expired)
-  if (activeSearch?.expiresAt && Date.now() > activeSearch.expiresAt) {
-    clearActiveSearch()
-    return null
-  }
   if (!activeSearch || isOnLivePage) return null
+
+  // Guard: stale/expired checks already handled by effect above — just bail out here
+  if (activeSearch.userId && userId && activeSearch.userId !== userId) return null
+  const effectiveExpiry = activeSearch.expiresAt ?? (activeSearch.startedAt ? activeSearch.startedAt + 4 * 60 * 60 * 1000 : null)
+  if (effectiveExpiry && Date.now() > effectiveExpiry) return null
 
   // ── Cancel: deactivate job in DB + clear context ─────────────────────
   const handleCancel = async () => {

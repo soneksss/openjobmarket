@@ -165,6 +165,7 @@ export default async function JobDetailPage({
   let isJobOwner = false
   let jobApplications: any[] = []
   let serverUserType: string | null = null
+  let hasReviewedHomeowner = false
 
   if (user) {
     try {
@@ -228,10 +229,22 @@ export default async function JobDetailPage({
               // confirm_tradesperson() never changes the winner's application status
               // (it stays PENDING). Detect confirmation by checking confirmed_tradesperson_id.
               const isConfirmedTradesperson =
-                (job.status === "CONFIRMED" || job.status === "COMPLETED") &&
+                ["CONFIRMED", "ACTIVE", "COMPLETED"].includes(job.status) &&
                 job.confirmed_tradesperson_id === profile.id
               if (isConfirmedTradesperson) {
-                applicationStatus = "CONFIRMED"
+                applicationStatus = job.status === "COMPLETED" ? "JOB_COMPLETED" : "CONFIRMED"
+              }
+
+              // Check if tradesperson already reviewed the homeowner for this job
+              if (job.status === "COMPLETED" && job.homeowner_profiles?.user_id && isConfirmedTradesperson) {
+                const { data: existingReview } = await supabase
+                  .from("reviews")
+                  .select("id")
+                  .eq("job_id", job.id)
+                  .eq("reviewer_id", user.id)
+                  .eq("reviewed_id", job.homeowner_profiles.user_id)
+                  .maybeSingle()
+                hasReviewedHomeowner = !!existingReview
               }
 
               console.log("[JOB-DETAIL] Application status:", { hasApplied, applicationId: application?.id, status: applicationStatus, isConfirmedTradesperson })
@@ -439,6 +452,7 @@ export default async function JobDetailPage({
         isJobOwner={isJobOwner}
         jobApplications={jobApplications}
         serverUserType={serverUserType}
+        hasReviewedHomeowner={hasReviewedHomeowner}
       />
     </>
   )

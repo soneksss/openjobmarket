@@ -6,7 +6,7 @@ import dynamic from "next/dynamic"
 import {
   ArrowLeft, CheckCircle2, MessageCircle, Phone,
   Star, MapPin, Users, Zap, X, Edit, UserPlus,
-  PartyPopper, Minimize2, Bell, AlertCircle, Clock, StopCircle, TimerOff, RefreshCw,
+  PartyPopper, Minimize2, Bell, AlertCircle, Clock, StopCircle, TimerOff, RefreshCw, Eye,
 } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
@@ -22,10 +22,10 @@ type Phase =
   | "first_accepted" // first trade accepts
   | "expanding"      // no response after 2.5 min → expand
   | "all_responded"  // multiple responses in
-  | "no_trades"      // confirmed: nobody available
+  | "background"     // no trades free; keep screen live, 60-min background monitor
   | "timed_out"      // 1-hour window expired
 
-type SearchingPhase = Exclude<Phase, "no_trades" | "timed_out">
+type SearchingPhase = Exclude<Phase, "timed_out">
 
 type TradeStatus = "waiting" | "accepted" | "declined"
 
@@ -60,6 +60,14 @@ interface Job {
   job_state?: string | null
 }
 
+interface AlertedTrade {
+  id: string          // company_profiles.id
+  userId: string
+  name: string
+  avatarUrl?: string | null
+  viewedAt?: string | null   // set = "viewing" state; null = "alerted" state
+}
+
 interface FindingTradesViewProps {
   job: Job
   userId: string
@@ -70,6 +78,51 @@ interface FindingTradesViewProps {
 /* ─────────────────────────────────────────────────────────────────── */
 const fmt = (s: number) =>
   `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`
+
+/* ── Similar-trades lookup — adjacent skill categories for fallback ── */
+const SIMILAR_TRADES: Record<string, string[]> = {
+  electrician:  ["handyman", "solar installer", "smart home installer"],
+  plumber:      ["heating engineer", "bathroom fitter", "drain specialist"],
+  carpenter:    ["joiner", "handyman", "general builder"],
+  painter:      ["decorator", "plasterer", "handyman"],
+  roofer:       ["loft converter", "general builder", "guttering specialist"],
+  landscaper:   ["groundworker", "fence installer", "patio layer"],
+  cleaner:      ["end of tenancy cleaner", "carpet cleaner", "window cleaner"],
+  locksmith:    ["security installer", "handyman"],
+  tiler:        ["flooring specialist", "plasterer", "handyman"],
+  decorator:    ["painter", "plasterer", "handyman"],
+}
+
+function getSimilarTrades(jobTitle: string): string[] {
+  const lower = jobTitle.toLowerCase().replace(/s$/, "")
+  return SIMILAR_TRADES[lower] ?? []
+}
+
+/* ── CheckingCard — "Checking nearby availability…" skeleton for background phase ── */
+function CheckingCard({ index }: { index: number }) {
+  return (
+    <div
+      className="animate-fade-in-up p-3 rounded-2xl border border-slate-600/20 bg-slate-700/15"
+      style={{ animationDelay: `${index * 120}ms`, animationFillMode: "both" }}
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-full bg-slate-700/60 flex items-center justify-center flex-shrink-0 ring-2 ring-slate-600/20">
+          <RefreshCw className="w-4 h-4 text-slate-500" style={{ animation: "spin 3s linear infinite" }} />
+        </div>
+        <div className="flex-1 space-y-2">
+          <div className="h-2.5 rounded-full bg-slate-700/60 animate-pulse" style={{ width: `${55 + index * 10}%` }} />
+          <div className="flex items-center gap-1.5">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-50" />
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-slate-500" />
+            </span>
+            <span className="text-[10px] text-slate-500">Checking nearby availability…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /* ── Trade card — defined outside component so reference is stable ── */
 interface TradeCardProps {
@@ -219,6 +272,71 @@ function SkeletonCard({ index, elapsed }: { index: number; elapsed: number }) {
   )
 }
 
+/* ── Alerted card — grey, shows when trade was notified but hasn't opened the job ── */
+function AlertedCard({ trade, index, elapsed }: { trade: AlertedTrade; index: number; elapsed: number }) {
+  return (
+    <div
+      className="animate-fade-in-up p-3 rounded-2xl border border-slate-600/25 bg-slate-700/20"
+      style={{ animationDelay: `${index * 80}ms`, animationFillMode: "both" }}
+    >
+      <div className="flex items-center gap-3">
+        {/* Grey avatar — blurred identity until they respond */}
+        <div className="w-11 h-11 rounded-full bg-slate-600/50 animate-pulse flex-shrink-0 ring-2 ring-slate-600/30" />
+        <div className="flex-1 min-w-0">
+          {/* Shimmer name bar */}
+          <div className="h-3 rounded-full bg-slate-600/50 animate-pulse mb-1.5" style={{ width: `${50 + (index % 3) * 12}%` }} />
+          <div className="flex items-center gap-1.5">
+            <Bell className="w-3 h-3 text-slate-500 flex-shrink-0" />
+            <span className="text-xs text-slate-500">Notified · {fmt(elapsed)}</span>
+          </div>
+        </div>
+        {/* Pulsing dot */}
+        <span className="relative flex h-2 w-2 flex-shrink-0">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-500 opacity-60" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-500" />
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/* ── Viewing card — blue, shows when trade opened the job but hasn't applied yet ── */
+function ViewingCard({ trade, index }: { trade: AlertedTrade; index: number }) {
+  const seenAgo = trade.viewedAt
+    ? Math.floor((Date.now() - new Date(trade.viewedAt).getTime()) / 1000)
+    : 0
+  const seenLabel = seenAgo < 60 ? `${seenAgo}s ago` : `${Math.floor(seenAgo / 60)}m ago`
+
+  return (
+    <div
+      className="animate-fade-in-up p-3 rounded-2xl border border-blue-500/35 bg-blue-500/10 shadow-sm shadow-blue-500/10"
+      style={{ animationDelay: `${index * 60}ms`, animationFillMode: "both" }}
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-11 h-11 rounded-full bg-blue-500/20 flex items-center justify-center flex-shrink-0 ring-2 ring-blue-500/40 overflow-hidden">
+          {trade.avatarUrl
+            ? <img src={trade.avatarUrl} alt={trade.name} className="w-full h-full object-cover" />
+            : <span className="text-sm font-bold text-blue-200">{trade.name.charAt(0).toUpperCase()}</span>
+          }
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-semibold text-blue-100 truncate">{trade.name}</div>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <Eye className="w-3 h-3 text-blue-400 flex-shrink-0" />
+            <span className="text-xs text-blue-300">Reviewing your job</span>
+          </div>
+          <div className="text-[10px] text-blue-400/60 mt-0.5">Seen {seenLabel}</div>
+        </div>
+        {/* Pulsing blue dot */}
+        <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60" />
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-400" />
+        </span>
+      </div>
+    </div>
+  )
+}
+
 /* ─────────────────────────────────────────────────────────────────── */
 /* Sound helper — plays when a trade responds on the live search page  */
 /* ─────────────────────────────────────────────────────────────────── */
@@ -251,10 +369,11 @@ function playTradeResponseSound() {
 export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   const router   = useRouter()
   const supabase = createClient()
-  const { setActiveSearch, clearActiveSearch } = useActiveSearch()
+  const { activeSearch, setActiveSearch, clearActiveSearch } = useActiveSearch()
 
   const [phase, setPhase]                         = useState<Phase>("searching")
   const [trades, setTrades]                       = useState<Trade[]>([])
+  const [alertedTrades, setAlertedTrades]         = useState<AlertedTrade[]>([])
   const [notifiedCount, setNotifiedCount]         = useState(0)
   const [elapsed, setElapsed]                     = useState(0)
   const [noRespSecs, setNoRespSecs]               = useState(150)
@@ -269,6 +388,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     const diff = Math.floor((new Date(job.expires_at).getTime() - Date.now()) / 1000)
     return Math.max(0, Math.min(diff, 3600))
   })
+  const [showBrowseCta, setShowBrowseCta]         = useState(false)
 
   const lat = job.latitude  ?? 51.5074
   const lon = job.longitude ?? -0.1278
@@ -321,27 +441,35 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     return () => clearTimeout(t)
   }, [stopped])
 
-  /* ── no_trades: been in "sent" for 90 s with 0 notified and no responses ── */
+  /* ── background: been in "sent" for 90 s with 0 notified and no responses ── */
   useEffect(() => {
     if (stopped || phase !== "sent" || notifiedCount !== 0 || trades.length > 0) return
     const t = setTimeout(() => {
-      setPhase((p) => p === "sent" ? "no_trades" : p)
+      setPhase((p) => p === "sent" ? "background" : p)
     }, 90000)
     return () => clearTimeout(t)
   }, [stopped, phase, notifiedCount, trades.length])
 
-  /* ── no_trades: expansion animation done, still 0 trade responses ── */
+  /* ── background: expansion animation done, still 0 trade responses ── */
   useEffect(() => {
     if (phase !== "expanding" || isExpanding || trades.length !== 0) return
-    const t = setTimeout(() => setPhase("no_trades"), 2000)
+    const t = setTimeout(() => setPhase("background"), 2000)
     return () => clearTimeout(t)
   }, [phase, isExpanding, trades.length])
+
+  /* ── browse CTA: show after 10 min with 0 trade responses ── */
+  useEffect(() => {
+    if (elapsed >= 600 && trades.length === 0 && !showBrowseCta && !stopped) {
+      setShowBrowseCta(true)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [elapsed, trades.length, stopped])
 
   /* ── no-response countdown → expanding (only if someone was notified) ── */
   useEffect(() => {
     if (stopped || trades.length > 0) return
     if (notifiedCount === 0) return
-    if (["expanding", "first_accepted", "all_responded", "no_trades"].includes(phase)) return
+    if (["expanding", "first_accepted", "all_responded", "background"].includes(phase)) return
 
     const t = setInterval(() => {
       setNoRespSecs((s) => {
@@ -398,12 +526,38 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   const handleStopSearch = async () => {
     setStopped(true)
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+    // Clear the minimised search bar — the homeowner will see "Search paused" here, not a floating bar
+    clearActiveSearch()
     try {
       await supabase.from("jobs").update({
         matching_status: "stopped",
         search_state: null,
       }).eq("id", job.id)
     } catch {}
+  }
+
+  // Resume a stopped search — restarts polling and updates DB
+  const handleResumeSearch = async () => {
+    setStopped(false)
+    setPhase("sent")
+    // Extend expiry if less than 5 min remaining so the resumed search has time
+    try {
+      const patch: Record<string, any> = { matching_status: "active", search_state: "active_search" }
+      if (timeLeft < 300) {
+        patch.expires_at = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+        setTimeLeft(3600)
+      }
+      await supabase.from("jobs").update(patch).eq("id", job.id)
+    } catch {}
+  }
+
+  // Soft cancel — marks job inactive so it moves to history; homeowner can reactivate later
+  const handleCancelSearch = () => {
+    setStopped(true)
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+    clearActiveSearch()
+    router.push("/dashboard/homeowner")
+    supabase.from("jobs").update({ is_active: false }).eq("id", job.id).then(() => {}).catch(() => {})
   }
 
   const handleNotifyMe = async () => {
@@ -414,10 +568,11 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     setTimeout(() => router.push("/"), 1500)
   }
 
-  const handleCancelRequest = async () => {
-    try { await supabase.from("jobs").update({ is_active: false, matching_status: "cancelled" }).eq("id", job.id) } catch {}
+  const handleCancelRequest = () => {
+    // Navigate immediately — DB update is fire-and-forget
     clearActiveSearch()
     router.push("/dashboard/homeowner")
+    supabase.from("jobs").update({ is_active: false }).eq("id", job.id).then(() => {}).catch(() => {})
   }
 
   const handleExtendSearch = async () => {
@@ -430,12 +585,10 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     setPhase("sent")
   }
 
-  const handleLeaveJobLive = async () => {
-    try {
-      await supabase.from("jobs").update({ search_state: "completed", is_active: true }).eq("id", job.id)
-    } catch {}
+  const handleLeaveJobLive = () => {
     clearActiveSearch()
     router.push("/dashboard/homeowner")
+    supabase.from("jobs").update({ is_active: true }).eq("id", job.id).then(() => {}).catch(() => {})
   }
 
   const handleContactMore = () => {
@@ -457,6 +610,20 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       if (data.notifiedCount) setNotifiedCount(data.notifiedCount)
       if (!data.notifiedCount && data.responses?.length > 0) setNotifiedCount(data.responses.length)
       if (data.jobState) setDbJobState(data.jobState)
+
+      // Update alerted trades (dispatched but not yet responded)
+      if (data.alertedTrades !== undefined) {
+        setAlertedTrades(
+          (data.alertedTrades ?? []).map((a: any): AlertedTrade => ({
+            id:       a.id,
+            userId:   a.user_id,
+            name:     a.name,
+            avatarUrl: a.avatar_url ?? null,
+            viewedAt: a.viewed_at ?? null,
+          }))
+        )
+      }
+
       if (data.responses?.length > 0) {
         const now = Date.now()
         setTrades((prev) => {
@@ -602,20 +769,46 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
             </p>
           ) : (
             <p className="text-sm text-slate-400 mb-8 max-w-xs animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-              No one responded in time. You can extend the search or leave your job live to receive replies later.
+              No one responded in time. You can keep searching, leave your job live, or browse nearby trades directly.
             </p>
           )}
           <div className="w-full max-w-sm space-y-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
             <button
               onClick={handleExtendSearch}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-red-500 hover:bg-red-400 text-white transition-all duration-200 active:scale-[0.98] text-left"
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-orange-600 hover:bg-orange-500 text-white transition-all duration-200 active:scale-[0.98] text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
                 <RefreshCw className="w-5 h-5" />
               </div>
               <div>
                 <p className="font-semibold text-sm leading-tight">Extend Search +1 Hour</p>
-                <p className="text-xs text-red-100/80 font-normal mt-0.5">Keep notifying nearby tradespeople</p>
+                <p className="text-xs text-orange-100/70 font-normal mt-0.5">Keep notifying nearby tradespeople</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => {
+                const params = new URLSearchParams({
+                  tab:        "traders",
+                  search:     job.title,
+                  location:   job.location || "",
+                  lat:        String(job.latitude  ?? 51.5074),
+                  lng:        String(job.longitude ?? -0.1278),
+                  radius:     String(radiusMiles),
+                  autoSearch: "true",
+                })
+                router.push(`/?${params}`)
+              }}
+              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white transition-all duration-200 active:scale-[0.98] text-left"
+            >
+              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm leading-tight">Browse Nearby Trades</p>
+                <p className="text-xs text-emerald-100/70 font-normal mt-0.5">
+                  See {job.title.toLowerCase()}s available now on the map
+                </p>
               </div>
             </button>
 
@@ -651,197 +844,123 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
-  /* NO TRADES SCREEN                                                    */
-  /* ─────────────────────────────────────────────────────────────────── */
-  if (phase === "no_trades" && !stopped) {
-    const atMaxRadius = radiusMiles >= 25
-
-    return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-slate-900 overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 bg-slate-800/95 backdrop-blur-sm border-b border-slate-700/60 flex-shrink-0">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Back</span>
-          </button>
-          <div className="text-center">
-            <p className="text-sm font-semibold text-white flex items-center justify-center gap-1.5">
-              <AlertCircle className="w-4 h-4 text-amber-400" />
-              No Trades Available
-            </p>
-            <p className="text-xs text-slate-400">{job.title} · searched {radiusMiles} mi</p>
-          </div>
-          <div className="w-16" />
-        </div>
-
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center overflow-y-auto">
-          <div className="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6 animate-pop-in">
-            <AlertCircle className="w-10 h-10 text-amber-400" />
-          </div>
-          <h2 className="text-xl font-bold text-white mb-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-            No {job.title.toLowerCase()}s available nearby
-          </h2>
-          <p className="text-sm text-slate-400 mb-8 max-w-xs animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-            You can still post your job and receive replies when trades become available in your area.
-          </p>
-          <div className="w-full max-w-sm space-y-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-            <button
-              onClick={() => router.push("/")}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl bg-orange-500 hover:bg-orange-400 text-white transition-all duration-200 active:scale-[0.98] text-left"
-            >
-              <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="font-semibold text-sm leading-tight">Post Job &amp; Wait for Replies</p>
-                <p className="text-xs text-orange-100/80 font-normal mt-0.5">Your job stays live — trades will find you</p>
-              </div>
-            </button>
-
-            {!atMaxRadius ? (
-              <button
-                onClick={() => triggerExpand()}
-                className="w-full flex items-center gap-4 p-4 rounded-2xl bg-slate-700 hover:bg-slate-600 text-white border border-slate-600/60 transition-all duration-200 active:scale-[0.98] text-left"
-              >
-                <div className="w-10 h-10 rounded-xl bg-slate-600 flex items-center justify-center flex-shrink-0">
-                  <MapPin className="w-5 h-5 text-slate-300" />
-                </div>
-                <div>
-                  <p className="font-semibold text-sm leading-tight">Expand Search Radius</p>
-                  <p className="text-xs text-slate-400 font-normal mt-0.5">Look up to {Math.min(radiusMiles * 2, 25)} miles from your location</p>
-                </div>
-              </button>
-            ) : (
-              <div className="w-full flex items-center gap-4 p-4 rounded-2xl border border-slate-700/40 opacity-50 text-left">
-                <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center flex-shrink-0">
-                  <MapPin className="w-5 h-5 text-slate-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-slate-500 text-sm leading-tight">Already at maximum radius</p>
-                  <p className="text-xs text-slate-600 font-normal mt-0.5">Searching up to 25 miles</p>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={handleNotifyMe}
-              disabled={notifyRequested}
-              className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all duration-200 active:scale-[0.98] text-left ${
-                notifyRequested
-                  ? "bg-emerald-500/10 border border-emerald-500/30 cursor-default"
-                  : "bg-slate-800/60 border border-slate-700/50 hover:bg-slate-700/60 hover:border-slate-600/60"
-              }`}
-            >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${notifyRequested ? "bg-emerald-500/20" : "bg-slate-700/80"}`}>
-                <Bell className={`w-5 h-5 ${notifyRequested ? "text-emerald-400" : "text-slate-300"}`} />
-              </div>
-              <div>
-                {notifyRequested ? (
-                  <>
-                    <p className="font-semibold text-emerald-400 text-sm leading-tight animate-pop-in">✓ We'll notify you</p>
-                    <p className="text-xs text-emerald-400/70 font-normal mt-0.5">Alert when a trade becomes available</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-semibold text-white text-sm leading-tight">Notify me when available</p>
-                    <p className="text-xs text-slate-400 font-normal mt-0.5">Get a notification when a trade opens up</p>
-                  </>
-                )}
-              </div>
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  /* ─────────────────────────────────────────────────────────────────── */
   /* STATUS BANNER CONFIG                                                */
   /* ─────────────────────────────────────────────────────────────────── */
   const stoppedBanner = {
-    bg: "bg-slate-700/60 border-slate-600/40",
+    bg: "bg-slate-800/90 border-slate-700/50",
     icon: <StopCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />,
-    title: <span className="text-sm font-semibold text-slate-200">Search stopped — {trades.length > 0 ? `${trades.length} applicant${trades.length !== 1 ? "s" : ""} found` : "no applicants yet"}</span>,
-    sub:   <span className="text-xs text-slate-400/80">Message or call any tradesperson below.</span>,
+    title: (
+      <span className="text-sm font-bold text-white tracking-tight">
+        Search paused{trades.length > 0 ? ` · ${trades.length} applicant${trades.length !== 1 ? "s" : ""} found` : ""}
+      </span>
+    ),
+    sub: (
+      <div className="flex items-center gap-2 mt-1.5">
+        <button
+          onClick={handleResumeSearch}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-slate-900 font-semibold text-xs hover:bg-slate-100 transition-colors"
+        >
+          <RefreshCw className="w-3 h-3" />
+          Resume search
+        </button>
+        <button
+          onClick={handleCancelSearch}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-700 text-white font-semibold text-xs hover:bg-slate-600 border border-slate-600 transition-colors"
+        >
+          <TimerOff className="w-3 h-3" />
+          Cancel search
+        </button>
+      </div>
+    ),
   }
 
   const banners: Record<SearchingPhase, {
     bg: string; icon: React.ReactNode; title: React.ReactNode; sub: React.ReactNode; right?: React.ReactNode
   }> = {
     searching: {
-      bg: "bg-emerald-500/10 border-emerald-500/20",
+      bg: "bg-emerald-950/60 border-emerald-500/20",
       icon: (
         <span className="relative flex h-3 w-3 flex-shrink-0">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
         </span>
       ),
-      title: <span className="text-sm font-semibold text-emerald-300">Searching for available tradespeople nearby…</span>,
-      sub:   <span className="text-xs text-emerald-400/80">Contacting the closest tradespeople to you.</span>,
-      right: <span className="text-xs text-emerald-400/60 flex-shrink-0 hidden sm:block">Replies in 2–5 min</span>,
+      title: <span className="text-sm font-bold text-white tracking-tight">Finding {job.title.toLowerCase()}s within {radiusMiles} miles</span>,
+      sub:   <span className="text-xs text-emerald-400/90">Contacting the closest professionals to you · replies in 2–5 min</span>,
+      right: null,
     },
     sent: {
       bg: elapsed < 150
-        ? "bg-blue-500/10 border-blue-500/20"
-        : "bg-indigo-500/10 border-indigo-500/20",
+        ? "bg-blue-950/60 border-blue-500/20"
+        : "bg-indigo-950/60 border-indigo-500/20",
       icon: elapsed < 150
         ? <CheckCircle2 className="w-4 h-4 text-blue-400 flex-shrink-0" />
         : <Bell className="w-4 h-4 text-indigo-400 flex-shrink-0 animate-pulse" />,
       title: elapsed < 30 ? (
-        <span className="text-sm font-semibold text-blue-300">
-          We found {notifiedCount > 0 ? notifiedCount : "several"} tradespeople nearby and notified them.
+        <span className="text-sm font-bold text-white tracking-tight">
+          {notifiedCount > 0 ? notifiedCount : "Several"} tradespeople notified nearby
         </span>
       ) : elapsed < 90 ? (
-        <span className="text-sm font-semibold text-blue-300">Still searching… notifying more tradespeople.</span>
+        <span className="text-sm font-bold text-white tracking-tight">Still searching — notifying more trades</span>
       ) : elapsed < 150 ? (
-        <span className="text-sm font-semibold text-blue-300">Expanding the search radius to reach more trades.</span>
+        <span className="text-sm font-bold text-white tracking-tight">Expanding your search radius</span>
       ) : (
-        <span className="text-sm font-semibold text-indigo-300">You can minimize — we'll notify you when someone responds.</span>
+        <span className="text-sm font-bold text-white tracking-tight">Search running in the background</span>
       ),
       sub: elapsed < 30 ? (
-        <span className="text-xs text-blue-400/80">Waiting for their responses…</span>
+        <span className="text-xs text-blue-400/90">Waiting for responses — usually takes 2–5 minutes</span>
       ) : elapsed < 90 ? (
-        <span className="text-xs text-blue-400/80">Replies usually arrive within 2–5 minutes.</span>
+        <span className="text-xs text-blue-400/90">Hang tight — we're reaching out to more tradespeople</span>
       ) : elapsed < 150 ? (
-        <span className="text-xs text-blue-400/80">Hang tight — more tradespeople are being contacted.</span>
+        <span className="text-xs text-blue-400/90">Reaching out to more trades in a wider area</span>
       ) : (
-        <span className="text-xs text-indigo-400/80">Tap "Minimize" — your search continues in the background.</span>
+        <span className="text-xs text-indigo-400/90">Tap Minimize — we'll alert you the moment someone responds</span>
       ),
     },
     first_accepted: {
-      bg: "bg-emerald-500/15 border-emerald-500/30",
+      bg: "bg-emerald-950/70 border-emerald-500/30",
       icon: <PartyPopper className="w-4 h-4 text-emerald-300 flex-shrink-0" />,
-      title: <span className="text-sm font-semibold text-emerald-200">{firstAcceptedName} applied — message them or wait for more.</span>,
-      sub:   <span className="text-xs text-emerald-400/80">See their profile below. Search is still running.</span>,
+      title: <span className="text-sm font-bold text-white tracking-tight">{firstAcceptedName} applied</span>,
+      sub:   <span className="text-xs text-emerald-400/90">View their profile below · search is still running for more</span>,
     },
     expanding: {
-      bg: "bg-amber-500/10 border-amber-500/20",
+      bg: "bg-amber-950/60 border-amber-500/20",
       icon: (
         <span className="relative flex h-3 w-3 flex-shrink-0">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500" />
         </span>
       ),
-      title: <span className="text-sm font-semibold text-amber-300">Expanding search radius…</span>,
-      sub:   <span className="text-xs text-amber-400/80">Looking further to find available trades.</span>,
+      title: <span className="text-sm font-bold text-white tracking-tight">Expanding search to {Math.min(radiusMiles * 2, 25)} miles</span>,
+      sub:   <span className="text-xs text-amber-400/90">No nearby {job.title.toLowerCase()}s yet — widening the area</span>,
     },
     all_responded: {
-      bg: "bg-emerald-500/15 border-emerald-500/30",
+      bg: "bg-emerald-950/70 border-emerald-500/30",
       icon: <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />,
-      title: <span className="text-sm font-semibold text-emerald-200">{trades.length} tradesperson{trades.length !== 1 ? "s" : ""} applied — choose the best fit.</span>,
-      sub:   <span className="text-xs text-emerald-400/80">Message or call any of them below.</span>,
+      title: <span className="text-sm font-bold text-white tracking-tight">{trades.length} tradesperson{trades.length !== 1 ? "s" : ""} ready to help</span>,
+      sub:   <span className="text-xs text-emerald-400/90">Compare profiles below and pick the best fit</span>,
+    },
+    background: {
+      bg: "bg-slate-800/70 border-slate-700/40",
+      icon: (
+        <span className="relative flex h-3 w-3 flex-shrink-0">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-slate-400 opacity-40" />
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-slate-500" />
+        </span>
+      ),
+      title: <span className="text-sm font-bold text-white tracking-tight">Still searching — no one free right now</span>,
+      sub:   <span className="text-xs text-slate-400/90">We'll alert you the moment a {job.title.toLowerCase()} responds</span>,
+      right: <span className="text-xs text-slate-500 flex-shrink-0 hidden sm:block font-mono">{fmt(timeLeft)} left</span>,
     },
   }
 
   // When DB state says tradespeople have applied, show a "Respond soon!" nudge
   // regardless of the local phase — homeowner should see they have applicants.
   const pendingHomeownerBanner = {
-    bg: "bg-amber-500/15 border-amber-500/30",
+    bg: "bg-amber-950/70 border-amber-500/30",
     icon: <Zap className="w-4 h-4 text-amber-400 flex-shrink-0 animate-pulse" />,
-    title: <span className="text-sm font-semibold text-amber-200">Trades are waiting for you — respond soon!</span>,
-    sub:   <span className="text-xs text-amber-400/80">Review the applicants below and choose one to confirm.</span>,
+    title: <span className="text-sm font-bold text-white tracking-tight">Tradespeople are waiting — respond now</span>,
+    sub:   <span className="text-xs text-amber-400/90">Pick someone below before they take another job</span>,
   }
 
   const activeBanner =
@@ -887,38 +1006,48 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
           )}
         </div>
 
-        <button
-          onClick={handleMinimize}
-          className="flex items-center gap-1 text-slate-400 hover:text-white text-xs transition-colors"
-          title="Minimize — search continues in background"
-        >
-          <Minimize2 className="w-4 h-4" />
-          <span className="hidden sm:inline">Minimize</span>
-        </button>
+        {stopped ? (
+          <button
+            onClick={() => router.push("/dashboard/homeowner")}
+            className="flex items-center gap-1 text-slate-400 hover:text-white text-xs transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 rotate-180" />
+            <span className="hidden sm:inline">Done</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleMinimize}
+            className="flex items-center gap-1 text-slate-400 hover:text-white text-xs transition-colors"
+            title="Minimize — search continues in background"
+          >
+            <Minimize2 className="w-4 h-4" />
+            <span className="hidden sm:inline">Minimize</span>
+          </button>
+        )}
       </div>
 
       {/* ── STATUS BANNER ───────────────────────────────────────── */}
       <div
         key={stopped ? "stopped" : phase}
-        className={`animate-fade-in flex items-center gap-3 px-4 py-2.5 border-b flex-shrink-0 transition-colors duration-500 ${activeBanner.bg}`}
+        className={`animate-fade-in flex items-start gap-3 px-4 py-3 border-b flex-shrink-0 transition-colors duration-500 ${activeBanner.bg}`}
       >
-        {activeBanner.icon}
+        <div className="mt-0.5">{activeBanner.icon}</div>
         <div className="flex-1 min-w-0">
           <div>{activeBanner.title}</div>
           <div>{activeBanner.sub}</div>
         </div>
-        {/* Stop search button — only visible while actively searching */}
+        {/* Stop button — only while actively searching */}
         {!stopped && (
           <button
             onClick={handleStopSearch}
-            className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-red-400 border border-slate-600 hover:border-red-500/50 px-2.5 py-1 rounded-lg transition-colors"
-            title="Stop the search and keep current results"
+            className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-slate-400 hover:text-red-400 border border-slate-600/60 hover:border-red-500/50 px-2.5 py-1 rounded-full transition-colors mt-0.5"
+            title="Pause the search"
           >
             <StopCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Stop</span>
+            <span className="hidden sm:inline">Pause</span>
           </button>
         )}
-        {!stopped && activeBanner.right}
+        {!stopped && (activeBanner as any).right}
       </div>
 
       {/* ── RADIUS SELECTOR ─────────────────────────────────────── */}
@@ -983,6 +1112,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
             <div className="w-8 h-1 rounded-full bg-slate-600" />
           </div>
           <div className="px-4 pb-4 pt-3 space-y-3">
+            {/* ── Section header ── */}
             <div className="flex items-center gap-2">
               <Users className="w-4 h-4 text-emerald-400 flex-shrink-0" />
               <span className="text-sm font-semibold text-white">
@@ -991,10 +1121,28 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
               <span className="ml-auto text-xs text-slate-400">
                 {stopped
                   ? (trades.length > 0 ? `${trades.length} found` : "None yet")
+                  : phase === "background"
+                  ? "Monitoring…"
                   : (notifiedCount ? `${notifiedCount} alerted` : "Searching…")}
               </span>
             </div>
 
+            {/* ── Legend (only when we have mixed states) ── */}
+            {!stopped && (trades.length > 0 || alertedTrades.some(a => a.viewedAt)) && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                {trades.length > 0 && (
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />Applied</span>
+                )}
+                {alertedTrades.some(a => a.viewedAt) && (
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-400" />Reviewing</span>
+                )}
+                {alertedTrades.some(a => !a.viewedAt) && (
+                  <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-slate-500" />Notified</span>
+                )}
+              </div>
+            )}
+
+            {/* ── STATE 3: RESPONDED (green) — top of list ── */}
             {trades.map((t, i) => (
               <TradeCard
                 key={t.id}
@@ -1008,9 +1156,52 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
               />
             ))}
 
-            {skeletonCount > 0 && Array.from({ length: skeletonCount }, (_, i) => (
-              <SkeletonCard key={`sk-${i}`} index={i} elapsed={elapsed} />
-            ))}
+            {/* ── STATE 2: VIEWING (blue) — middle ── */}
+            {!stopped && (() => {
+              const respondedIds = new Set(trades.map(t => t.id))
+              const viewingTrades = alertedTrades.filter(a => a.viewedAt && !respondedIds.has(a.id))
+              return viewingTrades.map((t, i) => (
+                <ViewingCard key={`viewing-${t.id}`} trade={t} index={i} />
+              ))
+            })()}
+
+            {/* ── Similar-trades badge (expanding / background) ── */}
+            {!stopped && (phase === "expanding" || phase === "background") && (() => {
+              const similar = getSimilarTrades(job.title)
+              if (similar.length === 0) return null
+              return (
+                <div className="animate-fade-in flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-700/40 border border-slate-600/25">
+                  <RefreshCw className="w-3 h-3 text-slate-400 flex-shrink-0" />
+                  <span className="text-[11px] text-slate-400">
+                    Also checking: <span className="text-slate-300">{similar.slice(0, 2).join(", ")}</span>
+                  </span>
+                </div>
+              )
+            })()}
+
+            {/* ── CheckingCard rows — background phase, no trades dispatched yet ── */}
+            {!stopped && phase === "background" && trades.length === 0 && alertedTrades.length === 0 && (
+              <>
+                {[0, 1, 2].map((i) => <CheckingCard key={`checking-${i}`} index={i} />)}
+              </>
+            )}
+
+            {/* ── STATE 1: ALERTED (grey) — bottom ── */}
+            {!stopped && (() => {
+              const respondedIds = new Set(trades.map(t => t.id))
+              const justAlerted = alertedTrades.filter(a => !a.viewedAt && !respondedIds.has(a.id))
+              if (justAlerted.length > 0) {
+                return justAlerted.map((t, i) => (
+                  <AlertedCard key={`alerted-${t.id}`} trade={t} index={i} elapsed={elapsed} />
+                ))
+              }
+              // Fallback: generic skeletons while waiting for first poll
+              // Not shown in background phase — CheckingCards handle that state
+              if (phase === "background") return null
+              return skeletonCount > 0 && Array.from({ length: skeletonCount }, (_, i) => (
+                <SkeletonCard key={`sk-${i}`} index={i} elapsed={elapsed} />
+              ))
+            })()}
 
             {trades.length === 0 && stopped && (
               <div className="text-center py-8 text-slate-500">
@@ -1020,9 +1211,34 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
               </div>
             )}
 
+            {/* ── Browse CTA — shown after 10 min with no responses ── */}
+            {showBrowseCta && trades.length === 0 && !stopped && (
+              <div className="animate-fade-in-up p-4 rounded-2xl border border-orange-500/25 bg-orange-500/[0.08] mt-1">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-orange-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <MapPin className="w-4 h-4 text-orange-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-orange-200 leading-tight">
+                      Want faster results?
+                    </p>
+                    <p className="text-xs text-orange-300/70 mt-0.5 leading-relaxed">
+                      Browse available {job.title.toLowerCase()}s on the marketplace while we keep searching.
+                    </p>
+                    <button
+                      onClick={() => router.push("/professionals")}
+                      className="mt-2 text-xs font-semibold text-orange-300 hover:text-orange-200 transition-colors flex items-center gap-1"
+                    >
+                      View nearby trades <ArrowLeft className="w-3 h-3 rotate-180" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {phase === "expanding" && !stopped && (
               <p className="animate-fade-in text-xs text-center text-amber-400/70 pt-1">
-                Adding more tradespeople from a wider area…
+                Reaching further — more {job.title.toLowerCase()}s are being contacted…
               </p>
             )}
           </div>

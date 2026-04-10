@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
+import { revalidateTag } from "next/cache"
 
 // POST /api/jobs/[id]/complete
 // Marks a trade job as COMPLETED — homeowner only, any status except already COMPLETED.
@@ -45,6 +46,7 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    revalidateTag(`jobs-user-${user.id}`)
     return NextResponse.json({ success: true })
 
   } catch (error) {

@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
-import { CheckCircle, XCircle, UserCheck, Check, MessageCircle } from "lucide-react"
+import { CheckCircle, XCircle, UserCheck, Check, MessageCircle, FileText } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import {
   AlertDialog,
@@ -16,6 +16,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { PostConfirmAgreementModal, isAgreementModalDismissed, markAgreementModalDismissed } from "./post-confirm-agreement-modal"
+import { AgreementEditorModal, loadSavedAgreement } from "./agreement-editor-modal"
 
 interface HomeownerApplicationActionsProps {
   applicationId: string
@@ -27,8 +29,16 @@ interface HomeownerApplicationActionsProps {
   acceptedContractorId: string | null
   jobTitle?: string
   jobBudget?: string // Budget display string (e.g., "£500 - £1000")
+  budgetMin?: number
+  budgetMax?: number
   homeownerUserId?: string // The homeowner's user_id for sending messages
   contractorUserId?: string | null // The tradesperson's auth user_id for messaging
+  // Agreement defaults for pre-filling editor
+  homeownerName?: string
+  homeownerAddress?: string
+  tradespersonAddress?: string
+  jobAddress?: string
+  jobDescription?: string
 }
 
 export function HomeownerApplicationActions({
@@ -41,8 +51,15 @@ export function HomeownerApplicationActions({
   acceptedContractorId,
   jobTitle,
   jobBudget,
+  budgetMin,
+  budgetMax,
   homeownerUserId,
   contractorUserId,
+  homeownerName,
+  homeownerAddress,
+  tradespersonAddress,
+  jobAddress,
+  jobDescription,
 }: HomeownerApplicationActionsProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -50,6 +67,14 @@ export function HomeownerApplicationActions({
   const [loading, setLoading] = useState(false)
   const [showAcceptDialog, setShowAcceptDialog] = useState(false)
   const [messagingLoading, setMessagingLoading] = useState(false)
+  const [showAgreementModal, setShowAgreementModal] = useState(false)
+  const [showEditorModal, setShowEditorModal] = useState(false)
+  const [agreementSaved, setAgreementSaved] = useState(false)
+
+  // Check on mount if a saved agreement exists for this job
+  useEffect(() => {
+    setAgreementSaved(!!loadSavedAgreement(jobId))
+  }, [jobId])
 
   const openMessagesWithUser = async (targetUserId: string) => {
     setMessagingLoading(true)
@@ -112,6 +137,12 @@ export function HomeownerApplicationActions({
       })
 
       setShowAcceptDialog(false)
+
+      // Show agreement modal for jobs over £500 (if not already dismissed)
+      const effectiveBudget = budgetMax ?? budgetMin ?? 0
+      if (effectiveBudget >= 500 && !isAgreementModalDismissed(jobId)) {
+        setShowAgreementModal(true)
+      }
 
       // Send a short system message to open the conversation
       if (contractorData?.user_id && homeownerUserId) {
@@ -213,6 +244,18 @@ export function HomeownerApplicationActions({
     }
   }
 
+  const agreementDefaults = {
+    homeownerName,
+    homeownerAddress,
+    tradespersonName: contractorName,
+    tradespersonAddress,
+    jobTitle,
+    jobAddress,
+    jobDescription,
+    agreedPrice: jobBudget,
+    paymentType: "",
+  }
+
   // Don't show accept/reject buttons if already accepted/confirmed or withdrawn
   const statusLower = currentStatus?.toLowerCase()
   if (statusLower === "accepted" || statusLower === "confirmed" ||
@@ -223,27 +266,58 @@ export function HomeownerApplicationActions({
   // This contractor was confirmed — show arrange-visit CTA
   if (isThisContractorAccepted) {
     return (
-      <div className="mt-1 space-y-2">
-        <p className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
-          <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
-          Confirmed — Arrange visit
-        </p>
-        <p className="text-xs text-slate-400">
-          You&apos;ve accepted this tradesperson. Arrange time and details.
-        </p>
-        <div className="flex flex-wrap gap-2 pt-0.5">
-          {contractorUserId && (
+      <>
+        <div className="mt-1 space-y-2">
+          <p className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+            <CheckCircle className="h-3.5 w-3.5 flex-shrink-0" />
+            Confirmed — Arrange visit
+          </p>
+          <p className="text-xs text-slate-400">
+            You&apos;ve accepted this tradesperson. Arrange time and details.
+          </p>
+          <div className="flex flex-wrap gap-2 pt-0.5">
+            {contractorUserId && (
+              <button
+                onClick={() => openMessagesWithUser(contractorUserId)}
+                disabled={messagingLoading}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-60"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                {messagingLoading ? "Opening…" : "Message tradesperson"}
+              </button>
+            )}
             <button
-              onClick={() => openMessagesWithUser(contractorUserId)}
-              disabled={messagingLoading}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-60"
+              onClick={() => setShowEditorModal(true)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 hover:text-blue-300 transition-colors"
             >
-              <MessageCircle className="h-3.5 w-3.5" />
-              {messagingLoading ? "Opening…" : "Message tradesperson"}
+              <FileText className="h-3.5 w-3.5" />
+              {agreementSaved ? "Agreement" : "Make Agreement"}
             </button>
-          )}
+          </div>
         </div>
-      </div>
+
+        <PostConfirmAgreementModal
+          isOpen={showAgreementModal}
+          onClose={() => {
+            markAgreementModalDismissed(jobId)
+            setShowAgreementModal(false)
+          }}
+          onMakeAgreement={() => {
+            markAgreementModalDismissed(jobId)
+            setShowAgreementModal(false)
+            setShowEditorModal(true)
+          }}
+          jobId={jobId}
+        />
+
+        <AgreementEditorModal
+          isOpen={showEditorModal}
+          onClose={() => setShowEditorModal(false)}
+          jobId={jobId}
+          defaults={agreementDefaults}
+          onSaved={() => setAgreementSaved(true)}
+        />
+      </>
     )
   }
 
@@ -257,6 +331,28 @@ export function HomeownerApplicationActions({
 
   return (
     <>
+      <PostConfirmAgreementModal
+        isOpen={showAgreementModal}
+        onClose={() => {
+          markAgreementModalDismissed(jobId)
+          setShowAgreementModal(false)
+        }}
+        onMakeAgreement={() => {
+          markAgreementModalDismissed(jobId)
+          setShowAgreementModal(false)
+          setShowEditorModal(true)
+        }}
+        jobId={jobId}
+      />
+
+      <AgreementEditorModal
+        isOpen={showEditorModal}
+        onClose={() => setShowEditorModal(false)}
+        jobId={jobId}
+        defaults={agreementDefaults}
+        onSaved={() => setAgreementSaved(true)}
+      />
+
       <div className="flex flex-wrap gap-2">
         <Button
           onClick={() => setShowAcceptDialog(true)}

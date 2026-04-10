@@ -1,27 +1,30 @@
+import { Suspense } from "react"
 import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import { HomeownerDashboard } from "@/components/homeowner-dashboard"
+import { getHomeownerJobs, getHomeownerReviews, getSavedTradespeople } from "@/lib/queries"
+import { getDashboardBootstrap } from "@/lib/bootstrap"
 
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
 
 export default async function HomeownerDashboardPage() {
-  console.log("[HOMEOWNER] Dashboard page loading...")
-
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    console.log("[HOMEOWNER] No user found, redirecting to login")
-    redirect("/auth/login")
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user ?? null
+  } catch {
+    // AbortError (timeout from createClient)
   }
 
-  console.log("[HOMEOWNER] User found:", user.id)
+  if (!user) redirect("/auth/login")
 
-  // Get homeowner profile
+  // Bootstrap: adminSettings + future featureFlags/permissions (cached, shared across requests)
+  await getDashboardBootstrap(user.id)
+
+  // Get homeowner profile (with create-if-missing fallback — NOT cached, has side effects)
   let profile: any = null
   {
     const { data: profileData, error: profileError } = await supabase
@@ -76,86 +79,120 @@ export default async function HomeownerDashboardPage() {
     redirect("/?complete_profile=true")
   }
 
-  console.log("[HOMEOWNER] Homeowner profile found:", profile.first_name, profile.last_name, "Profile ID:", profile.id, "User ID:", user.id)
+  console.log("[HOMEOWNER] Profile found:", profile.first_name, profile.last_name, "ID:", profile.id)
 
-  // Check profile completeness - but DON'T redirect, let dashboard handle it
   const missingFields: string[] = []
   if (!profile.first_name) missingFields.push("first_name")
   if (!profile.last_name) missingFields.push("last_name")
   if (!profile.location) missingFields.push("location")
-
   const isProfileComplete = missingFields.length === 0
 
-  console.log("[HOMEOWNER] Profile validation:", {
-    isProfileComplete,
-    missingFields,
-  })
+  // Profile is ready — stream in the heavy data sections while showing skeleton
+  return (
+    <Suspense fallback={<DashboardSkeleton profile={profile} isProfileComplete={isProfileComplete} missingFields={missingFields} />}>
+      <DashboardData
+        user={user}
+        profile={profile}
+        isProfileComplete={isProfileComplete}
+        missingFields={missingFields}
+      />
+    </Suspense>
+  )
+}
 
-  // Get homeowner's posted jobs/tasks from the jobs table
-  const { data: jobs, error: jobsError } = await supabase
-    .from("jobs")
-    .select(`
-      id,
-      title,
-      description,
-      short_description,
-      location,
-      budget_min,
-      budget_max,
-      budget_period,
-      is_active,
-      status,
-      expires_at,
-      created_at,
-      updated_at,
-      is_tradespeople_job,
-      work_location,
-      applications_count,
-      views_count
-    `)
-    .eq("homeowner_id", profile.id)
-    .order("created_at", { ascending: false })
+// ─── Async data section — streamed in after profile renders ─────────────────
 
-  if (jobsError) {
-    console.log("[HOMEOWNER] Jobs error:", jobsError)
-  }
-
-  console.log("[HOMEOWNER] Jobs found:", jobs?.length || 0)
-
-  // Get saved tradespeople
-  const { data: savedRaw } = await supabase
-    .from("saved_traders")
-    .select(`
-      id,
-      professional_id,
-      professional_profiles (
-        id,
-        user_id,
-        first_name,
-        last_name,
-        nickname,
-        title,
-        location,
-        profile_photo_url,
-        skills,
-        average_rating,
-        reviews_count
-      )
-    `)
-    .eq("homeowner_id", profile.id)
-    .order("created_at", { ascending: false })
-    .limit(5)
-
-  const savedTradespeople = (savedRaw || []).filter((s: any) => s.professional_profiles)
+async function DashboardData({
+  user,
+  profile,
+  isProfileComplete,
+  missingFields,
+}: {
+  user: any
+  profile: any
+  isProfileComplete: boolean
+  missingFields: string[]
+}) {
+  // All three queries run in parallel, served from cache on repeat visits
+  const [jobs, reviews, savedTradespeople] = await Promise.all([
+    getHomeownerJobs(profile.id, user.id),
+    getHomeownerReviews(user.id),
+    getSavedTradespeople(profile.id, user.id),
+  ])
 
   return (
     <HomeownerDashboard
       user={user}
       profile={profile}
-      jobs={jobs || []}
+      jobs={jobs}
       savedTradespeople={savedTradespeople}
       isProfileComplete={isProfileComplete}
       missingFields={missingFields}
+      reviews={reviews}
     />
+  )
+}
+
+// ─── Skeleton — shown instantly while DashboardData streams ─────────────────
+
+function DashboardSkeleton({
+  profile,
+  isProfileComplete,
+  missingFields,
+}: {
+  profile: any
+  isProfileComplete: boolean
+  missingFields: string[]
+}) {
+  const displayName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Homeowner"
+  const initials = `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() || "HO"
+
+  return (
+    <div className="min-h-screen bg-slate-900 text-white">
+      {/* Profile incomplete banner */}
+      {!isProfileComplete && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-3 flex items-center gap-3">
+          <div className="h-5 w-5 rounded-full bg-amber-400/40 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-300">Complete your profile</p>
+            <p className="text-xs text-amber-400/70">Missing: {missingFields.join(", ")}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Profile header — real data, shown instantly */}
+      <div className="bg-slate-800 px-4 py-5">
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 rounded-full bg-slate-700 border-2 border-slate-600 flex items-center justify-center flex-shrink-0">
+            <span className="text-xl font-bold text-emerald-400">{initials}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-lg font-bold truncate">{displayName}</p>
+            <div className="h-3 w-32 bg-slate-700 rounded animate-pulse mt-1" />
+          </div>
+        </div>
+      </div>
+
+      {/* Stats row skeleton */}
+      <div className="px-4 py-4 grid grid-cols-3 gap-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-slate-800 rounded-xl p-3">
+            <div className="h-6 w-8 bg-slate-700 rounded animate-pulse mb-1" />
+            <div className="h-3 w-14 bg-slate-700 rounded animate-pulse" />
+          </div>
+        ))}
+      </div>
+
+      {/* Jobs list skeleton */}
+      <div className="px-4 space-y-3">
+        <div className="h-4 w-24 bg-slate-700 rounded animate-pulse mb-2" />
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="bg-slate-800 rounded-xl p-4 space-y-2">
+            <div className="h-4 w-48 bg-slate-700 rounded animate-pulse" />
+            <div className="h-3 w-32 bg-slate-700/60 rounded animate-pulse" />
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

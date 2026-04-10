@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
+import { revalidateTag } from "next/cache"
 
 // PATCH /api/jobs/[id]/applications/[appId]
 // Body: { action: 'accept', tradesperson_id: string } | { action: 'decline' }
@@ -66,6 +67,7 @@ export async function PATCH(
         return NextResponse.json({ error: rpcError.message }, { status: 422 })
       }
 
+      revalidateTag(`jobs-user-${user.id}`)
       // Notify the tradesperson that they've been confirmed
       notifyTradespersonConfirmed(jobId, appId, tradesperson_id, admin).catch(console.error)
 

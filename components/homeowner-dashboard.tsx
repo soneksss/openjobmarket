@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   MapPin,
   Briefcase,
@@ -24,9 +25,11 @@ import {
   Eye,
   Calendar,
   Settings,
+  Star,
 } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { manualLogout } from "@/hooks/use-auto-logout"
+import { StarRating } from "@/components/star-rating"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -36,6 +39,7 @@ interface HomeownerJob {
   location: string
   is_active: boolean
   status?: string
+  completion_status?: string
   created_at: string
   expires_at?: string
   applications_count?: number
@@ -45,7 +49,11 @@ interface HomeownerJob {
 const CLOSED_STATUSES = new Set(["closed", "filled", "expired", "cancelled", "completed"])
 function isClosed(job: HomeownerJob) {
   if (!job.is_active) return true
-  return CLOSED_STATUSES.has((job.status ?? "").toLowerCase())
+  const s = (job.status ?? "").toLowerCase()
+  if (CLOSED_STATUSES.has(s)) return true
+  if (job.completion_status === "completed") return true
+  if (job.expires_at && new Date(job.expires_at) < new Date()) return true
+  return false
 }
 
 function JobStatusBadge({ job }: { job: HomeownerJob }) {
@@ -85,6 +93,17 @@ interface HomeownerProfile {
   nickname?: string
   location?: string
   profile_photo_url?: string
+  average_rating?: number
+  reviews_count?: number
+}
+
+interface HomeownerReview {
+  id: string
+  rating: number
+  text: string
+  created_at: string
+  reviewer_name: string
+  reviewer_avatar: string | null
 }
 
 interface HomeownerDashboardProps {
@@ -94,6 +113,7 @@ interface HomeownerDashboardProps {
   savedTradespeople?: SavedTradesperson[]
   isProfileComplete?: boolean
   missingFields?: string[]
+  reviews?: HomeownerReview[]
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
@@ -105,11 +125,16 @@ export function HomeownerDashboard({
   user,
   isProfileComplete = true,
   missingFields = [],
+  reviews = [],
 }: HomeownerDashboardProps) {
   const supabase = createClient()
 
   const [loggingOut, setLoggingOut] = useState(false)
   const [unreadMessages, setUnreadMessages] = useState(0)
+  const [showReviewsModal, setShowReviewsModal] = useState(false)
+
+  const avgRating = profile.average_rating ?? 0
+  const reviewsCount = profile.reviews_count ?? 0
 
   const displayName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim() || "Homeowner"
   const initials = `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() || "HO"
@@ -178,6 +203,15 @@ export function HomeownerDashboard({
                   {profile.location}
                 </p>
               )}
+              <button
+                onClick={(e) => { e.preventDefault(); setShowReviewsModal(true) }}
+                className="mt-1.5 hover:opacity-80 transition-opacity text-left"
+              >
+                {reviewsCount > 0
+                  ? <StarRating rating={avgRating} totalReviews={reviewsCount} size="sm" showCount />
+                  : <span className="text-xs text-slate-500">No reviews yet</span>
+                }
+              </button>
             </div>
             <ChevronRight className="h-5 w-5 text-slate-500 flex-shrink-0" />
           </Link>
@@ -281,6 +315,18 @@ export function HomeownerDashboard({
                       )}
                     </div>
                   </Link>
+
+                  {/* Rating */}
+                  <button
+                    onClick={() => setShowReviewsModal(true)}
+                    className="mt-3 hover:opacity-80 transition-opacity w-full flex justify-center"
+                    title="View your reviews"
+                  >
+                    {reviewsCount > 0
+                      ? <StarRating rating={avgRating} totalReviews={reviewsCount} size="sm" showCount />
+                      : <span className="text-xs text-slate-500">No reviews yet</span>
+                    }
+                  </button>
 
                   {/* Edit profile button */}
                   <Link
@@ -572,6 +618,61 @@ export function HomeownerDashboard({
         </div>
       </div>
 
+      {/* Reviews modal */}
+      <Dialog open={showReviewsModal} onOpenChange={setShowReviewsModal}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto bg-slate-900 border border-white/10">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-white">Your Reviews</DialogTitle>
+          </DialogHeader>
+
+          {/* Summary */}
+          <div className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center gap-4">
+            <div className="text-center">
+              <div className="text-4xl font-bold text-emerald-400">{avgRating > 0 ? avgRating.toFixed(1) : "0.0"}</div>
+              <div className="text-xs text-slate-500 mt-0.5">out of 5</div>
+            </div>
+            <div className="flex-1">
+              <StarRating rating={avgRating} totalReviews={reviewsCount} size="md" showCount={false} />
+              <p className="text-xs text-slate-500 mt-1">Based on {reviewsCount} review{reviewsCount !== 1 ? "s" : ""} from tradespeople</p>
+            </div>
+          </div>
+
+          {reviews.length === 0 ? (
+            <p className="text-sm text-slate-400 text-center py-6">No reviews yet. Reviews appear here after tradespeople rate you.</p>
+          ) : (
+            <div className="space-y-3">
+              {reviews.map((review) => (
+                <div key={review.id} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        {review.reviewer_avatar ? (
+                          <AvatarImage src={review.reviewer_avatar} className="object-cover" />
+                        ) : null}
+                        <AvatarFallback className="bg-slate-700 text-slate-300 text-xs">
+                          {review.reviewer_name.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{review.reviewer_name}</p>
+                        <p className="text-xs text-slate-500">{new Date(review.created_at).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      {[1,2,3,4,5].map((s) => (
+                        <Star key={s} className={`h-3.5 w-3.5 ${s <= review.rating ? "fill-yellow-400 text-yellow-400" : "text-slate-600"}`} />
+                      ))}
+                    </div>
+                  </div>
+                  {review.text && (
+                    <p className="text-sm text-slate-300 leading-relaxed">{review.text}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

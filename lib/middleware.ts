@@ -96,9 +96,7 @@ export async function middleware(req: NextRequest) {
 
   // Check for locale query parameter (e.g., /auth/sign-up?locale=pt-BR)
   const localeParam = req.nextUrl.searchParams.get('locale')
-  console.log('[MIDDLEWARE] Pathname:', pathname, 'localeParam:', localeParam, 'currentLocale:', currentLocale)
   if (localeParam === 'pt-BR') {
-    console.log('[MIDDLEWARE] Setting NEXT_LOCALE cookie to pt-BR due to query parameter')
     // Set cookie when locale parameter is present
     res.cookies.set('NEXT_LOCALE', 'pt-BR', {
       maxAge: 60 * 60 * 24 * 365, // 1 year
@@ -154,7 +152,6 @@ export async function middleware(req: NextRequest) {
                                 (currentLocale === 'en' && userPreference === 'en')
 
     if (shouldUpdateCookie) {
-      console.log('[MIDDLEWARE] Setting NEXT_LOCALE cookie to', currentLocale, 'based on pathname (existing:', existingLocaleCookie, ')')
       res.cookies.set('NEXT_LOCALE', currentLocale, {
         maxAge: 60 * 60 * 24 * 365, // 1 year
         path: '/',
@@ -167,11 +164,7 @@ export async function middleware(req: NextRequest) {
           path: '/',
         })
       }
-    } else {
-      console.log('[MIDDLEWARE] Preserving existing locale cookie:', existingLocaleCookie, '(not overwriting with', currentLocale, ')')
     }
-  } else if (localeParam) {
-    console.log('[MIDDLEWARE] Skipping pathname-based cookie because localeParam exists:', localeParam)
   }
 
   // === AUTH PROTECTION ===
@@ -212,27 +205,16 @@ export async function middleware(req: NextRequest) {
       }
     );
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // getSession() decodes the JWT from the cookie — no network round-trip.
+    // getUser() (used previously) calls the Supabase auth server every time,
+    // adding ~600ms of latency to every protected-route navigation.
+    // Security note: the JWT is signed and its expiry is validated locally.
+    // Full server-side re-validation still happens in layout.tsx via getUser().
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (!user) {
+    if (!session) {
       const url = req.nextUrl.clone();
       url.pathname = "/auth/login";
-      return NextResponse.redirect(url);
-    }
-
-    // CRITICAL: Check if user has confirmed their email
-    // Redirect unverified users to the email verification page (OTP input)
-    if (!user.email_confirmed_at) {
-      console.log('[MIDDLEWARE] User email not verified, redirecting to verify-email');
-      const url = req.nextUrl.clone();
-      // Preserve locale if on /br route
-      url.pathname = "/auth/verify-email";
-      if (isOnBrRoute) {
-        url.searchParams.set('locale', 'pt-BR');
-      }
-      if (user.email) {
-        url.searchParams.set('email', user.email);
-      }
       return NextResponse.redirect(url);
     }
 

@@ -161,7 +161,7 @@ export function MobileMapBottomSheet({
     >
       {/* Map Section - Takes remaining space */}
       <div
-        className="relative flex-1 min-h-0"
+        className="relative flex-1 min-h-0 bg-gray-100"
         style={{
           minHeight: state === "fullList" ? "60px" : state === "previewCard" ? "25%" : "30%",
           transition: isDragging ? "none" : "min-height 0.3s ease-out"

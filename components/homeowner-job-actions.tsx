@@ -277,27 +277,38 @@ export function HomeownerJobActions({
       const newExpiry = new Date(now)
 
       if (isUrgentJob) {
-        // Urgent/ASAP jobs extend in hours
         newExpiry.setHours(newExpiry.getHours() + parseInt(extensionValue))
       } else {
-        // Flexible/standard jobs extend in days
         newExpiry.setDate(newExpiry.getDate() + parseInt(extensionValue))
       }
 
       const { error } = await supabase
         .from("jobs")
         .update({
-          expires_at: newExpiry.toISOString(),
-          is_active: true,
-          // Reset matching_status so the trigger allows new applications
+          expires_at:      newExpiry.toISOString(),
+          is_active:       true,
           matching_status: "searching",
+          // Reset dispatch state so the job can be re-dispatched
+          ...(isUrgentJob ? { dispatch_state: null } : {}),
         })
         .eq("id", jobId)
 
       if (error) throw error
 
-      router.refresh()
-      setShowExtendDialog(false)
+      if (isUrgentJob) {
+        // Re-trigger Uber-style dispatch so tradespeople are re-notified,
+        // then land directly on the live search screen.
+        fetch(`/api/jobs/${jobId}/dispatch-urgent`, {
+          method: "POST",
+          credentials: "include",
+        }).catch(() => {}) // fire-and-forget — live view polls anyway
+
+        setShowExtendDialog(false)
+        router.push(`/jobs/${jobId}/live`)
+      } else {
+        router.refresh()
+        setShowExtendDialog(false)
+      }
     } catch (error) {
       console.error("Error extending job:", error)
       toast({
@@ -542,11 +553,11 @@ export function HomeownerJobActions({
             <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
             <div className="px-5 pt-5 pb-4">
               <p className="text-base font-bold text-white mb-1">
-                {isUrgentJob ? "Reopen urgent job" : "Extend job posting"}
+                {isUrgentJob ? "Restart urgent search" : "Extend job posting"}
               </p>
               <p className="text-sm text-slate-400 mb-4">
                 {isUrgentJob
-                  ? "Choose how many hours to reopen. The search window restarts from now."
+                  ? "Choose a new search window. Nearby tradespeople will be re-notified and you'll go straight to the live search."
                   : "Choose how many days to extend. The job will be reactivated if expired."}
               </p>
               <Select value={extensionValue} onValueChange={setExtensionValue}>
@@ -585,9 +596,9 @@ export function HomeownerJobActions({
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5"
               >
                 {isExtending ? (
-                  <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Extending…</>
+                  <><span className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" /> {isUrgentJob ? "Starting…" : "Extending…"}</>
                 ) : (
-                  <><Clock className="w-3.5 h-3.5" /> Reopen Job</>
+                  <><Clock className="w-3.5 h-3.5" /> {isUrgentJob ? "Start Live Search" : "Reopen Job"}</>
                 )}
               </button>
             </div>

@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
             tradesperson_id: cp.id,
             status: "PENDING",
           })
-          .then(() => {}).catch(() => {})
+          .then(() => {}, () => {})
 
         // Read current application state
         const { data: app } = await admin

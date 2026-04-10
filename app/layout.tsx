@@ -93,23 +93,26 @@ export default async function RootLayout({
   children: React.ReactNode
 }>) {
   const supabase = await createClient()
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser()
+
+  // Auth must never throw — ECONNRESET or network hiccup would break the entire layout
+  let user = null
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data.user ?? null
+  } catch {
+    // Fail open: render as signed-out; client onAuthStateChange recovers on mount
+  }
 
   let userType = null
   if (user) {
     try {
-      const { data: userData, error } = await supabase.from("users").select("user_type").eq("id", user.id).single()
-      if (error) {
-        // Log error but don't break - user might be in the process of onboarding
-        userType = null
-      } else {
-        userType = userData?.user_type
-      }
-    } catch (error) {
-      // Silently handle - user might be mid-onboarding
+      const { data: userData } = await supabase
+        .from("users")
+        .select("user_type")
+        .eq("id", user.id)
+        .single()
+      userType = userData?.user_type ?? null
+    } catch {
       userType = null
     }
   }
@@ -128,22 +131,6 @@ export default async function RootLayout({
         {/* Preconnect to Supabase (profile images, storage) */}
         <link rel="preconnect" href="https://mklxzrvhanlndkyeteog.supabase.co" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://mklxzrvhanlndkyeteog.supabase.co" />
-        {/* Preload Leaflet so the map modal opens without flash or delay */}
-        <link rel="preconnect" href="https://unpkg.com" />
-        <link
-          rel="preload"
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          as="style"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-          crossOrigin=""
-        />
-        <link
-          rel="preload"
-          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          as="script"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-          crossOrigin=""
-        />
         {/* Organization schema */}
         <script
           type="application/ld+json"
@@ -197,7 +184,7 @@ export default async function RootLayout({
             <div className="w-10 h-10 rounded-full border-2 border-slate-700 border-t-emerald-500 animate-spin" />
           </div>
         }>
-          <LayoutContent user={user} userType={userType} serverLocale={serverLocale}>
+          <LayoutContent user={user} userType={userType} isAdmin={userType === 'admin'} serverLocale={serverLocale}>
             {children}
           </LayoutContent>
         </Suspense>
