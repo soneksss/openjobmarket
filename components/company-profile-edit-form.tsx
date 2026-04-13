@@ -24,6 +24,7 @@ import pica from "pica"
 import { LocationPicker } from "@/components/ui/location-picker"
 import { deleteCompanyAccount, updateCompanyProfile } from "@/lib/actions"
 import LanguageSelector from "@/components/language-selector"
+import { PortfolioPhotosEditor } from "@/components/portfolio-photos-editor"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1065,6 +1066,19 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Portfolio Photos */}
+            <div className="space-y-3 pt-6 border-t border-slate-700/60">
+              <div>
+                <h3 className="text-base sm:text-lg font-medium text-white flex items-center gap-2">
+                  Portfolio Photos
+                </h3>
+                <p className="text-sm text-slate-400 mt-0.5">
+                  Show homeowners examples of your previous work (max 6 photos)
+                </p>
+              </div>
+              <PortfolioPhotosEditor profileId={profile.id} />
             </div>
 
             {/* Delete Account Section */}

@@ -76,6 +76,14 @@ export default async function CompanyProfilePage({ params }: PageProps) {
     )
   }
 
+  // Fetch portfolio photos
+  const { data: portfolioPhotos } = await supabase
+    .from("trades_portfolio_photos")
+    .select("id, photo_url")
+    .eq("tradesperson_id", companyProfile.id)
+    .order("created_at", { ascending: false })
+    .limit(6)
+
   console.log("[COMPANY-PROFILE] Profile loaded successfully:", companyProfile.company_name)
 
   return (
@@ -84,6 +92,7 @@ export default async function CompanyProfilePage({ params }: PageProps) {
         company={companyProfile}
         user={user as any}
         isModal={false}
+        portfolioPhotos={portfolioPhotos ?? []}
       />
     </div>
   )

@@ -20,6 +20,10 @@ import {
   BookmarkCheck,
   Phone,
   ShieldCheck,
+  Images,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -61,14 +65,20 @@ interface User {
   email: string
 }
 
+interface PortfolioPhoto {
+  id: string
+  photo_url: string
+}
+
 interface CompanyDetailViewProps {
   company: CompanyProfile
   user: User | null
   isModal?: boolean
   onSignUpPrompt?: () => void
+  portfolioPhotos?: PortfolioPhoto[]
 }
 
-export default function CompanyDetailView({ company, user, isModal = false, onSignUpPrompt }: CompanyDetailViewProps) {
+export default function CompanyDetailView({ company, user, isModal = false, onSignUpPrompt, portfolioPhotos = [] }: CompanyDetailViewProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -77,6 +87,7 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
   const [sessionValidated, setSessionValidated] = useState(false)
   const [activeJobs, setActiveJobs] = useState<any[]>([])
   const [loadingJobs, setLoadingJobs] = useState(true)
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
 
   const isOwnProfile = user?.id === company.user_id
   const [isSaved, setIsSaved] = useState(false)
@@ -590,6 +601,32 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
               </section>
             )}
 
+            {/* Previous Work — portfolio photos */}
+            {portfolioPhotos.length > 0 && (
+              <section className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
+                  <Images className="h-3.5 w-3.5" />Previous Work
+                </h2>
+                <div className="grid grid-cols-3 gap-2">
+                  {portfolioPhotos.map((photo, idx) => (
+                    <button
+                      key={photo.id}
+                      type="button"
+                      onClick={() => setLightboxIndex(idx)}
+                      className="aspect-square rounded-xl overflow-hidden border border-slate-700/60 hover:border-emerald-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                    >
+                      <img
+                        src={photo.photo_url}
+                        alt={`Portfolio photo ${idx + 1}`}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* About */}
             {company.description && (
               <section className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
@@ -748,6 +785,58 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+          onClick={() => setLightboxIndex(null)}
+        >
+          {/* Close */}
+          <button
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxIndex(null)}
+            aria-label="Close"
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
+
+          {/* Prev */}
+          {lightboxIndex > 0 && (
+            <button
+              className="absolute left-3 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i! > 0 ? i! - 1 : i)) }}
+              aria-label="Previous"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
+          )}
+
+          {/* Image */}
+          <img
+            src={portfolioPhotos[lightboxIndex].photo_url}
+            alt={`Portfolio photo ${lightboxIndex + 1}`}
+            className="max-h-[88vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Next */}
+          {lightboxIndex < portfolioPhotos.length - 1 && (
+            <button
+              className="absolute right-3 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i! < portfolioPhotos.length - 1 ? i! + 1 : i)) }}
+              aria-label="Next"
+            >
+              <ChevronRight className="w-5 h-5 text-white" />
+            </button>
+          )}
+
+          {/* Counter */}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/60 font-medium">
+            {lightboxIndex + 1} / {portfolioPhotos.length}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
