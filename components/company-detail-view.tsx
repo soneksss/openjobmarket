@@ -19,11 +19,14 @@ import {
   Bookmark,
   BookmarkCheck,
   Phone,
+  Mail,
+  PhoneCall,
   ShieldCheck,
   Images,
   ChevronLeft,
   ChevronRight,
   X,
+  Eye,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -46,6 +49,7 @@ interface CompanyProfile {
   company_size: string
   website_url?: string
   phone_number?: string
+  contact_email?: string
   logo_url?: string
   nickname?: string
   spoken_languages?: string[]
@@ -78,7 +82,7 @@ interface CompanyDetailViewProps {
   portfolioPhotos?: PortfolioPhoto[]
 }
 
-export default function CompanyDetailView({ company, user, isModal = false, onSignUpPrompt, portfolioPhotos = [] }: CompanyDetailViewProps) {
+export default function CompanyDetailView({ company, user, isModal = false, onSignUpPrompt, portfolioPhotos: portfolioPhotosProp = [] }: CompanyDetailViewProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -88,6 +92,23 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
   const [activeJobs, setActiveJobs] = useState<any[]>([])
   const [loadingJobs, setLoadingJobs] = useState(true)
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
+  const [fetchedPhotos, setFetchedPhotos] = useState<PortfolioPhoto[]>([])
+  const [phoneRevealed, setPhoneRevealed] = useState(false)
+  const [emailRevealed, setEmailRevealed] = useState(false)
+
+  // Self-fetch portfolio photos when used in modal (no prop passed from server)
+  useEffect(() => {
+    if (portfolioPhotosProp.length > 0) return // already have them from server
+    supabase
+      .from("trades_portfolio_photos")
+      .select("id, photo_url")
+      .eq("tradesperson_id", company.id)
+      .order("display_order", { ascending: true })
+      .limit(6)
+      .then(({ data }) => { if (data) setFetchedPhotos(data) })
+  }, [company.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const portfolioPhotos = portfolioPhotosProp.length > 0 ? portfolioPhotosProp : fetchedPhotos
 
   const isOwnProfile = user?.id === company.user_id
   const [isSaved, setIsSaved] = useState(false)
@@ -452,8 +473,8 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
   return (
     <div className="min-h-screen bg-slate-900 text-white">
 
-      {/* Sticky back bar */}
-      <div className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur-sm border-b border-slate-800">
+      {/* Sticky back bar — hidden in modal (Dialog's X button handles close) */}
+      {!isModal && <div className="sticky top-0 z-10 bg-slate-900/90 backdrop-blur-sm border-b border-slate-800">
         <div className="container mx-auto px-4 py-3 max-w-4xl flex items-center justify-between">
           <button
             onClick={handleBack}
@@ -471,7 +492,7 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             </button>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Hero banner */}
       <div className="bg-gradient-to-b from-blue-950 via-slate-800/80 to-slate-900 border-b border-slate-700/40">
@@ -577,15 +598,58 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
           <div className="flex-1 min-w-0 space-y-4">
 
             {/* Details — mobile only (desktop shows in sidebar) */}
-            {(company.phone_number || company.website_url || company.created_at) && (
+            {(company.phone_number || company.contact_email || company.website_url || company.created_at) && (
               <section className="lg:hidden bg-slate-800 rounded-2xl border border-slate-700/50 p-5 space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Details</p>
+
                 {company.phone_number && (
-                  <div className="flex items-center gap-2 text-sm text-slate-300">
-                    <Phone className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
-                    <a href={`tel:${company.phone_number}`} className="hover:text-white transition-colors">{company.phone_number}</a>
-                  </div>
+                  phoneRevealed ? (
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                      <a href={`tel:${company.phone_number}`} className="text-sm text-white font-medium hover:text-emerald-300 transition-colors">
+                        {company.phone_number}
+                      </a>
+                      <a href={`tel:${company.phone_number}`}
+                        className="ml-auto flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-colors"
+                      >
+                        <PhoneCall className="h-3 w-3" />
+                        Call
+                      </a>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setPhoneRevealed(true)}
+                      className="flex items-center gap-2 w-full text-sm px-3 py-2 rounded-lg border border-slate-600 bg-slate-700/50 hover:bg-slate-700 hover:border-emerald-500/40 text-slate-300 hover:text-white transition-all"
+                    >
+                      <Phone className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                      <span>Show Phone Number</span>
+                      <Eye className="h-3.5 w-3.5 text-slate-500 ml-auto" />
+                    </button>
+                  )
                 )}
+
+                {company.contact_email && (
+                  emailRevealed ? (
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                      <a href={`mailto:${company.contact_email}`} className="text-sm text-white font-medium hover:text-emerald-300 transition-colors truncate">
+                        {company.contact_email}
+                      </a>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setEmailRevealed(true)}
+                      className="flex items-center gap-2 w-full text-sm px-3 py-2 rounded-lg border border-slate-600 bg-slate-700/50 hover:bg-slate-700 hover:border-emerald-500/40 text-slate-300 hover:text-white transition-all"
+                    >
+                      <Mail className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                      <span>Show Email Address</span>
+                      <Eye className="h-3.5 w-3.5 text-slate-500 ml-auto" />
+                    </button>
+                  )
+                )}
+
                 {company.website_url && (
                   <div className="flex items-center gap-2 text-sm">
                     <Globe className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
@@ -738,14 +802,55 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             )}
 
             {/* Quick info — only non-hero fields */}
-            <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5 space-y-3.5">
+            <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5 space-y-3">
               <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Details</p>
 
               {company.phone_number && (
-                <div className="flex items-center gap-2 text-sm text-slate-300">
-                  <Phone className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
-                  <a href={`tel:${company.phone_number}`} className="hover:text-white transition-colors">{company.phone_number}</a>
-                </div>
+                phoneRevealed ? (
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                    <a href={`tel:${company.phone_number}`} className="text-sm text-white font-medium hover:text-emerald-300 transition-colors flex-1 min-w-0 truncate">
+                      {company.phone_number}
+                    </a>
+                    <a href={`tel:${company.phone_number}`}
+                      className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 transition-colors flex-shrink-0"
+                    >
+                      <PhoneCall className="h-3 w-3" />
+                      Call
+                    </a>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setPhoneRevealed(true)}
+                    className="flex items-center gap-2 w-full text-sm px-3 py-2 rounded-lg border border-slate-600 bg-slate-700/50 hover:bg-slate-700 hover:border-emerald-500/40 text-slate-300 hover:text-white transition-all"
+                  >
+                    <Phone className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Show Phone Number</span>
+                    <Eye className="h-3.5 w-3.5 text-slate-500 ml-auto" />
+                  </button>
+                )
+              )}
+
+              {company.contact_email && (
+                emailRevealed ? (
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
+                    <a href={`mailto:${company.contact_email}`} className="text-sm text-white font-medium hover:text-emerald-300 transition-colors truncate">
+                      {company.contact_email}
+                    </a>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setEmailRevealed(true)}
+                    className="flex items-center gap-2 w-full text-sm px-3 py-2 rounded-lg border border-slate-600 bg-slate-700/50 hover:bg-slate-700 hover:border-emerald-500/40 text-slate-300 hover:text-white transition-all"
+                  >
+                    <Mail className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
+                    <span>Show Email Address</span>
+                    <Eye className="h-3.5 w-3.5 text-slate-500 ml-auto" />
+                  </button>
+                )
               )}
 
               {company.website_url && (

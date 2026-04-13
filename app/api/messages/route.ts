@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { recipient_id, content, job_id, conversation_id, sender_role, message_type, metadata } = body as {
+    const { recipient_id, content, job_id, conversation_id, sender_role, message_type, metadata, photo_urls } = body as {
       recipient_id: string
       content: string
       job_id?: string
@@ -28,10 +28,42 @@ export async function POST(request: NextRequest) {
       sender_role?: string
       message_type?: string
       metadata?: Record<string, unknown>
+      photo_urls?: string[]
     }
 
-    if (!recipient_id || !content?.trim()) {
-      return NextResponse.json({ error: "recipient_id and content are required" }, { status: 400 })
+    const hasPhotos = Array.isArray(photo_urls) && photo_urls.length > 0
+
+    if (!recipient_id || (!content?.trim() && !hasPhotos)) {
+      return NextResponse.json({ error: "recipient_id and content (or photos) are required" }, { status: 400 })
+    }
+
+    // ── Photo validation ──────────────────────────────────────────────────────
+    if (hasPhotos) {
+      if (photo_urls!.length > 3) {
+        return NextResponse.json({ error: "Maximum 3 photos per message." }, { status: 400 })
+      }
+
+      // Per-job conversation limit (10 photos total)
+      if (job_id) {
+        const { data: jobCount } = await supabase
+          .rpc("count_job_chat_photos", { p_job_id: job_id })
+        if (((jobCount as number) ?? 0) + photo_urls!.length > 10) {
+          return NextResponse.json(
+            { error: "You reached the photo limit for this job (10 photos per conversation)." },
+            { status: 429 }
+          )
+        }
+      }
+
+      // Per-user daily limit (50 photos per 24 h)
+      const { data: dailyCount } = await supabase
+        .rpc("count_user_daily_chat_photos", { p_user_id: user.id })
+      if (((dailyCount as number) ?? 0) + photo_urls!.length > 50) {
+        return NextResponse.json(
+          { error: "Daily photo limit reached. You can send up to 50 photos per 24 hours." },
+          { status: 429 }
+        )
+      }
     }
 
     // Get sender user type
@@ -138,13 +170,14 @@ export async function POST(request: NextRequest) {
       .insert({
         sender_id: user.id,
         recipient_id,
-        content: content.trim(),
+        content: content?.trim() || "",
         subject: "New Message",
         conversation_id: conversation_id ?? null,
         message_type: message_type ?? "direct",
         job_id: job_id ?? null,
         sender_role: sender_role ?? senderType ?? null,
         metadata: metadata ?? null,
+        photo_urls: hasPhotos ? photo_urls : [],
         is_read: false,
         share_personal_info: false,
       })

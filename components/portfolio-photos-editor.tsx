@@ -57,7 +57,9 @@ function SortablePhoto({
     <div
       ref={setNodeRef}
       style={style}
-      className="relative aspect-square rounded-xl overflow-hidden group border border-slate-700 touch-none"
+      {...attributes}
+      {...listeners}
+      className="relative aspect-square rounded-xl overflow-hidden border border-slate-700 touch-none cursor-grab active:cursor-grabbing"
     >
       <img
         src={photo.photo_url}
@@ -69,27 +71,23 @@ function SortablePhoto({
 
       {/* Cover badge */}
       {isCover && (
-        <div className="absolute bottom-1.5 left-1.5 bg-emerald-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none">
+        <div className="absolute bottom-1.5 left-1.5 bg-emerald-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none pointer-events-none">
           COVER
         </div>
       )}
 
-      {/* Drag handle */}
-      <div
-        {...attributes}
-        {...listeners}
-        className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-        aria-label="Drag to reorder"
-      >
+      {/* Drag hint */}
+      <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center pointer-events-none">
         <GripVertical className="w-3 h-3 text-white" />
       </div>
 
-      {/* Delete button */}
+      {/* Delete button — always visible, stops drag propagation */}
       <button
         type="button"
-        onClick={() => onDelete(photo.id)}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onDelete(photo.id) }}
         disabled={isDeleting}
-        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity hover:bg-red-600 disabled:opacity-60"
+        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center hover:bg-red-600 disabled:opacity-60 cursor-pointer"
         aria-label="Delete photo"
       >
         {isDeleting

@@ -4,6 +4,7 @@
 const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
 
 import { useState, useEffect, useRef, useMemo, memo } from "react"
+import { useDeferredMount } from "@/hooks/use-deferred-mount"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -64,6 +65,50 @@ import ProfessionalDetailView from "@/components/professional-detail-view"
 import CompanyDetailView from "@/components/company-detail-view"
 import { MobileMapBottomSheet, BottomSheetState } from "@/components/mobile-map-bottom-sheet"
 import { MobilePreviewCard, PreviewData } from "@/components/mobile-preview-card"
+
+// ── Portfolio photo strip shown under company cards in the sidebar ───────────
+function CompanyPortfolioStrip({ profileId }: { profileId: string }) {
+  const [photos, setPhotos] = useState<{ id: string; photo_url: string }[]>([])
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+
+  useEffect(() => {
+    supabase
+      .from("trades_portfolio_photos")
+      .select("id, photo_url")
+      .eq("tradesperson_id", profileId)
+      .order("display_order", { ascending: true })
+      .limit(6)
+      .then(({ data }) => { if (data && data.length > 0) setPhotos(data) })
+  }, [profileId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (photos.length === 0) return null
+
+  const visible = photos.slice(0, 3)
+  const extra = photos.length - 3
+
+  return (
+    <div className="flex gap-1.5 mt-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+      {visible.map((p, idx) => (
+        <div key={p.id} className="relative flex-shrink-0 w-[72px] h-[72px] rounded-md overflow-hidden">
+          <img
+            src={p.photo_url}
+            alt="Portfolio"
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+          {idx === 2 && extra > 0 && (
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+              <span className="text-white text-xs font-bold">+{extra}</span>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 interface Professional {
   id: string
@@ -185,6 +230,7 @@ function ProfessionalsPageContent({
   onModalClose,
   onViewAllJobs,
 }: ProfessionalsPageContentProps) {
+  const mounted = useDeferredMount(50)
   const router = useRouter()
   const currentSearchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState(searchParams.search || "")
@@ -1022,6 +1068,8 @@ function ProfessionalsPageContent({
 
   // Check if search has been performed
   const hasSearchParams = searchParams.search || searchParams.location || searchParams.lat || searchParams.lng
+
+  if (!mounted) return <div className="min-h-screen bg-slate-900" />
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -3551,6 +3599,11 @@ function ProfessionalsPageContent({
                                 return null
                               })()}
                             </div>
+
+                            {/* Portfolio photo strip — companies only */}
+                            {'company_name' in item && (
+                              <CompanyPortfolioStrip profileId={item.id} />
+                            )}
 
                             {/* Show expanded details */}
                             {isExpanded && (() => {

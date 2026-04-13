@@ -4,6 +4,7 @@
 const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { useDeferredMount } from "@/hooks/use-deferred-mount"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { LocationInput } from "@/components/location-input"
@@ -89,6 +90,7 @@ function getRelatedTrade(query: string): string | null {
 }
 
 export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initialUser, initialUserType, adminSettings, profileLocation }: MainPageSearchProps = {}) {
+  const mounted = useDeferredMount(100)
   const { t, locale } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -402,6 +404,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   // Skip the network getUser() call when the server already resolved auth via initialUser.
   // onAuthStateChange handles live sign-in/sign-out transitions regardless.
   useEffect(() => {
+    if (!mounted) return
     const checkUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
@@ -519,7 +522,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase])
+  }, [supabase, mounted])
 
   // Handle tab URL parameter and restore search state from "Back to Search"
   useEffect(() => {
@@ -1941,6 +1944,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           else rpcData = rpcResult.data ?? []
         } catch (err: any) {
           console.warn('[MODAL-SEARCH] search_traders failed:', err.message)
+          // Still pan the map if an explicit location was passed
+          if (params.lat && params.lng) {
+            setMapCenter([parseFloat(params.lat), parseFloat(params.lng)])
+          }
+          return // keep existing results — don't wipe map on timeout/error
         }
 
         if (searchLat && searchLng) {
@@ -2235,6 +2243,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     }
     setShowMapModal(false)
   }, [])
+
+  if (!mounted) return null
 
   return (
     <div className="w-full relative z-[100]">

@@ -20,6 +20,7 @@ interface LocationMapRef {
 interface LocationPickerProps {
   latitude?: number
   longitude?: number
+  address?: string
   onLocationSelect: (lat: number, lng: number, address?: string) => void
   onLocationClear: () => void
   disabled?: boolean
@@ -31,6 +32,7 @@ interface LocationPickerProps {
 export function LocationPicker({
   latitude,
   longitude,
+  address,
   onLocationSelect,
   onLocationClear,
   disabled = false,
@@ -195,8 +197,8 @@ export function LocationPicker({
       </div>
 
       {/* Footer — always visible, never inside a flex-1 area */}
-      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4 border-t">
-        <Button variant="outline" onClick={handleCancel} className="order-2 sm:order-1">
+      <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-2 pt-4 border-t border-slate-700">
+        <Button variant="outline" onClick={handleCancel} className="order-2 sm:order-1 border-slate-600 bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white">
           Cancel
         </Button>
         <div className="flex gap-2 order-1 sm:order-2">
@@ -204,13 +206,13 @@ export function LocationPicker({
             <Button
               variant="outline"
               onClick={onLocationClear}
-              className="text-destructive hover:text-destructive flex-1 sm:flex-none"
+              className="text-red-400 hover:text-red-300 border-slate-600 bg-slate-700/50 hover:bg-slate-700 flex-1 sm:flex-none"
             >
               <X className="h-4 w-4 mr-1" />
               Clear
             </Button>
           )}
-          <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress} className="flex-1 sm:flex-none">
+          <Button onClick={handleSave} disabled={!tempLocation || isGettingAddress} className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-500 text-white border-0">
             {isGettingAddress ? 'Getting address...' : 'Save Location'}
           </Button>
         </div>
@@ -224,48 +226,50 @@ export function LocationPicker({
   return (
     <div className={className}>
       {!isControlled && hasLocation ? (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between p-3 border rounded-md bg-muted/50">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-green-600" />
-              <div className="text-sm">
-                <div className="font-medium">Location set</div>
-                <div className="text-muted-foreground">
-                  Lat: {latitude.toFixed(4)}, Lng: {longitude.toFixed(4)}
-                </div>
-              </div>
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-500/20 flex items-center justify-center">
+              <MapPin className="h-3.5 w-3.5 text-emerald-400" />
             </div>
-            <div className="flex gap-1">
-              <Dialog open={isOpen} onOpenChange={setIsOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" disabled={disabled}>
-                    <MapPin className="h-3 w-3 mr-1" />
-                    Change
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-3xl w-[95vw] p-4 sm:p-6">
-                  <DialogHeader className="mb-3">
-                    <DialogTitle className="text-xl">Choose your location</DialogTitle>
-                    <DialogDescription>
-                      Click on the map to select your location, or use the "Locate Me" button
-                    </DialogDescription>
-                  </DialogHeader>
-                  {dialogBody(latitude!, longitude!, true)}
-                </DialogContent>
-              </Dialog>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-emerald-300 leading-none mb-0.5">Location pinned</p>
+              <p className="text-xs text-slate-400 truncate">
+                {address || `${latitude!.toFixed(2)}, ${longitude!.toFixed(2)}`}
+              </p>
             </div>
           </div>
+          <Dialog open={isOpen} onOpenChange={setIsOpen}>
+            <DialogTrigger asChild>
+              <button
+                type="button"
+                disabled={disabled}
+                className="flex-shrink-0 text-xs font-medium text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/60 rounded-md px-2.5 py-1 transition-colors bg-emerald-500/10 hover:bg-emerald-500/20 disabled:opacity-50"
+              >
+                Change
+              </button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl w-[95vw] p-4 sm:p-6">
+              <DialogHeader className="mb-3">
+                <DialogTitle className="text-xl">Choose your location</DialogTitle>
+                <DialogDescription>
+                  Click on the map to select your location, or use the "Locate Me" button
+                </DialogDescription>
+              </DialogHeader>
+              {dialogBody(latitude!, longitude!, true)}
+            </DialogContent>
+          </Dialog>
         </div>
       ) : !isControlled ? (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogTrigger asChild>
-            <Button
-              className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
+            <button
+              type="button"
               disabled={disabled}
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-slate-600 bg-slate-700/50 hover:bg-slate-700 hover:border-emerald-500/50 text-slate-300 hover:text-white text-sm font-medium py-2.5 transition-all disabled:opacity-50"
             >
-              <MapPin className="h-4 w-4 mr-2" />
-              Choose location on map
-            </Button>
+              <MapPin className="h-4 w-4 text-emerald-400" />
+              Pin location on map
+            </button>
           </DialogTrigger>
           <DialogContent className="max-w-3xl w-[95vw] p-4 sm:p-6">
             <DialogHeader className="mb-3">

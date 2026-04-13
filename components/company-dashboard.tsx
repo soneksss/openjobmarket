@@ -68,7 +68,6 @@ import { StarRating } from "@/components/star-rating"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
 import { DashboardInbox } from "@/components/dashboard-inbox"
-import ActivityTickerCard from "@/components/activity-ticker-card"
 import { JobConfirmationModal, type ConfirmedJobOffer } from "@/components/job-confirmation-modal"
 import { Progress } from "@/components/ui/progress"
 import { MessageCircle, Zap, Bell } from "lucide-react"
@@ -1139,11 +1138,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           </div>
         </div>
 
-        {/* Recent Activity Ticker */}
-        <div className="px-4 py-3">
-          <ActivityTickerCard />
-        </div>
-
         {/* Menu Sections */}
         <div className="divide-y divide-slate-800">
           {/* Main Actions */}
@@ -1586,9 +1580,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                 </div>
               )}
             </Card>
-
-            {/* Recent Activity Ticker */}
-            <ActivityTickerCard />
 
           </div>
 

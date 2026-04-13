@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Send, User, MapPin, Briefcase, CheckCircle, Clock, Play, PoundSterling } from "lucide-react"
+import { ArrowLeft, Send, User, MapPin, Briefcase, CheckCircle, Clock, Play, PoundSterling, ImageIcon, X as XIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/client"
 import Link from "next/link"
 import { StatusDot } from "@/components/status-dot"
@@ -25,6 +25,165 @@ interface Message {
   job_id?: string
   message_type?: string
   metadata?: { amount?: number; currency?: string }
+  photo_urls?: string[]
+}
+
+// Renders message photos with a tap-to-zoom lightbox + left/right swipe
+function ChatPhotos({ paths, supabase }: { paths: string[]; supabase: ReturnType<typeof createClient> }) {
+  const [urls, setUrls] = useState<(string | null)[]>(paths.map(() => null))
+  const [lightbox, setLightbox] = useState<number | null>(null)
+  const touchStartX = useRef<number | null>(null)
+
+  useEffect(() => {
+    paths.forEach((path, i) => {
+      supabase.storage.from("chat-images").createSignedUrl(path, 3600)
+        .then(({ data, error }: any) => {
+          if (error) {
+            console.error("[ChatPhotos] signed URL error:", error.message, "path:", path)
+            // Mark as failed so skeleton doesn't spin forever
+            setUrls(prev => { const n = [...prev]; n[i] = "error"; return n })
+            return
+          }
+          if (data?.signedUrl) setUrls(prev => { const n = [...prev]; n[i] = data.signedUrl; return n })
+        })
+        .catch((err: any) => {
+          console.error("[ChatPhotos] unexpected error:", err)
+          setUrls(prev => { const n = [...prev]; n[i] = "error"; return n })
+        })
+    })
+  }, [paths.join(",")]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (lightbox === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null)
+      if (e.key === "ArrowLeft")  setLightbox(l => l! > 0 ? l! - 1 : l)
+      if (e.key === "ArrowRight") setLightbox(l => l! < paths.length - 1 ? l! + 1 : l)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [lightbox, paths.length])
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-1.5">
+        {paths.map((_, i) => (
+          urls[i] === "error" ? (
+            <div key={i} className="w-28 h-28 rounded-xl bg-slate-700/60 flex items-center justify-center flex-shrink-0 border border-slate-600/40">
+              <span className="text-slate-500 text-[10px]">Photo unavailable</span>
+            </div>
+          ) : urls[i] ? (
+            <button
+              key={i} type="button"
+              onClick={() => setLightbox(i)}
+              className="relative group flex-shrink-0"
+            >
+              <img
+                src={urls[i]!} alt=""
+                className="w-28 h-28 rounded-xl object-cover border border-slate-600/60 group-hover:border-emerald-500/40 transition-colors"
+              />
+              <div className="absolute inset-0 rounded-xl flex items-end justify-center pb-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/50 to-transparent">
+                <span className="text-white text-[9px] font-medium">Tap to zoom</span>
+              </div>
+            </button>
+          ) : (
+            <div key={i} className="w-28 h-28 rounded-xl bg-slate-700/60 animate-pulse flex-shrink-0" />
+          )
+        ))}
+      </div>
+
+      {/* Lightbox */}
+      {lightbox !== null && (
+        <div
+          className="fixed inset-0 z-[99999] bg-black/95 flex items-center justify-center"
+          onClick={() => setLightbox(null)}
+          onTouchStart={(e) => { touchStartX.current = e.touches[0].clientX }}
+          onTouchEnd={(e) => {
+            if (touchStartX.current === null) return
+            const dx = e.changedTouches[0].clientX - touchStartX.current
+            touchStartX.current = null
+            if (dx >  50 && lightbox > 0)               setLightbox(l => l! - 1)
+            if (dx < -50 && lightbox < paths.length - 1) setLightbox(l => l! + 1)
+          }}
+        >
+          {/* Close */}
+          <button type="button" onClick={() => setLightbox(null)}
+            className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+          >
+            <XIcon className="w-5 h-5" />
+          </button>
+
+          {/* Prev */}
+          {lightbox > 0 && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); setLightbox(l => l! - 1) }}
+              className="absolute left-3 z-10 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Image */}
+          {urls[lightbox] && (
+            <img
+              src={urls[lightbox]!} alt=""
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg select-none"
+              onClick={(e) => e.stopPropagation()}
+              draggable={false}
+            />
+          )}
+
+          {/* Next */}
+          {lightbox < paths.length - 1 && (
+            <button type="button" onClick={(e) => { e.stopPropagation(); setLightbox(l => l! + 1) }}
+              className="absolute right-3 z-10 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white hover:bg-black/70 transition-colors"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          )}
+
+          {/* Counter */}
+          {paths.length > 1 && (
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/50 text-white text-xs font-medium">
+              {lightbox + 1} / {paths.length}
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
+// Compress image using Canvas 2D (no external deps, no Turbopack issues)
+// Rejects images >6000px, resizes to max 1280px, outputs webp at 0.82 quality
+async function compressChatImage(file: File): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const blobUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(blobUrl)
+      if (img.width > 6000 || img.height > 6000) {
+        reject(new Error("Image too large (max 6000 px). Please upload a smaller photo."))
+        return
+      }
+      const maxW = 1280
+      const scale = img.width > maxW ? maxW / img.width : 1
+      const canvas = document.createElement("canvas")
+      canvas.width  = Math.round(img.width  * scale)
+      canvas.height = Math.round(img.height * scale)
+      const ctx = canvas.getContext("2d")
+      if (!ctx) { reject(new Error("Canvas not available")); return }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob(
+        (b) => b
+          ? resolve(new File([b], "photo.webp", { type: "image/webp" }))
+          : reject(new Error("Compression failed")),
+        "image/webp",
+        0.82
+      )
+    }
+    img.onerror = () => reject(new Error("Could not load image"))
+    img.src = blobUrl
+  })
 }
 
 interface JobContext {
@@ -77,6 +236,13 @@ export default function ConversationPage() {
   const [conversationSubject, setConversationSubject] = useState<string | null>(null)
   const [otherUserProfileId, setOtherUserProfileId] = useState<string | null>(null)
 
+  // Photo attachment state
+  const [photoFiles, setPhotoFiles] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
     fetchConversation()
   }, [])
@@ -126,8 +292,11 @@ export default function ConversationPage() {
     console.log('[CONVERSATION] fetchConversation called')
     try {
       console.log('[CONVERSATION] Step 1: Getting user...')
-      // Get current user
-      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      // Use getSession() (reads local storage — no network) instead of getUser()
+      // (which makes a round-trip to the Supabase auth server on every call).
+      // The middleware already validates the JWT server-side via getSession().
+      const { data: { session } } = await supabase.auth.getSession()
+      const currentUser = session?.user ?? null
       console.log('[CONVERSATION] Step 2: User retrieved:', !!currentUser)
       console.log('[CONVERSATION] Step 3: Current user:', currentUser?.id)
 
@@ -438,9 +607,37 @@ export default function ConversationPage() {
     }
   }
 
+  const handlePhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPhotoError(null)
+    const files = Array.from(e.target.files || [])
+    if (!files.length) return
+
+    // Reset input so same file can be re-selected
+    e.target.value = ""
+
+    const remaining = 3 - photoFiles.length
+    if (remaining <= 0) { setPhotoError("Maximum 3 photos per message."); return }
+    const toAdd = files.slice(0, remaining)
+
+    for (const f of toAdd) {
+      if (f.size > 5 * 1024 * 1024) { setPhotoError("Each photo must be under 5 MB."); return }
+    }
+
+    const previews = toAdd.map(f => URL.createObjectURL(f))
+    setPhotoFiles(prev => [...prev, ...toAdd])
+    setPhotoPreviews(prev => [...prev, ...previews])
+  }
+
+  const handleRemovePhoto = (idx: number) => {
+    URL.revokeObjectURL(photoPreviews[idx])
+    setPhotoFiles(prev => prev.filter((_, i) => i !== idx))
+    setPhotoPreviews(prev => prev.filter((_, i) => i !== idx))
+    setPhotoError(null)
+  }
+
   const handleSendMessage = async () => {
     console.log('[CONVERSATION] handleSendMessage called, otherUserId:', otherUserId, 'sending:', sending, 'hasMsg:', !!newMessage.trim())
-    if (!newMessage.trim() || sending || !otherUserId) return
+    if ((!newMessage.trim() && photoFiles.length === 0) || sending || !otherUserId) return
 
     // Response cap check for flexible jobs
     if (jobContext?.urgency_type === 'flexible' && jobContext.max_responses && senderRole === 'contractor') {
@@ -456,6 +653,31 @@ export default function ConversationPage() {
 
       const finalConversationId = actualConvId
 
+      // ── Upload photos if any ────────────────────────────────────────────────
+      let uploadedPaths: string[] = []
+      if (photoFiles.length > 0) {
+        setPhotoUploading(true)
+        const folder = jobContext?.id ?? actualConvId
+        for (const file of photoFiles) {
+          try {
+            const compressed = await compressChatImage(file)
+            const uuid = crypto.randomUUID()
+            const path = `${folder}/${uuid}.webp`
+            const { error: upErr } = await supabase.storage
+              .from("chat-images")
+              .upload(path, compressed, { contentType: "image/webp", upsert: false })
+            if (upErr) throw new Error(upErr.message)
+            uploadedPaths.push(path)
+          } catch (err: any) {
+            setPhotoError(`Upload failed: ${err.message}`)
+            setPhotoUploading(false)
+            setSending(false)
+            return
+          }
+        }
+        setPhotoUploading(false)
+      }
+
       // Use server-side API to bypass client-side RLS restrictions
       const res = await fetch('/api/messages', {
         method: 'POST',
@@ -467,6 +689,7 @@ export default function ConversationPage() {
           job_id: jobContext?.id ?? null,
           conversation_id: finalConversationId,
           sender_role: senderRole,
+          ...(uploadedPaths.length > 0 && { photo_urls: uploadedPaths }),
         }),
       })
 
@@ -483,11 +706,16 @@ export default function ConversationPage() {
         sender_id: user.id,
         recipient_id: otherUserId!,
         is_read: false,
-        conversation_id: finalConversationId
+        conversation_id: finalConversationId,
+        ...(uploadedPaths.length > 0 && { photo_urls: uploadedPaths }),
       }
 
       setMessages(prev => [...prev, tempMessage])
       setNewMessage("")
+      photoPreviews.forEach(u => URL.revokeObjectURL(u))
+      setPhotoFiles([])
+      setPhotoPreviews([])
+      setPhotoError(null)
       updatePresence() // update own presence on send
 
       // Refresh to get actual message from DB
@@ -812,7 +1040,16 @@ export default function ConversationPage() {
                           </p>
                         </div>
                       ) : (
-                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                        <>
+                          {message.content && (
+                            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                          )}
+                          {message.photo_urls && message.photo_urls.length > 0 && (
+                            <div className={message.content ? 'mt-2' : ''}>
+                              <ChatPhotos paths={message.photo_urls} supabase={supabase} />
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                     <span className="text-[10px] text-slate-500 mt-1 px-1">
@@ -882,7 +1119,53 @@ export default function ConversationPage() {
             </div>
           )}
 
+          {/* Photo previews */}
+          {photoPreviews.length > 0 && (
+            <div className="flex gap-2 mb-2 flex-wrap">
+              {photoPreviews.map((src, i) => (
+                <div key={i} className="relative">
+                  <img src={src} alt="" className="w-16 h-16 rounded-lg object-cover border border-slate-600" />
+                  <button
+                    type="button"
+                    onClick={() => handleRemovePhoto(i)}
+                    className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-slate-900 border border-slate-600 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                  >
+                    <XIcon className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Photo / upload error */}
+          {photoError && (
+            <p className="text-xs text-red-400 mb-1.5">{photoError}</p>
+          )}
+
           <div className="flex gap-2">
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              className="hidden"
+              onChange={handlePhotoSelect}
+            />
+
+            {/* Photo button */}
+            <Button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending || photoFiles.length >= 3}
+              variant="ghost"
+              size="sm"
+              title="Attach photos (max 3)"
+              className={`self-end h-[44px] px-3 flex-shrink-0 ${photoFiles.length > 0 ? 'text-emerald-400 bg-slate-700' : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-700'}`}
+            >
+              <ImageIcon className="h-4 w-4" />
+            </Button>
+
             {/* Quote button */}
             <Button
               onClick={() => setShowQuoteInput((v) => !v)}
@@ -908,10 +1191,13 @@ export default function ConversationPage() {
             />
             <Button
               onClick={handleSendMessage}
-              disabled={!newMessage.trim() || sending}
+              disabled={(!newMessage.trim() && photoFiles.length === 0) || sending || photoUploading}
               className="self-end bg-emerald-600 hover:bg-emerald-700 text-white h-[44px] w-[44px] p-0"
             >
-              <Send className="h-4 w-4" />
+              {photoUploading
+                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                : <Send className="h-4 w-4" />
+              }
             </Button>
           </div>
           <p className="text-[10px] text-slate-500 mt-1.5 text-center">

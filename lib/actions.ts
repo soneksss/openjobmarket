@@ -596,5 +596,23 @@ export async function updateCompanyProfile(updateData: Record<string, unknown>) 
     return { error: error.message }
   }
 
+  // Sync user_specialties from the services array
+  const services = updateData.services as string[] | undefined
+  if (Array.isArray(services)) {
+    // Delete existing then re-insert (simpler than diffing)
+    await supabase.from("user_specialties").delete().eq("user_id", user.id)
+    if (services.length > 0) {
+      const { data: specialtyRows } = await supabase
+        .from("specialties")
+        .select("id, name")
+        .in("name", services)
+      if (specialtyRows && specialtyRows.length > 0) {
+        await supabase.from("user_specialties").insert(
+          specialtyRows.map((s: { id: string }) => ({ user_id: user.id, specialty_id: s.id }))
+        )
+      }
+    }
+  }
+
   return { success: true }
 }

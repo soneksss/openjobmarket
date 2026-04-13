@@ -89,10 +89,15 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
   // Form state
   const [companyName, setCompanyName] = useState(profile.company_name)
   const [description, setDescription] = useState(profile.description || "")
-  const [industry, setIndustry] = useState(profile.industry || "")
+  const [selectedIndustries, setSelectedIndustries] = useState<string[]>(
+    (profile as any).industries?.length > 0
+      ? (profile as any).industries
+      : profile.industry ? [profile.industry] : []
+  )
   const [services, setServices] = useState<string[]>(profile.services || [])
   const [websiteUrl, setWebsiteUrl] = useState(profile.website_url || "")
   const [phoneNumber, setPhoneNumber] = useState(profile.phone_number || "")
+  const [contactEmail, setContactEmail] = useState((profile as any).contact_email || "")
   const [location, setLocation] = useState(profile.location || "")
   const [fullAddress, setFullAddress] = useState(profile.full_address || "")
   // Initialize with the plain URL — cache-busting is applied after mount to avoid hydration mismatch
@@ -420,10 +425,12 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       const updateData = {
         company_name: companyName,
         description: description || null,
-        industry: industry || null,
+        industries: selectedIndustries.filter(i => i).length > 0 ? selectedIndustries.filter(i => i) : null,
+        industry: selectedIndustries.find(i => i) || null,
         services: services.length > 0 ? services : null,
         website_url: websiteUrl || null,
         phone_number: phoneNumber || null,
+        contact_email: contactEmail || null,
         location: location || null,
         full_address: fullAddress || null,
         hide_address: hideAddress,
@@ -645,74 +652,115 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                 />
               </div>
 
+              {/* Industries & Specialties — dropdown + Add more */}
               <div className="space-y-2">
-                <Label htmlFor="industry" className="text-sm font-medium text-slate-200">
-                  Trade / Industry
+                <Label className="text-sm font-medium text-slate-200">
+                  Industries &amp; Specialties
                 </Label>
-                <Select
-                  value={industry}
-                  onValueChange={(value) => {
-                    setIndustry(value)
-                    // Keep only services that belong to the new industry
-                    const industryData = findTradeIndustry(value)
-                    if (industryData && industryData.services.length > 0) {
-                      setServices(prev => prev.filter(s => (industryData.services as readonly string[]).includes(s)))
-                    } else {
-                      setServices([])
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-full text-sm bg-slate-700/50 border-2 border-slate-600 hover:border-slate-500 focus:border-emerald-500 focus:ring-0 text-white data-[placeholder]:text-slate-400">
-                    <SelectValue placeholder="Select your trade" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border border-slate-700 text-white shadow-xl max-h-72">
-                    {TRADE_INDUSTRIES.map((ind) => (
-                      <SelectItem
-                        key={ind.title}
-                        value={ind.title}
-                        className="text-slate-200 focus:bg-emerald-600/20 focus:text-emerald-300 cursor-pointer"
-                      >
-                        {ind.icon} {ind.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                <p className="text-xs text-slate-400">Choose your industry from the dropdown, tick your specialties, then add more industries if needed.</p>
 
-              {/* Services */}
-              {(() => {
-                const industryData = findTradeIndustry(industry)
-                const availableServices = industryData?.services ?? []
-                return (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-200">Services</Label>
-                    {availableServices.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-2 p-3 bg-slate-700/30 rounded-lg border border-slate-600">
-                        {availableServices.map((service) => (
-                          <label key={service} className="flex items-center gap-2 cursor-pointer group">
-                            <input
-                              type="checkbox"
-                              checked={services.includes(service)}
-                              onChange={() => toggleService(service)}
-                              className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 cursor-pointer"
-                            />
-                            <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{service}</span>
-                          </label>
-                        ))}
+                <div className="space-y-3">
+                  {/* One row per selected industry */}
+                  {(selectedIndustries.length === 0 ? [""] : selectedIndustries).map((industryTitle, idx) => {
+                    const ind = TRADE_INDUSTRIES.find(i => i.title === industryTitle)
+                    const unavailable = selectedIndustries.filter((_, i) => i !== idx)
+
+                    return (
+                      <div key={idx} className="rounded-lg border border-slate-600 overflow-hidden">
+                        {/* Industry dropdown row */}
+                        <div className="flex items-center gap-2 px-3 py-2.5 bg-slate-700/50">
+                          <Select
+                            value={industryTitle || "__placeholder__"}
+                            onValueChange={(val) => {
+                              if (val === "__placeholder__") return
+                              const prev = selectedIndustries[idx]
+                              // Remove old industry's services from selection
+                              if (prev) {
+                                const oldInd = TRADE_INDUSTRIES.find(i => i.title === prev)
+                                if (oldInd) {
+                                  setServices(s => s.filter(sv => !(oldInd.services as readonly string[]).includes(sv)))
+                                }
+                              }
+                              setSelectedIndustries(arr => {
+                                const next = [...arr]
+                                next[idx] = val
+                                return next
+                              })
+                            }}
+                          >
+                            <SelectTrigger className="flex-1 bg-slate-700 border-slate-600 text-white text-sm h-9">
+                              <SelectValue placeholder="Select an industry…" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-slate-600 text-white max-h-72">
+                              {TRADE_INDUSTRIES
+                                .filter(i => i.title !== "Not sure / Other" && !unavailable.includes(i.title))
+                                .map(i => (
+                                  <SelectItem key={i.title} value={i.title} className="text-sm hover:bg-slate-700 focus:bg-slate-700">
+                                    {i.icon} {i.title}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+
+                          {/* Remove button — only show when there is more than one slot or the slot has a value */}
+                          {(selectedIndustries.length > 1 || industryTitle) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (ind) {
+                                  setServices(s => s.filter(sv => !(ind.services as readonly string[]).includes(sv)))
+                                }
+                                setSelectedIndustries(arr => arr.filter((_, i) => i !== idx))
+                              }}
+                              className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-600 transition-colors"
+                              aria-label="Remove industry"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Specialties — shown when industry is picked */}
+                        {ind && ind.services.length > 0 && (
+                          <div className="grid grid-cols-2 gap-1.5 p-3 bg-slate-800/60 border-t border-slate-600">
+                            {(ind.services as readonly string[]).map((service) => (
+                              <label key={service} className="flex items-center gap-2 cursor-pointer group">
+                                <input
+                                  type="checkbox"
+                                  checked={services.includes(service)}
+                                  onChange={() => toggleService(service)}
+                                  className="w-4 h-4 rounded border-slate-500 bg-slate-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-800 cursor-pointer"
+                                />
+                                <span className="text-xs text-slate-300 group-hover:text-white transition-colors">{service}</span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-sm text-slate-400 italic">
-                        {industry ? "No predefined services for this trade — add a description below." : "Select a trade above to see available services."}
-                      </p>
-                    )}
-                    {services.length > 0 && (
-                      <p className="text-xs text-slate-400">
-                        {services.length} service{services.length !== 1 ? "s" : ""} selected
-                      </p>
-                    )}
-                  </div>
-                )
-              })()}
+                    )
+                  })}
+
+                  {/* Add more button — only when all current slots have a value and fewer than all industries are selected */}
+                  {selectedIndustries.length > 0 &&
+                    selectedIndustries.every(i => i !== "") &&
+                    selectedIndustries.length < TRADE_INDUSTRIES.filter(i => i.title !== "Not sure / Other").length && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIndustries(prev => [...prev, ""])}
+                      className="flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors py-1"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                      Add another industry
+                    </button>
+                  )}
+                </div>
+
+                {(selectedIndustries.filter(i => i).length > 0 || services.length > 0) && (
+                  <p className="text-xs text-slate-400">
+                    {selectedIndustries.filter(i => i).length} industr{selectedIndustries.filter(i => i).length === 1 ? "y" : "ies"} · {services.length} specialt{services.length === 1 ? "y" : "ies"} selected
+                  </p>
+                )}
+              </div>
 
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -766,6 +814,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   <LocationPicker
                     latitude={latitude || undefined}
                     longitude={longitude || undefined}
+                    address={location || fullAddress || undefined}
                     onLocationSelect={(lat, lng, address) => {
                       setLatitude(lat)
                       setLongitude(lng)
@@ -860,6 +909,38 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   {!hideContactInfo
                     ? "Your phone number will be visible to job seekers."
                     : "Your phone number will remain private."
+                  }
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="contactEmail" className="text-sm font-medium text-slate-200">
+                    Contact Email
+                  </Label>
+                  <div className="flex items-center space-x-2">
+                    {!hideContactInfo ? (
+                      <Eye className="h-4 w-4 text-emerald-400" />
+                    ) : (
+                      <EyeOff className="h-4 w-4 text-slate-500" />
+                    )}
+                    <span className="text-sm text-slate-400">
+                      {!hideContactInfo ? "Visible to users" : "Private"}
+                    </span>
+                  </div>
+                </div>
+                <Input
+                  id="contactEmail"
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                  placeholder="contact@yourcompany.com"
+                  className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
+                />
+                <p className="text-xs text-slate-400">
+                  {!hideContactInfo
+                    ? "Your contact email will be visible to homeowners (shown on click)."
+                    : "Your contact email will remain private."
                   }
                 </p>
               </div>

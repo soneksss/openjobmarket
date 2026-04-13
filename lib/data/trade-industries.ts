@@ -202,6 +202,19 @@ export const TRADE_INDUSTRIES: readonly TradeIndustry[] = [
     ],
   },
   {
+    title: "Air Conditioning & Ventilation",
+    icon: "❄️",
+    category: "HVAC",
+    services: [
+      "Air Conditioning Installation",
+      "Air Conditioning Repair",
+      "Air Conditioning Service",
+      "Ventilation Systems",
+      "Heat Pump Installation",
+      "Commercial HVAC Systems",
+    ],
+  },
+  {
     title: "Not sure / Other",
     icon: "❓",
     category: null,

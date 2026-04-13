@@ -4,6 +4,7 @@
 const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
 
 import { useEffect, useMemo, useRef, useState, useCallback, memo } from "react"
+import { useDeferredMount } from "@/hooks/use-deferred-mount"
 import { Skeleton } from "@/components/ui/skeleton"
 import dynamic from "next/dynamic"
 import { useLanguageRegion } from "@/contexts/language-region-context"
@@ -289,6 +290,7 @@ export function JobMap({
   selectedJobId = null,
   onJobSelect,
 }: JobMapProps) {
+  const mounted = useDeferredMount(150)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [tilesReady, setTilesReady] = useState(false)
   const tileLoadCount = useRef(0)
@@ -399,6 +401,8 @@ export function JobMap({
     if (min) return `${min.toLocaleString()}+`
     return `Up to ${max?.toLocaleString()}`
   }
+
+  if (!mounted) return <Skeleton className="w-full h-full rounded-lg" />
 
   if (!leafletLoaded) {
     return <Skeleton className="w-full h-full rounded-lg" />
