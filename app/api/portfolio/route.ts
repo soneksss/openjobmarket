@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
     if (!profile) return NextResponse.json({ error: "Profile not found" }, { status: 404 })
 
-    // Enforce max 6 photos
+    // Enforce max 6 photos and get current count for display_order
     const { count } = await supabase
       .from("trades_portfolio_photos")
       .select("*", { count: "exact", head: true })
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await supabase
       .from("trades_portfolio_photos")
-      .insert({ tradesperson_id: profile.id, photo_url, storage_path })
+      .insert({ tradesperson_id: profile.id, photo_url, storage_path, display_order: (count ?? 0) + 1 })
       .select()
       .single()
 

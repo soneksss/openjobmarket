@@ -1,22 +1,109 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/client"
-import { X, ImagePlus, Loader2 } from "lucide-react"
+import { X, ImagePlus, Loader2, GripVertical } from "lucide-react"
 import pica from "pica"
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 interface PortfolioPhoto {
   id: string
   photo_url: string
   storage_path: string
-}
-
-interface Props {
-  profileId: string // company_profiles.id
+  display_order: number
 }
 
 const MAX_PHOTOS = 6
-const MAX_FILE_BYTES = 3 * 1024 * 1024 // 3 MB before compression
+const MAX_FILE_BYTES = 3 * 1024 * 1024
+
+// ── Single sortable photo tile ────────────────────────────────────────────────
+function SortablePhoto({
+  photo,
+  isCover,
+  isDeleting,
+  onDelete,
+}: {
+  photo: PortfolioPhoto
+  isCover: boolean
+  isDeleting: boolean
+  onDelete: (id: string) => void
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: photo.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="relative aspect-square rounded-xl overflow-hidden group border border-slate-700 touch-none"
+    >
+      <img
+        src={photo.photo_url}
+        alt="Portfolio"
+        className="w-full h-full object-cover pointer-events-none select-none"
+        loading="lazy"
+        draggable={false}
+      />
+
+      {/* Cover badge */}
+      {isCover && (
+        <div className="absolute bottom-1.5 left-1.5 bg-emerald-600/90 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-md leading-none">
+          COVER
+        </div>
+      )}
+
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-black/50 flex items-center justify-center cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="w-3 h-3 text-white" />
+      </div>
+
+      {/* Delete button */}
+      <button
+        type="button"
+        onClick={() => onDelete(photo.id)}
+        disabled={isDeleting}
+        className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity hover:bg-red-600 disabled:opacity-60"
+        aria-label="Delete photo"
+      >
+        {isDeleting
+          ? <Loader2 className="w-3 h-3 text-white animate-spin" />
+          : <X className="w-3 h-3 text-white" />}
+      </button>
+    </div>
+  )
+}
+
+// ── Main editor component ─────────────────────────────────────────────────────
+interface Props {
+  profileId: string
+}
 
 export function PortfolioPhotosEditor({ profileId }: Props) {
   const [photos, setPhotos] = useState<PortfolioPhoto[]>([])
@@ -27,12 +114,18 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
+  // Allow 8px movement before drag starts to avoid conflicts with taps
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } })
+  )
+
   useEffect(() => {
     supabase
       .from("trades_portfolio_photos")
-      .select("id, photo_url, storage_path")
+      .select("id, photo_url, storage_path, display_order")
       .eq("tradesperson_id", profileId)
-      .order("created_at", { ascending: false })
+      .order("display_order", { ascending: true })
       .limit(6)
       .then(({ data }) => {
         setPhotos(data ?? [])
@@ -48,10 +141,7 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
         URL.revokeObjectURL(url)
         const maxW = 1600
         let { width, height } = img
-        if (width > maxW) {
-          height = Math.round((height * maxW) / width)
-          width = maxW
-        }
+        if (width > maxW) { height = Math.round((height * maxW) / width); width = maxW }
         const canvas = document.createElement("canvas")
         canvas.width = width
         canvas.height = height
@@ -66,8 +156,7 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
             ctx.drawImage(img, 0, 0, width, height)
             canvas.toBlob(
               (blob) => resolve(new File([blob!], "photo.webp", { type: "image/webp" })),
-              "image/webp",
-              0.75
+              "image/webp", 0.75
             )
           } else {
             resolve(file)
@@ -116,7 +205,7 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
         const body = await res.json()
         if (!res.ok) { setError(body.error ?? "Upload failed"); continue }
 
-        setPhotos((prev) => [body.photo, ...prev])
+        setPhotos((prev) => [...prev, body.photo])
       } catch (err: any) {
         setError(err?.message ?? "Upload failed")
       }
@@ -130,7 +219,12 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
     try {
       const res = await fetch(`/api/portfolio/${photoId}`, { method: "DELETE" })
       if (res.ok) {
-        setPhotos((prev) => prev.filter((p) => p.id !== photoId))
+        setPhotos((prev) => {
+          const next = prev.filter((p) => p.id !== photoId)
+          // Persist new order after delete
+          if (next.length > 0) saveOrder(next)
+          return next
+        })
       } else {
         const body = await res.json().catch(() => ({}))
         setError(body.error ?? "Delete failed")
@@ -139,6 +233,27 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
       setError("Delete failed")
     }
     setDeletingId(null)
+  }
+
+  const saveOrder = useCallback((ordered: PortfolioPhoto[]) => {
+    fetch("/api/portfolio/reorder", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orderedIds: ordered.map((p) => p.id) }),
+    }).catch(console.error)
+  }, [])
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setPhotos((prev) => {
+      const oldIdx = prev.findIndex((p) => p.id === active.id)
+      const newIdx = prev.findIndex((p) => p.id === over.id)
+      const next = arrayMove(prev, oldIdx, newIdx)
+      saveOrder(next)
+      return next
+    })
   }
 
   const atLimit = photos.length >= MAX_PHOTOS
@@ -154,49 +269,44 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2">
-        {photos.map((photo) => (
-          <div
-            key={photo.id}
-            className="relative aspect-square rounded-xl overflow-hidden group border border-slate-700"
-          >
-            <img
-              src={photo.photo_url}
-              alt="Portfolio"
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-            <button
-              type="button"
-              onClick={() => handleDelete(photo.id)}
-              disabled={deletingId === photo.id}
-              className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity hover:bg-red-600 disabled:opacity-60"
-              aria-label="Delete photo"
-            >
-              {deletingId === photo.id
-                ? <Loader2 className="w-3 h-3 text-white animate-spin" />
-                : <X className="w-3 h-3 text-white" />}
-            </button>
-          </div>
-        ))}
+      {photos.length > 0 && (
+        <p className="text-xs text-slate-500">
+          Drag photos to reorder — the first photo is the cover shown on your profile.
+        </p>
+      )}
 
-        {/* Upload slot — hidden when at limit */}
-        {!atLimit && (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="aspect-square rounded-xl border-2 border-dashed border-slate-600 flex flex-col items-center justify-center gap-1.5 hover:border-emerald-500 hover:bg-emerald-500/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {uploading
-              ? <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
-              : <ImagePlus className="w-5 h-5 text-slate-400" />}
-            <span className="text-[10px] text-slate-500 font-medium">
-              {uploading ? "Uploading…" : "Add photo"}
-            </span>
-          </button>
-        )}
-      </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={photos.map((p) => p.id)} strategy={rectSortingStrategy}>
+          <div className="grid grid-cols-3 gap-2">
+            {photos.map((photo, idx) => (
+              <SortablePhoto
+                key={photo.id}
+                photo={photo}
+                isCover={idx === 0}
+                isDeleting={deletingId === photo.id}
+                onDelete={handleDelete}
+              />
+            ))}
+
+            {/* Upload slot */}
+            {!atLimit && (
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                disabled={uploading}
+                className="aspect-square rounded-xl border-2 border-dashed border-slate-600 flex flex-col items-center justify-center gap-1.5 hover:border-emerald-500 hover:bg-emerald-500/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploading
+                  ? <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+                  : <ImagePlus className="w-5 h-5 text-slate-400" />}
+                <span className="text-[10px] text-slate-500 font-medium">
+                  {uploading ? "Uploading…" : "Add photo"}
+                </span>
+              </button>
+            )}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-slate-500">{photos.length} / {MAX_PHOTOS} photos</p>

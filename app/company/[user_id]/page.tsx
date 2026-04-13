@@ -81,7 +81,7 @@ export default async function CompanyProfilePage({ params }: PageProps) {
     .from("trades_portfolio_photos")
     .select("id, photo_url")
     .eq("tradesperson_id", companyProfile.id)
-    .order("created_at", { ascending: false })
+    .order("display_order", { ascending: true })
     .limit(6)
 
   console.log("[COMPANY-PROFILE] Profile loaded successfully:", companyProfile.company_name)

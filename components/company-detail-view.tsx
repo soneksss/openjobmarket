@@ -607,23 +607,41 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
                   <Images className="h-3.5 w-3.5" />Previous Work
                 </h2>
-                <div className="grid grid-cols-3 gap-2">
-                  {portfolioPhotos.map((photo, idx) => (
-                    <button
-                      key={photo.id}
-                      type="button"
-                      onClick={() => setLightboxIndex(idx)}
-                      className="aspect-square rounded-xl overflow-hidden border border-slate-700/60 hover:border-emerald-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-                    >
-                      <img
-                        src={photo.photo_url}
-                        alt={`Portfolio photo ${idx + 1}`}
-                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
-                </div>
+
+                {/* Cover photo — full width */}
+                <button
+                  type="button"
+                  onClick={() => setLightboxIndex(0)}
+                  className="w-full rounded-xl overflow-hidden border border-slate-700/60 hover:border-emerald-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/40 mb-2 block"
+                >
+                  <img
+                    src={portfolioPhotos[0].photo_url}
+                    alt="Portfolio cover"
+                    className="w-full h-48 object-cover hover:scale-[1.02] transition-transform duration-200"
+                    loading="lazy"
+                  />
+                </button>
+
+                {/* Remaining photos — 3-col grid */}
+                {portfolioPhotos.length > 1 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {portfolioPhotos.slice(1).map((photo, idx) => (
+                      <button
+                        key={photo.id}
+                        type="button"
+                        onClick={() => setLightboxIndex(idx + 1)}
+                        className="aspect-square rounded-xl overflow-hidden border border-slate-700/60 hover:border-emerald-500/50 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
+                      >
+                        <img
+                          src={photo.photo_url}
+                          alt={`Portfolio photo ${idx + 2}`}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                          loading="lazy"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 
