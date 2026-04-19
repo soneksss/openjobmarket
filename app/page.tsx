@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { LandingPage } from "@/components/landing-page"
+import { HomepageLayout } from "@/components/homepage-layout"
 import { createClient } from "@/lib/server"
 import { getHomePageBootstrap } from "@/lib/bootstrap"
 import Link from "next/link"
@@ -31,7 +31,7 @@ export default async function HomePage() {
 
   // Round-trip 2+: profile + adminSettings — served from cache, Supabase only on miss
   const bootstrap = await getHomePageBootstrap(user)
-  const { adminSettings, userType, profileLocation, profileSkills, profileIndustry, profileServices } = bootstrap
+  const { adminSettings, featureFlags, userType, profileLocation, profileSkills, profileIndustry, profileServices } = bootstrap
   const isAdmin = userType === 'admin'
 
   return (
@@ -54,7 +54,8 @@ export default async function HomePage() {
         </div>
       )}
 
-      <LandingPage
+      <HomepageLayout
+        version={adminSettings.layoutVersion}
         isSignedIn={!!user}
         user={user}
         userType={userType}

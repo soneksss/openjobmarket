@@ -4,6 +4,7 @@
 const debug = (...args: any[]) => { if (process.env.NODE_ENV === "development") console.log(...args) }
 
 import { useState, useEffect, useRef, useMemo, memo } from "react"
+import { createPortal } from "react-dom"
 import { useDeferredMount } from "@/hooks/use-deferred-mount"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,8 @@ import {
   HardHat,
   ArrowLeft,
   SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -66,9 +69,21 @@ import CompanyDetailView from "@/components/company-detail-view"
 import { MobileMapBottomSheet, BottomSheetState } from "@/components/mobile-map-bottom-sheet"
 import { MobilePreviewCard, PreviewData } from "@/components/mobile-preview-card"
 
+// Parse a stored language entry which may be "https://flagcdn.com/…/xx.png Name" or plain "Name"
+function parseLang(raw: string): { name: string; flagUrl: string | null } {
+  if (raw.startsWith("https://flagcdn.com")) {
+    const spaceIdx = raw.indexOf(" ")
+    if (spaceIdx !== -1) return { name: raw.slice(spaceIdx + 1), flagUrl: raw.slice(0, spaceIdx) }
+    return { name: "", flagUrl: raw }
+  }
+  const flagUrl = getLanguageFlag(raw)
+  return { name: raw, flagUrl }
+}
+
 // ── Portfolio photo strip shown under company cards in the sidebar ───────────
 function CompanyPortfolioStrip({ profileId }: { profileId: string }) {
   const [photos, setPhotos] = useState<{ id: string; photo_url: string }[]>([])
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -86,27 +101,69 @@ function CompanyPortfolioStrip({ profileId }: { profileId: string }) {
 
   if (photos.length === 0) return null
 
-  const visible = photos.slice(0, 3)
-  const extra = photos.length - 3
-
   return (
-    <div className="flex gap-1.5 mt-2 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-      {visible.map((p, idx) => (
-        <div key={p.id} className="relative flex-shrink-0 w-[72px] h-[72px] rounded-md overflow-hidden">
-          <img
-            src={p.photo_url}
-            alt="Portfolio"
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
-          {idx === 2 && extra > 0 && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <span className="text-white text-xs font-bold">+{extra}</span>
-            </div>
+    <>
+      <div className="grid grid-cols-3 gap-1.5 mt-2">
+        {photos.map((p, idx) => (
+          <button
+            key={p.id}
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setLightboxIdx(idx) }}
+            className="relative aspect-square rounded-md overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:opacity-90 transition-opacity"
+          >
+            <img src={p.photo_url} alt="Portfolio" className="w-full h-full object-cover" loading="lazy" />
+            {idx === 2 && photos.length > 3 && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <span className="text-white text-xs font-bold">+{photos.length - 3}</span>
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {lightboxIdx !== null && typeof document !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[99999] bg-black/90 flex items-center justify-center"
+          onClick={() => setLightboxIdx(null)}
+        >
+          <button
+            className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+            onClick={() => setLightboxIdx(null)}
+            aria-label="Close"
+          >
+            <X className="w-5 h-5 text-white" />
+          </button>
+          {lightboxIdx > 0 && (
+            <button
+              className="absolute left-3 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setLightboxIdx((i) => (i! > 0 ? i! - 1 : i)) }}
+              aria-label="Previous"
+            >
+              <ChevronLeft className="w-5 h-5 text-white" />
+            </button>
           )}
-        </div>
-      ))}
-    </div>
+          <img
+            src={photos[lightboxIdx].photo_url}
+            alt={`Portfolio photo ${lightboxIdx + 1}`}
+            className="max-h-[88vh] max-w-[90vw] object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          {lightboxIdx < photos.length - 1 && (
+            <button
+              className="absolute right-3 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+              onClick={(e) => { e.stopPropagation(); setLightboxIdx((i) => (i! < photos.length - 1 ? i! + 1 : i)) }}
+              aria-label="Next"
+            >
+              <ChevronRight className="w-5 h-5 text-white" />
+            </button>
+          )}
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/60 font-medium">
+            {lightboxIdx + 1} / {photos.length}
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   )
 }
 
@@ -1866,12 +1923,16 @@ function ProfessionalsPageContent({
                                         <div className="text-xs text-slate-400 mb-2 flex items-center flex-wrap gap-1">
                                           <Globe className="h-3 w-3 inline mr-1" />
                                           <span className="font-medium mr-1">Languages:</span>
-                                          {item.spoken_languages.slice(0, 3).map((lang: string, idx: number) => (
-                                            <span key={idx} className="inline-flex items-center">
-                                              <span className="text-base mr-0.5">{getLanguageFlag(lang)}</span>
-                                              <span>{lang}{idx < Math.min(2, item.spoken_languages.length - 1) ? ',' : ''}</span>
-                                            </span>
-                                          ))}
+                                          {item.spoken_languages.slice(0, 3).map((raw: string, idx: number) => {
+                                            const { name, flagUrl } = parseLang(raw)
+                                            if (!name) return null
+                                            return (
+                                              <span key={idx} className="inline-flex items-center gap-0.5">
+                                                {flagUrl && <img src={flagUrl} alt={name} width={14} height={10} className="rounded-sm object-cover flex-shrink-0" />}
+                                                <span>{name}{idx < Math.min(2, item.spoken_languages.length - 1) ? ',' : ''}</span>
+                                              </span>
+                                            )
+                                          })}
                                           {item.spoken_languages.length > 3 && <span className="ml-1">+{item.spoken_languages.length - 3} more</span>}
                                         </div>
                                       )}
@@ -2025,12 +2086,16 @@ function ProfessionalsPageContent({
                                             <div>
                                               <h4 className="font-semibold text-sm text-gray-900 mb-1">All Languages ({item.spoken_languages.length})</h4>
                                               <div className="flex flex-wrap gap-1">
-                                                {item.spoken_languages.map((language: string, index: number) => (
-                                                  <Badge key={index} variant="outline" className="text-xs flex items-center gap-1">
-                                                    <span className="text-sm">{getLanguageFlag(language)}</span>
-                                                    {language}
-                                                  </Badge>
-                                                ))}
+                                                {item.spoken_languages.map((raw: string, index: number) => {
+                                                  const { name, flagUrl } = parseLang(raw)
+                                                  if (!name) return null
+                                                  return (
+                                                    <Badge key={index} variant="outline" className="text-xs flex items-center gap-1">
+                                                      {flagUrl && <img src={flagUrl} alt={name} width={14} height={10} className="rounded-sm object-cover flex-shrink-0" />}
+                                                      {name}
+                                                    </Badge>
+                                                  )
+                                                })}
                                               </div>
                                             </div>
                                           )}
@@ -3600,11 +3665,6 @@ function ProfessionalsPageContent({
                               })()}
                             </div>
 
-                            {/* Portfolio photo strip — companies only */}
-                            {'company_name' in item && (
-                              <CompanyPortfolioStrip profileId={item.id} />
-                            )}
-
                             {/* Show expanded details */}
                             {isExpanded && (() => {
                               const isItemProfessional = 'first_name' in item
@@ -3615,6 +3675,9 @@ function ProfessionalsPageContent({
 
                               return (
                                 <div className="space-y-3 pt-2 border-t border-slate-700">
+                                  {/* Portfolio photos — companies only */}
+                                  {isItemCompany && <CompanyPortfolioStrip profileId={item.id} />}
+
                                   {/* Description/Bio */}
                                   {(item.description || item.bio) && (
                                     <div>
@@ -3696,12 +3759,16 @@ function ProfessionalsPageContent({
                                     <div>
                                       <h5 className="font-semibold text-xs text-slate-400 mb-1.5">Languages</h5>
                                       <div className="flex flex-wrap gap-1.5">
-                                        {item.spoken_languages.map((language: string, idx: number) => (
-                                          <Badge key={idx} variant="outline" className="text-xs flex items-center gap-1 border-slate-600 text-slate-300">
-                                            <span className="text-sm">{getLanguageFlag(language)}</span>
-                                            {language}
-                                          </Badge>
-                                        ))}
+                                        {item.spoken_languages.map((raw: string, idx: number) => {
+                                          const { name, flagUrl } = parseLang(raw)
+                                          if (!name) return null
+                                          return (
+                                            <Badge key={idx} variant="outline" className="text-xs flex items-center gap-1 border-slate-600 text-slate-300">
+                                              {flagUrl && <img src={flagUrl} alt={name} width={14} height={10} className="rounded-sm object-cover flex-shrink-0" />}
+                                              {name}
+                                            </Badge>
+                                          )
+                                        })}
                                       </div>
                                     </div>
                                   )}
@@ -4057,12 +4124,16 @@ function ProfessionalsPageContent({
                                 <div className={`text-[10px] mt-2 flex items-center flex-wrap gap-1 ${isModal ? 'text-slate-400' : 'text-gray-600'}`}>
                                   <Globe className="h-2.5 w-2.5 inline mr-1" />
                                   <span className="font-medium mr-1">Languages:</span>
-                                  {item.spoken_languages.slice(0, 2).map((lang: string, idx: number) => (
-                                    <span key={idx} className="inline-flex items-center">
-                                      <span className="text-xs mr-0.5">{getLanguageFlag(lang)}</span>
-                                      <span>{lang}{idx < Math.min(1, item.spoken_languages.length - 1) ? ',' : ''}</span>
-                                    </span>
-                                  ))}
+                                  {item.spoken_languages.slice(0, 2).map((raw: string, idx: number) => {
+                                    const { name, flagUrl } = parseLang(raw)
+                                    if (!name) return null
+                                    return (
+                                      <span key={idx} className="inline-flex items-center gap-0.5">
+                                        {flagUrl && <img src={flagUrl} alt={name} width={12} height={9} className="rounded-sm object-cover flex-shrink-0" />}
+                                        <span>{name}{idx < Math.min(1, item.spoken_languages.length - 1) ? ',' : ''}</span>
+                                      </span>
+                                    )
+                                  })}
                                   {item.spoken_languages.length > 2 && <span className="ml-1">+{item.spoken_languages.length - 2}</span>}
                                 </div>
                               )}
@@ -4123,6 +4194,9 @@ function ProfessionalsPageContent({
                                   {isItemCompany ? (
                                     // ── Company expanded view ──────────────────────────────
                                     <>
+                                      {/* Portfolio photos */}
+                                      <CompanyPortfolioStrip profileId={item.id} />
+
                                       {/* About */}
                                       {item.description && (
                                         <div>
@@ -4156,11 +4230,16 @@ function ProfessionalsPageContent({
                                         <div>
                                           <h4 className={`font-semibold text-sm ${hClass} mb-1`}>Languages</h4>
                                           <div className="flex flex-wrap gap-1">
-                                            {item.spoken_languages.map((lang: string, idx: number) => (
-                                              <Badge key={idx} variant="outline" className={`${badgeCls} flex items-center gap-1`}>
-                                                <span className="text-sm">{getLanguageFlag(lang)}</span>{lang}
-                                              </Badge>
-                                            ))}
+                                            {item.spoken_languages.map((raw: string, idx: number) => {
+                                              const { name, flagUrl } = parseLang(raw)
+                                              if (!name) return null
+                                              return (
+                                                <Badge key={idx} variant="outline" className={`${badgeCls} flex items-center gap-1`}>
+                                                  {flagUrl && <img src={flagUrl} alt={name} width={14} height={10} className="rounded-sm object-cover flex-shrink-0" />}
+                                                  {name}
+                                                </Badge>
+                                              )
+                                            })}
                                           </div>
                                         </div>
                                       )}
@@ -4218,11 +4297,16 @@ function ProfessionalsPageContent({
                                         <div>
                                           <h4 className={`font-semibold text-sm ${hClass} mb-1`}>All Languages ({item.spoken_languages.length})</h4>
                                           <div className="flex flex-wrap gap-1">
-                                            {item.spoken_languages.map((language: string, index: number) => (
-                                              <Badge key={index} variant="outline" className={`${badgeCls} flex items-center gap-1`}>
-                                                <span className="text-sm">{getLanguageFlag(language)}</span>{language}
-                                              </Badge>
-                                            ))}
+                                            {item.spoken_languages.map((raw: string, index: number) => {
+                                              const { name, flagUrl } = parseLang(raw)
+                                              if (!name) return null
+                                              return (
+                                                <Badge key={index} variant="outline" className={`${badgeCls} flex items-center gap-1`}>
+                                                  {flagUrl && <img src={flagUrl} alt={name} width={14} height={10} className="rounded-sm object-cover flex-shrink-0" />}
+                                                  {name}
+                                                </Badge>
+                                              )
+                                            })}
                                           </div>
                                         </div>
                                       )}

@@ -47,6 +47,17 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
   const poll = useCallback(async () => {
     if (!activeSearch || isOnLivePage) return
     try {
+      // Check if job is already confirmed/completed — if so, clear the banner
+      const { data: jobRow } = await supabase
+        .from("jobs")
+        .select("status")
+        .eq("id", activeSearch.jobId)
+        .single()
+      if (jobRow?.status === "CONFIRMED" || jobRow?.status === "COMPLETED") {
+        clearActiveSearch()
+        return
+      }
+
       const res = await fetch(`/api/jobs/${activeSearch.jobId}/urgent-responses`, {
         credentials: "include",
       })
@@ -79,7 +90,20 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
     const effectiveExpiry = activeSearch.expiresAt ?? (activeSearch.startedAt ? activeSearch.startedAt + 4 * 60 * 60 * 1000 : null)
     if (effectiveExpiry && Date.now() > effectiveExpiry) {
       clearActiveSearch()
+      return
     }
+    // Immediately check DB status on mount so banner clears without waiting for first poll
+    supabase
+      .from("jobs")
+      .select("status")
+      .eq("id", activeSearch.jobId)
+      .single()
+      .then(({ data }) => {
+        if (data?.status === "CONFIRMED" || data?.status === "COMPLETED") {
+          clearActiveSearch()
+        }
+      })
+      .catch(() => {})
   }, [activeSearch?.jobId, activeSearch?.userId, activeSearch?.expiresAt, userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Early return AFTER all hooks ────────────────────────────────────

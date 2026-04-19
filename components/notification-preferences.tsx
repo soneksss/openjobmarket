@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Bell, Mail, Phone, MessageSquare, Briefcase, AlertTriangle, Home, Building2, Wrench, Users, Globe, Languages } from "lucide-react"
+import { Bell, Mail, Phone, MessageSquare, Briefcase, AlertTriangle, Home, Building2, Wrench, Users, Globe, Languages, Zap } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { toast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -72,6 +72,11 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
   const router = useRouter()
   const supabase = createClient()
 
+  // Tradesperson push-alert toggles (stored on company_profiles, not notification_preferences)
+  const [urgentJobAlerts,   setUrgentJobAlerts]   = useState(true)
+  const [flexibleJobAlerts, setFlexibleJobAlerts] = useState(true)
+  const [savingPush, setSavingPush] = useState(false)
+
   useEffect(() => {
     fetchData()
     loadLanguagePreference()
@@ -114,6 +119,19 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
 
       if (prefsError && prefsError.code !== "PGRST116") {
         throw prefsError
+      }
+
+      // Fetch tradesperson push toggles from company_profiles
+      if (userData.is_tradespeople) {
+        const { data: cp } = await supabase
+          .from('company_profiles')
+          .select('trade_job_notifications, flexible_job_notifications')
+          .eq('user_id', userId)
+          .maybeSingle()
+        if (cp) {
+          setUrgentJobAlerts(cp.trade_job_notifications ?? true)
+          setFlexibleJobAlerts(cp.flexible_job_notifications ?? true)
+        }
       }
 
       if (prefsData) {
@@ -189,6 +207,24 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const savePushAlert = async (field: 'trade_job_notifications' | 'flexible_job_notifications', value: boolean) => {
+    setSavingPush(true)
+    try {
+      const { error } = await supabase
+        .from('company_profiles')
+        .update({ [field]: value })
+        .eq('user_id', userId)
+      if (error) throw error
+      if (field === 'trade_job_notifications')   setUrgentJobAlerts(value)
+      if (field === 'flexible_job_notifications') setFlexibleJobAlerts(value)
+      toast({ title: 'Push alerts updated' })
+    } catch {
+      toast({ title: 'Error', description: 'Failed to update push alerts', variant: 'destructive' })
+    } finally {
+      setSavingPush(false)
     }
   }
 
@@ -434,6 +470,51 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
           </div>
         </CardContent>
       </Card>
+
+      {/* Tradesperson push-alert toggles */}
+      {userRoles?.is_tradespeople && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Zap className="h-5 w-5 mr-2 text-orange-500" />
+              Job Alerts (Push)
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Push notifications sent when matching jobs are posted near you.
+              Your <strong>Available</strong> toggle on the home page is the master switch —
+              you only receive alerts when you are marked available.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="font-medium">🚨 Urgent Jobs (ASAP / Today)</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Immediate alerts for jobs that need same-day or next-hour response
+                </p>
+              </div>
+              <Switch
+                checked={urgentJobAlerts}
+                onCheckedChange={v => savePushAlert('trade_job_notifications', v)}
+                disabled={savingPush}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="font-medium">📋 Flexible Jobs (1–7 days)</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Notifications for jobs posted with a flexible timeline — apply at your convenience
+                </p>
+              </div>
+              <Switch
+                checked={flexibleJobAlerts}
+                onCheckedChange={v => savePushAlert('flexible_job_notifications', v)}
+                disabled={savingPush}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notification Preferences Header */}
       <Card>

@@ -6,9 +6,13 @@ import { GeistMono } from "geist/font/mono"
 import NextTopLoader from "nextjs-toploader"
 import "./globals.css"
 import { LayoutContent } from "@/components/layout-content"
+import { FeatureFlagsProvider } from "@/contexts/feature-flags-context"
+import { AppVersionGate } from "@/components/app-version-gate"
 import { createClient } from "@/lib/server"
+import { getAdminSettings } from "@/lib/bootstrap"
 import { cookies } from "next/headers"
 import { type Locale } from "@/lib/i18n/config"
+import CapacitorInitWrapper from "@/components/capacitor-init-wrapper"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.openjobmarket.com"),
@@ -117,6 +121,9 @@ export default async function RootLayout({
     }
   }
 
+  // Fetch admin settings + feature flags (unstable_cache — 0 DB queries on hit)
+  const { adminSettings, featureFlags } = await getAdminSettings()
+
   // Read locale from cookie set by middleware (server-side)
   const cookieStore = await cookies()
   const localeCookie = cookieStore.get('NEXT_LOCALE')
@@ -179,15 +186,24 @@ export default async function RootLayout({
           showSpinner={false}
           shadow="0 0 8px #10b981,0 0 4px #10b981"
         />
-        <Suspense fallback={
-          <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
-            <div className="w-10 h-10 rounded-full border-2 border-slate-700 border-t-emerald-500 animate-spin" />
-          </div>
-        }>
-          <LayoutContent user={user} userType={userType} isAdmin={userType === 'admin'} serverLocale={serverLocale}>
-            {children}
-          </LayoutContent>
-        </Suspense>
+        <FeatureFlagsProvider flags={featureFlags}>
+          <AppVersionGate
+            minAppVersion={adminSettings.minAppVersion}
+            forceUpdate={adminSettings.forceUpdate}
+          >
+            <Suspense fallback={
+              <div className="fixed inset-0 bg-slate-900 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-full border-2 border-slate-700 border-t-emerald-500 animate-spin" />
+              </div>
+            }>
+              <LayoutContent user={user} userType={userType} isAdmin={userType === 'admin'} serverLocale={serverLocale}>
+                {children}
+              </LayoutContent>
+            </Suspense>
+          </AppVersionGate>
+        </FeatureFlagsProvider>
+        {/* OTA updater + notifyAppReady — no-op outside Capacitor native context */}
+        <CapacitorInitWrapper />
       </body>
     </html>
   )

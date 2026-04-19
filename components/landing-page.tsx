@@ -714,7 +714,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     {/* Text anchored to the bottom of the photo, just above the search bar overlap */}
                     <div className="absolute inset-x-0 bottom-16 md:bottom-4 px-4">
                       <p className="font-black text-white drop-shadow-lg text-[20px] md:text-[28px]" style={{ lineHeight: '1.15' }}>
-                        Get multiple quotes from local tradespeople in minutes<br /><span className="text-emerald-400">— no middleman, no hassle</span>
+                        Need a tradesperson now? Find one nearby in minutes<br /><span className="text-emerald-400">— no middleman, no hassle</span>
                       </p>
                     </div>
                   </div>

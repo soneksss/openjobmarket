@@ -1,7 +1,7 @@
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
 
-import { createClient } from "@/lib/server"
+import { createClient, createAdminClient } from "@/lib/server"
 import { notFound } from "next/navigation"
 import { Metadata } from "next"
 import CompanyDetailView from "@/components/company-detail-view"
@@ -84,6 +84,14 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
   // Get user for authentication check
   const { data: { user } } = await supabase.auth.getUser()
+
+  // Track profile view (skip if the company owner is viewing their own profile)
+  if (user?.id !== company.user_id) {
+    createAdminClient()
+      .from("company_profile_views")
+      .insert({ company_id: company.id, viewer_user_id: user?.id ?? null })
+      .then(() => {}) // fire-and-forget
+  }
 
   console.log("[COMPANY-DETAIL] Company found:", {
     id: company.id,

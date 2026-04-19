@@ -170,6 +170,7 @@ interface ProfessionalMapProps {
   onSendInquiry?: (id: string, name: string) => void
   onProfileSelect?: (profile: any) => void
   selectedProfessionalId?: string | null
+  dark?: boolean
 }
 
 export function ProfessionalMap({
@@ -186,6 +187,7 @@ export function ProfessionalMap({
   onSendInquiry,
   onProfileSelect,
   selectedProfessionalId = null,
+  dark = false,
 }: ProfessionalMapProps) {
   // Get language/region context for default map center
   const { state: languageRegionState } = useLanguageRegion()

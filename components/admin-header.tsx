@@ -22,34 +22,31 @@ export function AdminHeader({ title, adminUser }: AdminHeaderProps) {
   }
 
   return (
-    <header className="hidden lg:block bg-white shadow-sm border-b border-gray-200">
-      <div className="flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-xl font-semibold text-gray-900">{title}</h1>
-        </div>
+    <header className="hidden lg:flex h-10 shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-950 px-4">
+      <span className="text-xs font-medium text-zinc-500">{title}</span>
 
-        <div className="flex items-center space-x-2 md:space-x-4">
-          <Link href="/">
-            <Button variant="outline" size="sm" className="flex items-center space-x-2 bg-transparent">
-              <Home className="h-4 w-4" />
-              <span className="hidden sm:inline">Back to Main Site</span>
-            </Button>
-          </Link>
-
-          <div className="hidden md:flex items-center space-x-2">
-            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-              <span className="text-sm font-medium text-blue-600">
-                {(adminUser.full_name || adminUser.email).charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <span className="text-sm text-gray-700">{adminUser.full_name || adminUser.email}</span>
-          </div>
-
-          <Button variant="outline" size="sm" onClick={handleSignOut}>
-            <LogOut className="h-4 w-4 md:mr-2" />
-            <span className="hidden md:inline">Sign Out</span>
+      <div className="flex items-center gap-3">
+        <Link href="/">
+          <Button variant="ghost" size="sm" className="h-7 gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 px-2">
+            <Home className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Main Site</span>
           </Button>
+        </Link>
+
+        <div className="hidden md:flex items-center gap-2">
+          <div className="h-6 w-6 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center">
+            <span className="text-xs font-medium text-zinc-300">
+              {(adminUser.full_name || adminUser.email).charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <span className="text-xs text-zinc-500">{adminUser.full_name || adminUser.email}</span>
         </div>
+
+        <Button variant="ghost" size="sm" onClick={handleSignOut}
+          className="h-7 gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 px-2">
+          <LogOut className="h-3.5 w-3.5" />
+          <span className="hidden md:inline">Sign Out</span>
+        </Button>
       </div>
     </header>
   )

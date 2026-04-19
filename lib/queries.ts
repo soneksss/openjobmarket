@@ -129,12 +129,14 @@ export function getSavedTradespeople(profileId: string, userId: string) {
         const { data } = await admin
           .from('saved_traders')
           .select(
-            'id, professional_id, professional_profiles (id, user_id, first_name, last_name, nickname, title, location, profile_photo_url, skills, average_rating, reviews_count)'
+            `id, professional_id, company_id,
+             professional_profiles (id, user_id, first_name, last_name, nickname, title, location, profile_photo_url, skills, average_rating, reviews_count),
+             company_profiles (id, user_id, company_name, logo_url, industry, location, average_rating)`
           )
           .eq('homeowner_id', profileId)
           .order('created_at', { ascending: false })
           .limit(5)
-        return (data || []).filter((s: any) => s.professional_profiles)
+        return (data || []).filter((s: any) => s.professional_profiles || s.company_profiles)
       } catch (err) {
         console.error('[queries] getSavedTradespeople failed:', err)
         return []

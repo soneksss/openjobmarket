@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +16,7 @@ import {
   Briefcase,
   Star,
   ChevronRight,
+  ChevronLeft,
   Clock,
   Globe,
   Phone,
@@ -22,6 +24,81 @@ import {
   Zap,
 } from "lucide-react"
 import { CompactStarRating } from "@/components/compact-star-rating"
+import { createBrowserClient } from "@supabase/ssr"
+import { getLanguageFlag } from "@/components/language-selector"
+
+function parseLang(raw: string): { name: string; flagUrl: string | null } {
+  if (raw.startsWith("https://flagcdn.com")) {
+    const spaceIdx = raw.indexOf(" ")
+    if (spaceIdx !== -1) return { name: raw.slice(spaceIdx + 1), flagUrl: raw.slice(0, spaceIdx) }
+    return { name: "", flagUrl: raw }
+  }
+  return { name: raw, flagUrl: getLanguageFlag(raw) }
+}
+
+function PortfolioLightbox({ photos, index, onClose }: {
+  photos: { id: string; photo_url: string }[]
+  index: number
+  onClose: () => void
+}) {
+  const [idx, setIdx] = useState(index)
+  if (typeof document === "undefined") return null
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] bg-black/90 flex items-center justify-center" onClick={onClose}>
+      <button className="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20" onClick={onClose} aria-label="Close">
+        <X className="w-5 h-5 text-white" />
+      </button>
+      {idx > 0 && (
+        <button className="absolute left-3 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setIdx(i => i - 1) }} aria-label="Previous">
+          <ChevronLeft className="w-5 h-5 text-white" />
+        </button>
+      )}
+      <img src={photos[idx].photo_url} alt={`Portfolio ${idx + 1}`} className="max-h-[88vh] max-w-[90vw] object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+      {idx < photos.length - 1 && (
+        <button className="absolute right-3 w-9 h-9 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20" onClick={(e) => { e.stopPropagation(); setIdx(i => i + 1) }} aria-label="Next">
+          <ChevronRight className="w-5 h-5 text-white" />
+        </button>
+      )}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/60 font-medium">{idx + 1} / {photos.length}</div>
+    </div>,
+    document.body
+  )
+}
+
+function CompanyPortfolioSection({ profileId }: { profileId: string }) {
+  const [photos, setPhotos] = useState<{ id: string; photo_url: string }[]>([])
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+  useEffect(() => {
+    supabase.from("trades_portfolio_photos").select("id, photo_url")
+      .eq("tradesperson_id", profileId).order("display_order", { ascending: true }).limit(6)
+      .then(({ data }) => { if (data && data.length > 0) setPhotos(data) })
+  }, [profileId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (photos.length === 0) return null
+  return (
+    <div>
+      <h4 className="font-semibold text-sm text-white mb-2">Previous Work</h4>
+      <div className="grid grid-cols-3 gap-1.5">
+        {photos.map((p, idx) => (
+          <button key={p.id} type="button" onClick={() => setLightboxIdx(idx)}
+            className="relative aspect-square rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-emerald-500 hover:opacity-90 transition-opacity">
+            <img src={p.photo_url} alt="Portfolio" className="w-full h-full object-cover" loading="lazy" />
+            {idx === 2 && photos.length > 3 && (
+              <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                <span className="text-white text-xs font-bold">+{photos.length - 3}</span>
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+      {lightboxIdx !== null && <PortfolioLightbox photos={photos} index={lightboxIdx} onClose={() => setLightboxIdx(null)} />}
+    </div>
+  )
+}
 
 // Job preview data
 interface JobPreviewData {
@@ -410,11 +487,16 @@ export function MobilePreviewCard({
               <div>
                 <h4 className="font-semibold text-sm text-white mb-2">Languages</h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {data.spokenLanguages.map((lang, idx) => (
-                    <Badge key={idx} className="text-xs bg-slate-800 text-slate-300 border border-slate-600">
-                      {lang}
-                    </Badge>
-                  ))}
+                  {data.spokenLanguages.map((raw, idx) => {
+                    const { name, flagUrl } = parseLang(raw)
+                    if (!name) return null
+                    return (
+                      <Badge key={idx} className="text-xs bg-slate-800 text-slate-300 border border-slate-600 flex items-center gap-1">
+                        {flagUrl && <img src={flagUrl} alt={name} width={14} height={10} className="rounded-sm object-cover flex-shrink-0" />}
+                        {name}
+                      </Badge>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -510,6 +592,9 @@ export function MobilePreviewCard({
           </div>
 
           <div className="px-4 py-4 space-y-4">
+            {/* Portfolio photos */}
+            <CompanyPortfolioSection profileId={data.id} />
+
             {/* Location */}
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -569,11 +654,16 @@ export function MobilePreviewCard({
               <div>
                 <h4 className="font-semibold text-sm text-white mb-2">Languages</h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {data.spokenLanguages.map((lang, idx) => (
-                    <Badge key={idx} className="text-xs bg-slate-800 text-slate-300 border border-slate-600">
-                      {lang}
-                    </Badge>
-                  ))}
+                  {data.spokenLanguages.map((raw, idx) => {
+                    const { name, flagUrl } = parseLang(raw)
+                    if (!name) return null
+                    return (
+                      <Badge key={idx} className="text-xs bg-slate-800 text-slate-300 border border-slate-600 flex items-center gap-1">
+                        {flagUrl && <img src={flagUrl} alt={name} width={14} height={10} className="rounded-sm object-cover flex-shrink-0" />}
+                        {name}
+                      </Badge>
+                    )
+                  })}
                 </div>
               </div>
             )}

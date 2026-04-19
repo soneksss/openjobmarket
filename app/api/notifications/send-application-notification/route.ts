@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { sendEmail, shouldSendEmailNotification, logNotification } from "@/lib/email/service"
 import { jobApplicationEmail } from "@/lib/email/templates"
+import { sendWebPushToUser } from "@/lib/web-push"
 import { NextRequest, NextResponse } from "next/server"
 
 /**
@@ -159,6 +160,35 @@ export async function POST(request: NextRequest) {
     } else {
       console.log("[NOTIFICATION] In-app notification created for user:", jobPosterId)
     }
+
+    // Web push to homeowner (fire-and-forget, non-blocking)
+    ;(async () => {
+      try {
+        const { data: tokenRows } = await adminClient
+          .from("user_push_tokens")
+          .select("token, device_type")
+          .eq("user_id", jobPosterId)
+
+        // Only web push subscriptions — FCM tokens need Firebase Admin SDK
+        const tokens = (tokenRows ?? [])
+          .filter((r: any) => r.device_type === "web")
+          .map((r: any) => r.token as string)
+        if (tokens.length > 0) {
+          const { expired } = await sendWebPushToUser(tokens, {
+            title: `New application for ${jobTitle}`,
+            body:  `${applicantName} has applied to your job "${jobTitle}"`,
+            url:   applicationUrl,
+            tag:   `job-application-${applicationId}`,
+          })
+          if (expired.length > 0) {
+            await adminClient.from("user_push_tokens").delete().in("token", expired)
+          }
+          console.log("[NOTIFICATION] Web push sent to homeowner:", jobPosterId)
+        }
+      } catch (pushErr: any) {
+        console.warn("[NOTIFICATION] Web push failed:", pushErr?.message)
+      }
+    })()
 
     // Check if job poster wants EMAIL notifications for applications
     const shouldSendEmail = await shouldSendEmailNotification(supabase, jobPosterId, "job_application")

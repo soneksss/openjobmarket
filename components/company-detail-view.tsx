@@ -36,6 +36,20 @@ import { Input } from "@/components/ui/input"
 import UserReviewsDisplay from "./user-reviews-display"
 import { RatingDisplay } from "./rating-display"
 import { ReviewsList } from "./reviews-list"
+import { getLanguageFlag } from "./language-selector"
+
+// Parse a stored language entry which may be "https://flagcdn.com/…/xx.png Name" or plain "Name"
+function parseLang(raw: string): { name: string; flagUrl: string | null } {
+  if (raw.startsWith("https://flagcdn.com")) {
+    const spaceIdx = raw.indexOf(" ")
+    if (spaceIdx !== -1) {
+      return { name: raw.slice(spaceIdx + 1), flagUrl: raw.slice(0, spaceIdx) }
+    }
+    // URL with no name — skip
+    return { name: "", flagUrl: raw }
+  }
+  return { name: raw, flagUrl: getLanguageFlag(raw) }
+}
 
 interface CompanyProfile {
   id: string
@@ -390,8 +404,39 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Languages</p>
               <div className="flex flex-wrap gap-1">
-                {company.spoken_languages.map((lang, i) => (
-                  <span key={i} className="text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-md">{lang}</span>
+                {company.spoken_languages.map((raw, i) => {
+                  const { name, flagUrl } = parseLang(raw)
+                  if (!name) return null
+                  return (
+                    <span key={i} className="inline-flex items-center gap-1.5 text-xs bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded-md">
+                      {flagUrl && <img src={flagUrl} alt={name} width={16} height={12} className="rounded-sm object-cover flex-shrink-0" />}
+                      {name}
+                    </span>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Portfolio photos */}
+          {portfolioPhotos.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Previous Work</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {portfolioPhotos.map((photo, idx) => (
+                  <button
+                    key={photo.id}
+                    type="button"
+                    onClick={() => setLightboxIndex(idx)}
+                    className="aspect-square rounded-lg overflow-hidden border border-slate-700/60 hover:border-emerald-500/50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 transition-colors"
+                  >
+                    <img
+                      src={photo.photo_url}
+                      alt={`Portfolio photo ${idx + 1}`}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                      loading="lazy"
+                    />
+                  </button>
                 ))}
               </div>
             </div>
@@ -748,9 +793,16 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                   <Globe2 className="h-3.5 w-3.5" />Languages
                 </h2>
                 <div className="flex flex-wrap gap-2">
-                  {company.spoken_languages.map((lang) => (
-                    <span key={lang} className="text-xs bg-slate-700 text-slate-300 border border-slate-600/80 px-2.5 py-1 rounded-lg">{lang}</span>
-                  ))}
+                  {company.spoken_languages.map((raw, i) => {
+                    const { name, flagUrl } = parseLang(raw)
+                    if (!name) return null
+                    return (
+                      <span key={i} className="inline-flex items-center gap-1.5 text-xs bg-slate-700 text-slate-300 border border-slate-600/80 px-2.5 py-1 rounded-lg">
+                        {flagUrl && <img src={flagUrl} alt={name} width={16} height={12} className="rounded-sm object-cover flex-shrink-0" />}
+                        {name}
+                      </span>
+                    )
+                  })}
                 </div>
               </section>
             )}
@@ -912,7 +964,7 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
       {/* Lightbox */}
       {lightboxIndex !== null && (
         <div
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+          className="fixed inset-0 z-[99999] bg-black/90 flex items-center justify-center"
           onClick={() => setLightboxIndex(null)}
         >
           {/* Close */}

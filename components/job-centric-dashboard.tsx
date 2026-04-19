@@ -120,6 +120,8 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
 
   // State for applicants data (loaded on demand)
   const [jobApplications, setJobApplications] = useState<Record<string, Application[]>>({})
+  // For flexible jobs: whether homeowner has expanded past the first 3 applicants
+  const [showAllApplicants, setShowAllApplicants] = useState<Record<string, boolean>>({})
   const [loadingApplications, setLoadingApplications] = useState<Set<string>>(new Set())
 
   // State for actions
@@ -413,16 +415,29 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
           is_read: false,
         })
 
-        // Send acceptance message
-        await supabase.from('messages').insert({
-          sender_id: ownerUserId,
-          recipient_id: professionalData.user_id,
-          subject: `Application Accepted: ${jobTitle}`,
-          content: `🎉 Congratulations! Your application for "${jobTitle}"${budget ? ` (budget: ${budget})` : ''} has been accepted!\n\nPlease reply to discuss further details.`,
-          message_type: 'direct',
-          job_id: jobId,
-          is_read: false
-        })
+        // Send acceptance message via API so it gets conversation_id + chat_unlocked
+        try {
+          const convRes = await fetch("/api/conversations", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ with_user_id: professionalData.user_id, job_id: jobId }),
+          })
+          const convData = convRes.ok ? await convRes.json() : {}
+          await fetch("/api/messages", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              recipient_id:  professionalData.user_id,
+              content:       `🎉 Congratulations! Your application for "${jobTitle}"${budget ? ` (budget: ${budget})` : ''} has been accepted!\n\nPlease reply to discuss further details.`,
+              job_id:        jobId,
+              ...(convData.conversationId && { conversation_id: convData.conversationId }),
+            }),
+          })
+        } catch (msgErr) {
+          console.error("[JOB-CENTRIC] Error sending acceptance message:", msgErr)
+        }
       }
 
       toast({
@@ -434,7 +449,7 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
       await loadApplicationsForJob(jobId)
       router.refresh()
 
-      // Navigate to messages
+      // Navigate to the conversation (user ID falls back to opening-by-user flow)
       if (professionalData?.user_id) {
         setTimeout(() => {
           router.push(`/messages/${professionalData.user_id}`)
@@ -903,10 +918,42 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                           </div>
                         ) : (
                           <div className="space-y-2">
-                            {applications.map((application) => {
+                            {/* Flexible jobs: first 3 highlighted, rest behind "See more" */}
+                            {job.urgency_type === 'flexible' && applications.length > 3 && (
+                              <div className="flex items-center gap-2 mb-1 px-1">
+                                <span className="text-xs text-slate-400">Showing top 3 replies</span>
+                                {!showAllApplicants[job.id] && (
+                                  <button
+                                    onClick={() => setShowAllApplicants(prev => ({ ...prev, [job.id]: true }))}
+                                    className="text-xs text-emerald-400 hover:text-emerald-300 font-medium underline underline-offset-2"
+                                  >
+                                    See {applications.length - 3} more replies
+                                  </button>
+                                )}
+                                {showAllApplicants[job.id] && (
+                                  <button
+                                    onClick={() => setShowAllApplicants(prev => ({ ...prev, [job.id]: false }))}
+                                    className="text-xs text-slate-400 hover:text-slate-300 underline underline-offset-2"
+                                  >
+                                    Show less
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            {applications
+                              .slice(
+                                0,
+                                job.urgency_type === 'flexible' && !showAllApplicants[job.id]
+                                  ? 3
+                                  : undefined
+                              )
+                              .map((application, appIdx) => {
                               const professionalProfile = application.professional_profiles
 
                               if (!professionalProfile) return null
+
+                              // First 3 applicants on flexible jobs get a subtle highlight
+                              const isTopPick = job.urgency_type === 'flexible' && appIdx < 3
 
                               const applicantName = `${professionalProfile.first_name} ${professionalProfile.last_name}`
                               const applicantTitle = professionalProfile.title
@@ -923,8 +970,12 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
                                   onOpenChange={() => toggleApplicantExpanded(application.id)}
                                 >
                                   {/* Applicant Row */}
-                                  <div className={`bg-slate-700/50 rounded-lg border border-slate-600/50 overflow-hidden ${
-                                    isAccepted ? 'ring-2 ring-green-500' : ''
+                                  <div className={`bg-slate-700/50 rounded-lg border overflow-hidden ${
+                                    isAccepted
+                                      ? 'ring-2 ring-green-500 border-green-700/50'
+                                      : isTopPick
+                                      ? 'border-emerald-600/40 ring-1 ring-emerald-600/20'
+                                      : 'border-slate-600/50'
                                   }`}>
                                     <CollapsibleTrigger asChild>
                                       <div className="flex items-center gap-3 p-3 hover:bg-slate-600/50 cursor-pointer transition-colors">

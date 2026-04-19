@@ -100,6 +100,7 @@ interface CompanyProfile {
   is_hiring?: boolean
   trade_job_notifications?: boolean
   trade_job_notifications_distance?: number
+  flexible_job_notifications?: boolean
 }
 
 interface Job {
@@ -225,10 +226,21 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [hiring, setHiring] = useState(profile.is_hiring ?? false)
   const [updatingBusinessStatus, setUpdatingBusinessStatus] = useState(false)
   const [updatingHiringStatus, setUpdatingHiringStatus] = useState(false)
-  // Rename to Instant Job Alerts (was trade_job_notifications)
-  const [instantJobAlerts, setInstantJobAlerts] = useState(profile.trade_job_notifications ?? true) // ON by default
-  const tradeNotificationDistance = 10 // Fixed 10-mile radius for trade job notifications
+  // Instant Job Alerts — master derived from both checkboxes
+  const [urgentJobAlerts,   setUrgentJobAlerts]   = useState(profile.trade_job_notifications    ?? true)
+  const [flexibleJobAlerts, setFlexibleJobAlerts] = useState(profile.flexible_job_notifications ?? true)
+  // master is ON if at least one type is enabled
+  const instantJobAlerts = urgentJobAlerts || flexibleJobAlerts
+  const [tradeNotificationDistance, setTradeNotificationDistance] = useState<number>(
+    profile.trade_job_notifications_distance ?? 10
+  )
+  // slider live value (updates on every drag tick; saved on mouse-up / touch-end)
+  const [sliderValue, setSliderValue] = useState<number>(
+    profile.trade_job_notifications_distance ?? 10
+  )
+  const [updatingDistance, setUpdatingDistance] = useState(false)
   const [updatingInstantAlerts, setUpdatingInstantAlerts] = useState(false)
+  const [updatingAlertType, setUpdatingAlertType] = useState(false)
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [isApplicationsExpanded, setIsApplicationsExpanded] = useState(false)
   const [isConfirmedJobsExpanded, setIsConfirmedJobsExpanded] = useState(true)
@@ -284,22 +296,37 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     return `/?${params.toString()}`
   }, [profile.latitude, profile.longitude, profile.location])
 
-  // Fetch unread messages count and nearby jobs count
+  // Fetch unread messages count
   useEffect(() => {
     const fetchCounts = async () => {
-      // Fetch unread messages
       const { count: unreadCount } = await supabase
         .from('messages')
         .select('*', { count: 'exact', head: true })
         .eq('recipient_id', user.id)
         .eq('is_read', false)
 
-      setUnreadMessagesCount(unreadCount || 0)
-
+      setUnreadMessagesCount(unreadCount ?? 0)
     }
 
     fetchCounts()
-  }, [user.id, profile.latitude, profile.longitude, profile.id, profile.services, profile.industry, supabase])
+
+    // Subscribe to realtime inserts so the badge updates without a page refresh
+    const channel = supabase
+      .channel('unread-messages')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient_id=eq.${user.id}` },
+        () => fetchCounts()
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `recipient_id=eq.${user.id}` },
+        () => fetchCounts()
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [user.id, supabase])
 
   // ── Realtime: watch for job confirmations ─────────────────
   // Rule: never update jobs.status from the frontend.
@@ -1022,59 +1049,102 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     }
   }
 
+  // Master toggle: turns both alert types on (restoring both) or off (disabling both)
   const handleInstantAlertsToggle = async (status: boolean) => {
-    // Update UI immediately
-    setInstantJobAlerts(status)
     setUpdatingInstantAlerts(true)
+    // Turning ON restores both; turning OFF disables both
+    setUrgentJobAlerts(status)
+    setFlexibleJobAlerts(status)
 
     try {
       const supabase = createClient()
-
       const { error } = await supabase
         .from("company_profiles")
         .update({
-          trade_job_notifications: status,
-          trade_job_notifications_distance: tradeNotificationDistance
+          trade_job_notifications:          status,
+          flexible_job_notifications:        status,
+          trade_job_notifications_distance:  tradeNotificationDistance,
         })
         .eq("id", profile.id)
 
       if (error) {
         console.error("[v0] Error updating instant job alerts:", error.message)
-        if (error.message.includes("column") && error.message.includes("trade_job_notifications")) {
-          console.log("[v0] Instant job alerts feature not yet available - database migration needed")
-          // Column doesn't exist yet, but keep UI updated
-        } else {
-          toast({
-            title: "Update Failed",
-            description: `Error updating instant job alerts: ${error.message}`,
-            variant: "destructive",
-            duration: 5000,
-          })
-          // Revert on actual error
-          setInstantJobAlerts(!status)
-        }
+        setUrgentJobAlerts(!status)
+        setFlexibleJobAlerts(!status)
+        toast({ title: "Update Failed", description: error.message, variant: "destructive", duration: 5000 })
         return
       }
 
-      console.log("[v0] Instant job alerts updated successfully:", status, "Distance:", tradeNotificationDistance)
       if (status) {
-        toast({
-          title: "Instant Job Alerts Enabled",
-          description: `You'll receive instant notifications for matching jobs within ${tradeNotificationDistance} miles.`,
-          duration: 3000,
-        })
+        toast({ title: "Instant Job Alerts Enabled", description: `You'll receive alerts for urgent and flexible jobs within ${tradeNotificationDistance} miles.`, duration: 3000 })
       }
-    } catch (error) {
-      console.error("[v0] Error updating instant job alerts:", error)
-      toast({
-        title: "Update Failed",
-        description: "Error updating instant job alerts. Please try again.",
-        variant: "destructive",
-        duration: 5000,
-      })
-      setInstantJobAlerts(!status) // Revert on error
+    } catch {
+      setUrgentJobAlerts(!status)
+      setFlexibleJobAlerts(!status)
+      toast({ title: "Update Failed", description: "Please try again.", variant: "destructive", duration: 5000 })
     } finally {
       setUpdatingInstantAlerts(false)
+    }
+  }
+
+  // Checkbox handler: saves one alert type; enforces at least-one-checked rule
+  const handleAlertTypeChange = async (type: 'urgent' | 'flexible', value: boolean) => {
+    const otherIsOn = type === 'urgent' ? flexibleJobAlerts : urgentJobAlerts
+
+    // Prevent unchecking the last active checkbox when master is logically ON
+    if (!value && !otherIsOn) {
+      toast({ title: "At least one alert type must be enabled", description: "To turn off all alerts, use the master switch.", variant: "destructive", duration: 3000 })
+      return
+    }
+
+    const field = type === 'urgent' ? 'trade_job_notifications' : 'flexible_job_notifications'
+    if (type === 'urgent')   setUrgentJobAlerts(value)
+    else                     setFlexibleJobAlerts(value)
+    setUpdatingAlertType(true)
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from("company_profiles")
+        .update({ [field]: value })
+        .eq("id", profile.id)
+
+      if (error) {
+        if (type === 'urgent') setUrgentJobAlerts(!value)
+        else                   setFlexibleJobAlerts(!value)
+        toast({ title: "Update Failed", description: error.message, variant: "destructive", duration: 5000 })
+      }
+    } catch {
+      if (type === 'urgent') setUrgentJobAlerts(!value)
+      else                   setFlexibleJobAlerts(!value)
+      toast({ title: "Update Failed", description: "Please try again.", variant: "destructive", duration: 5000 })
+    } finally {
+      setUpdatingAlertType(false)
+    }
+  }
+
+  // Slider: update live display on every tick; save to DB only on release
+  const handleDistanceCommit = async (miles: number) => {
+    const prev = tradeNotificationDistance
+    setTradeNotificationDistance(miles)
+    setUpdatingDistance(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from("company_profiles")
+        .update({ trade_job_notifications_distance: miles })
+        .eq("id", profile.id)
+      if (error) {
+        setTradeNotificationDistance(prev)
+        setSliderValue(prev)
+        toast({ title: "Update Failed", description: error.message, variant: "destructive", duration: 5000 })
+      }
+    } catch {
+      setTradeNotificationDistance(prev)
+      setSliderValue(prev)
+      toast({ title: "Update Failed", description: "Please try again.", variant: "destructive", duration: 5000 })
+    } finally {
+      setUpdatingDistance(false)
     }
   }
 
@@ -1098,20 +1168,49 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       <div className="md:hidden min-h-screen bg-slate-900 text-white">
         {/* Profile Header */}
         <div className="bg-slate-800 px-4 py-5">
-          <Link href="/company/profile/edit" className="flex items-center gap-4 hover:opacity-90 transition-opacity">
-            <Avatar className="h-16 w-16 border-2 border-slate-600 flex-shrink-0">
-              <AvatarImage src={profile.logo_url} className="object-cover" />
-              <AvatarFallback className="bg-slate-700 text-white">
-                <Building2 className="h-8 w-8" />
-              </AvatarFallback>
-            </Avatar>
+          <div className="flex items-center gap-4">
+            <Link href="/company/profile/edit" className="flex-shrink-0 hover:opacity-80 transition-opacity">
+              <Avatar className="h-16 w-16 border-2 border-slate-600">
+                <AvatarImage src={profile.logo_url} className="object-cover" />
+                <AvatarFallback className="bg-slate-700 text-white">
+                  <Building2 className="h-8 w-8" />
+                </AvatarFallback>
+              </Avatar>
+            </Link>
             <div className="flex-1 min-w-0">
-              <p className="text-lg font-bold truncate">{profile.company_name}</p>
-              <p className="text-sm text-slate-400 truncate">{user.email}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{profile.industry}</p>
+              <Link href="/company/profile/edit" className="block hover:opacity-80 transition-opacity">
+                <p className="text-lg font-bold truncate">{profile.company_name}</p>
+                <p className="text-sm text-slate-400 truncate">{user.email}</p>
+                <p className="text-xs text-slate-500 mt-0.5">{profile.industry}</p>
+              </Link>
+              {/* Stars — tappable, directly under company info */}
+              <button
+                onClick={() => setShowReviewsModal(true)}
+                className="mt-1.5 flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/30 rounded-full px-2.5 py-1 active:bg-amber-500/25 transition-colors"
+              >
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      className={`h-3 w-3 ${
+                        star <= Math.round(rating.average_rating)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-slate-600"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="text-[11px] font-semibold text-amber-400">
+                  {rating.total_reviews > 0
+                    ? `${rating.average_rating.toFixed(1)} (${rating.total_reviews} review${rating.total_reviews !== 1 ? "s" : ""})`
+                    : "No reviews yet"}
+                </span>
+              </button>
             </div>
-            <ChevronRight className="h-5 w-5 text-slate-500 flex-shrink-0" />
-          </Link>
+            <Link href="/company/profile/edit" className="flex-shrink-0">
+              <ChevronRight className="h-5 w-5 text-slate-500" />
+            </Link>
+          </div>
 
           {/* Toggles */}
           <div className="mt-4 space-y-2">
@@ -1125,15 +1224,50 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               </div>
               <Switch checked={profileVisible} onCheckedChange={handleVisibilityToggle} disabled={updatingVisibility} className="data-[state=checked]:bg-emerald-500" />
             </div>
-            <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
-              <div className="flex items-center gap-2">
-                <Zap className={`h-4 w-4 ${instantJobAlerts ? 'text-purple-400' : 'text-slate-500'}`} />
-                <div>
-                  <p className="text-sm font-medium">{instantJobAlerts ? 'AVAILABLE' : 'BUSY'}</p>
-                  <p className="text-[10px] text-slate-400">{instantJobAlerts ? 'Instant job notifications On' : 'Instant notifications Off'}</p>
+            <div className="bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className={`h-4 w-4 ${instantJobAlerts ? 'text-purple-400' : 'text-slate-500'}`} />
+                  <div>
+                    <p className="text-sm font-medium">{instantJobAlerts ? 'AVAILABLE' : 'BUSY'}</p>
+                    <p className="text-[10px] text-slate-400">{instantJobAlerts ? 'Instant job notifications On' : 'Instant notifications Off'}</p>
+                  </div>
                 </div>
+                <Switch checked={instantJobAlerts} onCheckedChange={handleInstantAlertsToggle} disabled={updatingInstantAlerts} className="data-[state=checked]:bg-purple-500" />
               </div>
-              <Switch checked={instantJobAlerts} onCheckedChange={handleInstantAlertsToggle} disabled={updatingInstantAlerts} className="data-[state=checked]:bg-purple-500" />
+              {instantJobAlerts && (
+                <div className="mt-2 pt-2 border-t border-purple-500/20 space-y-2">
+                  {/* Job type checkboxes */}
+                  <div className="flex gap-4">
+                    <label className={`flex items-center gap-1.5 cursor-pointer select-none ${updatingAlertType ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <input type="checkbox" checked={urgentJobAlerts} onChange={e => handleAlertTypeChange('urgent', e.target.checked)} className="h-3 w-3 rounded accent-orange-500" />
+                      <span className="text-[10px] text-slate-300">🚨 Urgent jobs</span>
+                    </label>
+                    <label className={`flex items-center gap-1.5 cursor-pointer select-none ${updatingAlertType ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <input type="checkbox" checked={flexibleJobAlerts} onChange={e => handleAlertTypeChange('flexible', e.target.checked)} className="h-3 w-3 rounded accent-blue-500" />
+                      <span className="text-[10px] text-slate-300">📋 Flexible jobs</span>
+                    </label>
+                  </div>
+                  {/* Distance slider */}
+                  <div className={`space-y-1 ${updatingDistance ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400">Job notification distance</span>
+                      <span className="text-[10px] font-semibold text-purple-300">{sliderValue} miles</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={2}
+                      max={50}
+                      step={1}
+                      value={sliderValue}
+                      onChange={e => setSliderValue(Number(e.target.value))}
+                      onMouseUp={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
+                      onTouchEnd={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
+                      className="w-full h-1.5 rounded-full accent-purple-500 cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1143,10 +1277,10 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           {/* Main Actions */}
           <div className="py-1">
             {[
-              { icon: Map, label: 'Browse Trade Jobs', href: browseJobsUrl, count: undefined },
-              { icon: Briefcase, label: 'My Jobs', href: '/dashboard/company/my-jobs', count: confirmedJobs.length },
-              { icon: Clock, label: 'Awaiting Response', href: '/dashboard/company/my-applications', count: awaitingResponseJobs.length },
-              { icon: MessageCircle, label: 'Messages', href: '/messages', count: unreadMessagesCount },
+              { icon: Map,          label: 'Browse Trade Jobs', href: browseJobsUrl,                          count: undefined },
+              { icon: Briefcase,    label: 'My Jobs',           href: '/dashboard/company/my-jobs',           count: confirmedJobs.length > 0 ? confirmedJobs.length : undefined },
+              { icon: BarChart3,    label: 'Statistics',        href: '/dashboard/company/statistics',         count: undefined },
+              { icon: MessageCircle,label: 'Messages',          href: '/messages',                             count: unreadMessagesCount > 0 ? unreadMessagesCount : undefined },
             ].map(item => (
               <Link key={item.label} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 transition-colors">
                 <div className="flex items-center gap-3">
@@ -1154,8 +1288,10 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   <span className="font-medium text-white">{item.label}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {item.count !== undefined && (
-                    <span className="text-sm font-semibold text-slate-300">{item.count}</span>
+                  {item.count !== undefined && item.count > 0 && (
+                    <span className="bg-purple-600 text-white text-xs font-bold rounded-full min-w-[20px] h-5 flex items-center justify-center px-1.5">
+                      {item.count}
+                    </span>
                   )}
                   <ChevronRight className="h-5 w-5 text-slate-600" />
                 </div>
@@ -1263,135 +1399,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </Button>
                 </div>
 
-                {/* Mobile Layout: Company name at top, then logo and toggles below */}
-                <div className="lg:hidden">
-                  {/* Company Name - Top Center (clickable to edit profile) */}
-                  <Link href="/company/profile/edit" className="block hover:opacity-80 transition-opacity">
-                    <h2 className="text-xl sm:text-2xl font-bold text-foreground break-words mb-1.5 leading-tight text-center cursor-pointer">
-                      {profile.company_name}
-                    </h2>
-                  </Link>
-
-                  {/* Main Row: Logo, Info, Toggles */}
-                  <div className="flex items-start gap-2 mb-2">
-                    {/* Left: Logo (clickable to edit profile) */}
-                    <div className="relative flex-shrink-0">
-                      <Link href="/company/profile/edit" className="block hover:opacity-80 transition-opacity">
-                        <div className="h-16 w-16 sm:h-20 sm:w-20 bg-muted rounded-full overflow-hidden border flex items-center justify-center cursor-pointer">
-                          {profile.logo_url ? (
-                            <Image
-                              src={logoUrlWithCacheBust || profile.logo_url}
-                              alt={`${profile.company_name} logo`}
-                              width={80}
-                              height={80}
-                              className="h-full w-full object-contain"
-                              unoptimized
-                            />
-                          ) : (
-                            <div className="text-xl sm:text-2xl font-medium text-muted-foreground">
-                              {profile.company_name.substring(0, 2).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-                      </Link>
-                      <div className="absolute -bottom-1 -right-1">
-                        <Label htmlFor="logo-upload" className="cursor-pointer">
-                          <div className="bg-primary text-primary-foreground rounded-full p-1 hover:bg-primary/90 transition-colors">
-                            <Camera className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                          </div>
-                        </Label>
-                        <Input
-                          id="logo-upload"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleLogoUpload}
-                          disabled={uploadingLogo}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Center: Company Info */}
-                    <div className="flex-1 min-w-0">
-                      {/* Star Rating */}
-                      <div
-                        className="mb-0.5 cursor-pointer hover:opacity-80 transition-opacity inline-block"
-                        onClick={() => setShowReviewsModal(true)}
-                        title="Click to view reviews"
-                      >
-                        <StarRating
-                          rating={rating.average_rating}
-                          totalReviews={rating.total_reviews}
-                          size="sm"
-                          showCount={true}
-                        />
-                      </div>
-
-                      {/* Industry */}
-                      <p className="text-sm sm:text-base text-muted-foreground break-words mb-1">{profile.industry}</p>
-                    </div>
-
-                    {/* Right: Toggles */}
-                    <div className="flex flex-col gap-1.5 items-end flex-shrink-0">
-                      <div className="flex items-center gap-1 whitespace-nowrap">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-muted-foreground hover:text-foreground transition-colors">
-                              <Info className="h-3 w-3" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" align="end" className="w-64 max-w-[calc(100vw-2rem)]">
-                            <p className="text-xs text-muted-foreground">When active, people can see you on the map</p>
-                          </PopoverContent>
-                        </Popover>
-                        <span className="text-xs text-muted-foreground w-16 text-right">{profileVisible ? t('common.visible') : t('common.hidden')}</span>
-                        <Switch
-                          checked={profileVisible}
-                          onCheckedChange={handleVisibilityToggle}
-                          disabled={updatingVisibility}
-                          className="data-[state=checked]:bg-green-600"
-                        />
-                      </div>
-                      <div className="flex items-center gap-1 whitespace-nowrap">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="text-muted-foreground hover:text-foreground transition-colors">
-                              <Info className="h-3 w-3" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="bottom" align="end" className="w-80 max-w-[calc(100vw-2rem)]">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Zap className="h-4 w-4 text-purple-600" />
-                                <p className="text-sm font-semibold text-foreground">Instant Job Alerts</p>
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                <strong>Works like Uber.</strong> When a nearby job matching your skills is posted, you receive an instant notification to apply or skip.
-                              </p>
-                              <div className="text-xs text-muted-foreground border-t pt-2 mt-2 bg-purple-50 p-2 rounded">
-                                <p className="font-medium text-purple-700">Be first to respond:</p>
-                                <ul className="list-disc list-inside mt-1 space-y-0.5 text-purple-600">
-                                  <li>Jobs matching your services</li>
-                                  <li>Within {tradeNotificationDistance} miles of you</li>
-                                  <li>Instant push notification</li>
-                                </ul>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
-                        <span className="text-xs text-muted-foreground w-16 text-right">{instantJobAlerts ? "On" : "Off"}</span>
-                        <Switch
-                          checked={instantJobAlerts}
-                          onCheckedChange={handleInstantAlertsToggle}
-                          disabled={updatingInstantAlerts}
-                          className="data-[state=checked]:bg-purple-600"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  </div>
-
                 {/* Desktop Layout: Original layout - Dark Theme */}
                 <div className="hidden lg:flex items-start gap-3 mb-3 sm:mb-2">
                   <div className="relative flex-shrink-0">
@@ -1486,50 +1493,97 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </div>
 
                   {/* Instant Job Alerts Toggle */}
-                  <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
-                    <div className="flex items-center gap-2">
-                      <Zap className={`h-4 w-4 ${instantJobAlerts ? 'text-purple-400' : 'text-slate-500'}`} />
-                      <div>
-                        <p className="text-sm font-medium text-white">
-                          {instantJobAlerts ? 'Instant Alerts On' : 'Alerts Off'}
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          Uber-style job notifications
-                        </p>
+                  <div className="bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Zap className={`h-4 w-4 ${instantJobAlerts ? 'text-purple-400' : 'text-slate-500'}`} />
+                        <div>
+                          <p className="text-sm font-medium text-white">
+                            {instantJobAlerts ? 'Instant Alerts On' : 'Alerts Off'}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            Uber-style job notifications
+                          </p>
+                        </div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="ml-1 text-slate-500 hover:text-slate-300 transition-colors">
+                              <Info className="h-3.5 w-3.5" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent side="top" className="w-72 bg-slate-800 border-slate-700 text-white">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-purple-400" />
+                                <p className="text-sm font-semibold">Instant Job Alerts</p>
+                              </div>
+                              <p className="text-xs text-slate-300">
+                                <strong>Works like Uber.</strong> When a nearby job matching your skills is posted, you receive an instant notification to apply or skip.
+                              </p>
+                              <div className="text-xs border-t border-slate-700 pt-2 mt-2 bg-purple-500/10 p-2 rounded">
+                                <p className="font-medium text-purple-300">Be first to respond:</p>
+                                <ul className="list-disc list-inside mt-1 space-y-0.5 text-purple-200">
+                                  <li>Jobs matching your services</li>
+                                  <li>Within {tradeNotificationDistance} miles of you</li>
+                                  <li>Instant push notification</li>
+                                </ul>
+                              </div>
+                            </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="ml-1 text-slate-500 hover:text-slate-300 transition-colors">
-                            <Info className="h-3.5 w-3.5" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent side="top" className="w-72 bg-slate-800 border-slate-700 text-white">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2">
-                              <Zap className="h-4 w-4 text-purple-400" />
-                              <p className="text-sm font-semibold">Instant Job Alerts</p>
-                            </div>
-                            <p className="text-xs text-slate-300">
-                              <strong>Works like Uber.</strong> When a nearby job matching your skills is posted, you receive an instant notification to apply or skip.
-                            </p>
-                            <div className="text-xs border-t border-slate-700 pt-2 mt-2 bg-purple-500/10 p-2 rounded">
-                              <p className="font-medium text-purple-300">Be first to respond:</p>
-                              <ul className="list-disc list-inside mt-1 space-y-0.5 text-purple-200">
-                                <li>Jobs matching your services</li>
-                                <li>Within {tradeNotificationDistance} miles of you</li>
-                                <li>Instant push notification</li>
-                              </ul>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                      <Switch
+                        checked={instantJobAlerts}
+                        onCheckedChange={handleInstantAlertsToggle}
+                        disabled={updatingInstantAlerts}
+                        className="data-[state=checked]:bg-purple-500"
+                      />
                     </div>
-                    <Switch
-                      checked={instantJobAlerts}
-                      onCheckedChange={handleInstantAlertsToggle}
-                      disabled={updatingInstantAlerts}
-                      className="data-[state=checked]:bg-purple-500"
-                    />
+
+                    {/* Job-type checkboxes + distance — inside the frame, visible only when master is ON */}
+                    {instantJobAlerts && (
+                      <div className="mt-2 pt-2 border-t border-purple-500/20 space-y-2">
+                        {/* Job type checkboxes */}
+                        <div className="flex gap-4">
+                          <label className={`flex items-center gap-1.5 cursor-pointer select-none ${updatingAlertType ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <input
+                              type="checkbox"
+                              checked={urgentJobAlerts}
+                              onChange={e => handleAlertTypeChange('urgent', e.target.checked)}
+                              className="h-3 w-3 rounded accent-orange-500"
+                            />
+                            <span className="text-[10px] text-slate-300">🚨 Urgent jobs</span>
+                          </label>
+                          <label className={`flex items-center gap-1.5 cursor-pointer select-none ${updatingAlertType ? 'opacity-50 pointer-events-none' : ''}`}>
+                            <input
+                              type="checkbox"
+                              checked={flexibleJobAlerts}
+                              onChange={e => handleAlertTypeChange('flexible', e.target.checked)}
+                              className="h-3 w-3 rounded accent-blue-500"
+                            />
+                            <span className="text-[10px] text-slate-300">📋 Flexible jobs</span>
+                          </label>
+                        </div>
+                        {/* Distance slider */}
+                        <div className={`space-y-1 ${updatingDistance ? 'opacity-50 pointer-events-none' : ''}`}>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400">Job notification distance</span>
+                            <span className="text-[10px] font-semibold text-purple-300">{sliderValue} miles</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={2}
+                            max={50}
+                            step={1}
+                            value={sliderValue}
+                            onChange={e => setSliderValue(Number(e.target.value))}
+                            onMouseUp={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
+                            onTouchEnd={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
+                            className="w-full h-1.5 rounded-full accent-purple-500 cursor-pointer"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -1688,84 +1742,23 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               </Collapsible>
             </Card>
 
-            {/* 2. Awaiting Homeowner Response */}
-            <Card className="overflow-hidden border border-amber-500/30 shadow-sm rounded-xl bg-slate-800">
-              <Collapsible open={isAwaitingJobsExpanded} onOpenChange={setIsAwaitingJobsExpanded}>
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="px-4 py-3 cursor-pointer hover:bg-amber-500/10 transition-colors bg-amber-500/10">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500/30">
-                        <Clock className="h-4 w-4 text-amber-400" />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-sm font-semibold text-white">Awaiting Homeowner Response</span>
-                        <p className="text-xs text-slate-400">Applications sent, waiting for reply</p>
-                      </div>
-                      <Badge className="bg-amber-500/30 text-amber-300 border-0 text-xs px-2 py-0.5">{awaitingResponseJobs.length}</Badge>
-                      <div className="text-slate-400">
-                        {isAwaitingJobsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      </div>
+            {/* 2. Statistics shortcut card */}
+            <Link href="/dashboard/company/statistics">
+              <Card className="overflow-hidden border border-purple-500/30 shadow-sm rounded-xl bg-slate-800 hover:bg-slate-700/80 transition-colors cursor-pointer">
+                <CardHeader className="px-4 py-3 bg-purple-500/10">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-500/30">
+                      <BarChart3 className="h-4 w-4 text-purple-400" />
                     </div>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="p-0">
-                    {awaitingResponseJobs.length === 0 ? (
-                      <div className="text-center py-6 text-slate-400">
-                        <Clock className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                        <p className="text-xs">No pending applications</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-slate-700">
-                        {awaitingResponseJobs.map((application) => {
-                          const canWithdraw = application.status === 'pending' || application.status === 'reviewed'
-                          return (
-                            <div key={application.id} className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-700/50 transition-colors">
-                              <div className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-medium text-xs text-white truncate">{application.jobs.title}</span>
-                                  <Badge className={`${getStatusColor(application.status)} text-[10px] px-1 py-0`}>{application.status}</Badge>
-                                </div>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                  <span className="text-[10px] text-slate-400 truncate">{application.job_poster_name}</span>
-                                  <span className="text-[10px] text-slate-600">•</span>
-                                  <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
-                                    <MapPin className="h-2 w-2" />{application.jobs.location}
-                                  </span>
-                                </div>
-                              </div>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-700" disabled={actionLoading === application.id}>
-                                    <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-32 bg-slate-800 border-slate-700">
-                                  <DropdownMenuItem asChild className="text-slate-200 focus:bg-slate-700 focus:text-white">
-                                    <Link href={`/jobs/${application.job_id}`} className="flex items-center text-xs">
-                                      <Eye className="h-3 w-3 mr-2" />View Job
-                                    </Link>
-                                  </DropdownMenuItem>
-                                  {canWithdraw && (
-                                    <DropdownMenuItem
-                                      className="flex items-center text-xs text-red-400 focus:text-red-400 focus:bg-slate-700"
-                                      onClick={() => handleWithdrawApplication(application.id, application.jobs.title)}
-                                    >
-                                      <XCircle className="h-3 w-3 mr-2" />Withdraw
-                                    </DropdownMenuItem>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
+                    <div className="flex-1">
+                      <span className="text-sm font-semibold text-white">Business Statistics</span>
+                      <p className="text-xs text-slate-400">Performance metrics & insights</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-slate-500" />
+                  </div>
+                </CardHeader>
+              </Card>
+            </Link>
 
             {/* Admin Button */}
             <div className="hidden md:flex justify-center mb-4">
@@ -1778,95 +1771,102 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
       {/* Reviews Modal */}
       <Dialog open={showReviewsModal} onOpenChange={setShowReviewsModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
-              Company Reviews
-            </DialogTitle>
-            <DialogDescription>
-              View all reviews and ratings for {profile.company_name}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-lg w-[calc(100vw-2rem)] bg-slate-900 border border-slate-700 text-white shadow-2xl shadow-black/60 p-0 overflow-hidden max-h-[90vh] flex flex-col">
+          {/* Top accent bar */}
+          <div className="h-1 w-full bg-gradient-to-r from-amber-400 to-yellow-300 flex-shrink-0" />
 
-          <div className="space-y-4">
+          <div className="p-5 flex flex-col gap-4 overflow-y-auto">
+            {/* Header */}
+            <div>
+              <DialogTitle className="text-lg font-bold text-white">
+                Reviews
+              </DialogTitle>
+              <DialogDescription className="text-slate-400 text-xs mt-0.5">
+                {profile.company_name}
+              </DialogDescription>
+            </div>
+
             {/* Rating Summary */}
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <div className="flex items-center gap-4">
-                <div className="text-center">
-                  <div className="text-4xl font-bold text-blue-600">
-                    {rating.average_rating > 0 ? rating.average_rating.toFixed(1) : "0.0"}
-                  </div>
-                  <div className="text-sm text-gray-600">out of 5</div>
+            <div className="bg-slate-800 border border-slate-700/60 rounded-2xl p-4 flex items-center gap-4">
+              <div className="text-center flex-shrink-0">
+                <div className="text-4xl font-bold text-amber-400 leading-none">
+                  {rating.average_rating > 0 ? rating.average_rating.toFixed(1) : "—"}
                 </div>
-                <div className="flex-1">
-                  <StarRating
-                    rating={rating.average_rating}
-                    totalReviews={rating.total_reviews}
-                    size="lg"
-                    showCount={false}
-                  />
-                  <div className="text-sm text-gray-600 mt-1">
-                    Based on {rating.total_reviews} review{rating.total_reviews !== 1 ? "s" : ""}
-                  </div>
+                <div className="text-xs text-slate-500 mt-1">out of 5</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-0.5 mb-1">
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const fill = Math.min(Math.max(rating.average_rating - star + 1, 0), 1) * 100
+                    return (
+                      <div key={star} className="relative">
+                        <Star className="h-5 w-5 text-slate-600" />
+                        <div className="absolute top-0 left-0 overflow-hidden" style={{ width: `${fill}%` }}>
+                          <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="text-xs text-slate-400">
+                  Based on {rating.total_reviews} review{rating.total_reviews !== 1 ? "s" : ""}
                 </div>
               </div>
             </div>
 
             {/* Reviews List */}
             {reviews.length > 0 ? (
-              <div className="space-y-4">
-                {reviews.map((review) => {
-                  return (
-                    <div key={review.id} className="bg-white border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          {review.reviewer_avatar ? (
-                            <div className="h-8 w-8 flex-shrink-0 relative rounded-full overflow-hidden border border-gray-200 bg-gray-100">
-                              <Image
-                                src={review.reviewer_avatar}
-                                alt={review.reviewer_name}
-                                fill
-                                className="object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <Avatar className="h-8 w-8">
-                              <AvatarFallback className="bg-blue-100 text-blue-600 text-xs">
-                                {review.reviewer_name.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                          )}
-                          <div>
-                            <div className="font-semibold text-sm">{review.reviewer_name}</div>
-                            <div className="text-xs text-gray-500">
-                              {new Date(review.created_at).toLocaleDateString()}
-                              {review.is_edited && " (edited)"}
-                            </div>
+              <div className="space-y-3">
+                {reviews.map((review) => (
+                  <div key={review.id} className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-4">
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        {review.reviewer_avatar ? (
+                          <div className="h-9 w-9 flex-shrink-0 relative rounded-full overflow-hidden border border-slate-600 bg-slate-700">
+                            <Image
+                              src={review.reviewer_avatar}
+                              alt={review.reviewer_name}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="h-9 w-9 flex-shrink-0 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-xs font-bold text-amber-400">
+                            {review.reviewer_name.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-semibold text-sm text-white truncate">{review.reviewer_name}</div>
+                          <div className="text-xs text-slate-500">
+                            {new Date(review.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                            {review.is_edited && " · edited"}
                           </div>
                         </div>
-                        <div className="flex items-center">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <Star
-                              key={star}
-                              className={`h-4 w-4 ${
-                                star <= review.rating
-                                  ? "fill-yellow-400 text-yellow-400"
-                                  : "text-gray-300"
-                              }`}
-                            />
-                          ))}
-                        </div>
                       </div>
-                      {review.review_text && (
-                        <p className="text-sm text-gray-700 mt-2">{review.review_text}</p>
-                      )}
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-3.5 w-3.5 ${
+                              star <= review.rating
+                                ? "fill-amber-400 text-amber-400"
+                                : "text-slate-600"
+                            }`}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  )
-                })}
+                    {review.review_text && (
+                      <p className="text-sm text-slate-300 leading-relaxed">{review.review_text}</p>
+                    )}
+                  </div>
+                ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <p>No reviews yet for your company.</p>
+              <div className="text-center py-10">
+                <Star className="h-10 w-10 text-slate-700 mx-auto mb-3" />
+                <p className="text-sm font-semibold text-slate-400">No reviews yet</p>
+                <p className="text-xs text-slate-600 mt-1">Reviews from homeowners will appear here.</p>
               </div>
             )}
           </div>

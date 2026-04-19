@@ -25,46 +25,98 @@ import { getHomepageUserData } from './queries'
 
 export type AdminSettings = {
   vacanciesJobseekersEnabled: boolean
+  layoutVersion: 'v1' | 'v2'
+  ui: {
+    urgentJobsBanner: boolean
+    promotionsBanner: boolean
+  }
+  minAppVersion: string
+  forceUpdate: boolean
 }
 
-const DEFAULT_ADMIN_SETTINGS: AdminSettings = { vacanciesJobseekersEnabled: true }
+export type FeatureFlags = {
+  aiJobMatching:  boolean
+  videoQuotes:    boolean
+  instantBooking: boolean
+}
+
+export type Permissions = null   // e.g. { canPostJobs: boolean; isAdmin: boolean }
+
+// ─── Defaults ─────────────────────────────────────────────────────────────────
+
+const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
+  vacanciesJobseekersEnabled: true,
+  layoutVersion: 'v1',
+  ui: { urgentJobsBanner: true, promotionsBanner: false },
+  minAppVersion: '1.0.0',
+  forceUpdate: false,
+}
+
+const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
+  aiJobMatching:  false,
+  videoQuotes:    false,
+  instantBooking: false,
+}
 
 // ─── Global public settings ───────────────────────────────────────────────────
 
 /**
- * Fetches admin-controlled feature flags from `get_public_admin_settings` RPC.
+ * Fetches admin-controlled settings + feature flags from Supabase.
+ * Two RPCs are called in parallel: get_public_admin_settings() and
+ * get_public_feature_flags().
+ *
  * Cached 10 minutes across all users — safe because it's not user-specific.
  * Call `revalidateTag('admin-settings')` from any mutation route that changes
  * these settings.
  */
 export const getAdminSettings = unstable_cache(
-  async (): Promise<AdminSettings> => {
+  async (): Promise<{ adminSettings: AdminSettings; featureFlags: FeatureFlags }> => {
     try {
       const admin = createAdminClient()
-      const { data, error } = await admin.rpc('get_public_admin_settings')
-      if (error || !data) return DEFAULT_ADMIN_SETTINGS
-      return { vacanciesJobseekersEnabled: data.vacancies_jobseekers_enabled ?? true }
+
+      const [settingsRes, flagsRes] = await Promise.all([
+        admin.rpc('get_public_admin_settings'),
+        admin.rpc('get_public_feature_flags'),
+      ])
+
+      if (settingsRes.error || !settingsRes.data) {
+        return { adminSettings: DEFAULT_ADMIN_SETTINGS, featureFlags: DEFAULT_FEATURE_FLAGS }
+      }
+
+      const d = settingsRes.data
+      const f = flagsRes.data ?? {}
+
+      return {
+        adminSettings: {
+          vacanciesJobseekersEnabled: d.vacancies_jobseekers_enabled ?? true,
+          layoutVersion:              (d.layout_version === 'v2' ? 'v2' : 'v1'),
+          ui: {
+            urgentJobsBanner: d.ui_urgent_jobs_banner ?? true,
+            promotionsBanner: d.ui_promotions_banner  ?? false,
+          },
+          minAppVersion: d.min_app_version ?? '1.0.0',
+          forceUpdate:   d.force_update    ?? false,
+        },
+        featureFlags: {
+          aiJobMatching:  f.ai_job_matching  ?? false,
+          videoQuotes:    f.video_quotes     ?? false,
+          instantBooking: f.instant_booking  ?? false,
+        },
+      }
     } catch {
-      return DEFAULT_ADMIN_SETTINGS
+      return { adminSettings: DEFAULT_ADMIN_SETTINGS, featureFlags: DEFAULT_FEATURE_FLAGS }
     }
   },
   ['admin-settings'],
   { revalidate: 600, tags: ['admin-settings'] }
 )
 
-// ─── Shared extension points ───────────────────────────────────────────────────
-// Typed as null now; replace with real types when the features ship.
-// Component prop signatures won't need changing — just update these types.
-
-export type Permissions = null   // e.g. { canPostJobs: boolean; isAdmin: boolean }
-export type FeatureFlags = null  // e.g. { newDashboard: boolean; aiSearch: boolean }
-
 // ─── Homepage bootstrap ────────────────────────────────────────────────────────
 
 export interface HomePageBootstrap {
   adminSettings: AdminSettings
-  permissions: Permissions
   featureFlags: FeatureFlags
+  permissions: Permissions
   userType: string | null
   profileLocation: { location: string; latitude: number; longitude: number } | null
   profileSkills: string[]
@@ -72,9 +124,8 @@ export interface HomePageBootstrap {
   profileServices: string[]
 }
 
-const EMPTY_HOME_BOOTSTRAP: Omit<HomePageBootstrap, 'adminSettings'> = {
+const EMPTY_HOME_BOOTSTRAP: Omit<HomePageBootstrap, 'adminSettings' | 'featureFlags'> = {
   permissions: null,
-  featureFlags: null,
   userType: null,
   profileLocation: null,
   profileSkills: [],
@@ -90,10 +141,10 @@ const EMPTY_HOME_BOOTSTRAP: Omit<HomePageBootstrap, 'adminSettings'> = {
  * Profile data comes from `getHomepageUserData` (cached 5 min per user).
  */
 export const getHomePageBootstrap = cache(async (user: any): Promise<HomePageBootstrap> => {
-  const adminSettings = await getAdminSettings()
+  const { adminSettings, featureFlags } = await getAdminSettings()
 
   if (!user) {
-    return { adminSettings, ...EMPTY_HOME_BOOTSTRAP }
+    return { adminSettings, featureFlags, ...EMPTY_HOME_BOOTSTRAP }
   }
 
   try {
@@ -127,8 +178,8 @@ export const getHomePageBootstrap = cache(async (user: any): Promise<HomePageBoo
 
     return {
       adminSettings,
+      featureFlags,
       permissions: null,
-      featureFlags: null,
       userType,
       profileLocation,
       profileSkills,
@@ -137,7 +188,7 @@ export const getHomePageBootstrap = cache(async (user: any): Promise<HomePageBoo
     }
   } catch {
     // Network/timeout — degrade gracefully, admin settings still available
-    return { adminSettings, ...EMPTY_HOME_BOOTSTRAP }
+    return { adminSettings, featureFlags, ...EMPTY_HOME_BOOTSTRAP }
   }
 })
 
@@ -145,8 +196,8 @@ export const getHomePageBootstrap = cache(async (user: any): Promise<HomePageBoo
 
 export interface DashboardBootstrap {
   adminSettings: AdminSettings
-  permissions: Permissions
   featureFlags: FeatureFlags
+  permissions: Permissions
 }
 
 /**
@@ -155,6 +206,6 @@ export interface DashboardBootstrap {
  * Extend the return value here — never in individual page files.
  */
 export const getDashboardBootstrap = cache(async (userId: string): Promise<DashboardBootstrap> => {
-  const adminSettings = await getAdminSettings()
-  return { adminSettings, permissions: null, featureFlags: null }
+  const { adminSettings, featureFlags } = await getAdminSettings()
+  return { adminSettings, featureFlags, permissions: null }
 })

@@ -458,7 +458,12 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
   }
 
   // Autocomplete state
-  const [showIndustryDropdown, setShowIndustryDropdown] = useState(false)
+  const [showIndustryDropdown, setShowIndustryDropdown] = useState(!initialIndustry)
+  const [showServiceDropdown, setShowServiceDropdown] = useState(() => {
+    if (!initialIndustry) return false
+    const ind = TRADE_INDUSTRIES.find(i => i.title === initialIndustry)
+    return !!(ind && ind.services.length > 0 && !initialService)
+  })
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([])
   const [languageInput, setLanguageInput] = useState("")
@@ -903,6 +908,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         budget_max: budgetMax,
         budget_period: formData.payFrequency,
         languages: formData.languages.length > 0 ? formData.languages : null,
+        preferred_language: locale ?? 'en',
         status: "POSTED",
         is_active: true,
         expires_at: expirationDate.toISOString(),
@@ -969,25 +975,31 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           formData.profession.trim() || null,
         ].filter(Boolean) as string[]
 
-        fetch("/api/notifications/send-trade-job-notification", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jobId,
-            jobTitle: formData.service || formData.profession.trim(),
-            jobLat: formData.locationCoords.lat,
-            jobLon: formData.locationCoords.lon,
-            jobSkills: skillsToNotify,
-            posterName,
-            urgencyType: formData.urgencyType,
-            jobIndustry: formData.industry || null,
-            jobService: (formData.service && formData.service !== "Not sure / Other") ? formData.service : null,
-          }),
-        }).catch(() => {})
+        if (formData.urgencyType === "flexible") {
+          // Flexible: push + in-app to all matching AVAILABLE tradespeople in radius
+          fetch(`/api/jobs/${jobId}/dispatch-flexible`, { method: "POST" }).catch(() => {})
+        } else {
+          // Urgent (ASAP / Today): in-app + email to matched companies
+          fetch("/api/notifications/send-trade-job-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobId,
+              jobTitle: formData.service || formData.profession.trim(),
+              jobLat: formData.locationCoords.lat,
+              jobLon: formData.locationCoords.lon,
+              jobSkills: skillsToNotify,
+              posterName,
+              urgencyType: formData.urgencyType,
+              jobIndustry: formData.industry || null,
+              jobService: (formData.service && formData.service !== "Not sure / Other") ? formData.service : null,
+            }),
+          }).catch(() => {})
 
-        // Uber-style dispatch only for urgent jobs
-        if (formData.urgencyType === "asap" || formData.urgencyType === "today") {
-          fetch(`/api/jobs/${jobId}/dispatch-urgent`, { method: "POST" }).catch(() => {})
+          // Uber-style radius dispatch for urgent jobs
+          if (formData.urgencyType === "asap" || formData.urgencyType === "today") {
+            fetch(`/api/jobs/${jobId}/dispatch-urgent`, { method: "POST" }).catch(() => {})
+          }
         }
       }
       // ─────────────────────────────────────────────────────────
@@ -1088,7 +1100,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 {/* Custom trade picker — larger touch targets than native <select> */}
                 <button
                   type="button"
-                  onClick={() => setShowIndustryDropdown((v) => !v)}
+                  onClick={() => { setShowIndustryDropdown((v) => !v); setShowServiceDropdown(false) }}
                   className="w-full flex items-center justify-between border rounded-xl px-4 py-3 shadow-sm bg-slate-700 border-slate-600 text-white text-base focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <span className={formData.industry ? "text-white" : "text-slate-400"}>
@@ -1106,8 +1118,10 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                         key={ind.title}
                         type="button"
                         onClick={() => {
+                          const hasServices = ind.services.length > 0
                           setFormData((prev) => ({ ...prev, industry: ind.title, service: "" }))
                           setShowIndustryDropdown(false)
+                          if (hasServices) setShowServiceDropdown(true)
                         }}
                         className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-700/50 last:border-0 ${
                           formData.industry === ind.title
@@ -1135,17 +1149,37 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                     <span className="text-slate-400 font-normal text-xs">(recommended)</span>
                   </label>
                   <div className="relative">
-                    <select
-                      value={formData.service}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, service: e.target.value }))}
-                      className="w-full border rounded-xl p-3 pr-10 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white text-base appearance-none"
+                    <button
+                      type="button"
+                      onClick={() => setShowServiceDropdown((v) => !v)}
+                      className="w-full flex items-center justify-between border rounded-xl px-4 py-3 shadow-sm bg-slate-700 border-slate-600 text-white text-base focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
-                      <option value="">Not sure / Any</option>
-                      {selectedInd.services.map((svc) => (
-                        <option key={svc} value={svc} className="text-base py-3">{svc}</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                      <span className={formData.service ? "text-white" : "text-slate-400"}>
+                        {formData.service || "Not sure / Any"}
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showServiceDropdown ? "rotate-180" : ""}`} />
+                    </button>
+                    {showServiceDropdown && (
+                      <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-y-auto max-h-[calc(70vh-5rem)]">
+                        <button
+                          type="button"
+                          onClick={() => { setFormData((prev) => ({ ...prev, service: "" })); setShowServiceDropdown(false) }}
+                          className={`w-full flex items-center px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-700/50 ${!formData.service ? "bg-emerald-600/20 text-emerald-300" : "text-slate-400 hover:bg-slate-700"}`}
+                        >
+                          Not sure / Any
+                        </button>
+                        {selectedInd.services.map((svc) => (
+                          <button
+                            key={svc}
+                            type="button"
+                            onClick={() => { setFormData((prev) => ({ ...prev, service: svc })); setShowServiceDropdown(false) }}
+                            className={`w-full flex items-center px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-700/50 last:border-0 ${formData.service === svc ? "bg-emerald-600/20 text-emerald-300" : "text-slate-100 hover:bg-slate-700 active:bg-slate-600"}`}
+                          >
+                            {svc}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <p className="text-xs text-slate-400 mt-1">
                     Helps match you with tradespeople who specialise in this service

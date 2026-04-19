@@ -361,7 +361,8 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
       if (publicUrl) {
         console.log("[v0] Logo uploaded successfully, public URL:", publicUrl)
-        setLogoUrl(getLogoUrlWithCacheBust(publicUrl))
+        const sep = publicUrl.includes("?") ? "&" : "?"
+        setLogoUrl(`${publicUrl}${sep}t=${Date.now()}`)
         setLogoError(false)
         toast({
           title: "✓ Logo Uploaded",

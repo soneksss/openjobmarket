@@ -132,6 +132,8 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     const channel = supabase
       .channel("mobile-nav-myjobs-badge")
       .on("postgres_changes", { event: "*", schema: "public", table: "job_applications" }, fetchMyJobsBadge)
+      // Also re-fetch when a job's status changes (e.g. CONFIRMED → COMPLETED)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "jobs" }, fetchMyJobsBadge)
       .subscribe()
 
     return () => {

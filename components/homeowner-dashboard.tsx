@@ -73,8 +73,9 @@ function JobStatusBadge({ job }: { job: HomeownerJob }) {
 
 interface SavedTradesperson {
   id: string
-  professional_id: string
-  professional_profiles: {
+  professional_id?: string | null
+  company_id?: string | null
+  professional_profiles?: {
     id: string
     user_id: string
     first_name?: string
@@ -83,7 +84,15 @@ interface SavedTradesperson {
     title?: string
     location?: string
     profile_photo_url?: string
-  }
+  } | null
+  company_profiles?: {
+    id: string
+    user_id: string
+    company_name?: string
+    logo_url?: string
+    industry?: string
+    location?: string
+  } | null
 }
 
 interface HomeownerProfile {
@@ -586,24 +595,29 @@ export function HomeownerDashboard({
                   <CardContent className="px-5 pb-5">
                     <div className="flex flex-wrap gap-3">
                       {savedTradespeople.slice(0, 6).map((saved) => {
-                        const p = saved.professional_profiles
-                        const name = p.first_name && p.last_name
-                          ? `${p.first_name} ${p.last_name}`
-                          : p.nickname || "Tradesperson"
-                        const initials2 = `${p.first_name?.[0] || ""}${p.last_name?.[0] || ""}`.toUpperCase() || "T"
+                        const isCompany = !!saved.company_profiles
+                        const cp = saved.company_profiles
+                        const pp = saved.professional_profiles
+                        const name = isCompany
+                          ? (cp?.company_name || "Tradesperson")
+                          : (pp?.first_name && pp?.last_name ? `${pp.first_name} ${pp.last_name}` : pp?.nickname || "Tradesperson")
+                        const avatar = isCompany ? cp?.logo_url : pp?.profile_photo_url
+                        const subtitle = isCompany ? cp?.industry : pp?.title
+                        const initials2 = name.substring(0, 2).toUpperCase()
+                        const href = isCompany ? `/companies/${cp?.id}` : `/professionals/${pp?.user_id}`
                         return (
                           <Link
                             key={saved.id}
-                            href={`/professionals/${p.user_id}`}
+                            href={href}
                             className="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-700/40 hover:bg-slate-700 border border-slate-700/60 hover:border-slate-600 transition-colors"
                           >
                             <Avatar className="h-8 w-8 border border-slate-600 flex-shrink-0">
-                              <AvatarImage src={p.profile_photo_url || undefined} className="object-cover" />
+                              <AvatarImage src={avatar || undefined} className="object-cover" />
                               <AvatarFallback className="bg-slate-600 text-white text-xs font-bold">{initials2}</AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-white truncate">{name}</p>
-                              {p.title && <p className="text-xs text-slate-400 truncate">{p.title}</p>}
+                              {subtitle && <p className="text-xs text-slate-400 truncate">{subtitle}</p>}
                             </div>
                           </Link>
                         )

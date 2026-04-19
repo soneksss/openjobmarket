@@ -4,6 +4,7 @@ import { ArrowLeft, MapPin, Clock, CheckCircle2, Briefcase, MessageCircle, Histo
 import Link from "next/link"
 import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
 import { MarkJobCompleteButton } from "@/components/mark-job-complete-button"
+import { ReviewHomeownerButton } from "@/components/review-homeowner-button"
 
 export const dynamic = "force-dynamic"
 
@@ -205,6 +206,14 @@ export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
                       </Link>
                       {!isCompleted && (
                         <MarkJobCompleteButton jobId={job.id} jobTitle={job.title} />
+                      )}
+                      {isCompleted && homeowner?.user_id && (
+                        <ReviewHomeownerButton
+                          jobId={job.id}
+                          jobTitle={job.title}
+                          homeownerUserId={homeowner.user_id}
+                          homeownerName={posterName}
+                        />
                       )}
                     </div>
                   </div>

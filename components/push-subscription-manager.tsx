@@ -41,6 +41,8 @@ export function PushSubscriptionManager() {
     if (!VAPID_PUBLIC_KEY) return
     if (typeof window === "undefined") return
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return
+    // Web Push requires HTTPS — skip silently on plain HTTP (localhost dev)
+    if (window.location.protocol === "http:") return
 
     async function setup() {
       try {

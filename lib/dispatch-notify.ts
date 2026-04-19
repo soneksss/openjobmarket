@@ -62,13 +62,18 @@ export async function notifyOne(
     console.error(`[DISPATCH-NOTIFY] In-app failed user=${userId} job=${jobId}: ${notifErr.message}`)
   }
 
-  // ── 3. Web push ───────────────────────────────────────────────────────────
+  // ── 3. Push notifications ─────────────────────────────────────────────────
   const { data: tokenRows } = await admin
     .from("user_push_tokens")
-    .select("token")
+    .select("token, device_type")
     .eq("user_id", userId)
 
-  const tokens = (tokenRows ?? []).map((r: { token: string }) => r.token)
+  // Only Web Push tokens (JSON subscription objects) go through web-push lib.
+  // FCM tokens (device_type='fcm') require Firebase Admin SDK — not yet wired.
+  // Storing them now so FCM sending can be added without a DB migration.
+  const tokens = (tokenRows ?? [])
+    .filter((r: { token: string; device_type: string }) => r.device_type === "web")
+    .map((r: { token: string; device_type: string }) => r.token)
 
   // Mark attempted before calling the push service
   await admin

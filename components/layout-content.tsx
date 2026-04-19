@@ -18,6 +18,8 @@ import { ActiveSearchProvider } from "@/lib/contexts/active-search-context"
 import { ActiveSearchBar } from "@/components/active-search-bar"
 import { UrgentJobNotifier, HomeownerJobNotifier } from "@/components/urgent-job-notifier"
 import { PushSubscriptionManager } from "@/components/push-subscription-manager"
+import { NativePushManager } from "@/components/native-push-manager"
+import { PresenceTracker } from "@/components/presence-tracker"
 
 interface LayoutContentProps {
   children: React.ReactNode
@@ -113,10 +115,14 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
         {userType === "company" && user?.id && (
           <>
             <UrgentJobNotifier userId={user.id} />
-            {/* Register web push subscription so alerts arrive even when tab is closed */}
+            {/* Web Push — works in browsers and PWAs */}
             <PushSubscriptionManager />
           </>
         )}
+        {/* Native push (FCM/APNs) — no-op in browsers, registers in Capacitor apps */}
+        {user?.id && <NativePushManager />}
+        {/* Presence heartbeat — updates last_seen_at every 60s while app is open */}
+        {user?.id && <PresenceTracker userId={user.id} />}
         {/* Live application alert for homeowner users */}
         {userType === "homeowner" && user?.id && (
           <HomeownerJobNotifier userId={user.id} />

@@ -1,4 +1,4 @@
-import { middleware as authMiddleware } from "@/lib/middleware"
+import { middleware as authMiddleware } from "@/lib/proxy"
 
 // Force Node.js runtime to avoid Edge Runtime warnings with Supabase
 export const runtime = 'nodejs';

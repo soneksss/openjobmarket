@@ -67,7 +67,10 @@
       "Bash(grep -r \"application_status\\\\|PENDING\\\\|ACCEPTED\\\\|waiting_optional\\\\|enum.*status\" \"C:\\\\Users\\\\sonek\\\\OneDrive\\\\Desktop\\\\MAIN\\\\openjobmarket\\\\supabase\\\\migrations\"\" --include=\"*.sql\" | grep -i \"enum)",
       "Bash(application_status \")",
       "Bash(echo \"SELECT prosrc FROM pg_proc WHERE proname = ''''advance_job_state'''' AND pronamespace = ''''public''''::regnamespace;\")",
-      "Bash(echo \"SELECT proname FROM pg_proc WHERE proname = ''''mark_applications_waiting_optional'''';\")"
+      "Bash(echo \"SELECT proname FROM pg_proc WHERE proname = ''''mark_applications_waiting_optional'''';\")",
+      "Bash(./gradlew :capacitor-android:compileDebugJavaWithJavac :app:compileDebugJavaWithJavac --rerun-tasks)",
+      "Bash(npx cap:*)",
+      "Bash(python3 *)"
     ],
     "deny": [],
     "ask": []

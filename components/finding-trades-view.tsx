@@ -722,7 +722,10 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
         clearActiveSearch()
         const convId = body.conversationId
-        router.push(convId ? `/messages/${convId}?job=${job.id}` : `/messages`)
+        router.push(convId
+          ? `/messages/${convId}?job=${job.id}&uid=${encodeURIComponent(trade.userId)}`
+          : `/messages`
+        )
       }
     } catch {
       clearActiveSearch()

@@ -95,18 +95,6 @@ export default async function CompanyDashboardPage() {
     missingFields,
   })
 
-  // Get company rating
-  const { data: ratingData } = await supabase
-    .from("user_review_stats")
-    .select("*")
-    .eq("user_id", user.id)
-    .single()
-
-  const companyRating = {
-    average_rating: ratingData?.average_rating || 0,
-    total_reviews: ratingData?.total_reviews || 0,
-  }
-
   // Get all reviews for the company
   let companyReviews: any[] = []
   const { data: reviewsData, error: reviewsError } = await supabase
@@ -133,18 +121,18 @@ export default async function CompanyDashboardPage() {
         let reviewerName = "Anonymous"
         let reviewerAvatar: string | null = null
 
-        // Try professional profile first
-        const { data: profProfile } = await supabase
-          .from("professional_profiles")
+        // Try homeowner profile first (most common reviewer type for tradespeople)
+        const { data: homeownerProfile } = await supabase
+          .from("homeowner_profiles")
           .select("first_name, last_name, profile_photo_url")
           .eq("user_id", review.reviewer_id)
           .single()
 
-        if (profProfile) {
-          reviewerName = `${profProfile.first_name} ${profProfile.last_name}`
-          reviewerAvatar = profProfile.profile_photo_url
+        if (homeownerProfile) {
+          reviewerName = `${homeownerProfile.first_name} ${homeownerProfile.last_name}`
+          reviewerAvatar = homeownerProfile.profile_photo_url
         } else {
-          // Try company profile
+          // Try company profile (tradesperson reviewing another)
           const { data: companyProfile } = await supabase
             .from("company_profiles")
             .select("company_name, logo_url")
@@ -155,28 +143,15 @@ export default async function CompanyDashboardPage() {
             reviewerName = companyProfile.company_name
             reviewerAvatar = companyProfile.logo_url
           } else {
-            // Try contractor profile
-            const { data: contractorProfile } = await supabase
-              .from("contractor_profiles")
-              .select("business_name, profile_picture")
-              .eq("user_id", review.reviewer_id)
+            // Fallback to user email
+            const { data: userData } = await supabase
+              .from("users")
+              .select("email")
+              .eq("id", review.reviewer_id)
               .single()
 
-            if (contractorProfile) {
-              reviewerName = contractorProfile.business_name
-              reviewerAvatar = contractorProfile.profile_picture
-            } else {
-              // Fallback to user email
-              const { data: userData } = await supabase
-                .from("users")
-                .select("email")
-                .eq("id", review.reviewer_id)
-                .single()
-
-              if (userData?.email) {
-                // Use email username as name (before @)
-                reviewerName = userData.email.split('@')[0]
-              }
+            if (userData?.email) {
+              reviewerName = userData.email.split('@')[0]
             }
           }
         }
@@ -190,6 +165,14 @@ export default async function CompanyDashboardPage() {
     )
 
     companyReviews = reviewsWithNames
+  }
+
+  // Compute rating from fetched reviews (no separate view needed)
+  const companyRating = {
+    average_rating: companyReviews.length > 0
+      ? companyReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / companyReviews.length
+      : 0,
+    total_reviews: companyReviews.length,
   }
 
   const { data: jobs, error: jobsError } = await supabase
@@ -260,7 +243,7 @@ export default async function CompanyDashboardPage() {
 
   console.log("[v0] Received applications found:", receivedApplications?.length || 0)
 
-  // Get recent applications SUBMITTED by this company
+  // Get ALL applications SUBMITTED by this company (no limit — needed for accurate counts)
   const { data: submittedApplications, error: submittedError } = await supabase
     .from("job_applications")
     .select(`
@@ -271,7 +254,6 @@ export default async function CompanyDashboardPage() {
     `)
     .eq("company_id", profile.id)
     .order("applied_at", { ascending: false })
-    .limit(5)
 
   if (submittedError) {
     console.log("[v0] Submitted applications error:", submittedError)

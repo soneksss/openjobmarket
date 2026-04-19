@@ -6,6 +6,29 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 
+function playNotificationChime() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+    if (ctx.state === "suspended") ctx.resume()
+    ;[660, 880].forEach((freq, i) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.type = "sine"
+      osc.frequency.value = freq
+      const t = ctx.currentTime + i * 0.12
+      gain.gain.setValueAtTime(0, t)
+      gain.gain.linearRampToValueAtTime(0.25, t + 0.02)
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
+      osc.start(t)
+      osc.stop(t + 0.25)
+    })
+  } catch {
+    // autoplay blocked or AudioContext unavailable — silent fail
+  }
+}
+
 export function NotificationBell({ iconClassName }: { iconClassName?: string } = {}) {
   const router = useRouter()
   const supabase = createClient()
@@ -37,7 +60,7 @@ export function NotificationBell({ iconClassName }: { iconClassName?: string } =
       // Realtime: INSERT (new), UPDATE (mark-as-read), DELETE (removed)
       channel = supabase
         .channel(`notif-bell-${uid}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` }, () => fetchCount(uid))
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` }, () => { fetchCount(uid); playNotificationChime() })
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` }, () => fetchCount(uid))
         .on("postgres_changes", { event: "DELETE", schema: "public", table: "notifications", filter: `user_id=eq.${uid}` }, () => fetchCount(uid))
         .subscribe()

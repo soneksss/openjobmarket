@@ -1,54 +1,31 @@
-import { Suspense } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { UsersTableWithBan } from "@/components/users-table-with-ban"
 import { getAdminUser } from "@/lib/admin-auth"
-import { Card, CardContent } from "@/components/ui/card"
+import { redirect } from "next/navigation"
+import { AdminUserManagement } from "@/components/admin-user-management"
+import { Users } from "lucide-react"
 
-function TableSkeleton() {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="space-y-4">
-          <div className="h-10 bg-gray-200 rounded animate-pulse" />
-          <div className="space-y-2">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-12 bg-gray-100 rounded animate-pulse" />
-            ))}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
+export const dynamic = "force-dynamic"
 
 export default async function AdminUsersPage() {
   const adminUser = await getAdminUser()
+  if (!adminUser) redirect("/admin/login")
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
-        <p className="text-muted-foreground">Manage professional and company user accounts</p>
+    <div className="h-full flex flex-col overflow-hidden text-white">
+      <div className="flex flex-col flex-1 min-h-0">
+
+        {/* Header */}
+        <div className="flex items-center gap-4 pb-4 border-b border-zinc-800 shrink-0">
+          <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-zinc-700 flex items-center justify-center shrink-0">
+            <Users className="w-4 h-4 text-zinc-300" />
+          </div>
+          <div>
+            <h1 className="text-base font-semibold text-zinc-100 tracking-tight">User Management</h1>
+            <p className="text-xs text-zinc-500">Homeowners and tradespeople on the marketplace</p>
+          </div>
+        </div>
+
+        <AdminUserManagement />
       </div>
-
-      <Tabs defaultValue="professionals" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="professionals">Professionals</TabsTrigger>
-          <TabsTrigger value="companies">Companies</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="professionals">
-          <Suspense fallback={<TableSkeleton />}>
-            <UsersTableWithBan userType="professional" adminRole={adminUser?.role || "admin2"} />
-          </Suspense>
-        </TabsContent>
-
-        <TabsContent value="companies">
-          <Suspense fallback={<TableSkeleton />}>
-            <UsersTableWithBan userType="company" adminRole={adminUser?.role || "admin2"} />
-          </Suspense>
-        </TabsContent>
-      </Tabs>
     </div>
   )
 }

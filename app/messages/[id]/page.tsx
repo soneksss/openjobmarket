@@ -211,6 +211,7 @@ export default function ConversationPage() {
   const conversationId = params.id as string
   const returnUrl = searchParams.get('returnUrl') ? decodeURIComponent(searchParams.get('returnUrl')!) : null
   const jobParam = searchParams.get('job')
+  const uidParam = searchParams.get('uid') ? decodeURIComponent(searchParams.get('uid')!) : null
 
   console.log('[CONVERSATION] Params:', params, 'conversationId:', conversationId)
   console.log('[CONVERSATION] Return URL:', returnUrl)
@@ -290,6 +291,13 @@ export default function ConversationPage() {
   const fetchConversation = async () => {
     updatePresence() // best-effort, fire-and-forget
     console.log('[CONVERSATION] fetchConversation called')
+
+    // Safety net: if any query hangs, release the loading spinner after 15 s
+    const timeoutId = setTimeout(() => {
+      console.warn('[CONVERSATION] fetchConversation timed out — forcing loading=false')
+      setLoading(false)
+    }, 15_000)
+
     try {
       console.log('[CONVERSATION] Step 1: Getting user...')
       // Use getSession() (reads local storage — no network) instead of getUser()
@@ -412,6 +420,12 @@ export default function ConversationPage() {
         }
       }
 
+      // Final fallback: uid passed as URL param by confirm flows
+      if (!determinedOtherId && uidParam) {
+        determinedOtherId = uidParam
+        console.log('[CONVERSATION] Using uid from URL param:', determinedOtherId)
+      }
+
       if (!determinedOtherId) {
         console.error('[CONVERSATION] Could not determine other user')
         setLoading(false)
@@ -454,12 +468,29 @@ export default function ConversationPage() {
       if (messagesError) throw messagesError
       setMessages(messagesData || [])
 
-      // Mark unread as read (fire-and-forget — don't block UI on this)
+      // Mark unread as read — includes legacy messages (no conversation_id) sent
+      // by the other participant to the current user for this same job.
       const unreadIds = (messagesData || [])
         .filter(msg => msg.recipient_id === currentUser.id && !msg.is_read)
         .map(msg => msg.id)
-      if (unreadIds.length > 0) {
-        supabase.from("messages").update({ is_read: true }).in("id", unreadIds).then(() => {})
+
+      // Also catch any legacy messages (conversation_id IS NULL) between the same pair.
+      // These are created by direct Supabase inserts that bypass /api/messages.
+      const legacyUnreadQuery = supabase
+        .from("messages")
+        .select("id")
+        .is("conversation_id", null)
+        .eq("recipient_id", currentUser.id)
+        .eq("sender_id", determinedOtherId)
+        .eq("is_read", false)
+
+      const allUnreadIds = await legacyUnreadQuery.then(({ data }) => [
+        ...unreadIds,
+        ...(data ?? []).map((r: any) => r.id),
+      ])
+
+      if (allUnreadIds.length > 0) {
+        supabase.from("messages").update({ is_read: true }).in("id", allUnreadIds).then(() => {})
       }
 
       // ── Other user's info ──
@@ -604,6 +635,8 @@ export default function ConversationPage() {
       console.error("[CONVERSATION] Error type:", typeof error)
       console.error("[CONVERSATION] Error details:", JSON.stringify(error, null, 2))
       setLoading(false)
+    } finally {
+      clearTimeout(timeoutId)
     }
   }
 

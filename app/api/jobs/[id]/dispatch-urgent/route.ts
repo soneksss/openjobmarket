@@ -44,7 +44,7 @@ export async function POST(
 
       const { data: top5, error: rpcError } = await admin.rpc(
         "select_top_tradespeople_for_urgent_job",
-        { p_job_id: jobId }
+        { p_job_id: jobId, p_radius_miles: radius, p_limit: 5 }
       )
 
       if (rpcError) {
@@ -54,7 +54,19 @@ export async function POST(
 
       if (top5 && top5.length > 0) {
         profileIds = top5.map((c: { tradesperson_id: string }) => c.tradesperson_id)
-        console.log(`[DISPATCH-URGENT] RPC: ${profileIds.length} candidate(s) at ${radius}mi`)
+        console.log(
+          `[DISPATCH-URGENT] RPC: ${profileIds.length} candidate(s) at ${radius}mi`,
+          top5.map((c: any) => ({
+            id:          c.tradesperson_id,
+            score:       c.total_score,
+            dist_mi:     c.distance_miles,
+            skill:       c.skill_score,
+            lang:        c.language_score,
+            freshness:   c.freshness_score,
+            reliability: c.reliability_score,
+            rating:      c.rating_score,
+          }))
+        )
         break
       }
 
@@ -125,7 +137,18 @@ export async function POST(
       (profiles ?? []).map((p: { id: string; user_id: string }) => [p.id, p.user_id])
     )
 
-    // ── 4. Start dispatch lifecycle ──────────────────────────────────────────
+    // ── 4. Record initial batch in job_notifications_sent (dedup) ───────────
+    // This prevents expand_job_search from re-notifying the same companies.
+    if (profileIds.length > 0) {
+      await admin
+        .from("job_notifications_sent")
+        .upsert(
+          profileIds.map(cid => ({ job_id: jobId, company_id: cid, radius_at_time: usedRadiusMiles })),
+          { onConflict: "job_id,company_id" }
+        )
+    }
+
+    // ── 5. Start dispatch lifecycle (sets next_expand_at = +15 min for first tier) ──
     await setDispatchLifecycle(admin, jobId, {
       state:       "searching",
       radiusMiles: usedRadiusMiles,
@@ -288,6 +311,8 @@ async function setDispatchLifecycle(
       patch.dispatch_started_at = new Date().toISOString()
       patch.dispatch_expires_at = new Date(Date.now() + 60 * 60 * 1000).toISOString() // +1 hour
       patch.search_started_at   = new Date().toISOString()
+      // Seed next_expand_at: first tier (≤3mi) waits 15 min before expanding to 5mi
+      patch.next_expand_at      = new Date(Date.now() + 15 * 60 * 1000).toISOString()
     }
     // Remove undefined keys
     Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k])

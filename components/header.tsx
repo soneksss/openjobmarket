@@ -362,7 +362,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                   className="md:hidden flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
                 >
                   <Map className="h-3.5 w-3.5" />
-                  Live Map
+                  Map
                 </Link>
               )}
               {/* Language & Region Selector - Hidden when user is signed in */}
@@ -675,7 +675,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                 </>
               ) : (
                 <div className="flex items-center space-x-1 sm:space-x-2">
-                  <Link href={loginUrl}>
+                  <Link href={loginUrl} className="hidden sm:block">
                     <Button
                       variant="outline"
                       size="sm"

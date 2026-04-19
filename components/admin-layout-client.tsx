@@ -11,10 +11,7 @@ import type { AdminUser } from "@/lib/admin"
 import { Menu, Home, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
 interface AdminLayoutClientProps {
@@ -24,68 +21,45 @@ interface AdminLayoutClientProps {
 
 export function AdminLayoutClient({ children, adminUser }: AdminLayoutClientProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
-
-  // Enable auto-logout for admin users
   useAutoLogout()
 
-  const handleSignOut = async () => {
-    await manualLogout()
-  }
-
   return (
-    <div className="flex h-screen bg-gray-100">
-      <AdminSidebar
-        adminUser={adminUser}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Mobile menu bar */}
-        <div className="lg:hidden flex items-center justify-between bg-white border-b border-gray-200 px-4 py-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-6 w-6" />
-          </Button>
-          <div className="text-lg font-bold text-blue-600">Admin Panel</div>
+    <div className="flex h-screen bg-slate-950">
+      <AdminSidebar adminUser={adminUser} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-          {/* Mobile user menu */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Mobile top bar */}
+        <div className="lg:hidden flex items-center justify-between bg-slate-900 border-b border-slate-800 px-4 py-3">
+          <Button variant="ghost" size="sm" onClick={() => setSidebarOpen(true)} className="text-slate-400 hover:text-white hover:bg-slate-800">
+            <Menu className="h-5 w-5" />
+          </Button>
+          <span className="text-sm font-bold text-white">Command Center</span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0">
-                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
-                  <span className="text-sm font-medium text-blue-600">
+                <div className="h-8 w-8 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center">
+                  <span className="text-sm font-bold text-indigo-400">
                     {(adminUser.full_name || adminUser.email).charAt(0).toUpperCase()}
                   </span>
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <div className="px-2 py-1.5 text-sm font-medium">
-                {adminUser.full_name || adminUser.email}
-              </div>
-              <div className="px-2 py-1.5 text-xs text-gray-500">
-                {adminUser.email}
-              </div>
+            <DropdownMenuContent align="end" className="w-48 bg-slate-900 border-slate-700">
               <DropdownMenuItem asChild>
-                <Link href="/" className="flex items-center cursor-pointer">
-                  <Home className="h-4 w-4 mr-2" />
-                  <span>Main Site</span>
+                <Link href="/" className="flex items-center cursor-pointer text-slate-300">
+                  <Home className="h-4 w-4 mr-2" /> Main Site
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSignOut} className="flex items-center cursor-pointer">
-                <LogOut className="h-4 w-4 mr-2" />
-                <span>Sign Out</span>
+              <DropdownMenuItem onClick={() => manualLogout()} className="flex items-center cursor-pointer text-slate-300">
+                <LogOut className="h-4 w-4 mr-2" /> Sign Out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        <AdminHeader title="Admin Dashboard" adminUser={adminUser} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          <div className="mx-auto max-w-7xl">{children}</div>
+        <AdminHeader title="Admin" adminUser={adminUser} />
+        <main className="flex-1 overflow-hidden bg-slate-950">
+          <div className="h-full mx-auto max-w-7xl overflow-y-auto p-4 md:p-6">{children}</div>
         </main>
       </div>
     </div>

@@ -87,7 +87,10 @@ export function HomeownerApplicationActions({
       })
       const data = await res.json()
       if (!res.ok || !data.conversationId) throw new Error(data.error || "Failed to open conversation")
-      router.push(`/messages/${data.conversationId}`)
+      const qs = new URLSearchParams()
+      if (jobId) qs.set("job", jobId)
+      qs.set("uid", encodeURIComponent(targetUserId))
+      router.push(`/messages/${data.conversationId}?${qs.toString()}`)
     } catch (err: any) {
       toast({ title: "Could not open messages", description: err.message, variant: "destructive" })
     } finally {
@@ -144,20 +147,36 @@ export function HomeownerApplicationActions({
         setShowAgreementModal(true)
       }
 
-      // Send a short system message to open the conversation
+      // Send acceptance message via the API so it gets a conversation_id,
+      // triggers chat_unlocked = true, and appears correctly in the chat view.
       if (contractorData?.user_id && homeownerUserId) {
         try {
-          const budgetLine = jobBudget ? `\n${jobTitle || "Trade job"} (${jobBudget})` : `\n${jobTitle || "Trade job"}`
+          // Step 1: get or create the conversation
+          const convRes = await fetch("/api/conversations", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ with_user_id: contractorData.user_id, job_id: jobId }),
+          })
+          const convData = convRes.ok ? await convRes.json() : {}
+          const conversationId: string | undefined = convData.conversationId
+
+          // Step 2: send through the API route (sets conversation_id + chat_unlocked)
+          const budgetLine = jobBudget
+            ? `\n${jobTitle || "Trade job"} (${jobBudget})`
+            : `\n${jobTitle || "Trade job"}`
           const messageContent = `Application accepted${budgetLine}\nYou've been selected for this job. Arrange details with the homeowner.`
 
-          await supabase.from("messages").insert({
-            sender_id:    homeownerUserId,
-            recipient_id: contractorData.user_id,
-            subject:      `Application Accepted: ${jobTitle || "Trade Job"}`,
-            content:      messageContent,
-            message_type: "direct",
-            job_id:       jobId,
-            is_read:      false,
+          await fetch("/api/messages", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              recipient_id:    contractorData.user_id,
+              content:         messageContent,
+              job_id:          jobId,
+              ...(conversationId && { conversation_id: conversationId }),
+            }),
           })
         } catch (msgError) {
           console.error("[HOMEOWNER-ACTIONS] Error sending acceptance message:", msgError)

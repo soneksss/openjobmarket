@@ -29,6 +29,7 @@ export default async function HomeownerSavedPage() {
         id,
         created_at,
         professional_id,
+        company_id,
         professional_profiles (
           id,
           user_id,
@@ -42,12 +43,22 @@ export default async function HomeownerSavedPage() {
           available_for_work,
           average_rating,
           reviews_count
+        ),
+        company_profiles (
+          id,
+          user_id,
+          company_name,
+          logo_url,
+          industry,
+          location,
+          average_rating,
+          reviews_count
         )
       `)
       .eq("homeowner_id", hp.id)
       .order("created_at", { ascending: false })
 
-    saved = (data || []).filter((s: any) => s.professional_profiles)
+    saved = (data || []).filter((s: any) => s.professional_profiles || s.company_profiles)
   }
 
   return (
@@ -89,32 +100,44 @@ export default async function HomeownerSavedPage() {
         ) : (
           <div className="space-y-3">
             {saved.map((s: any) => {
-              const p = s.professional_profiles
-              const displayName = p.first_name || p.nickname
-                ? `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.nickname
-                : "Tradesperson"
+              const isCompany = !!s.company_profiles
+              const cp = s.company_profiles
+              const pp = s.professional_profiles
+              const displayName = isCompany
+                ? (cp.company_name || "Tradesperson")
+                : (`${pp.first_name || ''} ${pp.last_name || ''}`.trim() || pp.nickname || "Tradesperson")
+              const avatar = isCompany ? cp.logo_url : pp.profile_photo_url
+              const subtitle = isCompany ? cp.industry : pp.title
+              const location = isCompany ? cp.location : pp.location
+              const skills = isCompany ? [] : (pp.skills || [])
+              const profileUserId = isCompany ? cp.user_id : pp.user_id
+              const profileHref = isCompany ? `/companies/${cp.id}` : `/professionals/${pp.user_id}`
 
               return (
                 <div key={s.id} className="flex items-center gap-3 p-4 bg-slate-800/60 border border-slate-700/50 rounded-xl">
-                  <Avatar className="h-12 w-12 flex-shrink-0 ring-2 ring-slate-700">
-                    <AvatarImage src={p.profile_photo_url} />
-                    <AvatarFallback className="bg-slate-700 text-emerald-400 font-bold">
-                      {displayName.substring(0, 2).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                  <Link href={profileHref}>
+                    <Avatar className="h-12 w-12 flex-shrink-0 ring-2 ring-slate-700">
+                      <AvatarImage src={avatar} />
+                      <AvatarFallback className="bg-slate-700 text-emerald-400 font-bold">
+                        {displayName.substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Link>
 
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-white truncate">{displayName}</p>
-                    <p className="text-xs text-slate-400 truncate">{p.title}</p>
-                    {p.location && (
+                    <Link href={profileHref}>
+                      <p className="text-sm font-semibold text-white truncate hover:text-emerald-400 transition-colors">{displayName}</p>
+                    </Link>
+                    {subtitle && <p className="text-xs text-slate-400 truncate">{subtitle}</p>}
+                    {location && (
                       <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                         <MapPin className="h-3 w-3 flex-shrink-0" />
-                        {p.location}
+                        {location}
                       </p>
                     )}
-                    {p.skills?.length > 0 && (
+                    {skills.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1.5">
-                        {p.skills.slice(0, 3).map((skill: string) => (
+                        {skills.slice(0, 3).map((skill: string) => (
                           <span key={skill} className="text-[10px] bg-slate-700 text-slate-300 px-1.5 py-0.5 rounded-md">{skill}</span>
                         ))}
                       </div>
@@ -122,7 +145,7 @@ export default async function HomeownerSavedPage() {
                   </div>
 
                   <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white flex-shrink-0" asChild>
-                    <Link href={`/messages?new=${p.user_id}`}>
+                    <Link href={`/messages?new=${profileUserId}`}>
                       <MessageCircle className="h-4 w-4" />
                     </Link>
                   </Button>

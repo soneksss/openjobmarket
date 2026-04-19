@@ -26,14 +26,14 @@ export function MarkJobCompleteButton({ jobId, jobTitle }: Props) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         if (body.error === "already_completed") {
-          router.refresh()
+          router.push("/dashboard/company/my-jobs?tab=history")
           return
         }
         console.error("[MarkJobComplete] API error:", body.error)
         setConfirmed(false)
         return
       }
-      router.refresh()
+      router.push("/dashboard/company/my-jobs?tab=history")
     } finally {
       setLoading(false)
     }

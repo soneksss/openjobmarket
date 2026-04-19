@@ -125,14 +125,23 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
       .eq("tradesperson_id", profileId)
       .order("display_order", { ascending: true })
       .limit(6)
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error("[PORTFOLIO] load error:", error.message)
         setPhotos(data ?? [])
+        setLoading(false)
+      })
+      .catch((err) => {
+        console.error("[PORTFOLIO] unexpected error:", err)
         setLoading(false)
       })
   }, [profileId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function compressImage(file: File): Promise<File> {
+    const TIMEOUT_MS = 15_000
     return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(file), TIMEOUT_MS)
+      const done = (result: File) => { clearTimeout(timer); resolve(result) }
+
       const img = new Image()
       const url = URL.createObjectURL(file)
       img.onload = async () => {
@@ -147,21 +156,21 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
           const picaInst = pica()
           await picaInst.resize(img, canvas)
           const blob = await picaInst.toBlob(canvas, "image/webp", 0.75)
-          resolve(new File([blob], "photo.webp", { type: "image/webp" }))
+          done(new File([blob], "photo.webp", { type: "image/webp" }))
         } catch {
           const ctx = canvas.getContext("2d")
           if (ctx) {
             ctx.drawImage(img, 0, 0, width, height)
             canvas.toBlob(
-              (blob) => resolve(new File([blob!], "photo.webp", { type: "image/webp" })),
+              (blob) => done(blob ? new File([blob], "photo.webp", { type: "image/webp" }) : file),
               "image/webp", 0.75
             )
           } else {
-            resolve(file)
+            done(file)
           }
         }
       }
-      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+      img.onerror = () => { URL.revokeObjectURL(url); done(file) }
       img.src = url
     })
   }
@@ -176,39 +185,42 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
     const toUpload = files.slice(0, remaining)
 
     setUploading(true)
-    for (const file of toUpload) {
-      if (file.size > MAX_FILE_BYTES) {
-        setError(`"${file.name}" exceeds the 3 MB limit before compression.`)
-        continue
+    try {
+      for (const file of toUpload) {
+        if (file.size > MAX_FILE_BYTES) {
+          setError(`"${file.name}" exceeds the 3 MB limit before compression.`)
+          continue
+        }
+        try {
+          const compressed = await compressImage(file)
+          const storagePath = `${profileId}/${Date.now()}.webp`
+
+          const { error: uploadErr } = await supabase.storage
+            .from("trades-portfolio")
+            .upload(storagePath, compressed, { cacheControl: "3600", upsert: false })
+
+          if (uploadErr) { setError(uploadErr.message); continue }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from("trades-portfolio")
+            .getPublicUrl(storagePath)
+
+          const res = await fetch("/api/portfolio", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ photo_url: publicUrl, storage_path: storagePath }),
+          })
+          const body = await res.json().catch(() => ({}))
+          if (!res.ok) { setError(body.error ?? "Upload failed"); continue }
+
+          setPhotos((prev) => [...prev, body.photo])
+        } catch (err: any) {
+          setError(err?.message ?? "Upload failed")
+        }
       }
-      try {
-        const compressed = await compressImage(file)
-        const storagePath = `${profileId}/${Date.now()}.webp`
-
-        const { error: uploadErr } = await supabase.storage
-          .from("trades-portfolio")
-          .upload(storagePath, compressed, { cacheControl: "3600", upsert: false })
-
-        if (uploadErr) { setError(uploadErr.message); continue }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("trades-portfolio")
-          .getPublicUrl(storagePath)
-
-        const res = await fetch("/api/portfolio", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ photo_url: publicUrl, storage_path: storagePath }),
-        })
-        const body = await res.json()
-        if (!res.ok) { setError(body.error ?? "Upload failed"); continue }
-
-        setPhotos((prev) => [...prev, body.photo])
-      } catch (err: any) {
-        setError(err?.message ?? "Upload failed")
-      }
+    } finally {
+      setUploading(false)
     }
-    setUploading(false)
   }
 
   async function handleDelete(photoId: string) {

@@ -7,30 +7,21 @@ import { NextRequest, NextResponse } from "next/server"
  *
  * Uber-style radius expansion cron — runs every 2 minutes (see vercel.json).
  *
- * Each invocation:
- *   1. Expire jobs that have passed their 1-hour window
- *   2. Complete jobs that already have >= 3 responders
- *   3. Find active jobs that need radius expansion:
- *      - 3mi → 5mi after 5 min with 0 responses
- *      - 5mi → 10mi after 10 min total with 0 responses
- *   4. For each expanding job:
- *      a. Check if 0 candidates at new radius → skip to next tier instantly
- *      b. Notify new batch (in-app + push)
- *      c. Update dispatch_radius_miles + dispatch_state
+ * Expansion tiers (set by expand_job_search via jobs.next_expand_at):
+ *   3mi → wait 15 min → 5mi
+ *   5mi → wait 15 min → 10mi
+ *   10mi → wait 30 min → no further expansion (or instant skip if 0 local supply)
  *
- * Auth: Vercel CRON_SECRET header (set as env var in Vercel dashboard).
+ * Each invocation:
+ *   1. Expire jobs past their 1-hour window
+ *   2. Mark dispatch as completed when >= 3 responders (belt+suspenders — trigger does this atomically too)
+ *   3. Find jobs whose next_expand_at <= NOW() (precise timing, no elapsed-since-start drift)
+ *   4. For each: expand_job_search() → notify new batch
+ *
+ * Auth: Vercel CRON_SECRET header.
  */
 
-const RADIUS_TIERS = [3, 5, 10] // miles
-
-// Minutes elapsed since dispatch_started_at that trigger each expansion
-const EXPANSION_THRESHOLDS: Record<number, number> = {
-  3: 5,   // expand 3→5 after 5 min
-  5: 10,  // expand 5→10 after 10 min total
-}
-
 export async function GET(request: NextRequest) {
-  // ── Auth: only Vercel cron or a request with CRON_SECRET may call this ──────
   const secret = process.env.CRON_SECRET
   if (secret) {
     const authHeader = request.headers.get("authorization")
@@ -57,13 +48,15 @@ export async function GET(request: NextRequest) {
       console.log(`[DISPATCH-EXPAND] Expired ${report.expired} job(s)`)
     }
 
-    // ── 2. Complete jobs with >= 3 responders ────────────────────────────────
-    const { data: jobsToCheck } = await admin
+    // ── 2. Belt-and-suspenders: complete jobs with >= 3 responders ───────────
+    // The DB trigger (trg_auto_complete_dispatch) handles this atomically on each
+    // response, but we also sweep here to catch any edge cases.
+    const { data: activeJobs } = await admin
       .from("jobs")
       .select("id")
       .in("dispatch_state", ["searching", "expanding"])
 
-    for (const { id: jobId } of jobsToCheck ?? []) {
+    for (const { id: jobId } of activeJobs ?? []) {
       const { count } = await admin
         .from("urgent_job_dispatch_alerts")
         .select("*", { count: "exact", head: true })
@@ -77,29 +70,21 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── 3. Find jobs needing radius expansion ────────────────────────────────
-    const { data: activeJobs } = await admin
+    // ── 3. Jobs ready for expansion (next_expand_at <= NOW()) ────────────────
+    // expand_job_search sets next_expand_at per tier:
+    //   ≤3mi → +15min | ≤5mi → +15min | ≤10mi → +30min | >10mi → NULL (done)
+    const { data: expandableJobs } = await admin
       .from("jobs")
-      .select("id, title, location, dispatch_started_at, dispatch_radius_miles")
+      .select("id, title, location, dispatch_radius_miles, next_expand_at")
       .in("dispatch_state", ["searching", "expanding"])
       .gt("dispatch_expires_at", now.toISOString())
+      .lte("next_expand_at", now.toISOString())
+      .not("next_expand_at", "is", null)
 
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://openjobmarket.com"
 
-    for (const job of activeJobs ?? []) {
-      const radiusMiles: number = job.dispatch_radius_miles ?? 3
-      const threshold = EXPANSION_THRESHOLDS[radiusMiles]
-
-      // No more expansion beyond 10mi, or no threshold defined
-      if (threshold === undefined) continue
-
-      const startedAt = job.dispatch_started_at ? new Date(job.dispatch_started_at) : null
-      if (!startedAt) continue
-
-      const elapsedMin = (now.getTime() - startedAt.getTime()) / 60_000
-      if (elapsedMin < threshold) continue
-
-      // Confirm still 0 responses
+    for (const job of expandableJobs ?? []) {
+      // Confirm still 0 responses — don't expand if someone already responded
       const { count: respCount } = await admin
         .from("urgent_job_dispatch_alerts")
         .select("*", { count: "exact", head: true })
@@ -107,95 +92,90 @@ export async function GET(request: NextRequest) {
         .eq("responded", true)
 
       if ((respCount ?? 0) > 0) {
-        // Got a response since last check — no expansion needed
+        // Got a response — clear next_expand_at so we stop expanding
+        await admin
+          .from("jobs")
+          .update({ next_expand_at: null, dispatch_state: "completed" })
+          .eq("id", job.id)
+        console.log(`[DISPATCH-EXPAND] job=${job.id} has responses — skipping expansion, marking completed`)
         continue
       }
 
-      // ── 4. Expand to next radius tier ──────────────────────────────────────
-      console.log(`[DISPATCH-EXPAND] Expanding job=${job.id} from ${radiusMiles}mi (${elapsedMin.toFixed(1)}min elapsed)`)
+      const oldRadius: number = job.dispatch_radius_miles ?? 3
+      console.log(`[DISPATCH-EXPAND] Expanding job=${job.id} from ${oldRadius}mi`)
 
-      let newRadius = nextRadius(radiusMiles)
-      let expandedCount = 0
+      let notifiedCount = 0
+      let finalRadius = oldRadius
 
-      // Try each remaining tier — skip instantly if 0 candidates
-      while (true) {
-        const { data: expanded, error: expandErr } = await admin.rpc("expand_job_search", {
-          p_job_id: job.id,
-        })
+      // expand_job_search handles instant-skip (0 local supply → jump to 10mi)
+      // and sets next_expand_at for the new tier automatically.
+      const { data: expanded, error: expandErr } = await admin.rpc("expand_job_search", {
+        p_job_id: job.id,
+      })
 
-        if (expandErr) {
-          console.warn(`[DISPATCH-EXPAND] expand_job_search error job=${job.id}:`, expandErr.message)
-          break
-        }
-
-        if (!expanded || expanded.length === 0) {
-          // 0 candidates at this tier — skip instantly to next
-          const next = nextRadius(newRadius)
-          if (next === newRadius) break // no more tiers
-          console.log(`[DISPATCH-EXPAND] 0 candidates at ${newRadius}mi → instant skip to ${next}mi`)
-          newRadius = next
-          continue
-        }
-
-        // Found candidates — notify them
-        const expandedIds = expanded.map((r: { company_id: string }) => r.company_id)
-
-        const { data: expandedProfiles } = await admin
-          .from("company_profiles")
-          .select("id, user_id")
-          .in("id", expandedIds)
-
-        const uidMap = new Map<string, string>(
-          (expandedProfiles ?? []).map((p: { id: string; user_id: string }) => [p.id, p.user_id])
-        )
-
-        for (const { company_id: cid } of expanded) {
-          const uid = uidMap.get(cid)
-          if (!uid) continue
-
-          try {
-            // Create alert row if it doesn't exist yet
-            await admin
-              .from("urgent_job_dispatch_alerts")
-              .upsert(
-                {
-                  job_id:         job.id,
-                  company_id:     cid,
-                  dispatch_type:  "push",
-                  push_attempted: false,
-                  push_sent:      false,
-                  responded:      false,
-                },
-                { onConflict: "job_id,company_id", ignoreDuplicates: true }
-              )
-
-            await notifyOne(admin, { companyProfileId: cid, userId: uid }, {
-              jobId:    job.id,
-              jobTitle: job.title,
-              location: job.location,
-              jobUrl:   `${baseUrl}/jobs/${job.id}`,
-            })
-
-            expandedCount++
-          } catch (err) {
-            console.error(`[DISPATCH-EXPAND] Notify error job=${job.id} company=${cid}:`, err)
-          }
-        }
-
-        break // Done for this job
+      if (expandErr) {
+        console.warn(`[DISPATCH-EXPAND] expand_job_search error job=${job.id}:`, expandErr.message)
+        continue
       }
 
-      // Update radius + state
+      if (!expanded || expanded.length === 0) {
+        console.log(`[DISPATCH-EXPAND] job=${job.id}: expand_job_search returned 0 new candidates`)
+        continue
+      }
+
+      // Notify new batch
+      const expandedIds = expanded.map((r: { company_id: string }) => r.company_id)
+      finalRadius = expanded[0]?.radius_used ?? oldRadius
+
+      const { data: expandedProfiles } = await admin
+        .from("company_profiles")
+        .select("id, user_id")
+        .in("id", expandedIds)
+
+      const uidMap = new Map<string, string>(
+        (expandedProfiles ?? []).map((p: { id: string; user_id: string }) => [p.id, p.user_id])
+      )
+
+      for (const { company_id: cid } of expanded) {
+        const uid = uidMap.get(cid)
+        if (!uid) continue
+
+        try {
+          await admin
+            .from("urgent_job_dispatch_alerts")
+            .upsert(
+              {
+                job_id:         job.id,
+                company_id:     cid,
+                dispatch_type:  "push",
+                push_attempted: false,
+                push_sent:      false,
+                responded:      false,
+              },
+              { onConflict: "job_id,company_id", ignoreDuplicates: true }
+            )
+
+          await notifyOne(admin, { companyProfileId: cid, userId: uid }, {
+            jobId:    job.id,
+            jobTitle: job.title,
+            location: job.location,
+            jobUrl:   `${baseUrl}/jobs/${job.id}`,
+          })
+
+          notifiedCount++
+        } catch (err) {
+          console.error(`[DISPATCH-EXPAND] Notify error job=${job.id} company=${cid}:`, err)
+        }
+      }
+
+      // Update dispatch_radius_miles to match new radius
       await admin
         .from("jobs")
-        .update({
-          dispatch_radius_miles: newRadius,
-          dispatch_state:        "expanding",
-        })
+        .update({ dispatch_radius_miles: finalRadius, dispatch_state: "expanding" })
         .eq("id", job.id)
 
-      report.expanded.push({ jobId: job.id, from: radiusMiles, to: newRadius, notified: expandedCount })
-      console.log(`[DISPATCH-EXPAND] job=${job.id}: radius ${radiusMiles}→${newRadius}mi, notified=${expandedCount}`)
+      report.expanded.push({ jobId: job.id, from: oldRadius, to: finalRadius, notified: notifiedCount })
+      console.log(`[DISPATCH-EXPAND] job=${job.id}: ${oldRadius}mi → ${finalRadius}mi, notified=${notifiedCount}`)
     }
 
     return NextResponse.json({ success: true, ...report })
@@ -204,9 +184,4 @@ export async function GET(request: NextRequest) {
     console.error("[DISPATCH-EXPAND] Fatal error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
-}
-
-function nextRadius(current: number): number {
-  const idx = RADIUS_TIERS.indexOf(current)
-  return idx >= 0 && idx < RADIUS_TIERS.length - 1 ? RADIUS_TIERS[idx + 1] : current
 }
