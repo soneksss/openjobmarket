@@ -285,21 +285,38 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
             <div className="md:hidden">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className={`p-2 ${dark ? "text-slate-200 hover:text-white hover:bg-white/10" : ""}`}>
-                    <HelpCircle className="h-9 w-9" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={`p-1.5 rounded-full ${dark ? "text-slate-400 hover:text-white hover:bg-white/10" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"}`}
+                  >
+                    <HelpCircle className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48 z-[100]">
-                  <DropdownMenuItem asChild>
-                    <Link href={getLocalePath("/about")} className="flex items-center">
-                      <Info className="h-4 w-4 mr-2" />
-                      {t('header.about')}
+                <DropdownMenuContent
+                  align="start"
+                  className="w-52 z-[100] bg-slate-800 border border-slate-700/60 rounded-2xl p-1.5 shadow-xl shadow-black/30"
+                >
+                  <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-700/60 cursor-pointer">
+                    <Link href={getLocalePath("/about")} className="flex items-center gap-3 px-3 py-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+                        <Info className="h-4 w-4 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-100">{t('header.about')}</p>
+                        <p className="text-xs text-slate-500">About Open Job Market</p>
+                      </div>
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link href={getLocalePath("/help")} className="flex items-center">
-                      <HelpCircle className="h-4 w-4 mr-2" />
-                      {t('header.help')}
+                  <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-700/60 cursor-pointer">
+                    <Link href={getLocalePath("/help")} className="flex items-center gap-3 px-3 py-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
+                        <HelpCircle className="h-4 w-4 text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-100">{t('header.help')}</p>
+                        <p className="text-xs text-slate-500">FAQs & support</p>
+                      </div>
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -359,7 +376,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
               {pathname === getLocalePath("/") && (currentUserType === "homeowner" || !currentUser) && (
                 <Link
                   href={getLocalePath("/?tab=traders&autoSearch=true")}
-                  className="md:hidden flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
                 >
                   <Map className="h-3.5 w-3.5" />
                   Map

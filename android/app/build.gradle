@@ -18,8 +18,8 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -42,10 +42,6 @@ dependencies {
     implementation project(':capacitor-cordova-android-plugins')
 }
 
-tasks.withType(JavaCompile) {
-    options.compilerArgs += ["-Xlint:unchecked"]
-}
-
 apply from: 'capacitor.build.gradle'
 
 try {
@@ -55,4 +51,22 @@ try {
     }
 } catch(Exception e) {
     logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}
+
+android {
+
+    signingConfigs {
+        release {
+            storeFile file("release-key.jks")
+            storePassword "Daniels123@"
+            keyAlias "openjob"
+            keyPassword "Daniels123@"
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
 }

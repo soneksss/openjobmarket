@@ -213,11 +213,13 @@ export default function CompanySubscriptionPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center space-x-2">
-          <Crown className="h-8 w-8 text-muted-foreground animate-spin" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-500/15 flex-shrink-0">
+            <Crown className="h-5 w-5 text-emerald-400 animate-pulse" />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold">Subscription</h1>
-            <p className="text-muted-foreground">Loading subscription details...</p>
+            <h1 className="text-xl font-bold">Subscription</h1>
+            <p className="text-sm text-slate-500">Loading subscription details...</p>
           </div>
         </div>
       </div>
@@ -228,21 +230,23 @@ export default function CompanySubscriptionPage() {
   if (!adminSettings?.subscriptions_enabled) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center space-x-2">
-          <Crown className="h-8 w-8 text-blue-600" />
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-500/15 flex-shrink-0">
+            <Crown className="h-5 w-5 text-emerald-400" />
+          </div>
           <div>
-            <h1 className="text-3xl font-bold">Subscription</h1>
-            <p className="text-muted-foreground">Manage your company subscription</p>
+            <h1 className="text-xl font-bold">Subscription</h1>
+            <p className="text-sm text-slate-500">Manage your subscription plan</p>
           </div>
         </div>
 
-        <Card className="bg-blue-50 border-blue-200">
+        <Card className="bg-blue-950/30 border-blue-800/50 rounded-2xl">
           <CardContent className="pt-6">
             <div className="flex items-center space-x-3">
-              <Star className="h-8 w-8 text-blue-600" />
+              <Star className="h-8 w-8 text-blue-400" />
               <div>
-                <h3 className="text-lg font-semibold text-blue-800">All Features Available</h3>
-                <p className="text-blue-600">
+                <h3 className="text-lg font-semibold text-blue-200">All Features Available</h3>
+                <p className="text-blue-400">
                   Subscriptions are currently disabled. You have access to all platform features at no cost.
                 </p>
               </div>
@@ -255,18 +259,20 @@ export default function CompanySubscriptionPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-2">
-        <Crown className="h-8 w-8 text-blue-600" />
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-emerald-500/15 flex-shrink-0">
+          <Crown className="h-5 w-5 text-emerald-400" />
+        </div>
         <div>
-          <h1 className="text-3xl font-bold">Subscription</h1>
-          <p className="text-muted-foreground">Manage your company subscription</p>
+          <h1 className="text-xl font-bold">Subscription</h1>
+          <p className="text-sm text-slate-500">Manage your subscription plan</p>
         </div>
       </div>
 
       {error && (
-        <Card className="border-red-200 bg-red-50">
+        <Card className="bg-red-950/20 border-red-800/50 rounded-2xl">
           <CardContent className="pt-6">
-            <div className="flex items-center text-red-600">
+            <div className="flex items-center text-red-400">
               <AlertCircle className="h-4 w-4 mr-2" />
               {error}
             </div>
@@ -276,9 +282,9 @@ export default function CompanySubscriptionPage() {
 
       {/* Current Subscription Status */}
       {userSubscription?.has_subscription ? (
-        <Card className="bg-green-50 border-green-200">
+        <Card className="bg-green-950/30 border-green-800/50 rounded-2xl">
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2 text-green-800">
+            <CardTitle className="flex items-center space-x-2 text-green-300">
               <Check className="h-5 w-5" />
               <span>Active Subscription</span>
             </CardTitle>
@@ -286,15 +292,15 @@ export default function CompanySubscriptionPage() {
           <CardContent className="space-y-4">
             <div className="grid md:grid-cols-2 gap-4">
               <div>
-                <h3 className="font-semibold text-green-800">{userSubscription.plan_name} Plan</h3>
-                <p className="text-green-600">£{userSubscription.price}/{formatDuration(30)}</p>
+                <h3 className="font-semibold text-green-200">{userSubscription.plan_name} Plan</h3>
+                <p className="text-green-400">£{userSubscription.price}/{formatDuration(30)}</p>
               </div>
               <div className="text-right">
-                <p className="text-sm text-green-600">Expires on</p>
-                <p className="font-medium text-green-800">
+                <p className="text-sm text-green-500">Expires on</p>
+                <p className="font-medium text-green-200">
                   {userSubscription.end_date && formatDate(userSubscription.end_date)}
                 </p>
-                <p className="text-xs text-green-600">
+                <p className="text-xs text-green-500">
                   {userSubscription.days_remaining} days remaining
                 </p>
               </div>
@@ -305,7 +311,7 @@ export default function CompanySubscriptionPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 {/* Job Postings Usage */}
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-sm text-slate-300">
                     <span>Job Postings</span>
                     <span>
                       {userSubscription.jobs_used || 0}
@@ -313,30 +319,30 @@ export default function CompanySubscriptionPage() {
                     </span>
                   </div>
                   {userSubscription.jobs_limit && (
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-slate-700 rounded-full h-2">
                       <div
-                        className="bg-blue-600 h-2 rounded-full"
+                        className="bg-emerald-500 h-2 rounded-full"
                         style={{ width: `${Math.min(((userSubscription.jobs_used || 0) / userSubscription.jobs_limit) * 100, 100)}%` }}
-                      ></div>
+                      />
                     </div>
                   )}
                 </div>
 
-                {/* Contact Usage */}
+                {/* Client Contact Usage */}
                 <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Professional Contacts</span>
+                  <div className="flex justify-between text-sm text-slate-300">
+                    <span>Client Contacts</span>
                     <span>
                       {userSubscription.contacts_used || 0}
                       {userSubscription.contacts_limit ? ` / ${userSubscription.contacts_limit}` : ' / Unlimited'}
                     </span>
                   </div>
                   {userSubscription.contacts_limit && (
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-slate-700 rounded-full h-2">
                       <div
-                        className="bg-green-600 h-2 rounded-full"
+                        className="bg-green-500 h-2 rounded-full"
                         style={{ width: `${Math.min(((userSubscription.contacts_used || 0) / userSubscription.contacts_limit) * 100, 100)}%` }}
-                      ></div>
+                      />
                     </div>
                   )}
                 </div>
@@ -345,14 +351,14 @@ export default function CompanySubscriptionPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="border-amber-200 bg-amber-50">
+        <Card className="bg-amber-950/30 border-amber-800/50 rounded-2xl">
           <CardContent className="pt-6">
             <div className="flex items-center space-x-3">
-              <AlertCircle className="h-8 w-8 text-amber-600" />
+              <AlertCircle className="h-8 w-8 text-amber-400" />
               <div>
-                <h3 className="text-lg font-semibold text-amber-800">No Active Subscription</h3>
-                <p className="text-amber-600">
-                  You need an active subscription to post jobs and contact professionals.
+                <h3 className="text-lg font-semibold text-amber-200">No Active Subscription</h3>
+                <p className="text-amber-400">
+                  You need an active subscription to post jobs and connect with clients.
                 </p>
               </div>
             </div>
@@ -362,54 +368,58 @@ export default function CompanySubscriptionPage() {
 
       {/* Available Plans */}
       <div>
-        <h2 className="text-2xl font-bold mb-4">Available Plans</h2>
-        <div className="grid gap-6 md:grid-cols-3">
+        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest px-1 mb-3">Available Plans</p>
+        <div className="grid gap-4 md:grid-cols-3">
           {plans.map((plan) => (
             <Card
               key={plan.id}
-              className={`relative ${userSubscription?.plan_name === plan.name ? 'border-green-500 bg-green-50' : 'border-blue-200'}`}
+              className={`relative rounded-2xl ${
+                userSubscription?.plan_name === plan.name
+                  ? 'border-emerald-600/50 bg-emerald-950/30'
+                  : 'border-slate-700/50 bg-slate-800/50'
+              }`}
             >
               {userSubscription?.plan_name === plan.name && (
                 <div className="absolute top-4 right-4">
-                  <Badge className="bg-green-600">Current Plan</Badge>
+                  <Badge className="bg-emerald-600 text-white text-xs">Current Plan</Badge>
                 </div>
               )}
 
-              <CardHeader className="text-center">
-                <CardTitle className="text-xl">{plan.name}</CardTitle>
-                <div className="text-3xl font-bold text-blue-600">
+              <CardHeader className="text-center pb-2">
+                <CardTitle className="text-lg text-slate-100">{plan.name}</CardTitle>
+                <div className="text-3xl font-bold text-emerald-400">
                   £{plan.price}
-                  <span className="text-sm font-normal text-muted-foreground">
+                  <span className="text-sm font-normal text-slate-500">
                     /{formatDuration(plan.duration_days)}
                   </span>
                 </div>
               </CardHeader>
 
               <CardContent className="space-y-4">
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                   <div className="flex items-center space-x-2">
-                    <Briefcase className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm">
+                    <Briefcase className="h-4 w-4 text-emerald-400" />
+                    <span className="text-sm text-slate-300">
                       {plan.job_limit ? `${plan.job_limit} job postings` : 'Unlimited job postings'}
                     </span>
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <Users className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm">
-                      {plan.contact_limit ? `${plan.contact_limit} professional contacts` : 'Unlimited professional contacts'}
+                    <Users className="h-4 w-4 text-emerald-400" />
+                    <span className="text-sm text-slate-300">
+                      {plan.contact_limit ? `${plan.contact_limit} client contacts` : 'Unlimited client contacts'}
                     </span>
                   </div>
 
                   <div className="flex items-center space-x-2">
-                    <Calendar className="h-4 w-4 text-blue-600" />
-                    <span className="text-sm">{formatDuration(plan.duration_days)} duration</span>
+                    <Calendar className="h-4 w-4 text-emerald-400" />
+                    <span className="text-sm text-slate-300">{formatDuration(plan.duration_days)} duration</span>
                   </div>
 
                   {plan.features?.support && (
                     <div className="flex items-center space-x-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-sm capitalize">
+                      <Check className="h-4 w-4 text-emerald-400" />
+                      <span className="text-sm text-slate-300 capitalize">
                         {plan.features.support.replace('_', ' ')} support
                       </span>
                     </div>
@@ -417,21 +427,25 @@ export default function CompanySubscriptionPage() {
 
                   {plan.features?.analytics && (
                     <div className="flex items-center space-x-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-sm">Advanced analytics</span>
+                      <Check className="h-4 w-4 text-emerald-400" />
+                      <span className="text-sm text-slate-300">Advanced analytics</span>
                     </div>
                   )}
 
                   {plan.features?.featured_jobs && (
                     <div className="flex items-center space-x-2">
-                      <Check className="h-4 w-4 text-green-600" />
-                      <span className="text-sm">Featured job listings</span>
+                      <Check className="h-4 w-4 text-emerald-400" />
+                      <span className="text-sm text-slate-300">Featured job listings</span>
                     </div>
                   )}
                 </div>
 
                 <Button
-                  className="w-full"
+                  className={`w-full ${
+                    userSubscription?.plan_name === plan.name
+                      ? 'bg-transparent border border-slate-600 text-slate-400'
+                      : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                  }`}
                   onClick={() => handlePurchaseSubscription(plan.id)}
                   disabled={purchasing === plan.id || userSubscription?.plan_name === plan.name}
                   variant={userSubscription?.plan_name === plan.name ? "outline" : "default"}
@@ -454,12 +468,12 @@ export default function CompanySubscriptionPage() {
       </div>
 
       {plans.length === 0 && (
-        <Card className="text-center py-8">
+        <Card className="bg-slate-800/50 border-slate-700/50 rounded-2xl text-center py-8">
           <CardContent>
-            <Building2 className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Plans Available</h3>
-            <p className="text-muted-foreground">
-              No subscription plans are currently available for companies.
+            <Building2 className="h-12 w-12 text-slate-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-slate-200 mb-2">No Plans Available</h3>
+            <p className="text-slate-500">
+              No subscription plans are currently available.
             </p>
           </CardContent>
         </Card>
@@ -467,29 +481,26 @@ export default function CompanySubscriptionPage() {
 
       {/* Billing History */}
       <div>
-        <h2 className="text-2xl font-bold mb-4 flex items-center">
-          <Receipt className="h-6 w-6 mr-2" />
-          Billing History
-        </h2>
-        <Card>
+        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest px-1 mb-3">Billing History</p>
+        <Card className="bg-slate-800/50 border-slate-700/50 rounded-2xl">
           <CardContent className="p-0">
             {billingHistory.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="border-b bg-muted/50">
+                  <thead className="border-b border-slate-700/50">
                     <tr>
-                      <th className="text-left p-4 font-medium">Date</th>
-                      <th className="text-left p-4 font-medium">Plan</th>
-                      <th className="text-left p-4 font-medium">Amount</th>
-                      <th className="text-left p-4 font-medium">Status</th>
-                      <th className="text-left p-4 font-medium">Payment</th>
-                      <th className="text-left p-4 font-medium">Invoice</th>
+                      <th className="text-left p-4 text-xs font-medium text-slate-400">Date</th>
+                      <th className="text-left p-4 text-xs font-medium text-slate-400">Plan</th>
+                      <th className="text-left p-4 text-xs font-medium text-slate-400">Amount</th>
+                      <th className="text-left p-4 text-xs font-medium text-slate-400">Status</th>
+                      <th className="text-left p-4 text-xs font-medium text-slate-400">Payment</th>
+                      <th className="text-left p-4 text-xs font-medium text-slate-400">Invoice</th>
                     </tr>
                   </thead>
                   <tbody>
                     {billingHistory.map((item) => (
-                      <tr key={item.id} className="border-b last:border-b-0 hover:bg-muted/20">
-                        <td className="p-4">
+                      <tr key={item.id} className="border-b border-slate-700/30 last:border-b-0 hover:bg-slate-700/20">
+                        <td className="p-4 text-sm text-slate-300">
                           {new Date(item.created_at).toLocaleDateString('en-GB', {
                             day: 'numeric',
                             month: 'short',
@@ -497,32 +508,31 @@ export default function CompanySubscriptionPage() {
                           })}
                         </td>
                         <td className="p-4">
-                          <div className="font-medium">{item.plan_name}</div>
+                          <div className="text-sm font-medium text-slate-200">{item.plan_name}</div>
                         </td>
                         <td className="p-4">
-                          <div className="font-medium">
+                          <div className="text-sm font-medium text-slate-200">
                             {item.currency === 'GBP' ? '£' : item.currency}{item.amount}
                           </div>
                         </td>
                         <td className="p-4">
                           <Badge
-                            variant={item.status === 'completed' ? 'default' :
-                                   item.status === 'pending' ? 'secondary' : 'destructive'}
                             className={
-                              item.status === 'completed' ? 'bg-green-600' :
-                              item.status === 'pending' ? 'bg-yellow-600' : 'bg-red-600'
+                              item.status === 'completed' ? 'bg-green-600/80 text-green-100' :
+                              item.status === 'pending' ? 'bg-yellow-600/80 text-yellow-100' :
+                              'bg-red-600/80 text-red-100'
                             }
                           >
                             {item.status === 'completed' ? 'Paid' :
                              item.status === 'pending' ? 'Pending' : 'Failed'}
                           </Badge>
                         </td>
-                        <td className="p-4 text-muted-foreground capitalize">
+                        <td className="p-4 text-sm text-slate-400 capitalize">
                           {item.payment_method.replace('_', ' ')}
                         </td>
                         <td className="p-4">
                           {item.invoice_url ? (
-                            <Button variant="ghost" size="sm" asChild>
+                            <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" asChild>
                               <a href={item.invoice_url} target="_blank" rel="noopener noreferrer">
                                 <Download className="h-4 w-4 mr-1" />
                                 Download
@@ -532,8 +542,8 @@ export default function CompanySubscriptionPage() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="text-slate-400 hover:text-white"
                               onClick={() => {
-                                // Generate basic receipt info
                                 const receiptText = `Receipt for ${item.plan_name}\nDate: ${new Date(item.created_at).toLocaleDateString()}\nAmount: £${item.amount}\nStatus: ${item.status}`
                                 const blob = new Blob([receiptText], { type: 'text/plain' })
                                 const url = URL.createObjectURL(blob)
@@ -555,10 +565,10 @@ export default function CompanySubscriptionPage() {
                 </table>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <Receipt className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                <h3 className="text-lg font-semibold mb-2">No billing history</h3>
-                <p className="text-muted-foreground">
+              <div className="text-center py-10">
+                <Receipt className="h-10 w-10 mx-auto mb-3 text-slate-600" />
+                <h3 className="text-sm font-semibold text-slate-300 mb-1">No billing history</h3>
+                <p className="text-xs text-slate-500">
                   {userSubscription?.has_subscription
                     ? "Your billing history will appear here after your first payment."
                     : "Subscribe to a plan to see your billing history here."}

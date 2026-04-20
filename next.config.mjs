@@ -16,6 +16,21 @@ const nextConfig = {
   reactStrictMode: false, // Disabled for react-leaflet compatibility
   compress: true,
 
+  // Pin Turbopack's workspace root to this project so it doesn't scan D:\MAIN
+  // and spin up dozens of Node worker processes.
+  turbopack: {
+    root: process.cwd(),
+  },
+
+  // Keep Sentry/OpenTelemetry server packages external so Turbopack doesn't
+  // mangle `require-in-the-middle` (used by Sentry's Node.js instrumentation).
+  serverExternalPackages: [
+    '@sentry/node',
+    'require-in-the-middle',
+    'import-in-the-middle',
+    '@opentelemetry/instrumentation',
+  ],
+
   // Static export for Capacitor offline bundle only
   ...(isCapacitorBuild && { output: "export" }),
 

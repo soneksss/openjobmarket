@@ -3,9 +3,6 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getLocaleFromPathname } from "./i18n/config";
 
-// Force Node.js runtime to avoid Edge Runtime warnings with Supabase
-export const runtime = 'nodejs';
-
 // Locales configuration
 const locales = ['en', 'pt-BR'] as const
 type Locale = typeof locales[number]

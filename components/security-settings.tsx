@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,7 +34,6 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
     e.preventDefault()
     setMessage(null)
 
-    // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
       setMessage({ type: "error", text: t('security.allFieldsRequired') })
       return
@@ -59,7 +57,6 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
     setIsLoading(true)
 
     try {
-      // First, verify current password by attempting to sign in
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: userEmail,
         password: currentPassword,
@@ -71,7 +68,6 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
         return
       }
 
-      // Update password
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword,
       })
@@ -80,7 +76,6 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
         setMessage({ type: "error", text: updateError.message || t('security.unexpectedError') })
       } else {
         setMessage({ type: "success", text: t('security.passwordUpdateSuccess') })
-        // Clear form
         setCurrentPassword("")
         setNewPassword("")
         setConfirmPassword("")
@@ -92,199 +87,176 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
     }
   }
 
-
   return (
-    <div className="space-y-6">
-      {/* Email Display */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center">
-            <Mail className="h-5 w-5 mr-2" />
-            {t('security.emailAddress')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium">
-              {t('security.yourEmail')}
+    <div className="space-y-4">
+
+      {/* Email Address */}
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Mail className="h-4 w-4 text-slate-400" />
+          <p className="text-sm font-semibold text-slate-200">{t('security.emailAddress')}</p>
+        </div>
+        <div className="flex items-center gap-2 p-3 bg-slate-700/50 rounded-xl border border-slate-600">
+          <Mail className="h-4 w-4 text-slate-500" />
+          <span className="text-sm font-medium text-slate-200">{userEmail}</span>
+        </div>
+        <p className="text-xs text-slate-500">{t('security.emailChangeMessage')}</p>
+      </div>
+
+      {/* Change Password */}
+      <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <Lock className="h-4 w-4 text-amber-400" />
+          <p className="text-sm font-semibold text-slate-200">{t('security.changePassword')}</p>
+        </div>
+
+        <form onSubmit={handlePasswordChange} className="space-y-4">
+          {/* Current Password */}
+          <div className="space-y-1.5">
+            <Label htmlFor="currentPassword" className="text-xs font-medium text-slate-400">
+              {t('security.currentPassword')}
             </Label>
-            <div className="flex items-center gap-2 p-3 bg-muted rounded-lg border">
-              <Mail className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm font-medium">{userEmail}</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {t('security.emailChangeMessage')}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Password Change */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center">
-            <Lock className="h-5 w-5 mr-2" />
-            {t('security.changePassword')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handlePasswordChange} className="space-y-4">
-            {/* Current Password */}
-            <div className="space-y-2">
-              <Label htmlFor="currentPassword" className="text-sm font-medium">
-                {t('security.currentPassword')}
-              </Label>
-              <div className="relative">
-                <Input
-                  id="currentPassword"
-                  type={showCurrentPassword ? "text" : "password"}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder={t('security.currentPasswordPlaceholder')}
-                  className="pr-10"
-                  disabled={isLoading}
-                  autoComplete="current-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* New Password */}
-            <div className="space-y-2">
-              <Label htmlFor="newPassword" className="text-sm font-medium">
-                {t('security.newPassword')}
-              </Label>
-              <div className="relative">
-                <Input
-                  id="newPassword"
-                  type={showNewPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder={t('security.newPasswordPlaceholder')}
-                  className="pr-10"
-                  disabled={isLoading}
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Confirm New Password */}
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-sm font-medium">
-                {t('security.confirmNewPassword')}
-              </Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder={t('security.confirmPasswordPlaceholder')}
-                  className="pr-10"
-                  disabled={isLoading}
-                  autoComplete="new-password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Message Alert */}
-            {message && (
-              <Alert variant={message.type === "error" ? "destructive" : "default"}>
-                {message.type === "success" ? (
-                  <CheckCircle className="h-4 w-4" />
-                ) : (
-                  <AlertCircle className="h-4 w-4" />
-                )}
-                <AlertDescription>{message.text}</AlertDescription>
-              </Alert>
-            )}
-
-            {/* Submit Button */}
-            <Button type="submit" disabled={isLoading} className="w-full">
-              {isLoading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                  {t('security.updatingPassword')}
-                </>
-              ) : (
-                <>
-                  <Lock className="h-4 w-4 mr-2" />
-                  {t('security.updatePassword')}
-                </>
-              )}
-            </Button>
-
-            {/* Password Requirements */}
-            <div className="mt-4 p-3 bg-muted rounded-lg">
-              <p className="text-xs font-medium mb-2">{t('security.passwordRequirements')}</p>
-              <ul className="text-xs text-muted-foreground space-y-1">
-                <li className="flex items-center gap-2">
-                  <div className="w-1 h-1 bg-muted-foreground rounded-full" />
-                  {t('security.requirementMinLength')}
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1 h-1 bg-muted-foreground rounded-full" />
-                  {t('security.requirementDifferent')}
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1 h-1 bg-muted-foreground rounded-full" />
-                  {t('security.requirementStrong')}
-                </li>
-              </ul>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      {/* Danger Zone - Delete Account */}
-      {!showDeletionFlow ? (
-        <Card className="border-destructive">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center text-destructive">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              {t('security.dangerZone')}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>
-                  <strong>{t('security.warningLabel')}</strong> {t('security.deletionWarning')}
-                </AlertDescription>
-              </Alert>
-
-              <Button
-                variant="destructive"
-                className="w-full"
-                onClick={() => setShowDeletionFlow(true)}
+            <div className="relative">
+              <Input
+                id="currentPassword"
+                type={showCurrentPassword ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder={t('security.currentPasswordPlaceholder')}
+                className="pr-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-amber-500/50"
+                disabled={isLoading}
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
               >
-                <Trash2 className="h-4 w-4 mr-2" />
-                {t('security.deleteAccountButton')}
-              </Button>
+                {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* New Password */}
+          <div className="space-y-1.5">
+            <Label htmlFor="newPassword" className="text-xs font-medium text-slate-400">
+              {t('security.newPassword')}
+            </Label>
+            <div className="relative">
+              <Input
+                id="newPassword"
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={t('security.newPasswordPlaceholder')}
+                className="pr-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-amber-500/50"
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Confirm New Password */}
+          <div className="space-y-1.5">
+            <Label htmlFor="confirmPassword" className="text-xs font-medium text-slate-400">
+              {t('security.confirmNewPassword')}
+            </Label>
+            <div className="relative">
+              <Input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t('security.confirmPasswordPlaceholder')}
+                className="pr-10 bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-amber-500/50"
+                disabled={isLoading}
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Message Alert */}
+          {message && (
+            <Alert variant={message.type === "error" ? "destructive" : "default"} className={message.type === "success" ? "bg-green-950/40 border-green-800/50 text-green-300" : ""}>
+              {message.type === "success" ? (
+                <CheckCircle className="h-4 w-4" />
+              ) : (
+                <AlertCircle className="h-4 w-4" />
+              )}
+              <AlertDescription>{message.text}</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Submit */}
+          <Button type="submit" disabled={isLoading} className="w-full bg-amber-500 hover:bg-amber-400 text-slate-900 font-semibold">
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-900 mr-2" />
+                {t('security.updatingPassword')}
+              </>
+            ) : (
+              <>
+                <Lock className="h-4 w-4 mr-2" />
+                {t('security.updatePassword')}
+              </>
+            )}
+          </Button>
+
+          {/* Password Requirements */}
+          <div className="p-3 bg-slate-700/40 rounded-xl">
+            <p className="text-xs font-medium mb-2 text-slate-300">{t('security.passwordRequirements')}</p>
+            <ul className="text-xs text-slate-500 space-y-1">
+              <li className="flex items-center gap-2">
+                <div className="w-1 h-1 bg-slate-500 rounded-full" />
+                {t('security.requirementMinLength')}
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1 h-1 bg-slate-500 rounded-full" />
+                {t('security.requirementDifferent')}
+              </li>
+              <li className="flex items-center gap-2">
+                <div className="w-1 h-1 bg-slate-500 rounded-full" />
+                {t('security.requirementStrong')}
+              </li>
+            </ul>
+          </div>
+        </form>
+      </div>
+
+      {/* Danger Zone */}
+      {!showDeletionFlow ? (
+        <div className="bg-red-950/20 border border-red-800/50 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-red-400" />
+            <p className="text-sm font-semibold text-red-400">{t('security.dangerZone')}</p>
+          </div>
+          <p className="text-xs text-slate-500">
+            <span className="text-red-400 font-medium">{t('security.warningLabel')}</span>{" "}
+            {t('security.deletionWarning')}
+          </p>
+          <Button
+            variant="destructive"
+            className="w-full bg-red-600/80 hover:bg-red-600 border border-red-500/30"
+            onClick={() => setShowDeletionFlow(true)}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            {t('security.deleteAccountButton')}
+          </Button>
+        </div>
       ) : (
         <AccountDeletionFlow
           userEmail={userEmail}

@@ -6,7 +6,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Bell, Mail, Phone, MessageSquare, Briefcase, AlertTriangle, Home, Building2, Wrench, Users, Globe, Languages, Zap } from "lucide-react"
+import { Bell, Mail, Phone, MessageSquare, AlertTriangle, Home, Wrench, Globe, Zap } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { toast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
@@ -52,9 +52,7 @@ interface NotificationPreference {
 }
 
 interface UserRoles {
-  is_jobseeker: boolean
   is_homeowner: boolean
-  is_employer: boolean
   is_tradespeople: boolean
 }
 
@@ -103,7 +101,7 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
       // Fetch user roles
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("is_jobseeker, is_homeowner, is_employer, is_tradespeople")
+        .select("is_homeowner, is_tradespeople")
         .eq("id", userId)
         .single()
 
@@ -154,7 +152,7 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
           phone_application_response: false,
           email_matching_jobs: userData.is_tradespeople,
           phone_matching_jobs: false,
-          email_job_matches: userData.is_jobseeker,
+          email_job_matches: false,
           phone_job_matches: false,
           email_marketing: false,
           phone_marketing: false,
@@ -327,46 +325,14 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
       ],
     },
     {
-      title: "Employer",
-      icon: Building2,
-      description: "Notifications for posted vacancies",
-      roleCheck: (roles) => roles.is_employer,
-      settings: [
-        {
-          label: "Vacancy Responses",
-          description: "When someone responds to your posted vacancy",
-          emailKey: "email_vacancy_response",
-          phoneKey: "phone_vacancy_response",
-        },
-        {
-          label: "Vacancy Expiration",
-          description: "When your posted vacancy is about to expire",
-          emailKey: "email_vacancy_expired",
-          phoneKey: "phone_vacancy_expired",
-        },
-      ],
-    },
-    {
       title: "Tradesperson",
       icon: Wrench,
       description: "Notifications for jobs and applications",
       roleCheck: (roles) => roles.is_tradespeople,
       settings: [
         {
-          label: "Vacancy Responses",
-          description: "When someone responds to your posted vacancy",
-          emailKey: "email_vacancy_response",
-          phoneKey: "phone_vacancy_response",
-        },
-        {
-          label: "Vacancy Expiration",
-          description: "When your posted vacancy is about to expire",
-          emailKey: "email_vacancy_expired",
-          phoneKey: "phone_vacancy_expired",
-        },
-        {
           label: "Application Responses",
-          description: "When someone responds to your application",
+          description: "When a homeowner responds to your application or quote",
           emailKey: "email_application_response",
           phoneKey: "phone_application_response",
         },
@@ -375,32 +341,6 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
           description: "New jobs matching your services within 10 miles radius",
           emailKey: "email_matching_jobs",
           phoneKey: "phone_matching_jobs",
-        },
-      ],
-    },
-    {
-      title: "Jobseeker",
-      icon: Users,
-      description: "Notifications for jobs and applications",
-      roleCheck: (roles) => roles.is_jobseeker,
-      settings: [
-        {
-          label: "Vacancy Responses",
-          description: "When someone responds to your posted vacancy",
-          emailKey: "email_vacancy_response",
-          phoneKey: "phone_vacancy_response",
-        },
-        {
-          label: "Application Responses",
-          description: "When someone responds to your application",
-          emailKey: "email_application_response",
-          phoneKey: "phone_application_response",
-        },
-        {
-          label: "Job Matches",
-          description: "New jobs matching your skills within 10 miles radius",
-          emailKey: "email_job_matches",
-          phoneKey: "phone_job_matches",
         },
       ],
     },
