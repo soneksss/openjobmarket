@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
 import { validateReview, sanitizeReviewText } from "@/lib/profanity-filter"
+import { revalidateTag, revalidatePath } from "next/cache"
 
 /**
  * GET /api/reviews
@@ -196,6 +197,10 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ error: "Failed to submit review" }, { status: 500 })
     }
+
+    // Bust the homeowner's cached review list so the new review appears immediately
+    revalidateTag(`reviews-user-${reviewedUserId}`)
+    revalidatePath("/dashboard/homeowner")
 
     // ── Fire-and-forget: notify the tradesperson ─────────────
     // Fetch job title + reviewer name in parallel (non-blocking)

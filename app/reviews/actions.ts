@@ -1,7 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/server"
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 
 interface SubmitReviewParams {
   revieweeId: string
@@ -95,6 +95,8 @@ export async function submitReview({
     revalidatePath("/dashboard/company")
     revalidatePath("/companies")
     revalidatePath("/messages")
+    // Bust the reviewee's cached review list (homeowner or company dashboard)
+    revalidateTag(`reviews-user-${revieweeId}`)
 
     return {
       success: true,

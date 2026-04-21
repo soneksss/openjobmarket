@@ -84,7 +84,7 @@ export function getHomeownerReviews(userId: string) {
         const { data: reviewsRaw } = await admin
           .from('reviews')
           .select('id, rating, comment, review_text, created_at, reviewer_id')
-          .eq('reviewed_id', userId)
+          .or(`reviewed_id.eq.${userId},reviewee_id.eq.${userId}`)
           .order('created_at', { ascending: false })
           .limit(20)
 
