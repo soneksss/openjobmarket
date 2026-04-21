@@ -1256,8 +1256,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     </div>
                     <input
                       type="range"
-                      min={2}
-                      max={50}
+                      min={1}
+                      max={20}
                       step={1}
                       value={sliderValue}
                       onChange={e => setSliderValue(Number(e.target.value))}
@@ -1572,8 +1572,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                           </div>
                           <input
                             type="range"
-                            min={2}
-                            max={50}
+                            min={1}
+                            max={20}
                             step={1}
                             value={sliderValue}
                             onChange={e => setSliderValue(Number(e.target.value))}

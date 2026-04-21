@@ -13,6 +13,7 @@ import { getAdminSettings } from "@/lib/bootstrap"
 import { cookies } from "next/headers"
 import { type Locale } from "@/lib/i18n/config"
 import CapacitorInitWrapper from "@/components/capacitor-init-wrapper"
+import { TradesLocationSync } from "@/components/trades-location-sync"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.openjobmarket.com"),
@@ -204,6 +205,8 @@ export default async function RootLayout({
         </FeatureFlagsProvider>
         {/* OTA updater + notifyAppReady — no-op outside Capacitor native context */}
         <CapacitorInitWrapper />
+        {/* Silently sync tradesperson lat/lng on every page load (web) */}
+        <TradesLocationSync />
       </body>
     </html>
   )

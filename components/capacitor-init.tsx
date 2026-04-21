@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect } from 'react'
+import { syncLocation } from '@/hooks/use-trades-location-sync'
 
 /**
  * CapacitorInit — native-shell initialisation, runs client-side only.
@@ -37,9 +38,14 @@ export function CapacitorInit() {
         // This resets the fail-safe rollback timer. Must be called on every launch.
         await CapacitorUpdater.notifyAppReady()
 
+        // STEP 1b: Sync tradesperson location on launch
+        syncLocation()
+
         // STEP 2: Check for updates when app is foregrounded.
         const handle = await App.addListener('appStateChange', async ({ isActive }) => {
           if (!isActive) return
+          // Re-sync location each time app comes to foreground
+          syncLocation()
           try {
             // The updater reads channelUrl from capacitor.config.ts automatically.
             // If the server returns a newer version, it downloads it in the background.

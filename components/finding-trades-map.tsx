@@ -34,6 +34,8 @@ export default function FindingTradesMap({
   const expandTimerRef   = useRef<any>(null)
   const tradeMarkersRef  = useRef<any[]>([])
   const currentRadiusMRef = useRef(searchRadiusMiles * 1609.34)
+  const userMarkerRef    = useRef<any>(null)
+  const userLocRef       = useRef<[number, number] | null>(null)
 
   /* ── initialise map once ── */
   useEffect(() => {
@@ -61,6 +63,66 @@ export default function FindingTradesMap({
       L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", { maxZoom: 19 }).addTo(map)
       L.control.zoom({ position: "bottomright" }).addTo(map)
       mapRef.current = map
+
+      /* ── user location dot ── */
+      if (typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (!mapRef.current) return
+            const uLat = pos.coords.latitude
+            const uLng = pos.coords.longitude
+            userLocRef.current = [uLat, uLng]
+
+            const userIcon = L.divIcon({
+              html: `<div style="
+                width:14px;height:14px;border-radius:50%;
+                background:#2563eb;
+                border:2.5px solid #fff;
+                box-shadow:0 0 0 4px rgba(37,99,235,0.22),0 2px 6px rgba(0,0,0,.5);
+              "></div>`,
+              iconSize: [14, 14],
+              iconAnchor: [7, 7],
+              className: "",
+            })
+
+            userMarkerRef.current = L.marker([uLat, uLng], { icon: userIcon, zIndexOffset: -100 })
+              .addTo(mapRef.current)
+              .bindPopup("<b>Your location</b>")
+          },
+          () => {},
+          { timeout: 8000, maximumAge: 5 * 60 * 1000 },
+        )
+      }
+
+      /* ── "My location" re-center button ── */
+      const MyLocControl = L.Control.extend({
+        options: { position: "bottomleft" },
+        onAdd() {
+          const btn = L.DomUtil.create("button")
+          btn.innerHTML = "📍 My location"
+          btn.style.cssText = [
+            "background:#1e293b",
+            "color:#e2e8f0",
+            "border:1px solid #334155",
+            "padding:5px 10px",
+            "border-radius:8px",
+            "font-size:11px",
+            "font-weight:500",
+            "cursor:pointer",
+            "box-shadow:0 2px 8px rgba(0,0,0,.5)",
+            "margin-bottom:8px",
+            "display:block",
+          ].join(";")
+          L.DomEvent.on(btn, "click", L.DomEvent.stopPropagation)
+          L.DomEvent.on(btn, "click", () => {
+            if (userLocRef.current && mapRef.current) {
+              mapRef.current.setView(userLocRef.current, Math.max(mapRef.current.getZoom(), 14), { animate: true })
+            }
+          })
+          return btn
+        },
+      })
+      new MyLocControl().addTo(map)
 
       /* ── job location pin ── */
       const jobIcon = L.divIcon({
@@ -167,6 +229,8 @@ export default function FindingTradesMap({
       if (pulseTimerRef.current) clearInterval(pulseTimerRef.current)
       if (expandTimerRef.current) clearInterval(expandTimerRef.current)
       if (mapRef.current) { mapRef.current.remove(); mapRef.current = null }
+      userMarkerRef.current = null
+      userLocRef.current = null
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

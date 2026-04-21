@@ -58,76 +58,74 @@ body {
 }
 
 :root {
-  /* Updated to blue-focused color scheme, eliminating black colors */
-  --background: #ffffff; /* Clean white for backgrounds */
-  --foreground: #1e40af; /* Strong blue for main text instead of gray */
-  --card: rgb(255, 255, 255); /* Very light blue for card backgrounds */
-  --card-foreground: #1d4ed8; /* Bright blue for card text */
-  --popover: #ffffff; /* White for popover backgrounds */
-  --popover-foreground: #1e40af; /* Blue for popover text */
-  --primary: rgb(34, 86, 199); /* Vibrant blue for primary actions */
-  --primary-foreground: #ffffff; /* White text on primary buttons */
-  --secondary: #3b82f6; /* Medium blue for secondary actions */
-  --secondary-foreground: #ffffff; /* White text on secondary buttons */
-  --muted: #f8fafc; /* Very light blue-gray for muted backgrounds */
-  --muted-foreground: #64748b; /* Blue-gray for muted text */
-  --accent: #1d4ed8; /* Bright blue for links and highlights */
-  --accent-foreground: #ffffff; /* White text on accent elements */
-  --destructive: #dc2626; /* Red for error states */
-  --destructive-foreground: #ffffff; /* White text on error elements */
-  --border: #e2e8f0; /* Light blue-gray for borders */
-  --input: #f8fafc; /* Light blue-gray background for input fields */
-  --ring: #2563eb; /* Vibrant blue for focus rings */
-  --chart-1: #2563eb; /* Vibrant blue for charts */
-  --chart-2: #3b82f6; /* Medium blue for charts */
-  --chart-3: #60a5fa; /* Light blue for charts */
-  --chart-4: #93c5fd; /* Very light blue for charts */
-  --chart-5: #dbeafe; /* Pale blue for charts */
-  --radius: 0.5rem; /* Rounded corners for modern look */
-  --sidebar: #ffffff; /* White sidebar background */
-  --sidebar-foreground: #1e40af; /* Blue sidebar text */
-  --sidebar-primary: #2563eb; /* Vibrant blue for primary sidebar actions */
-  --sidebar-primary-foreground: #ffffff; /* White text on primary sidebar elements */
-  --sidebar-accent: #1d4ed8; /* Bright blue for sidebar accents */
-  --sidebar-accent-foreground: #ffffff; /* White text on sidebar accents */
-  --sidebar-border: #e2e8f0; /* Light blue-gray sidebar borders */
-  --sidebar-ring: #2563eb; /* Vibrant blue focus rings in sidebar */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --popover: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #0f172a;
+  --primary-foreground: #f8fafc;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0f172a;
+  --chart-1: #10b981;
+  --chart-2: #3b82f6;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ef4444;
+  --radius: 0.5rem;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #0f172a;
+  --sidebar-primary: #0f172a;
+  --sidebar-primary-foreground: #f8fafc;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #0f172a;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #0f172a;
 }
 
 .dark {
-  /* Updated dark mode to use blue tones instead of black */
-  --background: #0f172a; /* Deep blue background instead of black */
-  --foreground: #e2e8f0; /* Light blue-gray text */
-  --card: #1e293b; /* Dark blue-gray for cards */
-  --card-foreground: #e2e8f0; /* Light blue-gray card text */
-  --popover: #1e293b; /* Dark blue-gray for popovers */
-  --popover-foreground: #e2e8f0; /* Light blue-gray popover text */
-  --primary: #3b82f6; /* Medium blue for dark mode visibility */
-  --primary-foreground: #ffffff; /* White text on bright buttons */
-  --secondary: #1e40af; /* Strong blue for secondary actions */
-  --secondary-foreground: #ffffff; /* White text on secondary buttons */
-  --muted: #334155; /* Medium blue-gray for muted backgrounds */
-  --muted-foreground: #94a3b8; /* Light blue-gray for muted text */
-  --accent: #60a5fa; /* Light blue for accents */
-  --accent-foreground: #0f172a; /* Dark blue text on accent elements */
-  --destructive: #ef4444; /* Bright red for visibility */
-  --destructive-foreground: #ffffff; /* White text on red */
-  --border: #334155; /* Medium blue-gray borders */
-  --input: #1e293b; /* Dark blue-gray input backgrounds */
-  --ring: #3b82f6; /* Medium blue focus rings */
-  --chart-1: #3b82f6; /* Medium blue for charts */
-  --chart-2: #60a5fa; /* Light blue for charts */
-  --chart-3: #93c5fd; /* Very light blue for charts */
-  --chart-4: #1e40af; /* Strong blue for charts */
-  --chart-5: #ef4444; /* Red accent for charts */
-  --sidebar: #1e293b; /* Dark blue-gray sidebar */
-  --sidebar-foreground: #e2e8f0; /* Light blue-gray text */
-  --sidebar-primary: #3b82f6; /* Medium blue for primary actions */
-  --sidebar-primary-foreground: #ffffff; /* White text */
-  --sidebar-accent: #60a5fa; /* Light blue accents */
-  --sidebar-accent-foreground: #0f172a; /* Dark blue text */
-  --sidebar-border: #334155; /* Medium blue-gray borders */
-  --sidebar-ring: #3b82f6; /* Medium blue focus rings */
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --card: #1e293b;
+  --card-foreground: #f8fafc;
+  --popover: #1e293b;
+  --popover-foreground: #f8fafc;
+  --primary: #f8fafc;
+  --primary-foreground: #0f172a;
+  --secondary: #1e293b;
+  --secondary-foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #334155;
+  --input: #1e293b;
+  --ring: #94a3b8;
+  --chart-1: #10b981;
+  --chart-2: #3b82f6;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ef4444;
+  --sidebar: #1e293b;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #f8fafc;
+  --sidebar-primary-foreground: #0f172a;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #334155;
+  --sidebar-ring: #94a3b8;
 }
 
 

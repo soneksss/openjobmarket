@@ -382,23 +382,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                   Map
                 </Link>
               )}
-              {/* Language & Region Selector - Hidden when user is signed in */}
-              {!currentUser && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={openLanguageModal}
-                  className={`flex items-center gap-1.5 px-2 sm:px-3 py-1 sm:py-2 ${dark ? "hover:bg-white/10" : "hover:bg-accent"}`}
-                  aria-label="Change language and region"
-                >
-                  <Globe className={`h-4 w-4 ${dark ? "text-slate-300" : "text-gray-600"}`} />
-                  {isMounted && (
-                    <span className={`hidden sm:inline text-xs sm:text-sm ${dark ? "text-slate-300" : "text-gray-700"}`}>
-                      {getDisplayText(languageRegionState)}
-                    </span>
-                  )}
-                </Button>
-              )}
+              {/* Language & Region Selector - temporarily hidden (English only for now) */}
 
               {isLoading ? (
                 <div className="flex items-center space-x-2">
@@ -419,8 +403,8 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                         "/dashboard"
                       )}>{t('header.dashboard')}</Link>
                     </Button>
-                    {/* Live Map — desktop, homepage only */}
-                    {pathname === getLocalePath("/") && (currentUserType === "homeowner" || !currentUserType) && (
+                    {/* Live Map — desktop, homepage only — homeowners and logged-out users only */}
+                    {pathname === getLocalePath("/") && currentUserType !== "company" && currentUserType !== "admin" && (currentUserType === "homeowner" || !currentUser) && (
                       <Button
                         asChild
                         size="sm"

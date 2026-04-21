@@ -2704,7 +2704,7 @@ function ProfessionalsPageContent({
       {(isFullScreenMode || isModal) && (
         <div className={`fixed inset-0 z-[9999] flex flex-col overflow-hidden h-screen max-h-screen ${isModal ? 'bg-slate-900' : 'bg-white'}`}>
           {/* Site Header - show in both full-screen and modal mode */}
-          <Header user={currentUser} isModal={isModal} onModalClose={onModalClose} dark={true} />
+          <Header user={currentUser} userType={(currentUserType as "company" | "professional" | undefined) ?? undefined} isModal={isModal} onModalClose={onModalClose} dark={true} />
 
           {/* ── Map fills full remaining height, search floats over it ── */}
           <div className="flex-1 relative overflow-hidden flex flex-col">

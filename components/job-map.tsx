@@ -195,6 +195,54 @@ const ViewportHandler = dynamic(
   { ssr: false },
 )
 
+// Blue "you are here" dot + re-center logic — rendered inside MapContainer
+const UserLocationDot = dynamic(
+  () =>
+    Promise.all([import("react-leaflet"), import("react")]).then(([leafletMod, reactMod]) => {
+      const { CircleMarker, Popup, useMap } = leafletMod
+      const { useEffect } = reactMod
+
+      function UserLocationDotComponent({
+        location,
+        recenterTrigger,
+      }: {
+        location: [number, number]
+        recenterTrigger: number
+      }) {
+        const map = useMap()
+
+        useEffect(() => {
+          if (recenterTrigger === 0) return
+          map.setView(location, Math.max(map.getZoom(), 14), { animate: true })
+        }, [recenterTrigger]) // eslint-disable-line react-hooks/exhaustive-deps
+
+        return (
+          <>
+            {/* Outer translucent halo */}
+            <CircleMarker
+              center={location}
+              radius={11}
+              pathOptions={{ color: "#2563eb", fillColor: "#2563eb", fillOpacity: 0.15, weight: 1, opacity: 0.35 }}
+              {...({} as any)}
+            />
+            {/* Inner solid dot */}
+            <CircleMarker
+              center={location}
+              radius={6}
+              pathOptions={{ color: "#fff", fillColor: "#2563eb", fillOpacity: 1, weight: 2.5 }}
+              {...({} as any)}
+            >
+              <Popup {...({} as any)}>Your location</Popup>
+            </CircleMarker>
+          </>
+        )
+      }
+
+      return UserLocationDotComponent
+    }),
+  { ssr: false },
+)
+
 // Component to center map on selected job
 const JobCenterer = dynamic(
   () =>
@@ -294,6 +342,18 @@ export function JobMap({
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [tilesReady, setTilesReady] = useState(false)
   const tileLoadCount = useRef(0)
+
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+  const [recenterTrigger, setRecenterTrigger] = useState(0)
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !navigator?.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
+      () => {},
+      { timeout: 8000, maximumAge: 5 * 60 * 1000 },
+    )
+  }, [])
 
   // Viewport search state — populated after first moveend/zoomend when enabled
   const [viewportJobs, setViewportJobs] = useState<Job[]>([])
@@ -502,7 +562,23 @@ export function JobMap({
 
         {/* Map click handler component */}
         {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
+
+        {/* User location dot */}
+        {userLocation && (
+          <UserLocationDot location={userLocation} recenterTrigger={recenterTrigger} />
+        )}
       </MapContainer>
+
+      {/* My location button — only shown when we have GPS */}
+      {userLocation && (
+        <button
+          onClick={() => setRecenterTrigger((t) => t + 1)}
+          title="Centre map on my location"
+          className="absolute bottom-14 right-3 z-[1000] bg-white hover:bg-slate-50 text-slate-700 text-[11px] font-medium px-2.5 py-1.5 rounded-lg shadow-md border border-slate-200 flex items-center gap-1 transition-colors"
+        >
+          <span style={{ fontSize: "12px" }}>📍</span> My location
+        </button>
+      )}
     </div>
   )
 }
