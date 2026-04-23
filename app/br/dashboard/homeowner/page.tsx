@@ -16,6 +16,11 @@ export default async function HomeownerDashboardPageBR() {
     redirect("/auth/login?locale=pt-BR&returnUrl=/br/dashboard/homeowner")
   }
 
+  // Guard: redirect non-homeowners to their correct dashboard
+  const { data: userData } = await supabase.from("users").select("user_type").eq("id", user.id).single()
+  if (userData?.user_type === "company") redirect("/br/dashboard/company")
+  if (userData?.user_type === "professional") redirect("/br/dashboard/company")
+
   // Get homeowner profile
   const { data: profile, error: profileError } = await supabase
     .from("homeowner_profiles")

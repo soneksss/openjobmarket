@@ -21,6 +21,11 @@ export default async function HomeownerDashboardPage() {
 
   if (!user) redirect("/auth/login")
 
+  // Guard: redirect non-homeowners to their correct dashboard
+  const { data: userData } = await supabase.from("users").select("user_type").eq("id", user.id).single()
+  if (userData?.user_type === "company") redirect("/dashboard/company")
+  if (userData?.user_type === "professional") redirect("/dashboard/company")
+
   // Bootstrap: adminSettings + future featureFlags/permissions (cached, shared across requests)
   await getDashboardBootstrap(user.id)
 
