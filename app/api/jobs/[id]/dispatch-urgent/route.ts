@@ -311,6 +311,9 @@ async function setDispatchLifecycle(
       patch.dispatch_started_at = new Date().toISOString()
       patch.dispatch_expires_at = new Date(Date.now() + 60 * 60 * 1000).toISOString() // +1 hour
       patch.search_started_at   = new Date().toISOString()
+      // Reset deadline_at so the apply_to_job trigger doesn't reject applications
+      patch.deadline_at         = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+      patch.matching_status     = 'searching'
       // Seed next_expand_at: first tier (≤3mi) waits 15 min before expanding to 5mi
       patch.next_expand_at      = new Date(Date.now() + 15 * 60 * 1000).toISOString()
     }

@@ -10,6 +10,7 @@
  */
 
 import { sendWebPushToUser } from "@/lib/web-push"
+import { sendFcmToTokens } from "@/lib/firebase-admin"
 
 type AdminClient = ReturnType<typeof import("@/lib/server").createAdminClient>
 
@@ -68,12 +69,16 @@ export async function notifyOne(
     .select("token, device_type")
     .eq("user_id", userId)
 
-  // Only Web Push tokens (JSON subscription objects) go through web-push lib.
-  // FCM tokens (device_type='fcm') require Firebase Admin SDK — not yet wired.
-  // Storing them now so FCM sending can be added without a DB migration.
-  const tokens = (tokenRows ?? [])
+  const webTokens = (tokenRows ?? [])
     .filter((r: { token: string; device_type: string }) => r.device_type === "web")
     .map((r: { token: string; device_type: string }) => r.token)
+
+  const fcmTokens = (tokenRows ?? [])
+    .filter((r: { token: string; device_type: string }) => r.device_type === "fcm")
+    .map((r: { token: string; device_type: string }) => r.token)
+
+  // Keep existing variable name for the web-push block below
+  const tokens = webTokens
 
   // Mark attempted before calling the push service
   await admin
@@ -121,6 +126,40 @@ export async function notifyOne(
         .eq("job_id", jobId)
         .eq("company_id", companyProfileId)
       console.error(`[DISPATCH-NOTIFY] Push error company=${companyProfileId}: ${msg}`)
+    }
+  }
+
+  // ── 4. FCM push (Android / iOS) ──────────────────────────────────────────
+  if (fcmTokens.length > 0) {
+    try {
+      const { sent: fcmSent, failed: fcmFailed } = await sendFcmToTokens(fcmTokens, {
+        title,
+        body: body.replace(" — first come, first served.", "."),
+        url:  jobUrl,
+        tag:  `urgent-job-${jobId}`,
+      })
+
+      // Remove stale FCM tokens
+      if (fcmFailed.length > 0) {
+        await admin.from("user_push_tokens").delete().in("token", fcmFailed)
+      }
+
+      // Only update push_sent if web-push didn't already mark it true
+      if (tokens.length === 0) {
+        await admin
+          .from("urgent_job_dispatch_alerts")
+          .update(
+            fcmSent > 0
+              ? { push_sent: true, push_sent_at: new Date().toISOString(), push_error: null }
+              : { push_sent: false, push_error: "all_fcm_tokens_failed" }
+          )
+          .eq("job_id", jobId)
+          .eq("company_id", companyProfileId)
+      }
+
+      console.log(`[DISPATCH-NOTIFY] FCM sent=${fcmSent} failed=${fcmFailed.length} company=${companyProfileId}`)
+    } catch (err: any) {
+      console.error(`[DISPATCH-NOTIFY] FCM error company=${companyProfileId}: ${err?.message}`)
     }
   }
 

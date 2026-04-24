@@ -120,7 +120,7 @@ export function JobCountdownTimer({
               </div>
               <p className="text-xs text-slate-400">
                 {m > 0
-                  ? `Homeowner needs a tradesperson in the next ${m} min ${s} sec`
+                  ? `Homeowner needs a tradesperson in the next ${m} min`
                   : `Less than a minute left — respond now!`}
               </p>
               {isUrgent && (

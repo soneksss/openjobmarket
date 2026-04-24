@@ -223,10 +223,11 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
     const postcodeMatch = fullAddress.match(postcodeRegex)
     const postcode = postcodeMatch ? postcodeMatch[0] : null
 
-    // Return simplified format: "Street, Postcode"
-    if (street && postcode) {
+    // Return simplified format: "Street, Postcode" (skip street if it IS the postcode)
+    if (street && postcode && street.toUpperCase() !== postcode.toUpperCase()) {
       return `${street}, ${postcode}`
     }
+    if (postcode) return postcode
 
     // Fallback to just street if no postcode found
     return street || fullAddress
@@ -625,11 +626,11 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               {job.is_tradespeople_job && job.urgency_type && timeRemaining && (
                 <div className="flex items-center gap-2 mb-2">
                   <div
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold tabular-nums ${
                       isExpired
                         ? "bg-gray-100 text-gray-500"
                         : job.urgency_type === "asap"
-                        ? "bg-red-100 text-red-700 animate-pulse"
+                        ? "bg-red-100 text-red-700"
                         : job.urgency_type === "today"
                         ? "bg-orange-100 text-orange-700"
                         : "bg-blue-100 text-blue-700"
