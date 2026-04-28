@@ -9,16 +9,11 @@ import { syncLocation } from '@/hooks/use-trades-location-sync'
  * Module-level flag ensures this runs exactly once per app session regardless
  * of React re-renders, Strict Mode double-invocation, or route changes.
  *
- * Update strategy:
- *   - notifyAppReady() resets Capgo's fail-safe rollback timer (REQUIRED).
- *   - autoUpdate:true in capacitor.config.ts handles OTA checks automatically
- *     via our custom /api/updates/channel endpoint — no manual getLatest() call.
- *   - getLatest() was removed: it hits Capgo's cloud API (not channelUrl) and
- *     caused 429 rate-limit errors when called on every foreground event.
- *
- * Notification tap:
- *   - Capacitor queues pushNotificationActionPerformed so it fires even on
- *     cold start (app was killed). The listener just needs to be registered.
+ * Notification deep linking priority:
+ *   1. data.type === 'job' + data.jobId  → /jobs/:id  (explicit, preferred)
+ *   2. data.url                          → path from URL (fallback)
+ *   Capacitor queues pushNotificationActionPerformed so cold-start taps
+ *   (app was killed) are delivered once the listener is registered.
  */
 
 let appInitialized = false
@@ -38,37 +33,42 @@ export function CapacitorInit() {
         const { App }               = await import('@capacitor/app')
         const { PushNotifications } = await import('@capacitor/push-notifications')
 
-        // ── 1. Mark bundle as healthy — MUST be called on every launch ───────────
-        // Without this, Capgo rolls back to the previous bundle after ~10 seconds.
+        // ── 1. Mark bundle as healthy (REQUIRED — prevents Capgo rollback) ────────
         await CapacitorUpdater.notifyAppReady()
 
-        // ── 2. OTA updates are handled automatically by autoUpdate:true ──────────
-        // No manual getLatest() here — that method targets Capgo's cloud API and
-        // causes 429 errors. Our custom channelUrl is used by autoUpdate only.
+        // ── 2. OTA handled by autoUpdate:true + custom channelUrl ─────────────────
+        // No getLatest() call — it targets Capgo's cloud (rate limited, 429).
 
         // ── 3. Location sync on launch ───────────────────────────────────────────
         syncLocation()
 
-        // ── 4. Foreground — location sync only, zero update calls ────────────────
+        // ── 4. Foreground — location sync only ───────────────────────────────────
         const appHandle = await App.addListener('appStateChange', ({ isActive }) => {
           if (isActive) syncLocation()
         })
         cleanupFns.push(() => appHandle.remove())
 
-        // ── 5. Notification tap → navigate to embedded URL ───────────────────────
-        // Works for both cold start (Capacitor queues the event) and background.
-        // Uses replace() so the user can use Back normally after navigating.
+        // ── 5. Notification tap — deep link into the correct screen ──────────────
+        // Works for cold start AND background resume (Capacitor queues the event).
         const pushHandle = await PushNotifications.addListener(
           'pushNotificationActionPerformed',
           (action) => {
             try {
-              const url: string | undefined = action.notification?.data?.url
-              if (!url) return
-              const parsed = new URL(url)
-              // Stay within the webview: navigate by path only, not full origin
-              window.location.replace(parsed.pathname + parsed.search)
+              const data = action.notification?.data
+
+              // Priority 1: explicit type + id deep link
+              if (data?.type === 'job' && data?.jobId) {
+                window.location.replace(`/jobs/${data.jobId}`)
+                return
+              }
+
+              // Priority 2: URL-based fallback (keep path only, strip origin)
+              if (data?.url) {
+                const parsed = new URL(data.url)
+                window.location.replace(parsed.pathname + parsed.search)
+              }
             } catch {
-              // Malformed URL in notification payload — ignore safely
+              // Missing or invalid payload — ignore safely, app stays on current screen
             }
           }
         )

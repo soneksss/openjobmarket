@@ -42,7 +42,7 @@ export function getFirebaseAdmin(): admin.app.App | null {
  */
 export async function sendFcmToTokens(
   tokens: string[],
-  payload: { title: string; body: string; url?: string; tag?: string }
+  payload: { title: string; body: string; url?: string; tag?: string; jobId?: string }
 ): Promise<{ sent: number; failed: string[] }> {
   if (tokens.length === 0) return { sent: 0, failed: [] }
 
@@ -67,8 +67,10 @@ export async function sendFcmToTokens(
             body:  payload.body,
           },
           data: {
-            url: payload.url ?? "",
-            tag: payload.tag ?? "",
+            url:   payload.url   ?? "",
+            tag:   payload.tag   ?? "",
+            type:  payload.jobId ? "job" : "",
+            jobId: payload.jobId ?? "",
           },
           android: {
             notification: {

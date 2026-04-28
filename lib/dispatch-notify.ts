@@ -134,9 +134,10 @@ export async function notifyOne(
     try {
       const { sent: fcmSent, failed: fcmFailed } = await sendFcmToTokens(fcmTokens, {
         title,
-        body: body.replace(" — first come, first served.", "."),
-        url:  jobUrl,
-        tag:  `urgent-job-${jobId}`,
+        body:  body.replace(" — first come, first served.", "."),
+        url:   jobUrl,
+        tag:   `urgent-job-${jobId}`,
+        jobId,
       })
 
       // Remove stale FCM tokens
