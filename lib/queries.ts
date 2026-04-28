@@ -25,7 +25,7 @@ export function getHomepageUserData(userId: string) {
     async () => {
       try {
         const admin = createAdminClient()
-        const [{ data: userData }, { data: cp }, { data: pp }] = await Promise.all([
+        const [{ data: userData }, { data: cp }, { data: pp }, { data: hp }] = await Promise.all([
           admin.from('users').select('user_type').eq('id', userId).single(),
           admin
             .from('company_profiles')
@@ -37,8 +37,13 @@ export function getHomepageUserData(userId: string) {
             .select('location, latitude, longitude, skills, title')
             .eq('user_id', userId)
             .maybeSingle(),
+          admin
+            .from('homeowner_profiles')
+            .select('location, latitude, longitude')
+            .eq('user_id', userId)
+            .maybeSingle(),
         ])
-        return { userData, cp, pp }
+        return { userData, cp, pp, hp }
       } catch (err) {
         console.error('[queries] getHomepageUserData failed:', err)
         return { userData: null, cp: null, pp: null }

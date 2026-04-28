@@ -148,7 +148,7 @@ export const getHomePageBootstrap = cache(async (user: any): Promise<HomePageBoo
   }
 
   try {
-    const { userData, cp, pp } = await getHomepageUserData(user.id)
+    const { userData, cp, pp, hp } = await getHomepageUserData(user.id)
     const userType = userData?.user_type ?? null
 
     let profileLocation: HomePageBootstrap['profileLocation'] = null
@@ -160,6 +160,9 @@ export const getHomePageBootstrap = cache(async (user: any): Promise<HomePageBoo
       profileLocation = { location: cp.location ?? '', latitude: cp.latitude, longitude: cp.longitude }
     } else if (pp?.latitude && pp?.longitude) {
       profileLocation = { location: pp.location ?? '', latitude: pp.latitude, longitude: pp.longitude }
+    } else if (hp?.latitude && hp?.longitude) {
+      // Homeowner searching for tradespeople — use their registered address as map centre
+      profileLocation = { location: hp.location ?? '', latitude: hp.latitude, longitude: hp.longitude }
     }
 
     if (cp) {

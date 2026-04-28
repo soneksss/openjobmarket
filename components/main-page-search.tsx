@@ -695,17 +695,35 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         setDistance(radiusParam || "10")
         setRestoreSearch(searchTypeToUse)
       } else if (tab === 'traders') {
-        // Live Map opened — centre on profile location, fall back to Portsmouth + 5mi
+        // Live Map — use profile location (homeowner or tradesperson), then try geolocation, then UK-wide fallback
         if (profileLocation?.latitude && profileLocation?.longitude) {
           setSelectedLocation({ lat: profileLocation.latitude, lon: profileLocation.longitude })
           setLocation(profileLocation.location || "Your area")
           setDistance(radiusParam || "10")
+          setRestoreSearch(searchTypeToUse)
+        } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              setSelectedLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+              setLocation("Near you")
+              setDistance(radiusParam || "25")
+              setRestoreSearch(searchTypeToUse)
+            },
+            () => {
+              // Geolocation denied — UK-wide fallback
+              setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
+              setLocation("United Kingdom")
+              setDistance("150")
+              setRestoreSearch(searchTypeToUse)
+            },
+            { timeout: 5000, maximumAge: 60000 }
+          )
         } else {
-          setSelectedLocation(PORTSMOUTH)
-          setLocation("Portsmouth, UK")
-          setDistance("5")
+          setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
+          setLocation("United Kingdom")
+          setDistance("150")
+          setRestoreSearch(searchTypeToUse)
         }
-        setRestoreSearch(searchTypeToUse)
       } else if (tab === 'jobs_tasks' && typeof navigator !== 'undefined' && navigator.geolocation) {
         // No profile coords — try browser geolocation as fallback
         navigator.geolocation.getCurrentPosition(
