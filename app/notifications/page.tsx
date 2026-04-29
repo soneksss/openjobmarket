@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -98,6 +98,12 @@ export default function NotificationsPage() {
   const [selectMode, setSelectMode]       = useState(false)
   const [selected, setSelected]           = useState<Set<string>>(new Set())
   const [deleting, setDeleting]           = useState<Set<string>>(new Set())
+  // Per-tab visible count — persists across tab switches (no reset jitter)
+  const [visibleCounts, setVisibleCounts] = useState<Record<"inbox" | "history", number>>({ inbox: 20, history: 20 })
+  const [hasMoreFromDb, setHasMoreFromDb] = useState(false)
+  const [loadingMore, setLoadingMore]     = useState(false)
+  const lastCursorRef = useRef<string | null>(null)
+  const userIdRef     = useRef<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -112,6 +118,7 @@ export default function NotificationsPage() {
         (async () => {
           const { data: { user } } = await supabase.auth.getUser()
           if (!user) { router.push("/auth/login"); return }
+          userIdRef.current = user.id
 
           const { data, error } = await supabase
             .from("notifications")
@@ -127,6 +134,8 @@ export default function NotificationsPage() {
 
           const notifs: Notification[] = data || []
           setNotifications(notifs)
+          setHasMoreFromDb(notifs.length === 50)
+          lastCursorRef.current = notifs.at(-1)?.created_at ?? null
 
           // Mark ALL unread notifications as read — use a where clause, not ID list,
           // so notifications beyond the 50-item fetch limit are also cleared.
@@ -178,6 +187,55 @@ export default function NotificationsPage() {
       window.removeEventListener("focus", onFocus)
     }
   }, [load])
+
+  /* ── cursor-based load more from DB ── */
+  const loadMore = useCallback(async () => {
+    if (!lastCursorRef.current || !userIdRef.current || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const { data } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", userIdRef.current)
+        .lt("created_at", lastCursorRef.current)
+        .order("created_at", { ascending: false })
+        .limit(50)
+
+      const newNotifs: Notification[] = data || []
+
+      // Fetch job statuses for newly loaded job-linked notifications
+      const jobIds = new Set<string>()
+      for (const n of newNotifs) {
+        if (JOB_NOTIF_TYPES.has(n.type)) {
+          const jobId = extractJobId(getActionUrl(n))
+          if (jobId) jobIds.add(jobId)
+        }
+      }
+      if (jobIds.size > 0) {
+        const { data: jobs } = await supabase
+          .from("jobs")
+          .select("id, status, is_active, expires_at")
+          .in("id", [...jobIds])
+        if (jobs?.length) {
+          setJobMap(prev => {
+            const next = { ...prev }
+            for (const j of jobs) {
+              next[j.id] = { status: j.status, is_active: j.is_active, expires_at: j.expires_at }
+            }
+            return next
+          })
+        }
+      }
+
+      setNotifications(prev => [...prev, ...newNotifs])
+      setHasMoreFromDb(newNotifs.length === 50)
+      lastCursorRef.current = newNotifs.at(-1)?.created_at ?? lastCursorRef.current
+    } catch (err) {
+      console.error("[NOTIFICATIONS] loadMore error:", err)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore])
 
   /* ── helpers ── */
   function isExpiredNotif(n: Notification): boolean {
@@ -382,7 +440,7 @@ export default function NotificationsPage() {
                 Past notifications for jobs that are no longer active.
               </p>
             )}
-            {displayNotifs.map((n) => {
+            {displayNotifs.slice(0, visibleCounts[tab]).map((n) => {
               const isUrgent   = n.type === "urgent_job_dispatch" || n.type === "trade_job_match"
               const jobPageUrl = getJobPageUrl(n)
               const isSelected = selected.has(n.id)
@@ -488,6 +546,26 @@ export default function NotificationsPage() {
                 </div>
               )
             })}
+
+            {/* Show more already-fetched items without a network request */}
+            {visibleCounts[tab] < displayNotifs.length && (
+              <button
+                onClick={() => setVisibleCounts(prev => ({ ...prev, [tab]: prev[tab] + 20 }))}
+                className="w-full py-2.5 text-sm text-slate-400 hover:text-slate-200 border border-slate-700/50 rounded-xl hover:bg-slate-800/60 transition-colors"
+              >
+                Show more ({displayNotifs.length - visibleCounts[tab]} remaining)
+              </button>
+            )}
+            {/* Fetch next page from DB once all local items are visible */}
+            {visibleCounts[tab] >= displayNotifs.length && hasMoreFromDb && (
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="w-full py-2.5 text-sm text-slate-400 hover:text-slate-200 border border-slate-700/50 rounded-xl hover:bg-slate-800/60 transition-colors disabled:opacity-40"
+              >
+                {loadingMore ? "Loading…" : "Load more"}
+              </button>
+            )}
           </div>
         )}
 

@@ -176,7 +176,11 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
         } catch {
           setClientUser(session.user)
         }
-      } else if (event === 'SIGNED_OUT') {
+      } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESH_FAILED') {
+        if (event === 'TOKEN_REFRESH_FAILED') {
+          // Stale/revoked refresh token — clear corrupt session silently
+          supabase.auth.signOut().catch(() => {})
+        }
         setClientUser(null)
         setClientUserType(undefined)
         setIsAdmin(false)

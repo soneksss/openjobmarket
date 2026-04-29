@@ -1042,9 +1042,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       if (type === "traders") {
         setSearchProgress("Searching for traders and contractors...")
 
-        const rpcLat    = selectedLocation?.lat ?? mapCenter[0]
-        const rpcLon    = selectedLocation?.lon ?? mapCenter[1]
-        const rpcRadius = parseInt(effectiveDistance) || 25
+        const isGuest = !user
+        const rpcLat    = isGuest ? 50.8058 : (selectedLocation?.lat ?? mapCenter[0])
+        const rpcLon    = isGuest ? -1.0872 : (selectedLocation?.lon ?? mapCenter[1])
+        const rpcRadius = isGuest ? 5 : (parseInt(effectiveDistance) || 25)
+        const rpcLimit  = isGuest ? 20 : RESULT_LIMIT + 1
         const rpcSearch = searchQuery.trim() || null
         const rpcLang   = (spokenLanguage && spokenLanguage !== "all") ? spokenLanguage : null
 
@@ -1057,7 +1059,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               p_radius_miles: rpcRadius,
               p_search:       rpcSearch,
               p_language:     rpcLang,
-              p_limit:        RESULT_LIMIT + 1,
+              p_limit:        rpcLimit,
             }),
             new Promise<never>((_, reject) =>
               setTimeout(() => reject(new Error("QUERY_TIMEOUT")), 8000)
@@ -1757,7 +1759,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
       // Set center from selected location or first result
       let center: [number, number] = [50.8058, -1.0872]
-      if (selectedLocation) {
+      if (!user && type === "traders") {
+        // Unauthenticated traders search always centers on Portsmouth
+        center = [50.8058, -1.0872]
+      } else if (selectedLocation) {
         center = [selectedLocation.lat, selectedLocation.lon]
       } else if (results.length > 0) {
         const firstWithCoords = results.find((item: any) =>

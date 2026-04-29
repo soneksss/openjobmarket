@@ -4,6 +4,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Eliminate tap flash on Android WebView — removes perceived input lag */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Remove 300ms tap delay on all interactive elements */
+button, a, [role="button"] {
+  touch-action: manipulation;
+}
+
+/* Press scale feedback — removes "dead tap" feeling on Android */
+button:active, a:active, [role="button"]:active {
+  transform: scale(0.96);
+  opacity: 0.85;
+  transition: transform 0.08s ease, opacity 0.08s ease;
+}
+
+/* Momentum scrolling inside WebView */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Finding-trades micro-animations */
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(10px); }

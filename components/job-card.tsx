@@ -820,6 +820,8 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                       <img
                         src={job.job_photo_url}
                         alt={job.title}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full max-h-[200px] sm:max-h-[250px] object-cover rounded-md shadow-sm cursor-pointer hover:opacity-90 transition-opacity"
                         onClick={(e) => {
                           e.stopPropagation()
@@ -943,6 +945,8 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               <img
                 src={job.job_photo_url}
                 alt={job.title}
+                loading="lazy"
+                decoding="async"
                 className="max-w-full max-h-[95vh] object-contain cursor-pointer"
                 onClick={() => setShowFullscreenImage(false)}
               />

@@ -1,6 +1,8 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { sendEmail, shouldSendEmailNotification, logNotification } from "@/lib/email/service"
 import { newMessageEmail } from "@/lib/email/templates"
+import { sendWebPushToUser } from "@/lib/web-push"
+import { sendFcmToTokens } from "@/lib/firebase-admin"
 import { NextRequest, NextResponse } from "next/server"
 
 /**
@@ -175,6 +177,55 @@ export async function POST(request: NextRequest) {
     } else {
       console.log("[NOTIFICATION] In-app notification created for user:", recipientId)
     }
+
+    // Push to recipient — web + FCM (fire-and-forget, non-blocking)
+    ;(async () => {
+      try {
+        const { data: tokenRows } = await adminClient
+          .from("user_push_tokens")
+          .select("token, device_type")
+          .eq("user_id", recipientId)
+
+        const pushTitle = `New message from ${senderName}`
+        const pushBody  = messagePreview
+
+        const webTokens = (tokenRows ?? [])
+          .filter((r: any) => r.device_type === "web")
+          .map((r: any) => r.token as string)
+
+        const fcmTokens = (tokenRows ?? [])
+          .filter((r: any) => r.device_type === "fcm")
+          .map((r: any) => r.token as string)
+
+        if (webTokens.length > 0) {
+          const { expired } = await sendWebPushToUser(webTokens, {
+            title: pushTitle,
+            body:  pushBody,
+            url:   conversationUrl,
+            tag:   `message-${conversationId}`,
+          })
+          if (expired.length > 0) {
+            await adminClient.from("user_push_tokens").delete().in("token", expired)
+          }
+        }
+
+        if (fcmTokens.length > 0) {
+          const { failed } = await sendFcmToTokens(fcmTokens, {
+            title: pushTitle,
+            body:  pushBody,
+            url:   conversationUrl,
+            tag:   `message-${conversationId}`,
+          })
+          if (failed.length > 0) {
+            await adminClient.from("user_push_tokens").delete().in("token", failed)
+          }
+        }
+
+        console.log(`[NOTIFICATION] Push sent to ${recipientId} web=${webTokens.length} fcm=${fcmTokens.length}`)
+      } catch (pushErr: any) {
+        console.warn("[NOTIFICATION] Push failed:", pushErr?.message)
+      }
+    })()
 
     // Check if recipient wants email notifications for messages
     const shouldSend = await shouldSendEmailNotification(supabase, recipientId, "new_message")

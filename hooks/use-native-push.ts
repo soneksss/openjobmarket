@@ -3,43 +3,40 @@
 import { useEffect } from 'react'
 
 /**
- * useNativePush — registers for native FCM/APNs push notifications.
+ * useNativePush — saves the FCM/APNs device token once the user is authenticated.
  *
- * Call this hook inside an authenticated component (e.g. the dashboard layout)
- * so the token is always tied to a logged-in user.
+ * Deliberately minimal: this hook only listens for the 'registration' event
+ * (token emitted by the OS after register() succeeds) and POSTs it to
+ * /api/push/native-subscribe.
  *
- * What it does:
- *   1. Checks we're in a Capacitor native context (no-op in browsers)
- *   2. Requests push permission from the OS
- *   3. Registers with FCM (Android) or APNs (iOS)
- *   4. On successful registration, POSTs the token to /api/push/native-subscribe
- *   5. On notification tap, navigates to the URL in notification.data.url
+ * It does NOT call requestPermissions() or register() — those are owned by
+ * CapacitorInit (capacitor-init.tsx) which runs the full push lifecycle with
+ * proper lifecycle guards and debouncing.
  *
- * The existing Web Push system (/api/push/subscribe) is untouched —
- * both systems coexist and serve different platforms.
+ * It does NOT add a pushNotificationActionPerformed listener — deep-link
+ * navigation is also owned by CapacitorInit to prevent duplicate handlers.
+ *
+ * Mounted only inside the authenticated layout (NativePushManager) so the
+ * token is always tied to a logged-in user session.
  */
 export function useNativePush() {
   useEffect(() => {
-    // Guard: only run inside a Capacitor native app
     if (typeof window === 'undefined') return
     if (!(window as any).Capacitor?.isNativePlatform?.()) return
 
     const platform: string = (window as any).Capacitor?.getPlatform?.() ?? 'unknown'
     const deviceType = platform === 'ios' ? 'apns' : 'fcm'
 
+    let cleanup: (() => void) | undefined
+
     ;(async () => {
       try {
         const { PushNotifications } = await import('@capacitor/push-notifications')
 
-        // Request permission — shows the OS dialog on first run
-        const { receive } = await PushNotifications.requestPermissions()
-        if (receive !== 'granted') return
-
-        // Register with FCM / APNs — triggers the 'registration' event
-        await PushNotifications.register()
-
-        // Save the token to our backend so we can send targeted notifications
-        await PushNotifications.addListener('registration', async ({ value: token }) => {
+        // Listen for the token emitted by CapacitorInit's register() call.
+        // If the user authenticated after register() already fired, calling
+        // register() again re-emits the token — safe on both Android and iOS.
+        const handle = await PushNotifications.addListener('registration', async ({ value: token }) => {
           try {
             await fetch('/api/push/native-subscribe', {
               method: 'POST',
@@ -50,30 +47,17 @@ export function useNativePush() {
             // Silent — token will be re-registered on next app launch
           }
         })
+        cleanup = () => handle.remove()
 
-        // Handle notification received while app is in foreground
-        await PushNotifications.addListener('pushNotificationReceived', (_notification) => {
-          // Foreground notifications are handled by the server-sent real-time
-          // system (Supabase realtime). The native push is for background delivery.
-        })
+        // Re-trigger token emission in case CapacitorInit's register() fired
+        // before this component mounted (i.e. user was not yet authenticated).
+        await PushNotifications.register()
 
-        // Handle notification tap — navigate to the URL in the data payload
-        await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-          const url = action.notification.data?.url
-          if (url && typeof window !== 'undefined') {
-            window.location.href = url
-          }
-        })
       } catch {
-        // @capacitor/push-notifications not available or permission check failed
+        // Plugin unavailable — safe no-op
       }
     })()
 
-    return () => {
-      // Listeners are cleaned up by Capacitor when the component unmounts
-      import('@capacitor/push-notifications')
-        .then(({ PushNotifications }) => PushNotifications.removeAllListeners())
-        .catch(() => {})
-    }
+    return () => cleanup?.()
   }, [])
 }

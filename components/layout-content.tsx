@@ -20,6 +20,7 @@ import { UrgentJobNotifier, HomeownerJobNotifier } from "@/components/urgent-job
 import { PushSubscriptionManager } from "@/components/push-subscription-manager"
 import { NativePushManager } from "@/components/native-push-manager"
 import { PresenceTracker } from "@/components/presence-tracker"
+import { PageTransition } from "@/components/page-transition"
 
 interface LayoutContentProps {
   children: React.ReactNode
@@ -97,7 +98,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
     return (
       <I18nProvider initialLocale={locale}>
         <LanguageRegionProvider initialState={getInitialLanguageRegionState()}>
-          <main className="flex-1">{children}</main>
+          <main className="flex-1"><PageTransition>{children}</PageTransition></main>
           <Toaster />
           <LanguageRegionModal />
         </LanguageRegionProvider>
@@ -127,7 +128,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
         {userType === "homeowner" && user?.id && (
           <HomeownerJobNotifier userId={user.id} />
         )}
-        <main className={`flex-1 ${user ? 'pb-20 md:pb-0' : ''}`}>{children}</main>
+        <main className={`flex-1 ${user ? 'pb-20 md:pb-0' : ''}`}><PageTransition>{children}</PageTransition></main>
         {/* Hide footer completely on homepage and dashboard pages */}
         {!isHomePage && !isDashboardPage && (
           <Footer />

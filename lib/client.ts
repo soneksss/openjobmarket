@@ -22,5 +22,12 @@ export function createClient() {
     }
   )
 
+  // Clear corrupt sessions — stale refresh token triggers this event
+  _client.auth.onAuthStateChange((event) => {
+    if (event === 'TOKEN_REFRESH_FAILED') {
+      _client!.auth.signOut().catch(() => {})
+    }
+  })
+
   return _client
 }

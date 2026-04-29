@@ -2,6 +2,7 @@ import { createClient, createAdminClient } from "@/lib/server"
 import { sendEmail, shouldSendEmailNotification, logNotification } from "@/lib/email/service"
 import { jobApplicationEmail } from "@/lib/email/templates"
 import { sendWebPushToUser } from "@/lib/web-push"
+import { sendFcmToTokens } from "@/lib/firebase-admin"
 import { NextRequest, NextResponse } from "next/server"
 
 /**
@@ -161,7 +162,7 @@ export async function POST(request: NextRequest) {
       console.log("[NOTIFICATION] In-app notification created for user:", jobPosterId)
     }
 
-    // Web push to homeowner (fire-and-forget, non-blocking)
+    // Push to homeowner — web + FCM (fire-and-forget, non-blocking)
     ;(async () => {
       try {
         const { data: tokenRows } = await adminClient
@@ -169,14 +170,21 @@ export async function POST(request: NextRequest) {
           .select("token, device_type")
           .eq("user_id", jobPosterId)
 
-        // Only web push subscriptions — FCM tokens need Firebase Admin SDK
-        const tokens = (tokenRows ?? [])
+        const pushTitle = `New application for ${jobTitle}`
+        const pushBody  = `${applicantName} has applied to your job "${jobTitle}"`
+
+        const webTokens = (tokenRows ?? [])
           .filter((r: any) => r.device_type === "web")
           .map((r: any) => r.token as string)
-        if (tokens.length > 0) {
-          const { expired } = await sendWebPushToUser(tokens, {
-            title: `New application for ${jobTitle}`,
-            body:  `${applicantName} has applied to your job "${jobTitle}"`,
+
+        const fcmTokens = (tokenRows ?? [])
+          .filter((r: any) => r.device_type === "fcm")
+          .map((r: any) => r.token as string)
+
+        if (webTokens.length > 0) {
+          const { expired } = await sendWebPushToUser(webTokens, {
+            title: pushTitle,
+            body:  pushBody,
             url:   applicationUrl,
             tag:   `job-application-${applicationId}`,
           })
@@ -185,8 +193,21 @@ export async function POST(request: NextRequest) {
           }
           console.log("[NOTIFICATION] Web push sent to homeowner:", jobPosterId)
         }
+
+        if (fcmTokens.length > 0) {
+          const { failed } = await sendFcmToTokens(fcmTokens, {
+            title: pushTitle,
+            body:  pushBody,
+            url:   applicationUrl,
+            tag:   `job-application-${applicationId}`,
+          })
+          if (failed.length > 0) {
+            await adminClient.from("user_push_tokens").delete().in("token", failed)
+          }
+          console.log("[NOTIFICATION] FCM push sent to homeowner:", jobPosterId)
+        }
       } catch (pushErr: any) {
-        console.warn("[NOTIFICATION] Web push failed:", pushErr?.message)
+        console.warn("[NOTIFICATION] Push failed:", pushErr?.message)
       }
     })()
 

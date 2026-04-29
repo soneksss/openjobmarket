@@ -1,29 +1,160 @@
 "use client"
 
-import { useEffect } from 'react'
+import { useEffect, startTransition } from 'react'
+import { useRouter } from 'next/navigation'
+import { Capacitor } from '@capacitor/core'
 import { syncLocation } from '@/hooks/use-trades-location-sync'
 
 /**
  * CapacitorInit — native-shell initialisation, runs client-side only.
  *
- * Module-level flag ensures this runs exactly once per app session regardless
- * of React re-renders, Strict Mode double-invocation, or route changes.
+ * Module-level state (not React state) — nothing here ever triggers a re-render.
+ *
+ * Guards:
+ *   isAppActive     — false while backgrounded; blocks all bridge calls
+ *   isTransitioning — true for 500ms after every background↔foreground switch
+ *   lastStateChange — debounces rapid appStateChange toggles (<500ms apart)
+ *   locationSynced  — geolocation requested at most once per cold start
+ *   pendingNavPath  — tap path that arrived mid-transition; replayed once stable
+ *   navigateTo      — router.replace reference, always kept current
  *
  * Notification deep linking priority:
- *   1. data.type === 'job' + data.jobId  → /jobs/:id  (explicit, preferred)
- *   2. data.url                          → path from URL (fallback)
- *   Capacitor queues pushNotificationActionPerformed so cold-start taps
- *   (app was killed) are delivered once the listener is registered.
+ *   1. data.type === 'job' + data.jobId  → /jobs/:id
+ *   2. data.url                          → path from URL
  */
 
-let appInitialized = false
+let appInitialized          = false
+let isAppActive             = true   // app always starts in foreground
+let isTransitioning         = false  // blocks bridge calls during lifecycle switch
+let locationSynced          = false  // geolocation requested at most once per session
+let lastStateChange         = 0      // timestamp of last appStateChange event
+let transitionTimer:          ReturnType<typeof setTimeout> | null = null
+let pendingNavPath:           string | null = null  // tap received during transition
+let pendingNavFallbackTimer:  ReturnType<typeof setTimeout> | null = null
+let navigateTo:               ((path: string) => void) | null = null
+let lastHandledNotifId:       string | null = null  // dedup guard
+
+/** True only when WebView is fully active and stable. */
+function canBridge(): boolean {
+  return isAppActive && !isTransitioning
+}
+
+/** Debounced state-change handler. Sets transition guard on every toggle. */
+function handleStateChange(isActive: boolean) {
+  const now = Date.now()
+  if (now - lastStateChange < 500) return  // ignore rapid toggles
+  lastStateChange = now
+
+  isAppActive     = isActive
+  isTransitioning = true
+  if (transitionTimer) clearTimeout(transitionTimer)
+  transitionTimer = setTimeout(() => {
+    isTransitioning = false
+    // Replay any notification tap that arrived while WebView was transitioning
+    if (pendingNavPath && isAppActive && navigateTo) {
+      const path = pendingNavPath
+      pendingNavPath = null
+      navigateTo(path)
+    }
+  }, 500)
+}
+
+/** Perform navigation and clear any pending fallback timer. */
+function doNavigate(path: string) {
+  if (pendingNavFallbackTimer) {
+    clearTimeout(pendingNavFallbackTimer)
+    pendingNavFallbackTimer = null
+  }
+  pendingNavPath = null
+  navigateTo!(path)
+}
+
+/** Resolve tap payload → path, then navigate or queue for after transition. */
+function handleNotificationTap(action: any) {
+  try {
+    const data     = action.notification?.data
+    const notifId: string | undefined = action.notification?.id ?? data?.id
+
+    // Dedup — Android can occasionally deliver the same tap event twice
+    if (notifId && notifId === lastHandledNotifId) return
+    if (notifId) lastHandledNotifId = notifId
+
+    let path: string | null = null
+    if (data?.type === 'job' && data?.jobId) {
+      path = `/jobs/${data.jobId}`
+    } else if (data?.url) {
+      const parsed = new URL(data.url)
+      path = parsed.pathname + parsed.search
+    }
+
+    if (!path) return
+
+    if (canBridge() && navigateTo) {
+      doNavigate(path)
+    } else {
+      // Queue for replay once WebView stabilises (transitionTimer callback).
+      // Fallback: fire unconditionally after 1500ms so the tap is never lost.
+      pendingNavPath = path
+      if (pendingNavFallbackTimer) clearTimeout(pendingNavFallbackTimer)
+      pendingNavFallbackTimer = setTimeout(() => {
+        if (pendingNavPath && navigateTo) {
+          doNavigate(pendingNavPath)
+        }
+      }, 1500)
+    }
+  } catch {
+    // Invalid payload — stay on current screen
+  }
+}
 
 export function CapacitorInit() {
+  const router = useRouter()
+
+  // Keep navigateTo always pointing to the live router instance.
+  // Runs on every router identity change (practically once per mount).
+  useEffect(() => {
+    navigateTo = (path) => startTransition(() => router.replace(path))
+  }, [router])
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (!(window as any).Capacitor?.isNativePlatform?.()) return
     if (appInitialized) return
     appInitialized = true
+
+    // Remove tap flash on Android WebView — eliminates perceived input lag
+    document.body.style.webkitTapHighlightColor = 'transparent'
+
+    // Suppress verbose logs in production — small but real CPU/memory saving
+    if (process.env.NODE_ENV === 'production') {
+      // eslint-disable-next-line no-console
+      console.log = () => {}
+      // eslint-disable-next-line no-console
+      console.warn = () => {}
+      // Keep console.error so crashes remain visible in Crashlytics logcat
+    }
+
+    // Global error visibility — dev only
+    if (process.env.NODE_ENV !== 'production') {
+      window.onerror = (_msg, _src, _line, _col, err) => {
+        console.error('[CapacitorInit] onerror:', err)
+      }
+      window.onunhandledrejection = (e) => {
+        console.error('[CapacitorInit] unhandledrejection:', e.reason)
+      }
+    }
+
+    // Fade in after first paint — prevents blank white flash on cold start
+    document.body.style.opacity = '0'
+    const onLoad = () => {
+      document.body.style.transition = 'opacity 200ms ease'
+      document.body.style.opacity    = '1'
+    }
+    if (document.readyState === 'complete') {
+      onLoad()
+    } else {
+      window.addEventListener('load', onLoad, { once: true })
+    }
 
     const cleanupFns: Array<() => void> = []
 
@@ -33,49 +164,80 @@ export function CapacitorInit() {
         const { App }               = await import('@capacitor/app')
         const { PushNotifications } = await import('@capacitor/push-notifications')
 
-        // ── 1. Mark bundle as healthy (REQUIRED — prevents Capgo rollback) ────────
+        // ── 1. Mark bundle healthy — once on cold start, never repeated ──────────
         await CapacitorUpdater.notifyAppReady()
 
-        // ── 2. OTA handled by autoUpdate:true + custom channelUrl ─────────────────
-        // No getLatest() call — it targets Capgo's cloud (rate limited, 429).
+        // ── 2. Location sync — once per cold start, never on resume ──────────────
+        if (!locationSynced) {
+          locationSynced = true
+          syncLocation()
+        }
 
-        // ── 3. Location sync on launch ───────────────────────────────────────────
-        syncLocation()
-
-        // ── 4. Foreground — location sync only ───────────────────────────────────
+        // ── 3. Lifecycle tracking — debounced, no React state changes ────────────
         const appHandle = await App.addListener('appStateChange', ({ isActive }) => {
-          if (isActive) syncLocation()
+          handleStateChange(isActive)
         })
         cleanupFns.push(() => appHandle.remove())
 
-        // ── 5. Notification tap — deep link into the correct screen ──────────────
-        // Works for cold start AND background resume (Capacitor queues the event).
+        // ── 4. Notification tap — guarded, queued if mid-transition ──────────────
+        // Single source of truth for push navigation — no other listeners exist.
         const pushHandle = await PushNotifications.addListener(
           'pushNotificationActionPerformed',
-          (action) => {
-            try {
-              const data = action.notification?.data
-
-              // Priority 1: explicit type + id deep link
-              if (data?.type === 'job' && data?.jobId) {
-                window.location.replace(`/jobs/${data.jobId}`)
-                return
-              }
-
-              // Priority 2: URL-based fallback (keep path only, strip origin)
-              if (data?.url) {
-                const parsed = new URL(data.url)
-                window.location.replace(parsed.pathname + parsed.search)
-              }
-            } catch {
-              // Missing or invalid payload — ignore safely, app stays on current screen
-            }
-          }
+          (action) => handleNotificationTap(action)
         )
         cleanupFns.push(() => pushHandle.remove())
 
+        // ── 5. Push registration — Android only, delayed, transition-guarded ─────
+        if (Capacitor.getPlatform() === 'android') {
+          setTimeout(async () => {
+            if (!canBridge()) return
+            try {
+              await PushNotifications.register()
+            } catch (e) {
+              console.error('[CapacitorInit] Push registration failed:', e)
+            }
+          }, 1000)
+
+          // ── 6. Swipe-back gesture — left-edge swipe triggers history.back() ─────
+          // Guards against accidental triggers:
+          //   - velocity > 0.3 px/ms  (slow drag ignored)
+          //   - elapsed  < 600ms      (very slow press-and-drag ignored)
+          //   - dy < 60px             (vertical scroll ignored)
+          //   - must start at left edge < 40px
+          //   - [data-no-swipe-back] ancestor opt-out for horizontal carousels
+          let swipeStartX    = 0
+          let swipeStartY    = 0
+          let swipeStartTime = 0
+
+          const onTouchStart = (e: TouchEvent) => {
+            swipeStartX    = e.touches[0].clientX
+            swipeStartY    = e.touches[0].clientY
+            swipeStartTime = Date.now()
+          }
+          const onTouchEnd = (e: TouchEvent) => {
+            if (!canBridge()) return
+            const elapsed  = Date.now() - swipeStartTime
+            const dx       = e.changedTouches[0].clientX - swipeStartX
+            const dy       = Math.abs(e.changedTouches[0].clientY - swipeStartY)
+            const velocity = dx / Math.max(elapsed, 1)  // px/ms
+
+            // Opt-out: any ancestor with [data-no-swipe-back] blocks the gesture
+            if ((e.target as Element | null)?.closest('[data-no-swipe-back]')) return
+
+            if (swipeStartX < 40 && dx > 80 && dy < 60 && velocity > 0.3 && elapsed < 600) {
+              window.history.back()
+            }
+          }
+          window.addEventListener('touchstart', onTouchStart, { passive: true })
+          window.addEventListener('touchend',   onTouchEnd,   { passive: true })
+          cleanupFns.push(() => {
+            window.removeEventListener('touchstart', onTouchStart)
+            window.removeEventListener('touchend',   onTouchEnd)
+          })
+        }
+
       } catch {
-        // Plugin unavailable or not in native context — safe no-op for web users
+        // Plugin unavailable or not in native context — safe no-op
       }
     })()
 

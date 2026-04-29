@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "600867373654",
+    "project_id": "openjobmarket-7a778",
+    "storage_bucket": "openjobmarket-7a778.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:600867373654:android:8f8af28d9ef81e53b331f7",
+        "android_client_info": {
+          "package_name": "com.openjobmarket.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBV5ji_UI39M-7UUv2yJDQ0emZaSdC_cVI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -51,6 +51,7 @@ export default function MessagesPage() {
   const [selectedUserToRate, setSelectedUserToRate] = useState<{userId: string, name: string} | null>(null)
   const [selectedConversations, setSelectedConversations] = useState<Set<string>>(new Set())
   const [deletingBulk, setDeletingBulk]       = useState(false)
+  const [visibleCount, setVisibleCount]        = useState(20)
 
   const supabase   = createClient()
   const router     = useRouter()
@@ -108,14 +109,14 @@ export default function MessagesPage() {
           .select("id, subject, content, created_at, is_read, sender_id, recipient_id, conversation_id, job_id")
           .or(`sender_id.eq.${uid},recipient_id.eq.${uid}`)
           .order("created_at", { ascending: false })
-          .limit(300),
+          .limit(100),
 
         supabase
           .from("conversations")
           .select("id, participant_1, participant_2, created_at, job_id, subject")
           .or(`participant_1.eq.${uid},participant_2.eq.${uid}`)
           .order("created_at", { ascending: false })
-          .limit(100),
+          .limit(50),
       ])
 
       if (messagesResult.error) throw messagesResult.error
@@ -491,7 +492,7 @@ export default function MessagesPage() {
           </div>
         ) : (
           <div className="space-y-1">
-            {conversations.map((conversation) => {
+            {conversations.slice(0, visibleCount).map((conversation) => {
               const urgent     = isUrgent(conversation.job)
               const accepted   = isAccepted(conversation.job)
               const isSelected = selectedConversations.has(conversation.id)
@@ -579,6 +580,15 @@ export default function MessagesPage() {
                 </div>
               )
             })}
+
+            {visibleCount < conversations.length && (
+              <button
+                onClick={() => setVisibleCount(v => v + 20)}
+                className="w-full py-2.5 text-sm text-slate-400 hover:text-slate-200 border border-slate-700/50 rounded-xl hover:bg-slate-800/60 transition-colors"
+              >
+                Load more ({conversations.length - visibleCount} remaining)
+              </button>
+            )}
           </div>
         )}
       </div>
