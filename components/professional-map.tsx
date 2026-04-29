@@ -96,6 +96,34 @@ const MapClickHandler = dynamic(
   { ssr: false },
 )
 
+// Fly to a new center whenever the `center` prop changes (MapContainer ignores prop updates after mount)
+const MapViewUpdater = dynamic(
+  () =>
+    Promise.all([import("react-leaflet"), import("react")]).then(([leafletMod, reactMod]) => {
+      const { useMap } = leafletMod
+      const { useEffect, useRef } = reactMod
+
+      function MapViewUpdaterComponent({ center }: { center: [number, number] }) {
+        const map = useMap()
+        const prevCenter = useRef<[number, number]>(center)
+
+        useEffect(() => {
+          const [prevLat, prevLon] = prevCenter.current
+          const [lat, lon] = center
+          if (Math.abs(lat - prevLat) > 0.0001 || Math.abs(lon - prevLon) > 0.0001) {
+            prevCenter.current = center
+            map.flyTo(center, map.getZoom(), { animate: true, duration: 0.6 })
+          }
+        }, [map, center])
+
+        return null
+      }
+
+      return MapViewUpdaterComponent
+    }),
+  { ssr: false },
+)
+
 // Component to center map on selected professional
 const ProfessionalCenterer = dynamic(
   () =>
@@ -194,8 +222,6 @@ export function ProfessionalMap({
   const defaultCenter = getDefaultMapCenter(languageRegionState.country)
 
   const [leafletLoaded, setLeafletLoaded] = useState(false)
-  const [tilesReady, setTilesReady] = useState(false)
-  const tileLoadCount = useRef(0)
   const router = useRouter()
   const pathname = usePathname()
   const supabase = createClient()
@@ -265,37 +291,30 @@ export function ProfessionalMap({
   // Filter professionals that have coordinates
   const professionalsWithCoordinates = professionals.filter((prof) => prof.coordinates?.lat && prof.coordinates?.lon)
 
-  if (!leafletLoaded) {
-    return <Skeleton className="w-full rounded-lg" style={{ height }} />
-  }
-
   return (
     <div className="w-full relative" style={{ height }}>
-      {/* Solid cover — hides the map (including any blue ocean tiles) until enough tiles have painted */}
-      {!tilesReady && (
-        <div className="absolute inset-0 rounded-lg bg-slate-200 z-[1000]" />
+      {/* Show a plain dark placeholder only while Leaflet itself hasn't loaded yet.
+          Once leafletLoaded is true the MapContainer takes over and tiles appear
+          progressively — no overlay needed, progressive tile loading feels faster. */}
+      {!leafletLoaded && (
+        <div className="absolute inset-0 rounded-lg bg-slate-800" />
       )}
-      <MapContainer
+
+      {leafletLoaded && <MapContainer
         center={centerArray}
         zoom={zoom}
-        style={{ height: "100%", width: "100%", background: "#e2e8f0" }}
+        style={{ height: "100%", width: "100%", background: "#0f172a" }}
         className="rounded-lg"
         zoomControl={false}
         {...({} as any)}
       >
         <ZoomControl position="bottomleft" {...({} as any)} />
         <MapSizeHandler />
+        <MapViewUpdater center={centerArray} />
         <ProfessionalCenterer selectedProfessional={selectedProfessionalId ? professionals.find(p => p.id === selectedProfessionalId) : null} />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          eventHandlers={{
-            load: () => { if (!tilesReady) setTilesReady(true) },
-            tileload: () => {
-              tileLoadCount.current += 1
-              if (!tilesReady && tileLoadCount.current >= 12) setTilesReady(true)
-            },
-          }}
           {...({} as any)}
         />
         {professionalsWithCoordinates.map((professional) => {
@@ -347,7 +366,7 @@ export function ProfessionalMap({
 
         {/* Map click handler component */}
         {onMapClick && <MapClickHandler onMapClick={onMapClick} />}
-      </MapContainer>
+      </MapContainer>}
     </div>
   )
 }

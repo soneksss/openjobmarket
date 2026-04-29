@@ -243,6 +243,34 @@ const UserLocationDot = dynamic(
   { ssr: false },
 )
 
+// Fly to a new center whenever the `center` prop changes (MapContainer ignores prop updates after mount)
+const MapViewUpdater = dynamic(
+  () =>
+    Promise.all([import("react-leaflet"), import("react")]).then(([leafletMod, reactMod]) => {
+      const { useMap } = leafletMod
+      const { useEffect, useRef } = reactMod
+
+      function MapViewUpdaterComponent({ center }: { center: [number, number] }) {
+        const map = useMap()
+        const prevCenter = useRef<[number, number]>(center)
+
+        useEffect(() => {
+          const [prevLat, prevLon] = prevCenter.current
+          const [lat, lon] = center
+          if (Math.abs(lat - prevLat) > 0.0001 || Math.abs(lon - prevLon) > 0.0001) {
+            prevCenter.current = center
+            map.flyTo(center, map.getZoom(), { animate: true, duration: 0.6 })
+          }
+        }, [map, center])
+
+        return null
+      }
+
+      return MapViewUpdaterComponent
+    }),
+  { ssr: false },
+)
+
 // Component to center map on selected job
 const JobCenterer = dynamic(
   () =>
@@ -340,8 +368,6 @@ export function JobMap({
 }: JobMapProps) {
   const mounted = useDeferredMount(150)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
-  const [tilesReady, setTilesReady] = useState(false)
-  const tileLoadCount = useRef(0)
 
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
   const [recenterTrigger, setRecenterTrigger] = useState(0)
@@ -462,22 +488,17 @@ export function JobMap({
     return `Up to ${max?.toLocaleString()}`
   }
 
-  if (!mounted) return <Skeleton className="w-full h-full rounded-lg" />
-
-  if (!leafletLoaded) {
-    return <Skeleton className="w-full h-full rounded-lg" />
-  }
-
   return (
     <div className="w-full h-full relative">
-      <style>{`@keyframes pulse{0%,100%{transform:scale(1);opacity:.6}50%{transform:scale(1.6);opacity:.1}}`}</style>
-      {/* Solid cover — hides the map (including any blue ocean tiles) until enough tiles have painted */}
-      {!tilesReady && (
-        <div className="absolute inset-0 rounded-lg bg-slate-200 z-[1000]" />
+      {/* Plain dark placeholder shown only until Leaflet JS is ready.
+          Tiles then appear progressively — no overlay blocking them. */}
+      {!(mounted && leafletLoaded) && (
+        <div className="absolute inset-0 rounded-lg bg-slate-800" />
       )}
-      <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%", background: "#e2e8f0" }} className="rounded-lg" zoomControl={false} {...({} as any)}>
+      {(mounted && leafletLoaded) && <MapContainer center={validCenter} zoom={zoom} style={{ height: "100%", width: "100%", background: "#1e293b" }} className="rounded-lg" zoomControl={false} {...({} as any)}>
         <ZoomControl position="bottomleft" {...({} as any)} />
         <MapSizeHandler />
+        <MapViewUpdater center={validCenter} />
         <JobCenterer selectedJob={selectedJobId ? displayJobs.find(j => j.id === selectedJobId) : null} />
         {enableViewportSearch && (
           <ViewportHandler onViewportChange={handleViewportChange} />
@@ -485,13 +506,6 @@ export function JobMap({
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          eventHandlers={{
-            load: () => { if (!tilesReady) setTilesReady(true) },
-            tileload: () => {
-              tileLoadCount.current += 1
-              if (!tilesReady && tileLoadCount.current >= 12) setTilesReady(true)
-            },
-          }}
           {...({} as any)}
         />
         {showRadius && radiusCenter && (
@@ -567,7 +581,7 @@ export function JobMap({
         {userLocation && (
           <UserLocationDot location={userLocation} recenterTrigger={recenterTrigger} />
         )}
-      </MapContainer>
+      </MapContainer>}
 
       {/* My location button — only shown when we have GPS */}
       {userLocation && (

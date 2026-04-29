@@ -133,12 +133,18 @@ export default async function RootLayout({
     : 'en'
 
   return (
-    <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}>
+    <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased dark`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         {/* Preconnect to Supabase (profile images, storage) */}
         <link rel="preconnect" href="https://mklxzrvhanlndkyeteog.supabase.co" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://mklxzrvhanlndkyeteog.supabase.co" />
+        {/* Preconnect to Leaflet CDN and OSM tiles so map opens faster */}
+        <link rel="preconnect" href="https://unpkg.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://tile.openstreetmap.org" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
+        <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" crossOrigin="anonymous" />
+        <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" as="script" crossOrigin="anonymous" />
         {/* Organization schema */}
         <script
           type="application/ld+json"

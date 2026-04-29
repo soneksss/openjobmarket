@@ -21,6 +21,7 @@ import { PushSubscriptionManager } from "@/components/push-subscription-manager"
 import { NativePushManager } from "@/components/native-push-manager"
 import { PresenceTracker } from "@/components/presence-tracker"
 import { PageTransition } from "@/components/page-transition"
+import { NavigationLoader } from "@/components/navigation-loader"
 
 interface LayoutContentProps {
   children: React.ReactNode
@@ -98,6 +99,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
     return (
       <I18nProvider initialLocale={locale}>
         <LanguageRegionProvider initialState={getInitialLanguageRegionState()}>
+          <NavigationLoader />
           <main className="flex-1"><PageTransition>{children}</PageTransition></main>
           <Toaster />
           <LanguageRegionModal />
@@ -109,6 +111,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
   return (
     <I18nProvider initialLocale={locale}>
       <LanguageRegionProvider initialState={getInitialLanguageRegionState()}>
+        <NavigationLoader />
         <Header user={user} userType={(userType as "company" | "professional" | undefined) || undefined} isAdmin={isAdmin} dark={true} />
         {/* Sticky bar shown when user has minimised an active trade search */}
         <ActiveSearchBar userType={userType} userId={user?.id} />

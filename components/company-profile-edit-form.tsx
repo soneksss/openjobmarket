@@ -364,6 +364,14 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         const sep = publicUrl.includes("?") ? "&" : "?"
         setLogoUrl(`${publicUrl}${sep}t=${Date.now()}`)
         setLogoError(false)
+
+        // Persist immediately — without this the DB still points to the old
+        // (now-deleted) file if the user navigates away before hitting Save.
+        await supabase
+          .from("company_profiles")
+          .update({ logo_url: publicUrl })
+          .eq("id", profile.id)
+
         toast({
           title: "✓ Logo Uploaded",
           description: shouldCompress ? "Your logo has been uploaded and optimized." : "Your logo has been uploaded.",

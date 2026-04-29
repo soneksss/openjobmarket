@@ -81,7 +81,6 @@ function ToggleSkeleton({ count = 3, last = false }: { count?: number; last?: bo
 interface EmailPrefs {
   email_on_new_message: boolean
   email_on_job_application: boolean
-  email_on_job_offer: boolean
   marketing_emails: boolean
 }
 
@@ -103,7 +102,7 @@ export function EmailAlertsToggles({ userId }: { userId: string }) {
         const { data } = await supabase
           .from("user_notification_preferences")
           .select(
-            "email_on_new_message, email_on_job_application, email_on_job_offer, marketing_emails"
+            "email_on_new_message, email_on_job_application, marketing_emails"
           )
           .eq("user_id", userId)
           .maybeSingle()
@@ -112,7 +111,6 @@ export function EmailAlertsToggles({ userId }: { userId: string }) {
           data ?? {
             email_on_new_message: true,
             email_on_job_application: true,
-            email_on_job_offer: true,
             marketing_emails: false,
           }
         )
@@ -121,7 +119,6 @@ export function EmailAlertsToggles({ userId }: { userId: string }) {
         setPrefs({
           email_on_new_message: true,
           email_on_job_application: true,
-          email_on_job_offer: true,
           marketing_emails: false,
         })
       } finally {
@@ -147,7 +144,7 @@ export function EmailAlertsToggles({ userId }: { userId: string }) {
     }
   }
 
-  if (loading) return <ToggleSkeleton count={4} />
+  if (loading) return <ToggleSkeleton count={3} />
 
   return (
     <>
@@ -170,16 +167,6 @@ export function EmailAlertsToggles({ userId }: { userId: string }) {
         checked={prefs!.email_on_job_application}
         onChange={(v) => toggle("email_on_job_application", v)}
         disabled={saving === "email_on_job_application"}
-      />
-      <ToggleRow
-        icon={Mail}
-        iconBg="bg-amber-500/15"
-        iconColor="text-amber-400"
-        label="Job Offers & Enquiries"
-        description="Email when you receive a job offer or inquiry"
-        checked={prefs!.email_on_job_offer}
-        onChange={(v) => toggle("email_on_job_offer", v)}
-        disabled={saving === "email_on_job_offer"}
       />
       <ToggleRow
         icon={Megaphone}

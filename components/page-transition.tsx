@@ -5,13 +5,12 @@ import { usePathname } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 /**
- * PageTransition — wraps page content with a fade+slide-up on every navigation.
+ * PageTransition — slide-up on navigation only.
  *
- * Uses pathname as the key so motion.div remounts (triggering initial→animate)
- * on each route change. No exit animation — Next.js App Router unmounts the
- * old page immediately, so exit animations aren't reliable here.
- *
- * Duration kept at 180ms: fast enough to feel instant, long enough to feel smooth.
+ * initial={false} tells framer-motion never to animate the server-rendered
+ * HTML on hydration — content is visible immediately. The animate prop still
+ * runs after a route change causes the key to flip, giving the slide-up on
+ * navigation without any blank flash on first load.
  */
 export function PageTransition({ children }: { children: ReactNode }) {
   const pathname = usePathname()
@@ -19,7 +18,7 @@ export function PageTransition({ children }: { children: ReactNode }) {
   return (
     <motion.div
       key={pathname}
-      initial={{ opacity: 0, y: 8 }}
+      initial={false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
       style={{ minHeight: '100%' }}

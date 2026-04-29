@@ -91,6 +91,11 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
         description: formData.description,
         short_description: formData.description.substring(0, 200), // Auto-generate short description
         location: formData.location,
+        // Store approx coords only — exact address revealed after job confirmation
+        latitude:         profile.latitude_approx  ?? profile.latitude  ?? null,
+        longitude:        profile.longitude_approx ?? profile.longitude ?? null,
+        latitude_approx:  profile.latitude_approx  ?? null,
+        longitude_approx: profile.longitude_approx ?? null,
         budget_min: formData.budgetMin ? parseInt(formData.budgetMin) : null,
         budget_max: formData.budgetMax ? parseInt(formData.budgetMax) : null,
         // Mark as tradespeople job (homeowner looking for services)

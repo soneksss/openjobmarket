@@ -8,7 +8,7 @@ import { isUUID } from "@/lib/slug"
 
 // Use FK column hints to disambiguate: jobs has two FKs to company_profiles
 // (company_id and confirmed_tradesperson_id) — without a hint PostgREST errors.
-const JOB_SELECT = `*, company_profiles!company_id (id, company_name, description, industry, company_size, website_url, location, logo_url, user_id), homeowner_profiles!homeowner_id (id, user_id, first_name, last_name, profile_photo_url)`
+const JOB_SELECT = `*, company_profiles!company_id (id, company_name, description, industry, company_size, website_url, location, logo_url, user_id), homeowner_profiles!homeowner_id (id, user_id, first_name, last_name, profile_photo_url, location, full_address, address_line1, city, latitude, longitude, latitude_approx, longitude_approx)`
 
 /**
  * Resolve a URL param (UUID or slug) to a job row.

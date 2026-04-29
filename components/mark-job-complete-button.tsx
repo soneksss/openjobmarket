@@ -7,9 +7,10 @@ import { CheckCircle2 } from "lucide-react"
 interface Props {
   jobId: string
   jobTitle: string
+  redirectAfter?: string
 }
 
-export function MarkJobCompleteButton({ jobId, jobTitle }: Props) {
+export function MarkJobCompleteButton({ jobId, jobTitle, redirectAfter = "/dashboard/company/my-jobs?tab=history" }: Props) {
   const [loading, setLoading] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
   const router = useRouter()
@@ -26,14 +27,14 @@ export function MarkJobCompleteButton({ jobId, jobTitle }: Props) {
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         if (body.error === "already_completed") {
-          router.push("/dashboard/company/my-jobs?tab=history")
+          router.push(redirectAfter)
           return
         }
         console.error("[MarkJobComplete] API error:", body.error)
         setConfirmed(false)
         return
       }
-      router.push("/dashboard/company/my-jobs?tab=history")
+      router.push(redirectAfter)
     } finally {
       setLoading(false)
     }

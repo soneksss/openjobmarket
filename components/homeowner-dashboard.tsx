@@ -13,7 +13,6 @@ import {
   Clock,
   Bell,
   Shield,
-  Trash2,
   LogOut,
   ChevronRight,
   MessageCircle,
@@ -252,9 +251,10 @@ export function HomeownerDashboard({
 
           <div className="py-1">
             {[
-              { icon: User,       label: "Edit Profile",   href: "/dashboard/homeowner/profile" },
-              { icon: Bell,       label: "Notifications",  href: "/notifications" },
-              { icon: HelpCircle, label: "Help & Support", href: "/help" },
+              { icon: User,       label: "Edit Profile",      href: "/dashboard/homeowner/profile" },
+              { icon: Settings,   label: "Account Settings",  href: "/account/settings" },
+              { icon: Bell,       label: "Notifications",     href: "/notifications" },
+              { icon: HelpCircle, label: "Help & Support",    href: "/help" },
             ].map((item) => (
               <Link key={item.href} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 active:bg-slate-800 transition-colors">
                 <div className="flex items-center gap-3">
@@ -269,7 +269,6 @@ export function HomeownerDashboard({
           <div className="py-1">
             {[
               { icon: Shield, label: "Privacy Policy", href: "/privacy", danger: false },
-              { icon: Trash2, label: "Delete Account",  href: "/account/delete", danger: true },
             ].map((item) => (
               <Link key={item.href} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 active:bg-slate-800 transition-colors">
                 <div className="flex items-center gap-3">

@@ -17,13 +17,11 @@ import dynamic from 'next/dynamic'
  */
 
 const LayoutV1 = dynamic(
-  () => import('@/components/landing-page').then(m => ({ default: m.LandingPage })),
-  { ssr: false }
+  () => import('@/components/landing-page').then(m => ({ default: m.LandingPage }))
 )
 
 const LayoutV2 = dynamic(
-  () => import('@/components/landing-page-v2').then(m => ({ default: m.LandingPageV2 })),
-  { ssr: false }
+  () => import('@/components/landing-page-v2').then(m => ({ default: m.LandingPageV2 }))
 )
 
 interface HomepageLayoutProps {

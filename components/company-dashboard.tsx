@@ -55,6 +55,8 @@ import {
   Settings,
   CreditCard,
   HelpCircle,
+  History,
+  CheckCircle2,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useMemo, useEffect } from "react"
@@ -71,6 +73,9 @@ import { DashboardInbox } from "@/components/dashboard-inbox"
 import { JobConfirmationModal, type ConfirmedJobOffer } from "@/components/job-confirmation-modal"
 import { Progress } from "@/components/ui/progress"
 import { MessageCircle, Zap, Bell } from "lucide-react"
+import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
+import { MarkJobCompleteButton } from "@/components/mark-job-complete-button"
+import { ReviewHomeownerButton } from "@/components/review-homeowner-button"
 
 // Helper to add cache-busting to logo URLs
 const getLogoUrlWithCacheBust = (url: string | undefined) => {
@@ -198,6 +203,7 @@ interface CompanyDashboardProps {
   jobs: Job[]
   receivedApplications: ReceivedApplication[]
   submittedApplications: SubmittedApplication[]
+  myJobs?: any[]
   stats: Stats
   rating: Rating
   reviews: Review[]
@@ -215,7 +221,7 @@ const getFieldDisplayName = (field: string): string => {
   return fieldNames[field] || field
 }
 
-export default function CompanyDashboard({ user, profile, jobs, receivedApplications, submittedApplications, stats, rating, reviews, isProfileComplete = true, missingFields = [] }: CompanyDashboardProps) {
+export default function CompanyDashboard({ user, profile, jobs, receivedApplications, submittedApplications, myJobs = [], stats, rating, reviews, isProfileComplete = true, missingFields = [] }: CompanyDashboardProps) {
   const { t, locale } = useTranslation()
   const router = useRouter()
   const { toast } = useToast()
@@ -243,8 +249,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [updatingAlertType, setUpdatingAlertType] = useState(false)
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [isApplicationsExpanded, setIsApplicationsExpanded] = useState(false)
-  const [isConfirmedJobsExpanded, setIsConfirmedJobsExpanded] = useState(true)
-  const [isAwaitingJobsExpanded, setIsAwaitingJobsExpanded] = useState(true)
+  const [myJobsTab, setMyJobsTab] = useState<"active" | "history">("active")
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   // New state for success signals
@@ -1150,6 +1155,22 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
   const pendingApplicationsCount = receivedApplications.filter(a => a.status === 'pending').length
 
+  const formatBudget = (min?: number, max?: number) => {
+    if (!min && !max) return null
+    if (min && max) return `£${min.toLocaleString()}–£${max.toLocaleString()}`
+    if (min) return `£${min.toLocaleString()}+`
+    return `Up to £${max?.toLocaleString()}`
+  }
+
+  const formatJobDate = (d?: string) => {
+    if (!d) return null
+    return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+  }
+
+  const activeMyJobs = myJobs.filter(j => j.status === "CONFIRMED" || j.status === "ACTIVE")
+  const historyMyJobs = myJobs.filter(j => j.status === "COMPLETED")
+  const displayedMyJobs = myJobsTab === "active" ? activeMyJobs : historyMyJobs
+
   return (
     <>
       {/* ── Job-confirmation offer modal ────────────────────────
@@ -1672,77 +1693,165 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               </Link>
             </div>
 
-            {/* 1. My Jobs */}
-            <Card className="overflow-hidden border border-emerald-500/30 shadow-sm rounded-xl bg-slate-800">
-              <Collapsible open={isConfirmedJobsExpanded} onOpenChange={setIsConfirmedJobsExpanded}>
-                <CollapsibleTrigger asChild>
-                  <CardHeader className="px-4 py-3 cursor-pointer hover:bg-emerald-500/10 transition-colors bg-emerald-500/10">
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/30">
-                        <Briefcase className="h-4 w-4 text-emerald-400" />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-sm font-semibold text-white">My Jobs</span>
-                        <p className="text-xs text-slate-400">Jobs confirmed by the homeowner</p>
-                      </div>
-                      <Badge className="bg-emerald-500/30 text-emerald-300 border-0 text-xs px-2 py-0.5">{confirmedJobs.length}</Badge>
-                      <div className="text-slate-400">
-                        {isConfirmedJobsExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      </div>
-                    </div>
-                  </CardHeader>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <CardContent className="p-0">
-                    {confirmedJobs.length === 0 ? (
-                      <div className="text-center py-6 text-slate-400">
-                        <Briefcase className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                        <p className="text-xs">No confirmed jobs yet</p>
-                      </div>
-                    ) : (
-                      <div className="divide-y divide-slate-700">
-                        {confirmedJobs.map((application) => (
-                          <div key={application.id} className="flex items-center gap-2 px-3 py-2.5 hover:bg-slate-700/50 transition-colors">
-                            <div className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <span className="font-medium text-xs text-white truncate block">{application.jobs.title}</span>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] text-slate-400 truncate">{application.job_poster_name}</span>
-                                <span className="text-[10px] text-slate-600">•</span>
-                                <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
-                                  <MapPin className="h-2 w-2" />{application.jobs.location}
-                                </span>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <Button variant="ghost" size="sm" asChild className="h-6 px-2 text-[10px] hover:bg-emerald-500/20 text-emerald-400">
-                                <Link href={`/jobs/${application.job_id}`}>View</Link>
-                              </Button>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-700" disabled={actionLoading === application.id}>
-                                    <MoreVertical className="h-3.5 w-3.5 text-slate-400" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-32 bg-slate-800 border-slate-700">
-                                  <DropdownMenuItem asChild className="text-slate-200 focus:bg-slate-700 focus:text-white">
-                                    <Link href={`/jobs/${application.job_id}`} className="flex items-center text-xs">
-                                      <Eye className="h-3 w-3 mr-2" />View Job
-                                    </Link>
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
+            {/* My Jobs — matches /dashboard/company/my-jobs layout */}
+            {myJobsTab === "active" && <MarkTradespersonJobsViewed />}
 
-            {/* 2. Statistics shortcut card */}
+            <div className="space-y-3">
+              {/* Header row */}
+              <div className="flex items-center gap-3">
+                <h2 className="text-base font-bold text-white flex-1">My Jobs</h2>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-700 text-slate-300">
+                  {displayedMyJobs.length}
+                </span>
+              </div>
+
+              {/* Tabs */}
+              <div className="flex gap-1 bg-slate-800/60 border border-slate-700/60 rounded-xl p-1">
+                <button
+                  onClick={() => setMyJobsTab("active")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-lg transition-colors ${
+                    myJobsTab === "active" ? "bg-emerald-600 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Active
+                  {activeMyJobs.length > 0 && (
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${myJobsTab === "active" ? "bg-white/20" : "bg-slate-700 text-slate-300"}`}>
+                      {activeMyJobs.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => setMyJobsTab("history")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 text-xs font-semibold py-2 rounded-lg transition-colors ${
+                    myJobsTab === "history" ? "bg-slate-600 text-white" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <History className="w-3.5 h-3.5" />
+                  History
+                  {historyMyJobs.length > 0 && (
+                    <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${myJobsTab === "history" ? "bg-white/20" : "bg-slate-700 text-slate-300"}`}>
+                      {historyMyJobs.length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Job cards */}
+              {displayedMyJobs.length === 0 ? (
+                <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl px-5 py-14 text-center">
+                  <Briefcase className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                  <p className="text-sm font-semibold text-slate-300 mb-1">
+                    {myJobsTab === "history" ? "No completed jobs yet" : "No active jobs yet"}
+                  </p>
+                  <p className="text-xs text-slate-500 mb-5">
+                    {myJobsTab === "history"
+                      ? "Completed jobs will appear here."
+                      : "When a homeowner confirms you for a job it will appear here."}
+                  </p>
+                  {myJobsTab === "active" && (
+                    <Link
+                      href={browseJobsUrl}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                    >
+                      Browse Jobs
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {displayedMyJobs.map((job: any) => {
+                    const isCompleted = job.status === "COMPLETED"
+                    const homeowner = job.homeowner_profiles
+                    const posterName = homeowner
+                      ? `${homeowner.first_name} ${homeowner.last_name}`.trim()
+                      : "Homeowner"
+                    const budget = formatBudget(job.budget_min, job.budget_max)
+                    const dateLabel = isCompleted
+                      ? `Completed ${formatJobDate(job.completed_at)}`
+                      : `Confirmed ${formatJobDate(job.confirmed_at)}`
+
+                    return (
+                      <div
+                        key={job.id}
+                        className={`bg-slate-800/80 border rounded-2xl p-4 flex gap-3 ${
+                          isCompleted ? "border-slate-700/40" : "border-emerald-500/25"
+                        }`}
+                      >
+                        <div className="flex-shrink-0 pt-0.5">
+                          <div className={`w-2 h-2 rounded-full mt-1.5 ${isCompleted ? "bg-blue-400" : "bg-emerald-400"}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-bold text-white leading-snug">{job.title}</p>
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border flex-shrink-0 ${
+                              isCompleted
+                                ? "bg-blue-500/20 text-blue-400 border-blue-500/30"
+                                : "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                            }`}>
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              {isCompleted ? "Completed" : "Active"}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            {job.location && (
+                              <span className="flex items-center gap-1 text-xs text-slate-400">
+                                <MapPin className="w-3 h-3" />
+                                {job.location}
+                              </span>
+                            )}
+                            <span className="flex items-center gap-1 text-xs text-slate-500">
+                              <Clock className="w-3 h-3" />
+                              {dateLabel}
+                            </span>
+                            {budget && (
+                              <span className="text-xs font-semibold text-emerald-400">{budget}</span>
+                            )}
+                          </div>
+                          {posterName && (
+                            <p className="text-xs text-slate-500 mt-0.5">Posted by {posterName}</p>
+                          )}
+                          <div className="flex gap-2 mt-3 flex-wrap">
+                            {homeowner?.user_id && (
+                              <Link
+                                href={`/messages/${homeowner.user_id}?job=${job.id}`}
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                              >
+                                <MessageCircle className="w-3.5 h-3.5" />
+                                Message
+                              </Link>
+                            )}
+                            <Link
+                              href={`/jobs/${job.id}`}
+                              className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors"
+                            >
+                              View Job
+                            </Link>
+                            {!isCompleted && (
+                              <MarkJobCompleteButton
+                                jobId={job.id}
+                                jobTitle={job.title}
+                                redirectAfter="/dashboard/company"
+                              />
+                            )}
+                            {isCompleted && homeowner?.user_id && (
+                              <ReviewHomeownerButton
+                                jobId={job.id}
+                                jobTitle={job.title}
+                                homeownerUserId={homeowner.user_id}
+                                homeownerName={posterName}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Statistics shortcut card */}
             <Link href="/dashboard/company/statistics">
               <Card className="overflow-hidden border border-purple-500/30 shadow-sm rounded-xl bg-slate-800 hover:bg-slate-700/80 transition-colors cursor-pointer">
                 <CardHeader className="px-4 py-3 bg-purple-500/10">

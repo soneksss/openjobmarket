@@ -3,433 +3,279 @@ import { redirect } from "next/navigation"
 import CompanyDashboard from "@/components/company-dashboard"
 import { getDashboardBootstrap } from "@/lib/bootstrap"
 
-// Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
 
 export default async function CompanyDashboardPage() {
-  console.log("[v0] Company dashboard page loading...")
-
   const supabase = await createClient()
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect("/auth/login")
 
-  if (!user) {
-    console.log("[v0] No user found, redirecting to login")
-    redirect("/auth/login")
-  }
+  // Phase 1 — parallel: bootstrap cache + company profile
+  const [, profileResult] = await Promise.all([
+    getDashboardBootstrap(user.id),
+    supabase.from("company_profiles").select("*").eq("user_id", user.id).maybeSingle(),
+  ])
 
-  console.log("[v0] User found:", user.id)
+  let profile = profileResult.data
 
-  // Bootstrap: adminSettings + future featureFlags/permissions (cached, shared across requests)
-  await getDashboardBootstrap(user.id)
-
-  // Get company profile
-  let profile: any = null
-  {
-    const { data: profileData, error: profileError } = await supabase
-      .from("company_profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle()
-
-    if (profileError) {
-      console.log("[v0] Profile error:", profileError)
-    }
-
-    if (!profileData) {
-      // Profile missing — try RPC first
-      console.log("[v0] No company profile found, attempting to create from signup data")
-      await supabase.rpc("complete_user_profile_after_verification", { p_user_id: user.id })
-      const { data: retryData } = await supabase
-        .from("company_profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle()
-
-      if (!retryData) {
-        // RPC failed — insert minimal profile directly from auth metadata
-        console.log("[v0] RPC failed, inserting minimal company profile directly")
-        const metadata = user.user_metadata || {}
-        const { data: insertedProfile, error: insertError } = await supabase
-          .from("company_profiles")
-          .insert({
-            user_id: user.id,
-            company_name: metadata.company_name || metadata.first_name || user.email?.split("@")[0] || "My Business",
-            industry: metadata.industry || metadata.trade || "General",
-            location: metadata.location || null,
-          })
-          .select()
-          .single()
-        if (insertError) {
-          console.error("[v0] Direct insert failed:", insertError)
-        }
-        profile = insertedProfile
-      } else {
-        profile = retryData
-      }
-    } else {
-      profile = profileData
-    }
-  }
-
-  // If still no profile after all attempts, redirect
+  // Profile missing — attempt RPC then direct insert (rare path)
   if (!profile) {
-    console.log("[v0] No company profile found, redirecting to home with complete_profile prompt")
-    redirect("/?complete_profile=true")
+    await supabase.rpc("complete_user_profile_after_verification", { p_user_id: user.id })
+    const { data: retryData } = await supabase
+      .from("company_profiles").select("*").eq("user_id", user.id).maybeSingle()
+
+    if (!retryData) {
+      const metadata = user.user_metadata || {}
+      const { data: insertedProfile } = await supabase
+        .from("company_profiles")
+        .insert({
+          user_id: user.id,
+          company_name: metadata.company_name || metadata.first_name || user.email?.split("@")[0] || "My Business",
+          industry: metadata.industry || metadata.trade || "General",
+          location: metadata.location || null,
+        })
+        .select().single()
+      profile = insertedProfile
+    } else {
+      profile = retryData
+    }
   }
 
-  console.log("[v0] Company profile found:", profile.company_name)
+  if (!profile) redirect("/?complete_profile=true")
 
-  // Check profile completeness - but DON'T redirect, let dashboard handle it
   const missingFields: string[] = []
   if (!profile.company_name) missingFields.push("company_name")
   if (!profile.industry) missingFields.push("industry")
   if (!profile.location) missingFields.push("location")
-
   const isProfileComplete = missingFields.length === 0
 
-  console.log("[v0] Profile validation check:", {
-    isProfileComplete,
-    missingFields,
+  // Phase 2 — parallel: reviews, jobs, submitted applications, my-jobs (confirmed/completed)
+  const [reviewsResult, jobsResult, submittedResult, myJobsResult] = await Promise.all([
+    supabase
+      .from("reviews")
+      .select("id, rating, review_text, created_at, is_edited, reviewer_id")
+      .eq("reviewee_id", user.id)
+      .order("created_at", { ascending: false }),
+
+    supabase
+      .from("job_status_view")
+      .select("*")
+      .eq("company_id", profile.id)
+      .order("created_at", { ascending: false }),
+
+    supabase
+      .from("job_applications")
+      .select("id, status, applied_at, job_id")
+      .eq("company_id", profile.id)
+      .order("applied_at", { ascending: false }),
+
+    supabase
+      .from("jobs")
+      .select(`
+        id, title, location, budget_min, budget_max, status,
+        confirmed_at, completed_at,
+        homeowner_profiles!homeowner_id ( first_name, last_name, user_id )
+      `)
+      .eq("confirmed_tradesperson_id", profile.id)
+      .in("status", ["CONFIRMED", "ACTIVE", "COMPLETED"])
+      .order("confirmed_at", { ascending: false }),
+  ])
+
+  const reviewsData = reviewsResult.data ?? []
+  const jobs = jobsResult.data ?? []
+  const submittedApplications = submittedResult.data ?? []
+  const myJobs = myJobsResult.data ?? []
+  const jobIds = jobs.map((j) => j.id)
+
+  // Phase 3 — parallel: enrich reviews (batch, not N+1) + job-related queries
+  const reviewerIds = [...new Set(reviewsData.map((r) => r.reviewer_id).filter(Boolean))]
+  const submittedJobIds = submittedApplications.map((a) => a.job_id)
+
+  const [
+    homeownerReviewers,
+    companyReviewers,
+    userReviewers,
+    applicationCountsResult,
+    receivedApplicationsResult,
+    submittedJobDetailsResult,
+    activeJobsResult,
+    totalApplicationsResult,
+  ] = await Promise.all([
+    reviewerIds.length
+      ? supabase.from("homeowner_profiles")
+          .select("user_id, first_name, last_name, profile_photo_url")
+          .in("user_id", reviewerIds)
+      : Promise.resolve({ data: [] }),
+
+    reviewerIds.length
+      ? supabase.from("company_profiles")
+          .select("user_id, company_name, logo_url")
+          .in("user_id", reviewerIds)
+      : Promise.resolve({ data: [] }),
+
+    reviewerIds.length
+      ? supabase.from("users").select("id, email").in("id", reviewerIds)
+      : Promise.resolve({ data: [] }),
+
+    jobIds.length
+      ? supabase.from("job_applications").select("job_id, status").in("job_id", jobIds)
+      : Promise.resolve({ data: [] }),
+
+    jobIds.length
+      ? supabase.from("job_applications")
+          .select("id, status, applied_at, job_id, professional_id, company_id")
+          .in("job_id", jobIds)
+          .order("applied_at", { ascending: false })
+          .limit(10)
+      : Promise.resolve({ data: [] }),
+
+    submittedJobIds.length
+      ? supabase.from("jobs")
+          .select("id, title, location, job_type, is_tradespeople_job, company_id, homeowner_id")
+          .in("id", submittedJobIds)
+      : Promise.resolve({ data: [] }),
+
+    supabase.from("job_status_view")
+      .select("*", { count: "exact", head: true })
+      .eq("company_id", profile.id)
+      .eq("is_active", true)
+      .neq("expiration_status", "expired"),
+
+    jobIds.length
+      ? supabase.from("job_applications")
+          .select("*", { count: "exact", head: true })
+          .in("job_id", jobIds)
+      : Promise.resolve({ count: 0 }),
+  ])
+
+  // Build reviews with reviewer names — pure in-memory join, no extra queries
+  const homeownerMap = new Map((homeownerReviewers.data ?? []).map((h: any) => [h.user_id, h]))
+  const companyMap   = new Map((companyReviewers.data ?? []).map((c: any) => [c.user_id, c]))
+  const userMap      = new Map((userReviewers.data ?? []).map((u: any) => [u.id, u]))
+
+  const companyReviews = reviewsData.map((review) => {
+    const h = homeownerMap.get(review.reviewer_id)
+    if (h) return { ...review, reviewer_name: `${h.first_name} ${h.last_name}`, reviewer_avatar: h.profile_photo_url }
+    const c = companyMap.get(review.reviewer_id)
+    if (c) return { ...review, reviewer_name: c.company_name, reviewer_avatar: c.logo_url }
+    const u = userMap.get(review.reviewer_id)
+    return { ...review, reviewer_name: u?.email?.split('@')[0] ?? 'Anonymous', reviewer_avatar: null }
   })
 
-  // Get all reviews for the company
-  let companyReviews: any[] = []
-  const { data: reviewsData, error: reviewsError } = await supabase
-    .from("reviews")
-    .select(`
-      id,
-      rating,
-      review_text,
-      created_at,
-      is_edited,
-      reviewer_id
-    `)
-    .eq("reviewee_id", user.id)
-    .order("created_at", { ascending: false })
-
-  if (reviewsError) {
-    console.warn("[COMPANY-DASHBOARD] Error fetching reviews:", reviewsError)
-  }
-
-  if (reviewsData) {
-    // Fetch reviewer names and avatars from all possible profile types
-    const reviewsWithNames = await Promise.all(
-      reviewsData.map(async (review) => {
-        let reviewerName = "Anonymous"
-        let reviewerAvatar: string | null = null
-
-        // Try homeowner profile first (most common reviewer type for tradespeople)
-        const { data: homeownerProfile } = await supabase
-          .from("homeowner_profiles")
-          .select("first_name, last_name, profile_photo_url")
-          .eq("user_id", review.reviewer_id)
-          .single()
-
-        if (homeownerProfile) {
-          reviewerName = `${homeownerProfile.first_name} ${homeownerProfile.last_name}`
-          reviewerAvatar = homeownerProfile.profile_photo_url
-        } else {
-          // Try company profile (tradesperson reviewing another)
-          const { data: companyProfile } = await supabase
-            .from("company_profiles")
-            .select("company_name, logo_url")
-            .eq("user_id", review.reviewer_id)
-            .single()
-
-          if (companyProfile) {
-            reviewerName = companyProfile.company_name
-            reviewerAvatar = companyProfile.logo_url
-          } else {
-            // Fallback to user email
-            const { data: userData } = await supabase
-              .from("users")
-              .select("email")
-              .eq("id", review.reviewer_id)
-              .single()
-
-            if (userData?.email) {
-              reviewerName = userData.email.split('@')[0]
-            }
-          }
-        }
-
-        return {
-          ...review,
-          reviewer_name: reviewerName,
-          reviewer_avatar: reviewerAvatar,
-        }
-      })
-    )
-
-    companyReviews = reviewsWithNames
-  }
-
-  // Compute rating from fetched reviews (no separate view needed)
   const companyRating = {
-    average_rating: companyReviews.length > 0
-      ? companyReviews.reduce((sum: number, r: any) => sum + r.rating, 0) / companyReviews.length
+    average_rating: companyReviews.length
+      ? companyReviews.reduce((s, r) => s + r.rating, 0) / companyReviews.length
       : 0,
     total_reviews: companyReviews.length,
   }
 
-  const { data: jobs, error: jobsError } = await supabase
-    .from("job_status_view")
-    .select("*")
-    .eq("company_id", profile.id)
-    .order("created_at", { ascending: false })
-
-  if (jobsError) {
-    console.log("[v0] Jobs error:", jobsError)
-  }
-
-  console.log("[v0] Jobs found:", jobs?.length || 0)
-  console.log("[v0] Jobs data with is_tradespeople_job:", jobs?.map(j => ({
-    id: j.id,
-    title: j.title,
-    is_tradespeople_job: j.is_tradespeople_job,
-    job_type: j.job_type
-  })))
-
-  // Get application counts for each job (with status breakdown)
-  const jobIds = jobs?.map((job) => job.id) || []
-  const { data: applicationCounts, error: countsError } = await supabase
-    .from("job_applications")
-    .select("job_id, status")
-    .in("job_id", jobIds)
-
-  if (countsError) {
-    console.log("[v0] Application counts error:", countsError)
-  }
-
-  // Count applications per job (total and by status)
-  const applicationCountsMap = new Map()
-  const applicationStatusMap = new Map() // Map<job_id, Map<status, count>>
-
-  applicationCounts?.forEach((app) => {
-    // Total count
-    const count = applicationCountsMap.get(app.job_id) || 0
-    applicationCountsMap.set(app.job_id, count + 1)
-
-    // Status breakdown
-    if (!applicationStatusMap.has(app.job_id)) {
-      applicationStatusMap.set(app.job_id, new Map())
-    }
-    const statusMap = applicationStatusMap.get(app.job_id)!
-    const statusCount = statusMap.get(app.status) || 0
-    statusMap.set(app.status, statusCount + 1)
+  // Build application count maps
+  const applicationCountsMap = new Map<string, number>()
+  const applicationStatusMap = new Map<string, Map<string, number>>()
+  ;(applicationCountsResult.data ?? []).forEach((app: any) => {
+    applicationCountsMap.set(app.job_id, (applicationCountsMap.get(app.job_id) ?? 0) + 1)
+    if (!applicationStatusMap.has(app.job_id)) applicationStatusMap.set(app.job_id, new Map())
+    const sm = applicationStatusMap.get(app.job_id)!
+    sm.set(app.status, (sm.get(app.status) ?? 0) + 1)
   })
 
-  // Get recent applications RECEIVED for jobs posted by this company (support both professional and company applicants)
-  const { data: receivedApplications, error: applicationsError } = await supabase
-    .from("job_applications")
-    .select(`
-      id,
-      status,
-      applied_at,
-      job_id,
-      professional_id,
-      company_id
-    `)
-    .in("job_id", jobIds)
-    .order("applied_at", { ascending: false })
-    .limit(10)
+  const receivedApplications = receivedApplicationsResult.data ?? []
+  const submittedJobDetails  = submittedJobDetailsResult.data ?? []
 
-  if (applicationsError) {
-    console.log("[v0] Received applications error:", applicationsError)
-  }
+  // Phase 4 — parallel: enrich received applications (applicant profiles)
+  const professionalIds = [...new Set(receivedApplications.map((a: any) => a.professional_id).filter(Boolean))]
+  const receivedCompanyIds = [...new Set(receivedApplications.map((a: any) => a.company_id).filter(Boolean))]
+  const appJobIds = [...new Set(receivedApplications.map((a: any) => a.job_id))]
+  const subCompanyIds = [...new Set(submittedJobDetails.map((j: any) => j.company_id).filter(Boolean))]
+  const subHomeownerIds = [...new Set(submittedJobDetails.map((j: any) => j.homeowner_id).filter(Boolean))]
 
-  console.log("[v0] Received applications found:", receivedApplications?.length || 0)
+  const [
+    appJobDetails,
+    professionalDetails,
+    receivedCompanyDetails,
+    submittedCompanyProfiles,
+    submittedHomeownerProfiles,
+  ] = await Promise.all([
+    appJobIds.length
+      ? supabase.from("jobs").select("id, title").in("id", appJobIds)
+      : Promise.resolve({ data: [] }),
+    professionalIds.length
+      ? supabase.from("professional_profiles")
+          .select("id, first_name, last_name, title, location, profile_photo_url, user_id")
+          .in("id", professionalIds)
+      : Promise.resolve({ data: [] }),
+    receivedCompanyIds.length
+      ? supabase.from("company_profiles")
+          .select("id, company_name, industry, location, logo_url, user_id")
+          .in("id", receivedCompanyIds)
+      : Promise.resolve({ data: [] }),
+    subCompanyIds.length
+      ? supabase.from("company_profiles")
+          .select("id, company_name, logo_url, user_id")
+          .in("id", subCompanyIds)
+      : Promise.resolve({ data: [] }),
+    subHomeownerIds.length
+      ? supabase.from("homeowner_profiles")
+          .select("id, first_name, last_name, user_id")
+          .in("id", subHomeownerIds)
+      : Promise.resolve({ data: [] }),
+  ])
 
-  // Get ALL applications SUBMITTED by this company (no limit — needed for accurate counts)
-  const { data: submittedApplications, error: submittedError } = await supabase
-    .from("job_applications")
-    .select(`
-      id,
-      status,
-      applied_at,
-      job_id
-    `)
-    .eq("company_id", profile.id)
-    .order("applied_at", { ascending: false })
+  // In-memory enrichment — no more sequential per-record queries
+  const jobDetailsMap         = new Map((appJobDetails.data ?? []).map((j: any) => [j.id, j]))
+  const profDetailsMap        = new Map((professionalDetails.data ?? []).map((p: any) => [p.id, p]))
+  const recCompanyDetailsMap  = new Map((receivedCompanyDetails.data ?? []).map((c: any) => [c.id, c]))
+  const subCompanyMap         = new Map((submittedCompanyProfiles.data ?? []).map((c: any) => [c.id, c]))
+  const subHomeownerMap       = new Map((submittedHomeownerProfiles.data ?? []).map((h: any) => [h.id, h]))
+  const subJobMap             = new Map(submittedJobDetails.map((j: any) => [j.id, j]))
 
-  if (submittedError) {
-    console.log("[v0] Submitted applications error:", submittedError)
-  }
-
-  console.log("[v0] Submitted applications found:", submittedApplications?.length || 0)
-
-  // Get job details for RECEIVED applications
-  const applicationJobIds = receivedApplications?.map((app) => app.job_id) || []
-  const professionalIds = receivedApplications?.map((app) => app.professional_id).filter((id): id is string => id !== null) || []
-  const companyIds = receivedApplications?.map((app) => app.company_id).filter((id): id is string => id !== null) || []
-
-  const { data: jobDetails } = await supabase.from("jobs").select("id, title").in("id", applicationJobIds)
-
-  // Fetch both professional and company profiles
-  const { data: professionalDetails } = await supabase
-    .from("professional_profiles")
-    .select("id, first_name, last_name, title, location, profile_photo_url, user_id")
-    .in("id", professionalIds)
-
-  const { data: companyDetails } = await supabase
-    .from("company_profiles")
-    .select("id, company_name, industry, location, logo_url, user_id")
-    .in("id", companyIds)
-
-  // Enrich RECEIVED applications with job and applicant details (professional or company)
-  // Filter out applications from unknown/old user types (neither professional nor company)
-  const enrichedReceivedApplications =
-    receivedApplications
-      ?.map((app) => {
-        // Skip applications without a valid applicant type
-        if (!app.professional_id && !app.company_id) {
-          return null
-        }
-
-        const jobInfo = jobDetails?.find((job) => job.id === app.job_id) || {
-          id: app.job_id,
-          title: "Unknown Job",
-        }
-
-        // Determine applicant type and attach appropriate profile
-        if (app.professional_id) {
-          return {
-            ...app,
-            jobs: jobInfo,
-            professional_profiles: professionalDetails?.find((prof) => prof.id === app.professional_id) || {
-              id: app.professional_id || "unknown",
-              first_name: "Unknown",
-              last_name: "User",
-              title: "Professional",
-              location: "Unknown",
-              profile_photo_url: undefined,
-              user_id: undefined,
-            },
-            company_profiles: null,
-            applicant_type: "professional" as const,
-          }
-        } else {
-          // app.company_id must be set at this point
-          return {
-            ...app,
-            jobs: jobInfo,
-            professional_profiles: null,
-            company_profiles: companyDetails?.find((comp) => comp.id === app.company_id) || {
-              id: app.company_id || "unknown",
-              company_name: "Unknown Company",
-              industry: "Company",
-              location: "Unknown",
-              logo_url: undefined,
-              user_id: undefined,
-            },
-            applicant_type: "company" as const,
-          }
-        }
-      })
-      .filter((app): app is NonNullable<typeof app> => app !== null) || []
-
-  // Get job details for SUBMITTED applications
-  const submittedJobIds = submittedApplications?.map((app) => app.job_id) || []
-  const { data: submittedJobDetails } = await supabase
-    .from("jobs")
-    .select(`
-      id,
-      title,
-      location,
-      job_type,
-      is_tradespeople_job,
-      company_id,
-      homeowner_id
-    `)
-    .in("id", submittedJobIds)
-
-  // Get company and homeowner profiles for submitted job details
-  const submittedCompanyIds = submittedJobDetails?.map((job) => job.company_id).filter((id): id is string => id !== null) || []
-  const submittedHomeownerIds = submittedJobDetails?.map((job) => job.homeowner_id).filter((id): id is string => id !== null) || []
-
-  const { data: submittedCompanyProfiles } = await supabase
-    .from("company_profiles")
-    .select("id, company_name, logo_url, user_id")
-    .in("id", submittedCompanyIds)
-
-  const { data: submittedHomeownerProfiles } = await supabase
-    .from("homeowner_profiles")
-    .select("id, first_name, last_name, user_id")
-    .in("id", submittedHomeownerIds)
-
-  // Enrich SUBMITTED applications with job details
-  const enrichedSubmittedApplications =
-    submittedApplications?.map((app) => {
-      const jobInfo = submittedJobDetails?.find((job) => job.id === app.job_id)
-
-      if (!jobInfo) {
+  const enrichedReceivedApplications = receivedApplications
+    .filter((app: any) => app.professional_id || app.company_id)
+    .map((app: any) => {
+      const jobInfo = jobDetailsMap.get(app.job_id) ?? { id: app.job_id, title: "Unknown Job" }
+      if (app.professional_id) {
         return {
-          ...app,
-          jobs: {
-            id: app.job_id,
-            title: "Unknown Job",
-            location: "Unknown",
-            job_type: "Unknown",
-            is_tradespeople_job: false,
-          },
-          job_poster_name: "Unknown",
-          job_poster_avatar: null,
+          ...app, jobs: jobInfo,
+          professional_profiles: profDetailsMap.get(app.professional_id) ?? { id: app.professional_id, first_name: "Unknown", last_name: "User", title: "Professional", location: "Unknown", profile_photo_url: undefined, user_id: undefined },
+          company_profiles: null,
+          applicant_type: "professional" as const,
         }
       }
-
-      // Determine job poster
-      let posterName = "Unknown"
-      let posterAvatar: string | null = null
-
-      if (jobInfo.company_id) {
-        const companyProfile = submittedCompanyProfiles?.find((c) => c.id === jobInfo.company_id)
-        posterName = companyProfile?.company_name || "Unknown Company"
-        posterAvatar = companyProfile?.logo_url || null
-      } else if (jobInfo.homeowner_id) {
-        const homeownerProfile = submittedHomeownerProfiles?.find((h) => h.id === jobInfo.homeowner_id)
-        posterName = homeownerProfile ? `${homeownerProfile.first_name} ${homeownerProfile.last_name}` : "Unknown Homeowner"
-        posterAvatar = null
-      }
-
       return {
-        ...app,
-        jobs: jobInfo,
-        job_poster_name: posterName,
-        job_poster_avatar: posterAvatar,
+        ...app, jobs: jobInfo,
+        professional_profiles: null,
+        company_profiles: recCompanyDetailsMap.get(app.company_id) ?? { id: app.company_id, company_name: "Unknown Company", industry: "Company", location: "Unknown", logo_url: undefined, user_id: undefined },
+        applicant_type: "company" as const,
       }
-    }) || []
+    })
 
-  const { count: totalApplications } = await supabase
-    .from("job_applications")
-    .select("*", { count: "exact", head: true })
-    .in("job_id", jobIds)
+  const enrichedSubmittedApplications = submittedApplications.map((app: any) => {
+    const jobInfo = subJobMap.get(app.job_id)
+    if (!jobInfo) return { ...app, jobs: { id: app.job_id, title: "Unknown Job", location: "Unknown", job_type: "Unknown", is_tradespeople_job: false }, job_poster_name: "Unknown", job_poster_avatar: null }
+    const company   = jobInfo.company_id   ? subCompanyMap.get(jobInfo.company_id)   : null
+    const homeowner = jobInfo.homeowner_id ? subHomeownerMap.get(jobInfo.homeowner_id) : null
+    return {
+      ...app, jobs: jobInfo,
+      job_poster_name:   company ? company.company_name : homeowner ? `${homeowner.first_name} ${homeowner.last_name}` : "Unknown",
+      job_poster_avatar: company?.logo_url ?? null,
+    }
+  })
 
-  const { count: activeJobs } = await supabase
-    .from("job_status_view")
-    .select("*", { count: "exact", head: true })
-    .eq("company_id", profile.id)
-    .eq("is_active", true)
-    .neq("expiration_status", "expired")
-
-  // Enrich jobs with application counts and status breakdown (jobs already have expiration info from view)
-  const enrichedJobs =
-    jobs?.map((job) => {
-      const statusMap = applicationStatusMap.get(job.id) || new Map()
-      return {
-        ...job,
-        applications_count: applicationCountsMap.get(job.id) || 0,
-        status_breakdown: {
-          pending: statusMap.get("pending") || 0,
-          reviewed: statusMap.get("reviewed") || 0,
-          interview: statusMap.get("interview") || 0,
-          accepted: statusMap.get("accepted") || 0,
-          rejected: statusMap.get("rejected") || 0,
-        },
-      }
-    }) || []
+  const enrichedJobs = jobs.map((job: any) => {
+    const sm = applicationStatusMap.get(job.id) ?? new Map()
+    return {
+      ...job,
+      applications_count: applicationCountsMap.get(job.id) ?? 0,
+      status_breakdown: {
+        pending:   sm.get("pending")   ?? 0,
+        reviewed:  sm.get("reviewed")  ?? 0,
+        interview: sm.get("interview") ?? 0,
+        accepted:  sm.get("accepted")  ?? 0,
+        rejected:  sm.get("rejected")  ?? 0,
+      },
+    }
+  })
 
   return (
     <CompanyDashboard
@@ -438,10 +284,11 @@ export default async function CompanyDashboardPage() {
       jobs={enrichedJobs}
       receivedApplications={enrichedReceivedApplications}
       submittedApplications={enrichedSubmittedApplications}
+      myJobs={myJobs}
       stats={{
-        totalApplications: totalApplications || 0,
-        activeJobs: activeJobs || 0,
-        totalJobs: jobs?.length || 0,
+        totalApplications: totalApplicationsResult.count ?? 0,
+        activeJobs: activeJobsResult.count ?? 0,
+        totalJobs: jobs.length,
       }}
       rating={companyRating}
       reviews={companyReviews}

@@ -34,11 +34,13 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
   const [uploadStatus, setUploadStatus] = useState<string | null>(null)
 
   const [formData, setFormData] = useState({
-    firstName: profile.first_name || "",
-    lastName: profile.last_name || "",
-    phone: profile.phone || "",
-    location: profile.location || "",
-    bio: profile.bio || "",
+    firstName:    profile.first_name    || "",
+    lastName:     profile.last_name     || "",
+    phone:        profile.phone         || "",
+    addressLine1: profile.address_line1 || "",
+    city:         profile.city          || "",
+    location:     profile.location      || "",   // postcode
+    bio:          profile.bio           || "",
   })
 
   // ── Initials for avatar fallback ──────────────────────────────────────────
@@ -188,16 +190,74 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
     }, 15_000)
 
     try {
-      const { error: updateError } = await supabase
+      // Build full_address from structured fields
+      const parts = [formData.addressLine1, formData.city, formData.location].filter(Boolean)
+      const fullAddress = parts.join(", ") || null
+
+      // Geocode the postcode to get exact coords, then compute approx offset
+      let latitudeExact: number | null = profile.latitude ?? null
+      let longitudeExact: number | null = profile.longitude ?? null
+      let latitudeApprox: number | null = profile.latitude_approx ?? null
+      let longitudeApprox: number | null = profile.longitude_approx ?? null
+
+      const postcodeChanged = formData.location.trim().toUpperCase() !== (profile.location || "").trim().toUpperCase()
+      if (postcodeChanged && formData.location.trim()) {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.location + ", UK")}&limit=1&countrycodes=gb`,
+            { headers: { "User-Agent": "OpenJobMarket/1.0" } }
+          )
+          const data = await res.json()
+          if (data?.[0]) {
+            latitudeExact  = parseFloat(data[0].lat)
+            longitudeExact = parseFloat(data[0].lon)
+
+            // Deterministic approx offset derived from userId (~500-900m)
+            let h1 = 0, h2 = 0
+            for (let i = 0; i < userId.length; i++) {
+              const c = userId.charCodeAt(i)
+              h1 = ((h1 << 5) - h1 + c) | 0
+              h2 = ((h2 << 3) + c ^ (i * 31)) | 0
+            }
+            const s1 = h1 >= 0 ? 1 : -1
+            const s2 = h2 >= 0 ? 1 : -1
+            latitudeApprox  = Math.round((latitudeExact  + s1 * (0.004 + (Math.abs(h1) % 4001) / 1000000)) * 1e6) / 1e6
+            longitudeApprox = Math.round((longitudeExact + s2 * (0.004 + (Math.abs(h2) % 4001) / 1000000)) * 1e6) / 1e6
+          }
+        } catch {
+          // Geocoding failure is non-fatal — existing coords kept
+        }
+      }
+
+      // Try saving with new columns; fall back without them if migration hasn't run yet
+      const fullPayload: Record<string, any> = {
+        first_name:       formData.firstName,
+        last_name:        formData.lastName,
+        phone:            formData.phone        || null,
+        address_line1:    formData.addressLine1 || null,
+        city:             formData.city         || null,
+        location:         formData.location,
+        full_address:     fullAddress,
+        bio:              formData.bio           || null,
+        ...(latitudeExact   !== null && { latitude:          latitudeExact   }),
+        ...(longitudeExact  !== null && { longitude:         longitudeExact  }),
+        ...(latitudeApprox  !== null && { latitude_approx:   latitudeApprox  }),
+        ...(longitudeApprox !== null && { longitude_approx:  longitudeApprox }),
+      }
+
+      let { error: updateError } = await supabase
         .from("homeowner_profiles")
-        .update({
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          phone: formData.phone || null,
-          location: formData.location,
-          bio: formData.bio || null,
-        })
+        .update(fullPayload)
         .eq("user_id", userId)
+
+      // Column doesn't exist yet — retry without the new columns
+      if (updateError && (updateError.message?.includes("column") || updateError.code === "42703" || updateError.message?.includes("schema cache"))) {
+        const { address_line1, city, full_address, latitude_approx, longitude_approx, ...basePayload } = fullPayload;
+        ({ error: updateError } = await supabase
+          .from("homeowner_profiles")
+          .update(basePayload)
+          .eq("user_id", userId))
+      }
 
       clearTimeout(timeoutId)
 
@@ -307,17 +367,43 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
             />
           </div>
 
-          {/* ── Location ── */}
-          <div>
-            <Label htmlFor="location" className="text-slate-200">Location *</Label>
+          {/* ── Post Code (required) ── */}
+          <div className="space-y-1">
+            <Label htmlFor="location" className="text-slate-200">Post Code *</Label>
             <Input
               id="location"
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-              placeholder="e.g., London, UK"
+              placeholder="e.g. PO9 5AZ"
               required
               className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
             />
+            <p className="text-xs text-slate-500">Used to find tradespeople near you — only your area is shown publicly</p>
+          </div>
+
+          {/* ── Full address (optional, private) ── */}
+          <div className="space-y-2 p-3 rounded-xl bg-slate-700/20 border border-slate-700/50">
+            <p className="text-xs text-slate-400">
+              <span className="font-semibold text-slate-300">Full address</span>
+              <span className="ml-1 text-slate-500">(optional)</span>
+              {" — "}shared only with the tradesperson you accept
+            </p>
+            <div className="grid grid-cols-1 gap-2">
+              <Input
+                id="addressLine1"
+                value={formData.addressLine1}
+                onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
+                placeholder="Address line 1, e.g. 26 Blackdown Crescent"
+                className="bg-slate-700/50 border border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400 text-sm h-9"
+              />
+              <Input
+                id="city"
+                value={formData.city}
+                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="City / Town, e.g. Waterlooville"
+                className="bg-slate-700/50 border border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400 text-sm h-9"
+              />
+            </div>
           </div>
 
           {/* ── Bio ── */}

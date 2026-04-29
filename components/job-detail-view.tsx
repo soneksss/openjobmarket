@@ -33,6 +33,7 @@ import { JobExpiryBadge } from "./job-expiry-badge"
 import FloatingMessageModal from "./floating-message-modal"
 import { useTranslation } from "@/lib/i18n/context"
 import { formatDisplayAddress } from "@/lib/utils"
+import { JobLocationMap } from "./job-location-map"
 
 interface Job {
   id: string
@@ -1038,6 +1039,30 @@ export default function JobDetailView({
                 jobId={job.id}
               />
             )}
+
+            {/* Location map — approx until confirmed, exact after */}
+            {(() => {
+              const hp = job.homeowner_profiles
+              // Prefer purpose-built approx coords; fall back to job coords for old listings
+              const approxLat = hp?.latitude_approx ?? job.latitude
+              const approxLon = hp?.longitude_approx ?? job.longitude
+              // Exact coords only available after confirmation (fetched server-side)
+              const exactLat  = hp?.latitude
+              const exactLon  = hp?.longitude
+              if (!approxLat || !approxLon) return null
+              return (
+                <JobLocationMap
+                  approxLatitude={approxLat}
+                  approxLongitude={approxLon}
+                  exactLatitude={exactLat}
+                  exactLongitude={exactLon}
+                  applicationStatus={myApplicationStatus}
+                  homeownerAddressLine1={hp?.address_line1}
+                  homeownerCity={hp?.city}
+                  homeownerPostcode={hp?.location}
+                />
+              )
+            })()}
 
             {/* Apply CTA — wait for userType to resolve before rendering to avoid flicker */}
             {/* Homeowners never see Apply — they post jobs, not apply to them */}

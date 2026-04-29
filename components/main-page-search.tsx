@@ -524,6 +524,20 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     return () => subscription.unsubscribe()
   }, [supabase, mounted])
 
+  // Warm the signin-required cache immediately on mount so handleSearch never waits for it.
+  // Fire-and-forget: result is stored in signinRequiredCacheRef; no state update, no re-render.
+  useEffect(() => {
+    if (user) return // logged-in users skip this check entirely
+    if (signinRequiredCacheRef.current) return // already warm
+    supabase.rpc('is_signin_required_to_search')
+      .then(({ data }) => {
+        signinRequiredCacheRef.current = { value: data ?? false, timestamp: Date.now() }
+      })
+      .catch(() => {
+        signinRequiredCacheRef.current = { value: false, timestamp: Date.now() }
+      })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Handle tab URL parameter and restore search state from "Back to Search"
   useEffect(() => {
     const tab = searchParams?.get('tab')
@@ -675,9 +689,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         setShowFilters(false)
       }
 
-      // Open the map modal immediately for autoSearch — user should see the map, not the search card.
-      // The modal renders with empty data while the search runs, then updates when results arrive.
+      // Open the map modal immediately — Leaflet starts loading in parallel with the search RPC.
+      // ProfessionalsPageContent mounts with empty data; markers populate when results arrive.
       setShowMapModal(true)
+      setInitialSearchDone(true)
 
       // Trigger search after state is set.
       // For jobs_tasks: always prefer browser geolocation (actual current position)
@@ -700,6 +715,12 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           setSelectedLocation({ lat: profileLocation.latitude, lon: profileLocation.longitude })
           setLocation(profileLocation.location || "Your area")
           setDistance(radiusParam || "10")
+          setRestoreSearch(searchTypeToUse)
+        } else if (!user) {
+          // Unauthenticated: always Portsmouth, 5-mile radius — no geolocation
+          setSelectedLocation({ lat: 50.8058, lon: -1.0872 })
+          setLocation("Portsmouth")
+          setDistance("5")
           setRestoreSearch(searchTypeToUse)
         } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
           navigator.geolocation.getCurrentPosition(
@@ -963,62 +984,20 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     } else if (user) {
       // skip auth — already logged in
     } else {
-      // Check if sign-in is required to search (with caching and timeout)
-      try {
-        // Check cache first
-        const now = Date.now()
-        if (signinRequiredCacheRef.current && (now - signinRequiredCacheRef.current.timestamp) < SIGNIN_CACHE_TTL) {
-
-          if (signinRequiredCacheRef.current.value && !user) {
-            const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
-            const isOnBrRoute = pathname?.startsWith('/br')
-            const signUpUrl = isOnBrRoute
-              ? `/auth/sign-up?locale=pt-BR&redirect=${returnUrl}`
-              : `/auth/sign-up?redirect=${returnUrl}`
-            router.push(signUpUrl)
-            return
-          }
-        } else {
-
-
-          // Create a timeout promise that resolves after 2 seconds (reduced from 3s)
-          const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) => {
-            setTimeout(() => {
-              console.warn('[MAIN-PAGE-SEARCH] RPC timeout after 2 seconds - continuing without check')
-              resolve({ data: null, error: new Error('RPC timeout') })
-            }, 2000)
-          })
-
-          // Race between the RPC call and timeout
-          const rpcPromise = supabase.rpc('is_signin_required_to_search')
-          const result = await Promise.race([rpcPromise, timeoutPromise])
-          const { data: signinRequired, error: signinError } = result
-
-          if (signinError) {
-            // On error/timeout, cache as "not required" to avoid repeated failures
-            console.warn('[MAIN-PAGE-SEARCH] RPC failed, caching as not required:', signinError.message)
-            signinRequiredCacheRef.current = { value: false, timestamp: now }
-            // Continue with search (fail open for better UX)
-          } else {
-            // Cache the result
-            signinRequiredCacheRef.current = { value: signinRequired, timestamp: now }
-
-            if (signinRequired && !user) {
-              debug('[MAIN-PAGE-SEARCH] Sign-in required but user not logged in. Redirecting...')
-              const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
-              const isOnBrRoute = pathname?.startsWith('/br')
-              const signUpUrl = isOnBrRoute
-                ? `/auth/sign-up?locale=pt-BR&redirect=${returnUrl}`
-                : `/auth/sign-up?redirect=${returnUrl}`
-              router.push(signUpUrl)
-              return
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[MAIN-PAGE-SEARCH] Exception checking signin requirement:', err)
-        // Continue with search on error (fail open for better UX)
+      // Use cached signin-requirement value. Cache is pre-warmed on mount (see useEffect below).
+      // If cache is still cold (autoSearch fired before prefetch resolved), fail open and proceed —
+      // never block the search with a network await.
+      const now = Date.now()
+      const cached = signinRequiredCacheRef.current
+      if (cached && (now - cached.timestamp) < SIGNIN_CACHE_TTL && cached.value) {
+        const returnUrl = encodeURIComponent(window.location.pathname + window.location.search)
+        const isOnBrRoute = pathname?.startsWith('/br')
+        router.push(isOnBrRoute
+          ? `/auth/sign-up?locale=pt-BR&redirect=${returnUrl}`
+          : `/auth/sign-up?redirect=${returnUrl}`)
+        return
       }
+      // Cache miss → proceed immediately; background prefetch will warm it for next call
     }
 
     const error = validateSearch()
@@ -2266,8 +2245,6 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     }
     setShowMapModal(false)
   }, [])
-
-  if (!mounted) return null
 
   return (
     <div className="w-full relative z-[100]">

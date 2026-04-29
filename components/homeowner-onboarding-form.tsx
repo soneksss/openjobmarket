@@ -135,6 +135,22 @@ export function HomeownerOnboardingForm({ userId, existingProfile }: HomeownerOn
     }
 
     try {
+      // Deterministic approx offset from userId (~500-900m)
+      let latApprox: number | null = null
+      let lonApprox: number | null = null
+      if (finalLatitude && finalLongitude) {
+        let h1 = 0, h2 = 0
+        for (let i = 0; i < userId.length; i++) {
+          const c = userId.charCodeAt(i)
+          h1 = ((h1 << 5) - h1 + c) | 0
+          h2 = ((h2 << 3) + c ^ (i * 31)) | 0
+        }
+        const s1 = h1 >= 0 ? 1 : -1
+        const s2 = h2 >= 0 ? 1 : -1
+        latApprox = Math.round((finalLatitude  + s1 * (0.004 + (Math.abs(h1) % 4001) / 1000000)) * 1e6) / 1e6
+        lonApprox = Math.round((finalLongitude + s2 * (0.004 + (Math.abs(h2) % 4001) / 1000000)) * 1e6) / 1e6
+      }
+
       const profileData = {
         user_id: userId,
         first_name: formData.firstName,
@@ -143,6 +159,8 @@ export function HomeownerOnboardingForm({ userId, existingProfile }: HomeownerOn
         location: formData.location,
         latitude: finalLatitude,
         longitude: finalLongitude,
+        latitude_approx: latApprox,
+        longitude_approx: lonApprox,
         bio: formData.bio || null,
         on_market: false,
       }

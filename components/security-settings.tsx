@@ -5,10 +5,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Lock, Mail, Eye, EyeOff, CheckCircle, AlertCircle, Trash2, AlertTriangle } from "lucide-react"
+import { Lock, Mail, Eye, EyeOff, CheckCircle, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
-import { AccountDeletionFlow } from "@/components/account-deletion-flow"
 import { useTranslation } from "@/lib/i18n/context"
 
 interface SecuritySettingsProps {
@@ -24,7 +23,6 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
-  const [showDeletionFlow, setShowDeletionFlow] = useState(false)
 
   const { t } = useTranslation()
   const supabase = createClient()
@@ -237,32 +235,6 @@ export function SecuritySettings({ userEmail }: SecuritySettingsProps) {
         </form>
       </div>
 
-      {/* Danger Zone */}
-      {!showDeletionFlow ? (
-        <div className="bg-red-950/20 border border-red-800/50 rounded-2xl p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-400" />
-            <p className="text-sm font-semibold text-red-400">{t('security.dangerZone')}</p>
-          </div>
-          <p className="text-xs text-slate-500">
-            <span className="text-red-400 font-medium">{t('security.warningLabel')}</span>{" "}
-            {t('security.deletionWarning')}
-          </p>
-          <Button
-            variant="destructive"
-            className="w-full bg-red-600/80 hover:bg-red-600 border border-red-500/30"
-            onClick={() => setShowDeletionFlow(true)}
-          >
-            <Trash2 className="h-4 w-4 mr-2" />
-            {t('security.deleteAccountButton')}
-          </Button>
-        </div>
-      ) : (
-        <AccountDeletionFlow
-          userEmail={userEmail}
-          onCancel={() => setShowDeletionFlow(false)}
-        />
-      )}
     </div>
   )
 }

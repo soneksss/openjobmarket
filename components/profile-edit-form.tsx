@@ -753,7 +753,9 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="location" className="text-slate-200">{t('profileEdit.location')}</Label>
+                  <Label htmlFor="location" className="text-slate-200">
+                    {userData?.user_type === "homeowner" ? "Post Code" : t('profileEdit.location')}
+                  </Label>
                   {userData?.user_type === "professional" && (
                     <div className="flex items-center space-x-2">
                       {!hideAddressDetails ? (
@@ -780,7 +782,7 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
                       ? setProfessionalLocation(e.target.value)
                       : setLocation(e.target.value)
                   }
-                  placeholder={t('profileEdit.locationPlaceholder')}
+                  placeholder={userData?.user_type === "homeowner" ? "e.g. PO1 1AA" : t('profileEdit.locationPlaceholder')}
                   className="bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
                 />
                 {userData?.user_type === "professional" && (

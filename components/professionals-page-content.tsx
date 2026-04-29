@@ -1126,7 +1126,6 @@ function ProfessionalsPageContent({
   // Check if search has been performed
   const hasSearchParams = searchParams.search || searchParams.location || searchParams.lat || searchParams.lng
 
-  if (!mounted) return <div className="min-h-screen bg-slate-900" />
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -2901,168 +2900,165 @@ function ProfessionalsPageContent({
 
               {/* Filters — toggle-controlled by showAdvancedFilters */}
               {showAdvancedFilters && (
-                <div className={`mt-3 p-4 rounded-2xl shadow-xl border ${isModal ? 'bg-slate-700 border-slate-600' : 'bg-slate-800 border-slate-700'}`}>
+                <div className={`mt-2 p-3 rounded-xl shadow-xl border ${isModal ? 'bg-slate-800/95 border-slate-600/60' : 'bg-slate-800 border-slate-700'}`}>
                   {/* Filter header with X button */}
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-white font-semibold text-sm tracking-wide">Filters</h3>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-white font-semibold text-xs tracking-widest uppercase">Filters</h3>
                     <button
                       onClick={() => { setShowAdvancedFilters(false); if (isModal) setSearchApplied(true) }}
-                      className="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-300 hover:text-white transition-colors"
+                      className="w-6 h-6 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
                       title="Close filters"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-3 w-3" />
                     </button>
                   </div>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {/* Modal Mode: Simplified filters for Traders/Trade Jobs */}
                     {isModal ? (
                       <>
                         {/* ── FOR HOMEOWNERS: Traders/professionals search ── */}
                         {isShowingTraders && (
                           <>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                              {/* 1. Distance — auto-applies search on change */}
-                              <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
-                                <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Distance</label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {/* 1. Distance */}
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-0.5">Distance</label>
                                 <Select value={filterRadius} onValueChange={(value) => { setFilterRadius(value); handleSearch(value) }}>
-                                  <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                  <SelectTrigger className="w-full h-8 text-xs bg-slate-800 border-slate-600 text-white px-2">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent className="bg-slate-800 border-slate-600">
                                     {[2, 5, 10, 15, 20, 25, 30, 50].map((miles) => (
-                                      <SelectItem key={miles} value={miles.toString()} className="text-white hover:bg-slate-700">
-                                        Within {miles} miles
+                                      <SelectItem key={miles} value={miles.toString()} className="text-xs text-white hover:bg-slate-700">
+                                        {miles} miles
                                       </SelectItem>
                                     ))}
                                   </SelectContent>
                                 </Select>
                               </div>
                               {/* 2. Availability */}
-                              <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
-                                <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Availability</label>
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-0.5">Availability</label>
                                 <Select value={filterAvailability} onValueChange={(v) => { setFilterAvailability(v); handleSearch(undefined, { availability: v }) }}>
-                                  <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                  <SelectTrigger className="w-full h-8 text-xs bg-slate-800 border-slate-600 text-white px-2">
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent className="bg-slate-800 border-slate-600">
-                                    <SelectItem value="all" className="text-white hover:bg-slate-700">All</SelectItem>
-                                    <SelectItem value="available" className="text-white hover:bg-slate-700">Available now</SelectItem>
+                                    <SelectItem value="all" className="text-xs text-white hover:bg-slate-700">Any</SelectItem>
+                                    <SelectItem value="available" className="text-xs text-white hover:bg-slate-700">Available now</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
-                              {/* 3. Preferred Language */}
-                              <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
-                                <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Preferred Language</label>
+                              {/* 3. Language */}
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-0.5">Language</label>
                                 <Select value={languageFilter || "all"} onValueChange={(v) => { const lang = v === "all" ? "" : v; setLanguageFilter(lang); if (v !== "other") { setCustomLanguage(""); handleSearch(undefined, { language: lang }) } }}>
-                                  <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
-                                    <SelectValue placeholder="Any language" />
+                                  <SelectTrigger className="w-full h-8 text-xs bg-slate-800 border-slate-600 text-white px-2">
+                                    <SelectValue placeholder="Any" />
                                   </SelectTrigger>
                                   <SelectContent className="bg-slate-800 border-slate-600 max-h-[220px]">
-                                    <SelectItem value="all" className="text-white hover:bg-slate-700">Any language</SelectItem>
+                                    <SelectItem value="all" className="text-xs text-white hover:bg-slate-700">Any</SelectItem>
                                     {["English","Spanish","French","German","Italian","Portuguese","Polish","Romanian","Ukrainian","Russian","Arabic","Hindi","Urdu","Bengali","Mandarin"].map((lang) => (
-                                      <SelectItem key={lang} value={lang} className="text-white hover:bg-slate-700">{lang}</SelectItem>
+                                      <SelectItem key={lang} value={lang} className="text-xs text-white hover:bg-slate-700">{lang}</SelectItem>
                                     ))}
-                                    <SelectItem value="other" className="text-emerald-400 hover:bg-slate-700">Other (type below)…</SelectItem>
+                                    <SelectItem value="other" className="text-xs text-emerald-400 hover:bg-slate-700">Other…</SelectItem>
                                   </SelectContent>
                                 </Select>
                                 {languageFilter === "other" && (
                                   <Input
-                                    placeholder="Type language name…"
+                                    placeholder="Type language…"
                                     value={customLanguage}
                                     onChange={(e) => setCustomLanguage(e.target.value)}
-                                    className="mt-2 h-8 text-sm bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                                    className="mt-1 h-7 text-xs bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 px-2"
                                     autoFocus
                                   />
                                 )}
                               </div>
                             </div>
-                            {/* 6. 24/7 Service checkbox */}
-                            <div className="flex items-center gap-3 p-3 bg-slate-800 rounded-lg border border-slate-600 mt-3">
+                            {/* 24/7 Service toggle */}
+                            <div className="flex items-center gap-2.5 mt-2 px-0.5">
                               <Checkbox
                                 id="247-modal"
                                 checked={filter247}
                                 onCheckedChange={(checked) => { setFilter247(!!checked); handleSearch(undefined, { is247: !!checked }) }}
-                                className="border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 bg-slate-700 border-slate-500 flex-shrink-0"
+                                className="h-4 w-4 border-2 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 bg-slate-700 border-slate-500 flex-shrink-0"
                               />
-                              <div>
-                                <label htmlFor="247-modal" className="text-sm font-medium text-white cursor-pointer">24/7 Service</label>
-                                <p className="text-xs text-slate-400">Only show tradespeople available around the clock</p>
-                              </div>
+                              <label htmlFor="247-modal" className="text-xs text-slate-300 cursor-pointer">24/7 service only</label>
                             </div>
                           </>
                         )}
 
                         {/* ── FOR TRADESPEOPLE: Jobs search ── */}
                         {isShowingJobs && (
-                          <div className="grid grid-cols-2 sm:grid-cols-2 gap-3">
+                          <div className="grid grid-cols-2 gap-2">
                             {/* 1. Distance */}
-                            <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
-                              <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Distance</label>
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-0.5">Distance</label>
                               <Select value={filterRadius} onValueChange={setFilterRadius}>
-                                <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                <SelectTrigger className="w-full h-8 text-xs bg-slate-800 border-slate-600 text-white px-2">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-slate-800 border-slate-600">
                                   {[2, 5, 10, 15, 20, 25, 30, 50].map((miles) => (
-                                    <SelectItem key={miles} value={miles.toString()} className="text-white hover:bg-slate-700">
-                                      Within {miles} miles
+                                    <SelectItem key={miles} value={miles.toString()} className="text-xs text-white hover:bg-slate-700">
+                                      {miles} miles
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
                             </div>
                             {/* 2. Job Urgency */}
-                            <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
-                              <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Job Urgency</label>
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-0.5">Urgency</label>
                               <Select value={filterUrgency} onValueChange={setFilterUrgency}>
-                                <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                <SelectTrigger className="w-full h-8 text-xs bg-slate-800 border-slate-600 text-white px-2">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-slate-800 border-slate-600">
-                                  <SelectItem value="all" className="text-white hover:bg-slate-700">All</SelectItem>
-                                  <SelectItem value="urgent" className="text-white hover:bg-slate-700">ASAP</SelectItem>
-                                  <SelectItem value="today" className="text-white hover:bg-slate-700">Today</SelectItem>
-                                  <SelectItem value="flexible" className="text-white hover:bg-slate-700">Flexible</SelectItem>
+                                  <SelectItem value="all" className="text-xs text-white hover:bg-slate-700">Any</SelectItem>
+                                  <SelectItem value="urgent" className="text-xs text-white hover:bg-slate-700">ASAP</SelectItem>
+                                  <SelectItem value="today" className="text-xs text-white hover:bg-slate-700">Today</SelectItem>
+                                  <SelectItem value="flexible" className="text-xs text-white hover:bg-slate-700">Flexible</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
                             {/* 3. Job Budget */}
-                            <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
-                              <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Job Budget</label>
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-0.5">Budget</label>
                               <Select value={filterBudget} onValueChange={setFilterBudget}>
-                                <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
+                                <SelectTrigger className="w-full h-8 text-xs bg-slate-800 border-slate-600 text-white px-2">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-slate-800 border-slate-600">
-                                  <SelectItem value="all" className="text-white hover:bg-slate-700">Any budget</SelectItem>
-                                  <SelectItem value="under_500" className="text-white hover:bg-slate-700">Under £500</SelectItem>
-                                  <SelectItem value="500_1k" className="text-white hover:bg-slate-700">£500 – £1k</SelectItem>
-                                  <SelectItem value="1k_5k" className="text-white hover:bg-slate-700">£1k – £5k</SelectItem>
-                                  <SelectItem value="5k_plus" className="text-white hover:bg-slate-700">£5k+</SelectItem>
+                                  <SelectItem value="all" className="text-xs text-white hover:bg-slate-700">Any budget</SelectItem>
+                                  <SelectItem value="under_500" className="text-xs text-white hover:bg-slate-700">Under £500</SelectItem>
+                                  <SelectItem value="500_1k" className="text-xs text-white hover:bg-slate-700">£500 – £1k</SelectItem>
+                                  <SelectItem value="1k_5k" className="text-xs text-white hover:bg-slate-700">£1k – £5k</SelectItem>
+                                  <SelectItem value="5k_plus" className="text-xs text-white hover:bg-slate-700">£5k+</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
-                            {/* 4. Preferred Language */}
-                            <div className="p-3 rounded-lg border bg-slate-800 border-slate-600">
-                              <label className="block text-xs font-semibold mb-2 text-slate-300 uppercase tracking-wide">Preferred Language</label>
+                            {/* 4. Language */}
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-0.5">Language</label>
                               <Select value={languageFilter || "all"} onValueChange={(v) => { setLanguageFilter(v === "all" ? "" : v); if (v !== "other") setCustomLanguage("") }}>
-                                <SelectTrigger className="w-full h-9 text-sm bg-slate-700 border-slate-600 text-white">
-                                  <SelectValue placeholder="Any language" />
+                                <SelectTrigger className="w-full h-8 text-xs bg-slate-800 border-slate-600 text-white px-2">
+                                  <SelectValue placeholder="Any" />
                                 </SelectTrigger>
                                 <SelectContent className="bg-slate-800 border-slate-600 max-h-[220px]">
-                                  <SelectItem value="all" className="text-white hover:bg-slate-700">Any language</SelectItem>
+                                  <SelectItem value="all" className="text-xs text-white hover:bg-slate-700">Any</SelectItem>
                                   {["English","Spanish","French","German","Italian","Portuguese","Polish","Romanian","Ukrainian","Russian","Arabic","Hindi","Urdu","Bengali","Mandarin"].map((lang) => (
-                                    <SelectItem key={lang} value={lang} className="text-white hover:bg-slate-700">{lang}</SelectItem>
+                                    <SelectItem key={lang} value={lang} className="text-xs text-white hover:bg-slate-700">{lang}</SelectItem>
                                   ))}
-                                  <SelectItem value="other" className="text-emerald-400 hover:bg-slate-700">Other (type below)…</SelectItem>
+                                  <SelectItem value="other" className="text-xs text-emerald-400 hover:bg-slate-700">Other…</SelectItem>
                                 </SelectContent>
                               </Select>
                               {languageFilter === "other" && (
                                 <Input
-                                  placeholder="Type language name…"
+                                  placeholder="Type language…"
                                   value={customLanguage}
                                   onChange={(e) => setCustomLanguage(e.target.value)}
-                                  className="mt-2 h-8 text-sm bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                                  className="mt-1 h-7 text-xs bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 px-2"
                                   autoFocus
                                 />
                               )}
