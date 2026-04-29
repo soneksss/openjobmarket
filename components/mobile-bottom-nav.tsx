@@ -18,30 +18,29 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   const { locale } = useTranslation()
   const supabase = createClient()
 
-  // Client-side fallback — only used when server auth failed (ECONNRESET, etc.)
-  // Never calls getUser() — that can hang and freeze navigation.
-  // INITIAL_SESSION fires instantly from local storage; SIGNED_IN / SIGNED_OUT track transitions.
-  const [clientUser, setClientUser] = useState<{ id: string; user_metadata?: any } | null>(null)
-  const [clientUserType, setClientUserType] = useState<string | null>(null)
+  // Seed from server props so the nav renders immediately on first paint,
+  // but always subscribe to SIGNED_OUT so account-deletion clears the nav
+  // even when the server still had a valid cookie at render time.
+  const [clientUser, setClientUser] = useState<{ id: string; user_metadata?: any } | null>(serverUser ?? null)
+  const [clientUserType, setClientUserType] = useState<string | null>(serverUserType ?? null)
 
   useEffect(() => {
-    if (serverUser) return // Server already has correct state — nothing to do
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
+      if (event === 'SIGNED_OUT') {
+        setClientUser(null)
+        setClientUserType(null)
+      } else if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user && !serverUser) {
+        // Only fetch user type from DB when server didn't already resolve it
         const { data } = await supabase.from("users").select("user_type").eq("id", session.user.id).maybeSingle()
         setClientUser(session.user)
         setClientUserType(data?.user_type ?? session.user.user_metadata?.user_type ?? null)
-      } else if (event === 'SIGNED_OUT') {
-        setClientUser(null)
-        setClientUserType(null)
       }
     })
     return () => { subscription.unsubscribe() }
-  }, [serverUser])
+  }, []) // run once — serverUser is captured in closure for the INITIAL_SESSION guard only
 
-  const user = serverUser ?? clientUser
-  const userType = serverUserType ?? clientUserType
+  const user = clientUser
+  const userType = clientUserType
   const userId = user?.id
 
   const [unreadMessages, setUnreadMessages] = useState(0)

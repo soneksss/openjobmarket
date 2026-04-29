@@ -86,16 +86,39 @@ export async function POST(request: Request) {
 
     console.log("[API] Password verified, proceeding with deletion")
 
+    // Sanitize reason to known enum values; unknown values fall back to 'other'
+    // to prevent "invalid input value for enum deletion_reason_type" errors.
+    const KNOWN_REASONS = [
+      'cant_find_what_looking_for', 'not_enough_users', 'too_complicated',
+      'poor_ux', 'trust_safety_concerns', 'found_alternative', 'temporary_use',
+      'technical_issues', 'privacy_concerns', 'not_using', 'other',
+    ]
+    const safePrimaryReason = KNOWN_REASONS.includes(primaryReason) ? primaryReason : 'other'
+
     // Step 3: Call comprehensive deletion function
-    const { data: deleteResult, error: deleteError } = await supabase.rpc(
+    let { data: deleteResult, error: deleteError } = await supabase.rpc(
       "delete_user_comprehensive",
       {
-        p_primary_reason: primaryReason,
+        p_primary_reason: safePrimaryReason,
         p_custom_message: customMessage || null,
         p_user_email: userEmail,
         p_user_password: userPassword,
       }
     )
+
+    // If the reason still causes an enum error (DB enum missing the value), retry with 'other'
+    if (deleteError && (deleteError.message?.includes('invalid input value for enum') || deleteError.code === '22P02')) {
+      console.warn("[API] Enum error with reason, retrying with 'other':", deleteError.message)
+      ;({ data: deleteResult, error: deleteError } = await supabase.rpc(
+        "delete_user_comprehensive",
+        {
+          p_primary_reason: 'other',
+          p_custom_message: customMessage || null,
+          p_user_email: userEmail,
+          p_user_password: userPassword,
+        }
+      ))
+    }
 
     if (deleteError) {
       console.error("[API] Deletion function error:", JSON.stringify(deleteError, null, 2))
@@ -175,7 +198,7 @@ export async function POST(request: Request) {
       {
         success: true,
         message: "Account successfully deleted",
-        redirect: "/auth/signup",
+        redirect: "/",
         alreadyDeleted: deleteResult?.already_deleted || false,
       },
       { status: 200 }

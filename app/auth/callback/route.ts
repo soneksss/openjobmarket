@@ -42,24 +42,51 @@ export async function GET(request: NextRequest) {
           .eq("id", data.user.id)
           .maybeSingle()
 
-        if (userError || !userData) {
-          // New OAuth user — no users table row yet. Send to onboarding to pick account type.
-          console.log("[v0] Auth callback - new OAuth user, redirecting to onboarding")
+        if (userError || !userData || !userData.user_type) {
+          // New OAuth user — no users table row or role not set yet. Send to onboarding.
+          console.log("[v0] Auth callback - new OAuth user or missing role, redirecting to onboarding")
           return NextResponse.redirect(`${origin}/onboarding`)
         }
 
-        // Role-based redirects using database function for consistent routing
+        // Role-based redirects with profile-completeness guard
         console.log("[v0] Auth callback - user role:", userData.user_type)
 
-        // Admin users go to admin dashboard, all others go to search page
         if (userData.user_type === "admin") {
-          console.log("[v0] Auth callback - admin user, redirecting to admin dashboard")
           return NextResponse.redirect(`${origin}/admin/dashboard`)
         }
 
-        // All other user types go to search page (marketplace first)
-        console.log("[v0] Auth callback - redirecting to search page")
-        return NextResponse.redirect(`${origin}/`)
+        // For Google OAuth users: verify their profile has the minimum required
+        // fields. If not, send them to /onboarding to complete setup.
+        if (userData.user_type === "company") {
+          const { data: cp } = await supabase
+            .from("company_profiles")
+            .select("company_name, location")
+            .eq("user_id", data.user.id)
+            .maybeSingle()
+
+          if (!cp || !cp.company_name || !cp.location) {
+            console.log("[v0] Auth callback - company profile incomplete, redirecting to onboarding")
+            return NextResponse.redirect(`${origin}/onboarding`)
+          }
+          return NextResponse.redirect(`${origin}/dashboard/company`)
+        }
+
+        if (userData.user_type === "homeowner") {
+          const { data: hp } = await supabase
+            .from("homeowner_profiles")
+            .select("first_name, location")
+            .eq("user_id", data.user.id)
+            .maybeSingle()
+
+          if (!hp || !hp.first_name || !hp.location) {
+            console.log("[v0] Auth callback - homeowner profile incomplete, redirecting to onboarding")
+            return NextResponse.redirect(`${origin}/onboarding`)
+          }
+          return NextResponse.redirect(`${origin}/dashboard/homeowner`)
+        }
+
+        // Unknown role — send to generic dashboard which will re-resolve
+        return NextResponse.redirect(`${origin}/dashboard`)
       }
     } catch (error) {
       console.log("[v0] Auth callback - unexpected error:", error)

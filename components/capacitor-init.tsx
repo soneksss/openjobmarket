@@ -174,8 +174,22 @@ export function CapacitorInit() {
         }
 
         // ── 3. Lifecycle tracking — debounced, no React state changes ────────────
-        const appHandle = await App.addListener('appStateChange', ({ isActive }) => {
+        // On foreground restore: refresh session (token may have expired while backgrounded)
+        // and reconnect Supabase Realtime (WebSocket closes after ~60s in background).
+        const appHandle = await App.addListener('appStateChange', async ({ isActive }) => {
           handleStateChange(isActive)
+          if (isActive) {
+            try {
+              const { createClient } = await import('@/lib/client')
+              const supabase = createClient()
+              // Refresh token if expired — no-op if still valid
+              await supabase.auth.getSession()
+              // Reconnect realtime channels that disconnected while backgrounded
+              supabase.realtime.connect()
+            } catch {
+              // Non-fatal — next user action will re-establish session
+            }
+          }
         })
         cleanupFns.push(() => appHandle.remove())
 
@@ -187,12 +201,17 @@ export function CapacitorInit() {
         )
         cleanupFns.push(() => pushHandle.remove())
 
-        // ── 5. Push registration — Android only, delayed, transition-guarded ─────
+        // ── 5. Push registration — Android only, delayed, permission-gated ──────
+        // Android 13+ (API 33+): must call requestPermissions() before register().
+        // On older APIs, requestPermissions() resolves immediately with 'granted'.
         if (Capacitor.getPlatform() === 'android') {
           setTimeout(async () => {
             if (!canBridge()) return
             try {
-              await PushNotifications.register()
+              const permResult = await PushNotifications.requestPermissions()
+              if (permResult.receive === 'granted') {
+                await PushNotifications.register()
+              }
             } catch (e) {
               console.error('[CapacitorInit] Push registration failed:', e)
             }

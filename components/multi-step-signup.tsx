@@ -51,6 +51,7 @@ export default function MultiStepSignup() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | 'facebook' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [emailAlreadyExists, setEmailAlreadyExists] = useState(false)
   const [serviceInput, setServiceInput] = useState('')
 
   const [signupData, setSignupData] = useState<SignupData>({
@@ -77,6 +78,7 @@ export default function MultiStepSignup() {
 
   const updateSignupData = (updates: Partial<SignupData>) => {
     setSignupData(prev => ({ ...prev, ...updates }))
+    if (updates.email !== undefined) setEmailAlreadyExists(false)
   }
 
   // Read URL parameters from Quick Check modal and pre-populate form
@@ -246,6 +248,10 @@ export default function MultiStepSignup() {
       if (signupData.firstName) metadata.first_name = signupData.firstName
       if (signupData.lastName) metadata.last_name = signupData.lastName
       if (signupData.companyName) metadata.company_name = signupData.companyName
+      // display_name keeps Supabase Auth → Users list readable for both homeowners and companies
+      metadata.display_name = isIndividual
+        ? `${signupData.firstName} ${signupData.lastName}`.trim()
+        : signupData.companyName || signupData.email.split("@")[0]
       if (signupData.title) metadata.title = signupData.title
       if (signupData.industry) metadata.industry = signupData.industry
       if (signupData.services && signupData.services.length > 0) {
@@ -279,6 +285,15 @@ export default function MultiStepSignup() {
         throw signUpError
       }
       if (!authData.user) throw new Error("Failed to create user")
+
+      // Supabase silently "succeeds" for existing confirmed emails but returns identities: [].
+      // Detect this and show a clear "Go to Login" prompt instead of leaving the user
+      // waiting for a verification email that will never arrive.
+      if (!authData.user.identities || authData.user.identities.length === 0) {
+        setEmailAlreadyExists(true)
+        setIsLoading(false)
+        return
+      }
 
       // Save email to localStorage for resend functionality
       localStorage.setItem('signup_email', signupData.email)
@@ -353,7 +368,19 @@ export default function MultiStepSignup() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {error && (
+          {emailAlreadyExists && (
+            <div className="mb-4 p-4 bg-amber-900/40 border border-amber-600/60 rounded-xl space-y-3">
+              <p className="text-sm font-semibold text-amber-300">This email already has an account.</p>
+              <p className="text-xs text-amber-400/80">Tap "Sign In" to log in to your existing account instead.</p>
+              <Link
+                href="/auth/login"
+                className="inline-flex items-center justify-center w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
+              >
+                Go to Sign In →
+              </Link>
+            </div>
+          )}
+          {error && !emailAlreadyExists && (
             <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-md">
               <p className="text-sm text-red-300">{error}</p>
             </div>

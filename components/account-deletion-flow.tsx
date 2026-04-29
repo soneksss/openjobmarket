@@ -34,6 +34,7 @@ type DeletionReason =
   | 'temporary_use'
   | 'technical_issues'
   | 'privacy_concerns'
+  | 'not_using'
   | 'other'
 
 interface AccountDeletionFlowProps {
@@ -69,6 +70,7 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
     'temporary_use',
     'technical_issues',
     'privacy_concerns',
+    'not_using',
     'other',
   ]
 
@@ -148,24 +150,19 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
 
       console.log("[Deletion] Account deletion successful, cleaning up client state")
 
-      // Clear all local storage and session storage
+      // Clear local storage / session storage
       localStorage.clear()
       sessionStorage.clear()
 
-      // Force sign out on client (will likely fail but try anyway)
-      try {
-        await supabase.auth.signOut()
-      } catch (signOutError) {
-        console.log("[Deletion] Client sign out failed (expected):", signOutError)
-        // Expected to fail since user is deleted
-      }
+      // 'local' scope clears in-memory + localStorage session without a server
+      // round-trip. Await so SIGNED_OUT fires before we navigate away.
+      try { await supabase.auth.signOut({ scope: 'local' }) } catch { /* deleted user, ignore */ }
 
-      // Redirect to signup page as instructed by server
-      const redirectUrl = result.redirect || '/auth/signup'
-      console.log("[Deletion] Redirecting to:", redirectUrl)
-
-      // Use window.location for hard redirect (clears all state)
-      window.location.href = redirectUrl
+      // router.refresh() forces Next.js server components to re-render with the
+      // now-cleared auth state, then navigate to home. More reliable than
+      // window.location.href in Capacitor WebView where hard reloads can race.
+      router.refresh()
+      router.push(result.redirect || '/')
     } catch (err: any) {
       console.error("Error deleting account:", err)
       setError(err.message || t('accountDeletion.errorMessage'))

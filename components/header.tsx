@@ -136,7 +136,22 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
     setIsMounted(true)
   }, [])
 
-  // Listen for auth state changes
+  // Always-on SIGNED_OUT listener — runs regardless of server auth state.
+  // Without this the header stays stuck on "Account" after account deletion
+  // in Capacitor because the server-rendered props don't update mid-session.
+  useEffect(() => {
+    const supabase = createClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        setClientUser(null)
+        setClientUserType(undefined)
+        setIsAdmin(false)
+      }
+    })
+    return () => { subscription.unsubscribe() }
+  }, [])
+
+  // Listen for auth state changes (sign-in, admin resolution, token refresh)
   useEffect(() => {
     const supabase = createClient()
 
@@ -205,8 +220,10 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
   }
 
   // Prioritize server user state, fall back to client user
-  const currentUser = user || clientUser
-  const currentUserType = userType || clientUserType
+  // Use clientUser (initialised from server prop) so SIGNED_OUT can override the
+  // server-rendered value without needing a full page reload.
+  const currentUser = clientUser
+  const currentUserType = clientUserType
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true)

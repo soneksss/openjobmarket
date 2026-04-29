@@ -42,7 +42,7 @@ export default async function CompanyDashboardPage() {
     }
   }
 
-  if (!profile) redirect("/?complete_profile=true")
+  if (!profile) redirect("/onboarding")
 
   const missingFields: string[] = []
   if (!profile.company_name) missingFields.push("company_name")

@@ -80,8 +80,8 @@ export default async function HomeownerDashboardPage() {
   }
 
   if (!profile) {
-    console.log("[HOMEOWNER] Could not create homeowner profile, redirecting to home")
-    redirect("/?complete_profile=true")
+    console.log("[HOMEOWNER] Could not create homeowner profile, redirecting to onboarding")
+    redirect("/onboarding")
   }
 
   console.log("[HOMEOWNER] Profile found:", profile.first_name, profile.last_name, "ID:", profile.id)

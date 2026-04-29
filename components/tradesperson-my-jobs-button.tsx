@@ -16,7 +16,7 @@ export function TradespersonMyJobsButton({ userId, userType }: Props) {
   const supabase = createClient()
   const [badge, setBadge] = useState(0)
 
-  const applicationsPath = "/dashboard/company/my-jobs"
+  const applicationsPath = "/dashboard/company"
 
   useEffect(() => {
     const fetchBadge = async () => {

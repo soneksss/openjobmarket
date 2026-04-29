@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   if (!userData || userError) {
     // User is authenticated but hasn't completed profile - redirect to home where they can browse
     console.log("[DASHBOARD] User data not found for authenticated user, redirecting to home")
-    redirect("/?complete_profile=true")
+    redirect("/onboarding")
   }
 
   if (userData.user_type === "company") {
