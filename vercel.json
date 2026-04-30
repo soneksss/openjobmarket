@@ -3,6 +3,18 @@
     {
       "path": "/api/cron/dispatch-expand",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/expire-jobs",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/extend-urgent-jobs",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/cleanup-push-tokens",
+      "schedule": "0 3 * * 0"
     }
   ]
 }

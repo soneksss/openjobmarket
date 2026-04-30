@@ -64,10 +64,13 @@ export async function notifyOne(
   }
 
   // ── 3. Push notifications ─────────────────────────────────────────────────
+  // Only use tokens seen in the last 90 days; skip silently if column absent (pre-migration).
+  const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
   const { data: tokenRows } = await admin
     .from("user_push_tokens")
     .select("token, device_type")
     .eq("user_id", userId)
+    .or(`last_seen.is.null,last_seen.gte.${cutoff}`)
 
   const webTokens = (tokenRows ?? [])
     .filter((r: { token: string; device_type: string }) => r.device_type === "web")

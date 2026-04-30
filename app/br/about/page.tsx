@@ -12,7 +12,7 @@ const HOW_IT_WORKS = [
   { step: 3, title: "Local e publicação",        text: "Defina sua localização e publique o serviço.",                                   img: "/Post_job_3.jpg" },
   { step: 4, title: "Receba propostas",          text: "Profissionais próximos recebem notificações e enviam propostas.",                 img: "/Tradesperson_get_notification.jpeg" },
   { step: 5, title: "Compare e escolha",         text: "Veja até 3 candidatos em uma interface simples estilo Uber.",                    img: "/Find_tradespeople.jpg" },
-  { step: 6, title: "Conclua e avalie",          text: "Confirme o serviço, combine a visita e deixe uma avaliação.",                    img: "/completed.jpg" },
+  { step: 6, title: "Conclua e avalie",          text: "Confirme o serviço, combine a visita e deixe uma avaliação.",                    img: "/Completed.jpg" },
 ]
 
 export default function AboutPage() {

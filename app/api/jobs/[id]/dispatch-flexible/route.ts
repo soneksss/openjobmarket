@@ -18,6 +18,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/server'
 import { sendWebPushToUser } from '@/lib/web-push'
+import { sendFcmToTokens } from '@/lib/firebase-admin'
 
 export async function POST(
   _req: NextRequest,
@@ -32,7 +33,7 @@ export async function POST(
     // ── 1. Fetch job ────────────────────────────────────────────────────────
     const { data: job, error: jobErr } = await admin
       .from('jobs')
-      .select('id, title, location, latitude, longitude, industry, service, urgency_type, status, matching_status')
+      .select('id, title, location, latitude, longitude, industry, service, urgency_type, status, matching_status, is_active, expires_at')
       .eq('id', jobId)
       .maybeSingle()
 
@@ -46,7 +47,13 @@ export async function POST(
       return NextResponse.json({ error: 'Not a flexible job' }, { status: 400 })
     }
 
-    // Skip dispatch if the job was already confirmed before we get here
+    // Skip if job is no longer active (race: homeowner cancelled before dispatch ran)
+    if (!job.is_active || job.status === 'COMPLETED' || job.status === 'CANCELLED' ||
+        (job.expires_at && new Date(job.expires_at) <= new Date())) {
+      console.log(`[DISPATCH-FLEXIBLE] Job ${jobId} inactive/expired — skipping`)
+      return NextResponse.json({ success: true, dispatched: 0, reason: 'job_inactive' })
+    }
+
     if (job.status && !['POSTED', 'posted', 'open'].includes(job.status)) {
       return NextResponse.json({ success: true, dispatched: 0, reason: 'already_confirmed' })
     }
@@ -112,17 +119,26 @@ export async function POST(
           console.error('[DISPATCH-FLEXIBLE] In-app notif error:', notifErr.message)
         }
 
-        // Web push (reaches browser + PWA + native via service worker)
+        // Push notifications — split web (VAPID) and FCM (Android) tokens
+        // Filter to tokens active in the last 90 days (last_seen IS NULL = pre-migration, treat as alive)
+        const cutoff90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
         const { data: tokenRows } = await admin
           .from('user_push_tokens')
-          .select('token')
+          .select('token, device_type')
           .eq('user_id', company.user_id)
+          .or(`last_seen.is.null,last_seen.gte.${cutoff90}`)
 
-        const tokens = (tokenRows ?? []).map((r: { token: string }) => r.token)
+        const webTokens = (tokenRows ?? [])
+          .filter((r: { token: string; device_type: string }) => r.device_type === 'web')
+          .map((r: { token: string; device_type: string }) => r.token)
 
-        if (tokens.length > 0) {
+        const fcmTokens = (tokenRows ?? [])
+          .filter((r: { token: string; device_type: string }) => r.device_type === 'fcm')
+          .map((r: { token: string; device_type: string }) => r.token)
+
+        if (webTokens.length > 0) {
           try {
-            const { expired } = await sendWebPushToUser(tokens, {
+            const { expired } = await sendWebPushToUser(webTokens, {
               title: pushTitle,
               body:  pushBody,
               url:   jobUrl,
@@ -133,7 +149,24 @@ export async function POST(
               await admin.from('user_push_tokens').delete().in('token', expired)
             }
           } catch (pushErr: any) {
-            console.error('[DISPATCH-FLEXIBLE] Push error:', pushErr?.message)
+            console.error('[DISPATCH-FLEXIBLE] Web push error:', pushErr?.message)
+          }
+        }
+
+        if (fcmTokens.length > 0) {
+          try {
+            const { failed } = await sendFcmToTokens(fcmTokens, {
+              title:  pushTitle,
+              body:   pushBody,
+              url:    jobUrl,
+              tag:    `flexible-job-${jobId}`,
+              jobId,
+            })
+            if (failed.length > 0) {
+              await admin.from('user_push_tokens').delete().in('token', failed)
+            }
+          } catch (fcmErr: any) {
+            console.error('[DISPATCH-FLEXIBLE] FCM push error:', fcmErr?.message)
           }
         }
 

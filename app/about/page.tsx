@@ -19,7 +19,7 @@ const HOW_IT_WORKS = [
   { step: 3, title: "Choose location & publish",text: "Set your location and publish your job.",                                      img: "/Post_job_3.jpg" },
   { step: 4, title: "Get applications",         text: "Nearby tradespeople receive notifications and apply.",                         img: "/Tradesperson_get_notification.jpeg" },
   { step: 5, title: "Compare & choose",         text: "See up to 3 applicants in a simple, Uber-style interface.",                   img: "/Find_tradespeople.jpg" },
-  { step: 6, title: "Complete & review",        text: "Confirm the job, arrange the visit, and leave a review after completion.",     img: "/completed.jpg" },
+  { step: 6, title: "Complete & review",        text: "Confirm the job, arrange the visit, and leave a review after completion.",     img: "/Completed.jpg" },
 ]
 
 export default async function AboutPage() {

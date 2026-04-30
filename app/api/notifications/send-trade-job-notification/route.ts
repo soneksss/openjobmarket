@@ -57,6 +57,22 @@ export async function POST(request: NextRequest) {
       adminClient = supabase
     }
 
+    // Guard: verify job is still active/unexpired before notifying anyone.
+    // Prevents "Urgent job available" → tap → "Job expired" UX.
+    const { data: jobCheck } = await adminClient
+      .from("jobs")
+      .select("status, is_active, expires_at")
+      .eq("id", jobId)
+      .maybeSingle()
+
+    if (!jobCheck || !jobCheck.is_active || jobCheck.status === 'COMPLETED' || jobCheck.status === 'CANCELLED' ||
+        (jobCheck.expires_at && new Date(jobCheck.expires_at) <= new Date())) {
+      console.log("[TRADE-JOB-NOTIFICATION] Job expired or inactive — skipping notifications", {
+        jobId, status: jobCheck?.status, expires_at: jobCheck?.expires_at,
+      })
+      return NextResponse.json({ success: true, notificationsSent: 0, message: "Job expired or inactive" })
+    }
+
     // Find matching companies using the database function
     const { data: matchingCompanies, error: matchError } = await adminClient.rpc(
       "find_companies_for_trade_job_notification",
@@ -170,6 +186,44 @@ export async function POST(request: NextRequest) {
 
         if (isAsapJob) {
           console.log("[TRADE-JOB-NOTIFICATION] Skipping email for ASAP job (quick expiry)")
+        }
+
+        // Send web/FCM push notifications for urgent jobs
+        if (isUrgent) {
+          const cutoff90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+          const { data: tokenRows } = await adminClient
+            .from('user_push_tokens')
+            .select('token, device_type')
+            .eq('user_id', company.user_id)
+            .or(`last_seen.is.null,last_seen.gte.${cutoff90}`)
+
+          const webTokens = (tokenRows ?? [])
+            .filter((r: { token: string; device_type: string }) => r.device_type === 'web')
+            .map((r: { token: string; device_type: string }) => r.token)
+          const fcmTokens = (tokenRows ?? [])
+            .filter((r: { token: string; device_type: string }) => r.device_type === 'fcm')
+            .map((r: { token: string; device_type: string }) => r.token)
+
+          if (webTokens.length > 0) {
+            try {
+              const { sendWebPushToUser } = await import('@/lib/web-push')
+              const { expired } = await sendWebPushToUser(webTokens, {
+                title: notifTitle, body: notifMessage, url: jobUrl,
+                tag: `urgent-job-${jobId}`, requireInteraction: true,
+              })
+              if (expired.length > 0) await adminClient.from('user_push_tokens').delete().in('token', expired)
+            } catch { /* non-fatal */ }
+          }
+          if (fcmTokens.length > 0) {
+            try {
+              const { sendFcmToTokens } = await import('@/lib/firebase-admin')
+              const { failed } = await sendFcmToTokens(fcmTokens, {
+                title: notifTitle, body: notifMessage, url: jobUrl,
+                tag: `urgent-job-${jobId}`, jobId,
+              })
+              if (failed.length > 0) await adminClient.from('user_push_tokens').delete().in('token', failed)
+            } catch { /* non-fatal */ }
+          }
         }
 
         // Check if company wants email notifications

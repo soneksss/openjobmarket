@@ -105,9 +105,9 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
         expires_at: expiryDate.toISOString(),
       }
 
-      // Try to add urgent job fields if supported (columns may not exist yet)
+      // Always set urgency_type so dispatch routes can guard on it
+      jobData.urgency_type = formData.urgency || "flexible"
       if (isUrgentJob) {
-        jobData.urgency_type = formData.urgency
         jobData.search_radius_miles = defaultRadius
         jobData.search_state = "active_search"
       }
@@ -159,7 +159,12 @@ export function HomeownerJobForm({ userId, profile }: HomeownerJobFormProps) {
         return
       }
 
-      // For flexible/normal jobs, redirect to job details page immediately
+      // Flexible job: notify matching tradespeople in background, then redirect
+      if (formData.urgency === "flexible" && insertedJob?.id) {
+        fetch(`/api/jobs/${insertedJob.id}/dispatch-flexible`, { method: "POST" }).catch(() => {})
+      }
+
+      // Redirect to job details page
       // This shows "Waiting for applications" status
 
       if (insertedJob?.id) {

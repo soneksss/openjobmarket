@@ -206,6 +206,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   // Ref to track if we should skip showing autocomplete (e.g., when query comes from category click)
   const skipAutocompleteRef = useRef(false)
 
+  // Seed mapCenter from GPS on mount so the map opens at the user's actual location.
+  // Runs once; only updates the visual centre — does not trigger a search.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return
+    if (selectedLocation) return  // profile coords already applied via autoSearch URL
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setMapCenter([pos.coords.latitude, pos.coords.longitude]),
+      () => {},  // keep Portsmouth default on GPS error/denial
+      { timeout: 6000, maximumAge: 5 * 60 * 1000 },
+    )
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Restore modal state when the user returns via the Back button from a job detail page
   useEffect(() => {
     try {
@@ -2069,6 +2081,28 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           )
         }
 
+        // Apply trade-job-specific filters passed from the modal filter panel
+        if (effectiveSearchType === "jobs_tasks") {
+          if (params.urgency && params.urgency !== "all") {
+            query = query.eq("urgency_type", params.urgency)
+          }
+          if (params.budget && params.budget !== "all") {
+            switch (params.budget) {
+              case "0-500":  query = query.lte("budget_max", 500);  break
+              case "500-1k": query = query.gte("budget_min", 500).lte("budget_max", 1000);  break
+              case "1k-5k":  query = query.gte("budget_min", 1000).lte("budget_max", 5000); break
+              case "5k-10k": query = query.gte("budget_min", 5000).lte("budget_max", 10000); break
+              case "10k+":   query = query.gte("budget_min", 10000); break
+            }
+          }
+          if (params.language && params.language !== "all") {
+            query = query.contains("spoken_languages", [params.language])
+          }
+          if (params.tradeCategory && params.tradeCategory !== "all") {
+            query = query.or(`industry.ilike.%${params.tradeCategory}%,category.ilike.%${params.tradeCategory}%`)
+          }
+        }
+
         const { data, error } = await query.limit(RESULT_LIMIT + 1)
 
         if (error) {
@@ -2227,12 +2261,27 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   ])
 
   const handleViewAllJobs = useCallback(() => {
+    // Clear all skill/industry filters so the search returns all nearby jobs
     autoSearchSkillsListRef.current = []
+    autoSearchIndustryRef.current   = null
+    autoSearchServicesRef.current   = []
     setAutoSearchSkillsLabel(null)
     setSearchQuery("")
-    handleSearch("jobs_tasks")
+    setShowNoJobsOverlay(false)
+    autoSearchFallbackStageRef.current = 3  // skip skill-based fallback stages
+
+    // If no location is set, validateSearch() would reject the call.
+    // Use Portsmouth as fallback — restoreSearch effect fires after state commits
+    // so selectedLocation will already be set when handleSearch runs (no stale closure).
+    if (!selectedLocation) {
+      setSelectedLocation({ lat: 50.8058, lon: -1.0872 })
+      setLocation("Portsmouth")
+      setMapCenter([50.8058, -1.0872])
+      setDistance("25")
+    }
+    setRestoreSearch("jobs_tasks")
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [handleSearch])
+  }, [selectedLocation])
 
   const handleModalClose = useCallback(() => {
     if (searchAbortControllerRef.current) {

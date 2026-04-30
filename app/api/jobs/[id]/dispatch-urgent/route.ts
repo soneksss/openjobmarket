@@ -30,9 +30,19 @@ export async function POST(
     // ── 1. Fetch job details (title, location, coordinates) ──────────────────
     const { data: job } = await admin
       .from("jobs")
-      .select("title, location, dispatch_state")
+      .select("title, location, dispatch_state, status, expires_at, is_active")
       .eq("id", jobId)
       .maybeSingle()
+
+    // Guard: do not notify tradespeople about jobs that are no longer active.
+    // Catches the race condition where a job expires between posting and dispatch.
+    if (!job || !job.is_active || job.status === 'COMPLETED' || job.status === 'CANCELLED' ||
+        (job.expires_at && new Date(job.expires_at) <= new Date())) {
+      console.log(`[DISPATCH-URGENT] Job ${jobId} is expired/inactive — skipping dispatch`, {
+        status: job?.status, is_active: job?.is_active, expires_at: job?.expires_at,
+      })
+      return NextResponse.json({ success: true, dispatched: 0, message: "Job expired or inactive" })
+    }
 
     // ── 2. Candidate selection: tiered radius with instant skip ──────────────
     let profileIds: string[] = []

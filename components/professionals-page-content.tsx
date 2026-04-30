@@ -838,6 +838,18 @@ function ProfessionalsPageContent({
   // Stable tuple for JobMap — avoids creating a new array reference every render
   const jobMapCenter = useMemo<[number, number]>(() => [center[0], center[1]], [center[0], center[1]])
 
+  // Radius circle: prefer the user-picked location; fall back to the search center in modal mode
+  // so the circle always renders when the map has a meaningful center (not just Portsmouth default).
+  const effectiveRadiusCoords = useMemo<[number, number] | null>(
+    () => {
+      if (selectedLocationCoords) return [selectedLocationCoords.lat, selectedLocationCoords.lon]
+      if (isModal && (center[0] !== 50.8058 || center[1] !== -1.0872)) return [center[0], center[1]]
+      return null
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedLocationCoords, isModal, center[0], center[1]]
+  )
+
   // Sort data based on selected criteria
   const sortedData = [...data].sort((a, b) => {
     if (sortBy === "nearest") {
@@ -1601,8 +1613,8 @@ function ProfessionalsPageContent({
                           center={jobMapCenter}
                           zoom={10}
                           height="100%"
-                          showRadius={!!selectedLocationCoords}
-                          radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                          showRadius={!!effectiveRadiusCoords}
+                          radiusCenter={effectiveRadiusCoords ?? undefined}
                           radiusKm={parseInt(filterRadius || searchParams.radius || "20") * 1.60934}
                           selectedJobId={selectedProfessionalId}
                           onJobSelect={(job) => {
@@ -1637,8 +1649,8 @@ function ProfessionalsPageContent({
                           zoom={10}
                           height="100%"
                           user={user}
-                          showRadius={!!selectedLocationCoords}
-                          radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                          showRadius={!!effectiveRadiusCoords}
+                          radiusCenter={effectiveRadiusCoords ?? undefined}
                           radiusKm={parseInt(filterRadius || searchParams.radius || "20") * 1.60934}
                           selectedProfessionalId={selectedProfessionalId}
                           onProfileSelect={(profile) => {
@@ -3316,8 +3328,8 @@ function ProfessionalsPageContent({
                       center={jobMapCenter}
                       zoom={10}
                       height="100%"
-                      showRadius={!!selectedLocationCoords}
-                      radiusCenter={selectedLocationCoords ? [selectedLocationCoords.lat, selectedLocationCoords.lon] : undefined}
+                      showRadius={!!effectiveRadiusCoords}
+                      radiusCenter={effectiveRadiusCoords ?? undefined}
                       radiusKm={parseInt(searchParams.radius || "20") * 1.60934}
                       selectedJobId={selectedProfessionalId}
                       onJobSelect={(job) => {

@@ -15,20 +15,30 @@ export async function POST(request: NextRequest) {
     }
 
     const admin = createAdminClient()
-    const { error } = await admin.from("user_push_tokens").upsert(
-      {
-        user_id:     user.id,
-        token:       JSON.stringify(subscription),
-        device_type: "web",
-      },
-      { onConflict: "user_id,token" }
-    )
+    const tokenStr = JSON.stringify(subscription)
+
+    // Resolve role
+    const [{ data: company }, { data: homeowner }] = await Promise.all([
+      admin.from('company_profiles').select('id').eq('user_id', user.id).maybeSingle(),
+      admin.from('homeowner_profiles').select('id').eq('user_id', user.id).maybeSingle(),
+    ])
+    const role = company ? 'tradesperson' : homeowner ? 'homeowner' : null
+
+    // Delete any stale row for this token (same browser re-registering, or previous user)
+    await admin.from("user_push_tokens").delete().eq("token", tokenStr)
+
+    const row: Record<string, unknown> = { user_id: user.id, token: tokenStr, device_type: "web", platform: "web" }
+    if (role !== null) row.role = role
+    try { row.last_seen = new Date().toISOString() } catch { /* ignore */ }
+
+    const { error } = await admin.from("user_push_tokens").insert(row)
 
     if (error) {
       console.error("[PUSH-SUBSCRIBE] DB error:", error.message)
       return NextResponse.json({ error: "Failed to save subscription" }, { status: 500 })
     }
 
+    console.log(`[PUSH-SUBSCRIBE] user=${user.id} role=${role} web token saved`)
     return NextResponse.json({ success: true })
   } catch (err) {
     console.error("[PUSH-SUBSCRIBE] Fatal:", err)
