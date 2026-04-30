@@ -59,6 +59,7 @@ import { CompactStarRating } from "@/components/compact-star-rating"
 import { SignUpPromptModal } from "@/components/sign-up-prompt-modal"
 import { getLanguageFlag } from "@/components/language-selector"
 import { industries, allSubcategories } from "@/lib/data/industries"
+import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 
 // Searchable trades list for autocomplete
 const searchableTrades = [...allSubcategories, ...industries.map((i: { title: string }) => i.title)]
@@ -1771,6 +1772,7 @@ function ProfessionalsPageContent({
                                     isLoggedIn={!!currentUser}
                                     isSelected={isSelected}
                                     userProfile={currentUserProfile}
+                                    dark={false}
                                     onSelect={() => {
                                       // Toggle selection
                                       setSelectedProfessionalId(isSelected ? null : item.id)
@@ -2762,22 +2764,44 @@ function ProfessionalsPageContent({
                 <div className={`flex flex-col gap-2 sm:flex-row sm:items-center ${isModal ? 'sm:gap-2' : 'sm:gap-3'}`}>
                   {/* Inputs — stack on mobile, side-by-side on sm+ */}
                   <div className={`flex flex-col gap-2 sm:flex-row sm:flex-1 ${isModal ? 'sm:gap-2' : 'sm:gap-3'}`}>
-                    {/* Search Input with autocomplete + industry quick-pick */}
+                    {/* Search Input — industry dropdown for job search in modal, text input otherwise */}
                     <div className="relative flex-1">
-                      <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${isModal ? 'h-4 w-4 text-slate-400' : 'h-4 w-4 text-gray-400'} z-10`} />
-                      <Input
-                        ref={searchInputRef}
-                        value={searchTerm}
-                        onChange={(e) => handleModalTradeSearchChange(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                        onFocus={() => searchTerm.length >= 2 && tradeSuggestions.length > 0 && setShowTradeSuggestions(true)}
-                        onBlur={() => {
-                          setTimeout(() => setShowTradeSuggestions(false), 200)
-                          setTimeout(() => setShowIndustryDropdown(false), 200)
-                        }}
-                        placeholder={isShowingJobs ? "Job title, e.g. Electrician" : "Trade or skill, e.g. Plumber"}
-                        className={`${isModal ? 'h-12 text-base pl-10 pr-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/30' : 'h-12 text-base pl-10 bg-white/95 shadow-sm border'} font-medium`}
-                      />
+                      {isModal && isShowingJobs ? (
+                        /* Industry dropdown for tradespeople searching jobs */
+                        <Select
+                          value={searchTerm || "all"}
+                          onValueChange={(v) => { setSearchTerm(v === "all" ? "" : v) }}
+                        >
+                          <SelectTrigger className="h-12 text-base bg-slate-700 border-slate-600 text-white font-medium focus:border-emerald-500 focus:ring-emerald-500/30 pl-4">
+                            <SelectValue placeholder="Any industry" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-slate-800 border-slate-600 max-h-[280px]">
+                            <SelectItem value="all" className="text-sm text-white hover:bg-slate-700 font-medium">Any industry</SelectItem>
+                            {TRADE_INDUSTRIES.filter(i => i.title !== 'Not sure / Other').map((ind) => (
+                              <SelectItem key={ind.title} value={ind.title} className="text-sm text-white hover:bg-slate-700">
+                                {ind.icon} {ind.title}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <>
+                          <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${isModal ? 'h-4 w-4 text-slate-400' : 'h-4 w-4 text-gray-400'} z-10`} />
+                          <Input
+                            ref={searchInputRef}
+                            value={searchTerm}
+                            onChange={(e) => handleModalTradeSearchChange(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                            onFocus={() => searchTerm.length >= 2 && tradeSuggestions.length > 0 && setShowTradeSuggestions(true)}
+                            onBlur={() => {
+                              setTimeout(() => setShowTradeSuggestions(false), 200)
+                              setTimeout(() => setShowIndustryDropdown(false), 200)
+                            }}
+                            placeholder="Trade or skill, e.g. Plumber"
+                            className={`${isModal ? 'h-12 text-base pl-10 pr-10 bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:border-emerald-500 focus:ring-emerald-500/30' : 'h-12 text-base pl-10 bg-white/95 shadow-sm border'} font-medium`}
+                          />
+                        </>
+                      )}
                       {/* Industry dropdown arrow — modal traders only */}
                       {isModal && isShowingTraders && (
                         <button
@@ -3002,6 +3026,7 @@ function ProfessionalsPageContent({
 
                         {/* ── FOR TRADESPEOPLE: Jobs search ── */}
                         {isShowingJobs && (
+                          <>
                           <div className="grid grid-cols-2 gap-2">
                             {/* 1. Distance */}
                             <div className="flex flex-col gap-1">
@@ -3028,9 +3053,8 @@ function ProfessionalsPageContent({
                                 </SelectTrigger>
                                 <SelectContent className="bg-slate-800 border-slate-600">
                                   <SelectItem value="all" className="text-xs text-white hover:bg-slate-700">Any</SelectItem>
-                                  <SelectItem value="urgent" className="text-xs text-white hover:bg-slate-700">ASAP</SelectItem>
-                                  <SelectItem value="today" className="text-xs text-white hover:bg-slate-700">Today</SelectItem>
-                                  <SelectItem value="flexible" className="text-xs text-white hover:bg-slate-700">Flexible</SelectItem>
+                                  <SelectItem value="asap" className="text-xs text-white hover:bg-slate-700">🔴 ASAP</SelectItem>
+                                  <SelectItem value="flexible" className="text-xs text-white hover:bg-slate-700">🔵 Flexible</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -3043,10 +3067,11 @@ function ProfessionalsPageContent({
                                 </SelectTrigger>
                                 <SelectContent className="bg-slate-800 border-slate-600">
                                   <SelectItem value="all" className="text-xs text-white hover:bg-slate-700">Any budget</SelectItem>
-                                  <SelectItem value="under_500" className="text-xs text-white hover:bg-slate-700">Under £500</SelectItem>
-                                  <SelectItem value="500_1k" className="text-xs text-white hover:bg-slate-700">£500 – £1k</SelectItem>
-                                  <SelectItem value="1k_5k" className="text-xs text-white hover:bg-slate-700">£1k – £5k</SelectItem>
-                                  <SelectItem value="5k_plus" className="text-xs text-white hover:bg-slate-700">£5k+</SelectItem>
+                                  <SelectItem value="0-500" className="text-xs text-white hover:bg-slate-700">Under £500</SelectItem>
+                                  <SelectItem value="500-1k" className="text-xs text-white hover:bg-slate-700">£500 – £1k</SelectItem>
+                                  <SelectItem value="1k-5k" className="text-xs text-white hover:bg-slate-700">£1k – £5k</SelectItem>
+                                  <SelectItem value="5k-10k" className="text-xs text-white hover:bg-slate-700">£5k – £10k</SelectItem>
+                                  <SelectItem value="10k+" className="text-xs text-white hover:bg-slate-700">£10k+</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -3076,6 +3101,15 @@ function ProfessionalsPageContent({
                               )}
                             </div>
                           </div>
+                          {/* Search button — applies all filter selections */}
+                          <button
+                            onClick={() => { handleSearch(); setShowAdvancedFilters(false); setSearchApplied(true) }}
+                            className="mt-3 w-full h-9 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm flex items-center justify-center gap-2 transition-colors"
+                          >
+                            <Search className="h-3.5 w-3.5" />
+                            Apply Filters
+                          </button>
+                          </>
                         )}
                       </>
                     ) : (
@@ -3292,17 +3326,19 @@ function ProfessionalsPageContent({
                           Hide Filters
                         </Button>
                       )}
-                      <Button
-                        onClick={() => {
-                          handleSearch()
-                          setShowAdvancedFilters(false)
-                        }}
-                        size="sm"
-                        className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6"
-                      >
-                        <Search className="h-4 w-4 mr-2" />
-                        Search
-                      </Button>
+                      {!isModal && (
+                        <Button
+                          onClick={() => {
+                            handleSearch()
+                            setShowAdvancedFilters(false)
+                          }}
+                          size="sm"
+                          className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold px-6"
+                        >
+                          <Search className="h-4 w-4 mr-2" />
+                          Search
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3998,6 +4034,7 @@ function ProfessionalsPageContent({
                             isLoggedIn={!!currentUser}
                             isSelected={isSelected}
                             userProfile={currentUserProfile}
+                            dark={true}
                             onSelect={() => {
                               // Toggle selection
                               setSelectedProfessionalId(isSelected ? null : item.id)

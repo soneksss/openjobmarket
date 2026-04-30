@@ -72,9 +72,10 @@ interface JobCardProps {
   onSelect?: () => void
   onApply?: (jobId: string) => void
   userProfile?: UserProfile | null
+  dark?: boolean
 }
 
-const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isSelected = false, onSelect, onApply, userProfile }, ref) => {
+const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isSelected = false, onSelect, onApply, userProfile, dark = false }, ref) => {
   const router = useRouter()
   const pathname = usePathname()
   const { t } = useTranslation()
@@ -496,8 +497,8 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
         ref={ref}
         className={`group hover:shadow-lg transition-shadow duration-200 border cursor-pointer ${
           isSelected
-            ? "shadow-xl border-2 border-blue-500 bg-blue-50"
-            : "border-gray-200 hover:border-gray-300"
+            ? dark ? "shadow-xl border-2 border-emerald-500 bg-slate-700" : "shadow-xl border-2 border-blue-500 bg-blue-50"
+            : dark ? "border-slate-700 hover:border-slate-500 bg-slate-800/80" : "border-gray-200 hover:border-gray-300"
         }`}
         onClick={handleCardSelect}
         onTouchStart={(e) => {
@@ -521,7 +522,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
             <div className="flex-1 min-w-0">
               {/* Poster Info - Only show when expanded */}
               {isExpanded && (
-                <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200">
+                <div className={`flex items-center gap-2 mb-3 pb-2 border-b ${dark ? 'border-slate-600' : 'border-gray-200'}`}>
                   {(logoUrl || posterName) && (
                     <>
                       {(job.company_profiles?.id || job.homeowner_profiles?.id) ? (
@@ -530,7 +531,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                           onClick={handleProfileClick}
                         >
                           {logoUrl ? (
-                            <div className="h-11 w-11 flex-shrink-0 relative rounded-full overflow-hidden border border-gray-300 bg-gray-100">
+                            <div className={`h-11 w-11 flex-shrink-0 relative rounded-full overflow-hidden border ${dark ? 'border-slate-600 bg-slate-700' : 'border-gray-300 bg-gray-100'}`}>
                               <Image
                                 src={logoUrl}
                                 alt={posterName}
@@ -539,14 +540,14 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                               />
                             </div>
                           ) : (
-                            <Avatar className="h-11 w-11 border border-gray-300">
-                              <AvatarFallback className="text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                            <Avatar className={`h-11 w-11 border ${dark ? 'border-slate-600' : 'border-gray-300'}`}>
+                              <AvatarFallback className={`text-sm ${dark ? 'bg-slate-600 text-emerald-400' : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'}`}>
                                 {posterName.substring(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-base font-semibold text-gray-900 truncate hover:text-blue-600 transition-colors">{posterName}</p>
+                            <p className={`text-base font-semibold truncate transition-colors ${dark ? 'text-white hover:text-emerald-400' : 'text-gray-900 hover:text-blue-600'}`}>{posterName}</p>
                             {(job.average_rating !== undefined && job.total_reviews !== undefined) && (
                               <div className="mt-0.5">
                                 <StarRating
@@ -562,7 +563,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                       ) : (
                         <>
                           {logoUrl ? (
-                            <div className="h-11 w-11 flex-shrink-0 relative rounded-full overflow-hidden border border-gray-300 bg-gray-100">
+                            <div className={`h-11 w-11 flex-shrink-0 relative rounded-full overflow-hidden border ${dark ? 'border-slate-600 bg-slate-700' : 'border-gray-300 bg-gray-100'}`}>
                               <Image
                                 src={logoUrl}
                                 alt={posterName}
@@ -571,14 +572,14 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                               />
                             </div>
                           ) : (
-                            <Avatar className="h-11 w-11 border border-gray-300">
-                              <AvatarFallback className="text-sm bg-gradient-to-br from-blue-500 to-blue-600 text-white">
+                            <Avatar className={`h-11 w-11 border ${dark ? 'border-slate-600' : 'border-gray-300'}`}>
+                              <AvatarFallback className={`text-sm ${dark ? 'bg-slate-600 text-emerald-400' : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'}`}>
                                 {posterName.substring(0, 2).toUpperCase()}
                               </AvatarFallback>
                             </Avatar>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-base font-semibold text-gray-900 truncate">{posterName}</p>
+                            <p className={`text-base font-semibold truncate ${dark ? 'text-white' : 'text-gray-900'}`}>{posterName}</p>
                             {(job.average_rating !== undefined && job.total_reviews !== undefined) && (
                               <div className="mt-0.5">
                                 <StarRating
@@ -600,7 +601,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               {/* Job Title */}
               <div className="flex items-start gap-2 mb-1.5 sm:mb-1">
                 <h3
-                  className={`text-lg sm:text-xl font-semibold text-gray-900 transition-colors leading-tight flex-1 ${isExpanded ? 'hover:text-blue-600 cursor-pointer' : ''}`}
+                  className={`text-lg sm:text-xl font-semibold transition-colors leading-tight flex-1 ${dark ? 'text-white' : 'text-gray-900'} ${isExpanded ? (dark ? 'hover:text-emerald-400 cursor-pointer' : 'hover:text-blue-600 cursor-pointer') : ''}`}
                   onClick={(e) => {
                     // Only navigate when card is already expanded
                     if (isExpanded) {
@@ -655,7 +656,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                       className="inline-flex items-start gap-2 hover:opacity-80 transition-opacity cursor-pointer"
                       onClick={handleProfileClick}
                     >
-                      <span className="text-sm font-medium text-gray-700 hover:text-blue-600 transition-colors">{companyName}</span>
+                      <span className={`text-sm font-medium transition-colors ${dark ? 'text-slate-300 hover:text-emerald-400' : 'text-gray-700 hover:text-blue-600'}`}>{companyName}</span>
                       {(job.average_rating !== undefined && job.total_reviews !== undefined) && (
                         <div className="flex-shrink-0">
                           <StarRating
@@ -669,7 +670,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                     </div>
                   ) : (
                     <div className="flex items-start gap-2">
-                      <span className="text-sm font-medium text-gray-700">{companyName}</span>
+                      <span className={`text-sm font-medium ${dark ? 'text-slate-300' : 'text-gray-700'}`}>{companyName}</span>
                       {(job.average_rating !== undefined && job.total_reviews !== undefined) && (
                         <div className="flex-shrink-0">
                           <StarRating
@@ -686,14 +687,14 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               )}
 
               {/* Short Description */}
-              <p className="text-sm sm:text-sm text-gray-600 mb-2 line-clamp-2 leading-relaxed">
+              <p className={`text-sm sm:text-sm mb-2 line-clamp-2 leading-relaxed ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
                 {shortDesc?.substring(0, 120) + (shortDesc && shortDesc.length > 120 ? "..." : "")}
               </p>
 
               {/* Price */}
               {salary && (
-                <div className="text-sm sm:text-sm font-bold text-green-600 mb-2">
-                  {salary} <span className="text-gray-500 font-normal text-xs">(per job)</span>
+                <div className={`text-sm sm:text-sm font-bold mb-2 ${dark ? 'text-emerald-400' : 'text-green-600'}`}>
+                  {salary} <span className={`font-normal text-xs ${dark ? 'text-slate-500' : 'text-gray-500'}`}>(per job)</span>
                 </div>
               )}
 
@@ -704,13 +705,13 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                     <Badge
                       key={index}
                       variant="outline"
-                      className="text-xs bg-green-50 border-green-200 text-green-700 px-2 py-1"
+                      className={`text-xs px-2 py-1 ${dark ? 'bg-emerald-900/30 border-emerald-700 text-emerald-400' : 'bg-green-50 border-green-200 text-green-700'}`}
                     >
                       {skill}
                     </Badge>
                   ))}
                   {job.skills_required?.length > 3 && (
-                    <Badge variant="outline" className="text-xs text-gray-500 px-2 py-1">
+                    <Badge variant="outline" className={`text-xs px-2 py-1 ${dark ? 'border-slate-600 text-slate-500' : 'text-gray-500'}`}>
                       +{job.skills_required.length - 3} more
                     </Badge>
                   )}
@@ -719,7 +720,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
 
               {/* Action Buttons - ALWAYS VISIBLE */}
               <div className="flex items-center justify-between gap-2 mb-2 mt-3">
-                <span className="text-xs sm:text-xs text-gray-500 flex-shrink-0">
+                <span className={`text-xs sm:text-xs flex-shrink-0 ${dark ? 'text-slate-500' : 'text-gray-500'}`}>
                   {formatDate(job.created_at)}
                 </span>
                 <div className="flex items-center gap-1.5 sm:gap-1">
@@ -803,12 +804,12 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
 
               {/* Expanded Details - Extra info only */}
               {isExpanded && (
-                <div className="mt-3 pt-3 border-t border-gray-200 space-y-3 sm:space-y-3" onClick={(e) => e.stopPropagation()}>
+                <div className={`mt-3 pt-3 border-t space-y-3 sm:space-y-3 ${dark ? 'border-slate-600' : 'border-gray-200'}`} onClick={(e) => e.stopPropagation()}>
                   {/* Full Description */}
                   {longDesc && longDesc.length > 120 && (
                     <div>
-                      <p className="text-sm font-medium text-gray-700 mb-1.5">Full Description:</p>
-                      <p className="text-sm text-gray-600 whitespace-pre-line leading-relaxed">
+                      <p className={`text-sm font-medium mb-1.5 ${dark ? 'text-slate-300' : 'text-gray-700'}`}>Full Description:</p>
+                      <p className={`text-sm whitespace-pre-line leading-relaxed ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
                         {longDesc}
                       </p>
                     </div>
@@ -835,14 +836,14 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                   )}
 
                   {/* Location */}
-                  <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                  <div className={`flex items-center gap-1.5 text-sm ${dark ? 'text-slate-400' : 'text-gray-600'}`}>
                     <MapPin className="h-4 w-4 flex-shrink-0" />
                     <span className="line-clamp-2">{displayAddress}</span>
                   </div>
 
                   {/* Location Type Badge */}
                   <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary" className="bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs">
+                    <Badge variant="secondary" className={`text-xs ${dark ? 'bg-slate-700 text-slate-300 hover:bg-slate-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
                       {job.work_location}
                     </Badge>
                   </div>
@@ -850,13 +851,13 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                   {/* All Skills (if more than 3) */}
                   {job.skills_required && job.skills_required.length > 3 && (
                     <div>
-                      <p className="text-sm text-gray-700 font-medium mb-1">All Skills:</p>
+                      <p className={`text-sm font-medium mb-1 ${dark ? 'text-slate-300' : 'text-gray-700'}`}>All Skills:</p>
                       <div className="flex flex-wrap gap-1">
                         {job.skills_required.map((skill, index) => (
                           <Badge
                             key={index}
                             variant="outline"
-                            className="text-xs bg-green-50 border-green-200 text-green-700"
+                            className={`text-xs ${dark ? 'bg-emerald-900/30 border-emerald-700 text-emerald-400' : 'bg-green-50 border-green-200 text-green-700'}`}
                           >
                             {skill}
                           </Badge>
@@ -866,7 +867,7 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
                   )}
 
                   {/* Meta Info */}
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                  <div className={`flex items-center gap-4 text-xs ${dark ? 'text-slate-500' : 'text-gray-500'}`}>
                     <div className="flex items-center gap-1">
                       <Users className="h-3 w-3" />
                       <span>{job.applications_count} application{job.applications_count !== 1 ? 's' : ''}</span>

@@ -2096,7 +2096,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             }
           }
           if (params.language && params.language !== "all") {
-            query = query.contains("spoken_languages", [params.language])
+            query = query.contains("languages", [params.language])
           }
           if (params.tradeCategory && params.tradeCategory !== "all") {
             query = query.or(`industry.ilike.%${params.tradeCategory}%,category.ilike.%${params.tradeCategory}%`)
