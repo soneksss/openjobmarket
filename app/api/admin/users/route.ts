@@ -6,7 +6,6 @@ import { createAdminClient } from "@/lib/server"
 
 const PAGE_SIZE = 25
 
-// Compute presence status from last_seen_at (no cron needed — derived on read)
 function presenceStatus(lastSeenAt: string | null): "online" | "away" | "offline" {
   if (!lastSeenAt) return "offline"
   const ms = Date.now() - new Date(lastSeenAt).getTime()
@@ -26,9 +25,9 @@ export async function GET(request: NextRequest) {
   const page   = Math.max(1, parseInt(searchParams.get("page") ?? "1"))
   const offset = (page - 1) * PAGE_SIZE
 
-  const db     = createAdminClient()
-  const ago7d  = new Date(Date.now() - 7  * 86_400_000).toISOString()
-  const ago2m  = new Date(Date.now() - 2  *     60_000).toISOString()
+  const db    = createAdminClient()
+  const ago7d = new Date(Date.now() - 7  * 86_400_000).toISOString()
+  const ago2m = new Date(Date.now() - 2  *     60_000).toISOString()
 
   try {
     if (tab === "homeowners") {
@@ -37,7 +36,7 @@ export async function GET(request: NextRequest) {
       let q = db
         .from("users")
         .select(
-          "id, email, full_name, location, created_at, updated_at, last_seen_at, is_banned, ban_reason, banned_at, ban_expires_at",
+          "id, email, location, created_at, updated_at, last_seen_at, is_banned, ban_reason, banned_at, ban_expires_at",
           { count: "exact" }
         )
         .eq("user_type", "homeowner")
@@ -45,10 +44,11 @@ export async function GET(request: NextRequest) {
         .range(offset, offset + PAGE_SIZE - 1)
 
       if (search) {
-        q = q.or(`email.ilike.%${search}%,full_name.ilike.%${search}%,location.ilike.%${search}%`)
+        q = q.or(`email.ilike.%${search}%,location.ilike.%${search}%`)
       }
       if (filter === "active7d") q = q.gte("updated_at", ago7d)
       if (filter === "online")   q = q.gte("last_seen_at", ago2m)
+      if (filter === "inactive") q = q.lt("updated_at", ago7d)
       if (filter === "banned")   q = q.eq("is_banned", true)
 
       const { data: homeowners, count, error } = await q
@@ -56,12 +56,23 @@ export async function GET(request: NextRequest) {
 
       const ids = (homeowners ?? []).map((h: any) => h.id)
 
-      const { data: jobs } = ids.length
-        ? await db.from("jobs").select("homeowner_id, status").in("homeowner_id", ids)
-        : { data: [] }
+      // Fetch names from homeowner_profiles (full_name is stored there, not in users)
+      const [jobsRes, profilesRes] = await Promise.all([
+        ids.length
+          ? db.from("jobs").select("homeowner_id, status").in("homeowner_id", ids)
+          : Promise.resolve({ data: [] }),
+        ids.length
+          ? db.from("homeowner_profiles").select("user_id, first_name, last_name").in("user_id", ids)
+          : Promise.resolve({ data: [] }),
+      ])
+
+      const nameMap: Record<string, string> = {}
+      for (const p of (profilesRes.data ?? []) as any[]) {
+        nameMap[p.user_id] = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim()
+      }
 
       const jobMap: Record<string, { total: number; active: number; cancelled: number }> = {}
-      for (const j of (jobs ?? []) as any[]) {
+      for (const j of (jobsRes.data ?? []) as any[]) {
         if (!jobMap[j.homeowner_id]) jobMap[j.homeowner_id] = { total: 0, active: 0, cancelled: 0 }
         jobMap[j.homeowner_id].total++
         if (["POSTED", "ACTIVE", "CONFIRMED"].includes(j.status)) jobMap[j.homeowner_id].active++
@@ -70,11 +81,22 @@ export async function GET(request: NextRequest) {
 
       const items = (homeowners ?? []).map((h: any) => ({
         ...h,
+        full_name:      nameMap[h.id]           ?? null,
         presence:       presenceStatus(h.last_seen_at),
         jobs_posted:    jobMap[h.id]?.total      ?? 0,
         active_jobs:    jobMap[h.id]?.active     ?? 0,
         cancelled_jobs: jobMap[h.id]?.cancelled  ?? 0,
       }))
+
+      // Search by name (client-side after join, since name lives in profile table)
+      const filtered = search
+        ? items.filter(i =>
+            !i.full_name ||
+            i.full_name.toLowerCase().includes(search.toLowerCase()) ||
+            (i.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
+            (i.location ?? "").toLowerCase().includes(search.toLowerCase())
+          )
+        : items
 
       const [{ count: totalHo }, { count: activeHo }, { count: onlineHo }] = await Promise.all([
         db.from("users").select("id", { count: "exact", head: true }).eq("user_type", "homeowner"),
@@ -83,7 +105,7 @@ export async function GET(request: NextRequest) {
       ])
 
       return NextResponse.json({
-        items,
+        items: filtered,
         total: count ?? 0,
         stats: { total: totalHo ?? 0, active7d: activeHo ?? 0, online: onlineHo ?? 0 },
       })
@@ -174,16 +196,15 @@ export async function GET(request: NextRequest) {
         }
       })
 
-      // Client-side filters that need presence data
       let filtered = items
       if (filter === "online")      filtered = items.filter(i => i.presence === "online")
       if (filter === "lowresponse") filtered = items.filter(i => i.accept_rate !== null && i.accept_rate < 20)
       if (filter === "toprated")    filtered = items.filter(i => i.avg_rating !== null && i.avg_rating >= 4.5)
+      if (filter === "banned")      filtered = items.filter(i => i.is_banned)
 
       const returnItems = filtered.length < items.length ? filtered : items
       const returnTotal = filtered.length < items.length ? filtered.length : (count ?? 0)
 
-      // Stats: real presence count from users table
       const [{ count: totalTp }, { count: onlineTp }] = await Promise.all([
         db.from("company_profiles").select("user_id", { count: "exact", head: true }),
         db.from("users").select("id", { count: "exact", head: true }).gte("last_seen_at", ago2m)

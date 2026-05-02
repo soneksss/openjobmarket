@@ -24,7 +24,7 @@ export function AdminLayoutClient({ children, adminUser }: AdminLayoutClientProp
   useAutoLogout()
 
   return (
-    <div className="flex h-screen bg-slate-950">
+    <div className="flex h-screen bg-zinc-950">
       <AdminSidebar adminUser={adminUser} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex flex-1 flex-col overflow-hidden">
@@ -58,8 +58,8 @@ export function AdminLayoutClient({ children, adminUser }: AdminLayoutClientProp
         </div>
 
         <AdminHeader title="Admin" adminUser={adminUser} />
-        <main className="flex-1 overflow-hidden bg-slate-950">
-          <div className="h-full mx-auto max-w-7xl overflow-y-auto p-4 md:p-6">{children}</div>
+        <main className="flex-1 overflow-auto bg-zinc-950">
+          <div className="min-h-full mx-auto max-w-[1600px] p-4 md:p-6">{children}</div>
         </main>
       </div>
     </div>

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import {
   Settings, Crown, Smartphone, Flag, LayoutDashboard,
   Save, CheckCircle, AlertCircle, Loader2, CreditCard,
-  ExternalLink,
+  Clock,
 } from "lucide-react"
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -15,11 +15,6 @@ import {
 interface DBSettings {
   subscriptions_enabled: boolean
   signin_required_to_search: boolean
-  vacancies_jobseekers_enabled: boolean
-  professional_actively_looking_enabled: boolean
-  enquiry_fee: number
-  actively_looking_price: number
-  actively_looking_free: boolean
   layout_version: "v1" | "v2"
   ui_urgent_jobs_banner: boolean
   ui_promotions_banner: boolean
@@ -47,27 +42,6 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
   )
 }
 
-function NumRow({ label, hint, value, onChange, prefix }: {
-  label: string; hint?: string; value: number; onChange: (v: number) => void; prefix?: string
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-3 border-b border-zinc-800 last:border-0">
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-zinc-100">{label}</p>
-        {hint && <p className="text-xs text-zinc-500 mt-0.5">{hint}</p>}
-      </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        {prefix && <span className="text-zinc-400 text-sm">{prefix}</span>}
-        <Input
-          type="number"
-          value={value}
-          onChange={e => onChange(parseFloat(e.target.value) || 0)}
-          className="w-24 h-8 bg-zinc-800 border-zinc-700 text-zinc-100 text-sm text-right"
-        />
-      </div>
-    </div>
-  )
-}
 
 function StrRow({ label, hint, value, onChange }: {
   label: string; hint?: string; value: string; onChange: (v: string) => void
@@ -207,18 +181,13 @@ export function AdminSettingsPanel() {
       .then(r => r.json())
       .then(data => {
         const settings: DBSettings = {
-          subscriptions_enabled:                 data.settings.subscriptions_enabled ?? false,
-          signin_required_to_search:             data.settings.signin_required_to_search ?? false,
-          vacancies_jobseekers_enabled:          data.settings.vacancies_jobseekers_enabled ?? true,
-          professional_actively_looking_enabled: data.settings.professional_actively_looking_enabled ?? true,
-          enquiry_fee:                           parseFloat(data.settings.enquiry_fee) || 5,
-          actively_looking_price:                parseFloat(data.settings.actively_looking_price) || 0,
-          actively_looking_free:                 data.settings.actively_looking_free ?? true,
-          layout_version:                        data.settings.layout_version ?? "v1",
-          ui_urgent_jobs_banner:                 data.settings.ui_urgent_jobs_banner ?? true,
-          ui_promotions_banner:                  data.settings.ui_promotions_banner ?? false,
-          min_app_version:                       data.settings.min_app_version ?? "1.0.0",
-          force_update:                          data.settings.force_update ?? false,
+          subscriptions_enabled:     data.settings.subscriptions_enabled     ?? false,
+          signin_required_to_search: data.settings.signin_required_to_search ?? false,
+          layout_version:            data.settings.layout_version            ?? "v1",
+          ui_urgent_jobs_banner:     data.settings.ui_urgent_jobs_banner     ?? true,
+          ui_promotions_banner:      data.settings.ui_promotions_banner      ?? false,
+          min_app_version:           data.settings.min_app_version           ?? "1.0.0",
+          force_update:              data.settings.force_update              ?? false,
         }
         const flags: DBFlags = {
           ai_job_matching: data.featureFlags.ai_job_matching ?? false,
@@ -287,15 +256,10 @@ export function AdminSettingsPanel() {
     )
   }
 
-  const GENERAL_KEYS: (keyof DBSettings)[] = [
-    "subscriptions_enabled", "signin_required_to_search",
-    "vacancies_jobseekers_enabled", "professional_actively_looking_enabled",
-  ]
-  const SUB_KEYS: (keyof DBSettings)[] = [
-    "enquiry_fee", "actively_looking_price", "actively_looking_free",
-  ]
-  const UI_KEYS: (keyof DBSettings)[]     = ["ui_urgent_jobs_banner", "ui_promotions_banner"]
-  const MOBILE_KEYS: (keyof DBSettings)[] = ["layout_version", "min_app_version", "force_update"]
+  const GENERAL_KEYS: (keyof DBSettings)[] = ["signin_required_to_search"]
+  const SUB_KEYS: (keyof DBSettings)[]     = ["subscriptions_enabled"]
+  const UI_KEYS: (keyof DBSettings)[]      = ["ui_urgent_jobs_banner", "ui_promotions_banner"]
+  const MOBILE_KEYS: (keyof DBSettings)[]  = ["layout_version", "min_app_version", "force_update"]
   const FLAG_KEYS: (keyof DBFlags)[]      = ["ai_job_matching", "video_quotes", "instant_booking"]
 
   return (
@@ -334,106 +298,76 @@ export function AdminSettingsPanel() {
             error={general.error}
             onSave={() => general.run(() => saveSettings(GENERAL_KEYS))}
           >
-            <Row label="Subscriptions enabled" hint="Gate features behind paid plans — currently free">
-              <Switch checked={s.subscriptions_enabled} onCheckedChange={v => set("subscriptions_enabled", v)} />
-            </Row>
-            <Row label="Sign-in required to search" hint="Prevent anonymous browsing">
+            <Row label="Sign-in required to search" hint="Prevent anonymous browsing of jobs and tradespeople">
               <Switch checked={s.signin_required_to_search} onCheckedChange={v => set("signin_required_to_search", v)} />
-            </Row>
-            <Row label="Vacancies & Jobseekers tabs" hint="Show 4-tab mode on homepage">
-              <Switch checked={s.vacancies_jobseekers_enabled} onCheckedChange={v => set("vacancies_jobseekers_enabled", v)} />
-            </Row>
-            <Row label="Professional actively-looking" hint="Allow tradespeople to mark themselves available">
-              <Switch checked={s.professional_actively_looking_enabled} onCheckedChange={v => set("professional_actively_looking_enabled", v)} />
             </Row>
           </Section>
         )}
 
         {active === "subscriptions" && (
           <Section
-            title="Subscriptions"
+            title="Subscription & Free Trial"
             dirty={dirtyFor(SUB_KEYS)}
             saving={subscriptions.saving}
             saved={subscriptions.saved}
             error={subscriptions.error}
             onSave={() => subscriptions.run(() => saveSettings(SUB_KEYS))}
           >
-            <div className="py-3 mb-1">
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-950/40 border border-blue-800/50">
-                <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
-                <p className="text-xs text-blue-300">
-                  Platform is currently <strong>free</strong>. Prices below take effect when subscriptions are enabled.
-                </p>
+            {/* Model explanation */}
+            <div className="py-3">
+              <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-sm font-medium text-zinc-100">Free trial model</span>
+                </div>
+                <ol className="space-y-2 ml-6 list-decimal">
+                  <li className="text-xs text-zinc-400">
+                    <span className="text-zinc-200 font-medium">App is free</span> — all users can access the platform at no cost.
+                  </li>
+                  <li className="text-xs text-zinc-400">
+                    <span className="text-zinc-200 font-medium">Enable subscriptions below</span> — starts a <strong className="text-amber-400">6-month free trial</strong> for all users from the toggle date.
+                  </li>
+                  <li className="text-xs text-zinc-400">
+                    <span className="text-zinc-200 font-medium">After 6 months</span> — users will need to purchase a subscription to continue using paid features.
+                  </li>
+                </ol>
+                <div className="flex items-center gap-2 pt-1 border-t border-zinc-700">
+                  <span className="w-2 h-2 rounded-full bg-zinc-600 shrink-0" />
+                  <p className="text-xs text-zinc-500">
+                    Billing is <strong className="text-zinc-400">not yet configured</strong>. Users will be notified when paid plans launch.
+                  </p>
+                </div>
               </div>
             </div>
-            <Row label="Actively-looking free" hint="No charge for tradespeople to appear in search">
-              <Switch checked={s.actively_looking_free} onCheckedChange={v => set("actively_looking_free", v)} />
+
+            <Row
+              label="Enable subscription period"
+              hint={s.subscriptions_enabled
+                ? "Active — 6-month free trial is running for all users"
+                : "Off — platform is fully free with no trial countdown"}
+            >
+              <Switch checked={s.subscriptions_enabled} onCheckedChange={v => set("subscriptions_enabled", v)} />
             </Row>
-            <NumRow
-              label="Actively-looking price" hint="Monthly fee when not free"
-              value={s.actively_looking_price} onChange={v => set("actively_looking_price", v)}
-              prefix="£"
-            />
-            <NumRow
-              label="Enquiry fee" hint="Fee charged per enquiry sent"
-              value={s.enquiry_fee} onChange={v => set("enquiry_fee", v)}
-              prefix="£"
-            />
           </Section>
         )}
 
         {active === "payments" && (
           <StaticSection title="Payments">
-            <Divider label="Provider" />
-            <InfoRow label="Payment provider">
-              <span className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-zinc-100">Stripe</span>
-                <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">Recommended</span>
-              </span>
-            </InfoRow>
-
-            <div className="py-3 border-b border-zinc-800">
-              <Button
-                variant="outline"
-                className="h-8 px-4 text-sm border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 bg-transparent"
-                onClick={() => window.open("https://dashboard.stripe.com/settings/account", "_blank")}
-              >
-                <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-                Connect Stripe Account
-              </Button>
-            </div>
-
-            <Divider label="Status" />
-            <InfoRow label="Account">
-              <StatusDot ok={false} label="Not connected" />
-            </InfoRow>
-
-            <Divider label="Mode" />
-            <InfoRow label="Environment">
-              <div className="flex rounded-lg overflow-hidden border border-zinc-700 opacity-50 pointer-events-none">
-                {["Test Mode", "Live Mode"].map((m, i) => (
-                  <span key={m} className={`px-3 py-1 text-xs ${i === 0 ? "bg-zinc-700 text-zinc-200" : "bg-zinc-800 text-zinc-500"}`}>
-                    {m}
-                  </span>
-                ))}
+            <div className="py-5">
+              <div className="rounded-lg border border-zinc-700 bg-zinc-800/50 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-zinc-400 shrink-0" />
+                  <span className="text-sm font-medium text-zinc-200">Billing not yet configured</span>
+                </div>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  The platform is currently free. Payment processing will be added when paid subscriptions launch.
+                  Planned provider: <span className="text-zinc-300 font-medium">Stripe</span>.
+                </p>
+                <div className="pt-1 border-t border-zinc-700 space-y-1.5">
+                  <InfoRow label="Payment provider"><span className="text-sm text-zinc-500">Not connected</span></InfoRow>
+                  <InfoRow label="Transactions"><span className="text-sm text-zinc-500">£0 — no transactions yet</span></InfoRow>
+                </div>
               </div>
-            </InfoRow>
-
-            <Divider label="Webhooks" />
-            <InfoRow label="Webhook status">
-              <StatusDot ok={false} label="Not receiving events" />
-            </InfoRow>
-
-            <Divider label="Transactions" />
-            <InfoRow label="Last payment">
-              <span className="text-sm text-zinc-500">£0 — no transactions yet</span>
-            </InfoRow>
-
-            <div className="py-4">
-              <p className="text-xs text-zinc-600">
-                Connect a Stripe account above to enable subscription billing for tradespeople.
-                Webhooks will be configured automatically once connected.
-              </p>
             </div>
           </StaticSection>
         )}

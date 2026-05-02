@@ -43,7 +43,7 @@ export async function GET() {
       { count: jobsLast7d },
     ] = await Promise.all([
       supabase.from("users").select("*", { count: "exact", head: true }).eq("user_type", "homeowner"),
-      supabase.from("company_profiles").select("*", { count: "exact", head: true }),
+      supabase.from("users").select("*", { count: "exact", head: true }).eq("user_type", "company"),
       supabase.from("company_profiles").select("*", { count: "exact", head: true }).eq("open_for_business", true),
       supabase.from("company_profiles").select("*", { count: "exact", head: true })
         .eq("open_for_business", true).not("latitude", "is", null).not("longitude", "is", null),
@@ -52,7 +52,7 @@ export async function GET() {
       supabase.from("jobs").select("*", { count: "exact", head: true }).eq("status", "COMPLETED").gte("updated_at", todayStr),
       supabase.from("jobs").select("is_urgent").gte("created_at", sevenDaysStr),
       supabase.from("users").select("*", { count: "exact", head: true }).eq("user_type", "homeowner").gte("created_at", sevenDaysStr),
-      supabase.from("company_profiles").select("*", { count: "exact", head: true }).gte("created_at", sevenDaysStr),
+      supabase.from("users").select("*", { count: "exact", head: true }).eq("user_type", "company").gte("created_at", sevenDaysStr),
       supabase.from("jobs").select("*", { count: "exact", head: true }).gte("created_at", sevenDaysStr),
     ])
 
@@ -206,7 +206,33 @@ export async function GET() {
       ? Math.round((totalReviews || 0) * 10 / (jobsCompleted || 1)) / 10
       : 0
 
-    // ── 7. System Health ─────────────────────────────────────────────────────
+    // ── 7. Registration Growth (last 30 days) ────────────────────────────────
+    const { data: regGrowthRaw } = await supabase
+      .from("users")
+      .select("user_type, created_at")
+      .gte("created_at", thirtyDaysStr)
+      .in("user_type", ["homeowner", "company"])
+
+    const buckets: Record<string, { homeowners: number; tradespeople: number }> = {}
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      buckets[d.toISOString().slice(0, 10)] = { homeowners: 0, tradespeople: 0 }
+    }
+    for (const u of (regGrowthRaw ?? []) as any[]) {
+      const key = (u.created_at as string).slice(0, 10)
+      if (buckets[key]) {
+        if (u.user_type === "homeowner") buckets[key].homeowners++
+        else buckets[key].tradespeople++
+      }
+    }
+    const registrationGrowth = Object.entries(buckets).map(([date, v]) => ({
+      date: date.slice(5),
+      homeowners: v.homeowners,
+      tradespeople: v.tradespeople,
+    }))
+
+    // ── 8. System Health ─────────────────────────────────────────────────────
     const [
       { count: pushTokensTotal },
       { count: activeDispatchJobs },
@@ -271,6 +297,7 @@ export async function GET() {
         activeDispatchJobs: activeDispatchJobs || 0,
         conversationsTotal: chatsStarted || 0,
       },
+      registrationGrowth,
     })
   } catch (error) {
     console.error("[MARKETPLACE-ANALYTICS] Error:", error)

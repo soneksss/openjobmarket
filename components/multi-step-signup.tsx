@@ -196,10 +196,13 @@ export default function MultiStepSignup() {
         localStorage.setItem('oauth_account_type', signupData.accountType)
       }
 
+      // Pass the intended account type so the callback can set the correct user_type
+      // (Google OAuth doesn't include app metadata, so the DB trigger defaults to 'professional')
+      const accountTypeParam = signupData.accountType ?? 'individual'
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?account_type=${accountTypeParam}`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
+  AreaChart, Area,
 } from "recharts"
 import {
   Users, Hammer, Zap, MapPin, Briefcase, CheckCircle2, Star, RefreshCw,
@@ -37,6 +38,7 @@ interface MarketplaceData {
   geoInsights: { topTrades: Array<{ name: string; count: number }>; topLocations: Array<{ name: string; count: number }> }
   retention: { repeatHomeownersPct: number; cancellationRate: number; totalReviews: number; completedJobs: number; avgReviewsPerJob: number }
   systemHealth: { pushTokensTotal: number; activeDispatchJobs: number; conversationsTotal: number }
+  registrationGrowth: Array<{ date: string; homeowners: number; tradespeople: number }>
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -63,30 +65,25 @@ const ACCENT: Record<Accent, { bg: string; icon: string; border: string }> = {
   cyan:   { bg: "bg-cyan-500/10",   icon: "text-cyan-400",   border: "border-cyan-500/20"   },
 }
 
-function K({ title, value, icon: Icon, accent = "blue", trend, trendLabel }: {
+function K({ title, value, icon: _Icon, accent = "blue", trend, trendLabel }: {
   title: string; value: string | number; icon: React.ElementType
   accent?: Accent; trend?: "up" | "down" | "neutral"; trendLabel?: string
 }) {
   const a = ACCENT[accent]
   return (
-    <Card className={`bg-zinc-900 border ${a.border}`}>
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between mb-1.5">
-          <div className={`p-1 rounded ${a.bg}`}>
-            <Icon className={`h-3 w-3 ${a.icon}`} />
-          </div>
-          {trendLabel && (
-            <span className={`text-[10px] leading-none ${
-              trend === "up" ? "text-green-400" : trend === "down" ? "text-red-400" : "text-zinc-600"
-            }`}>
-              {trend === "up" && "↑ "}{trend === "down" && "↓ "}{trendLabel}
-            </span>
-          )}
-        </div>
-        <div className="text-xl font-bold text-white leading-none">{value}</div>
-        <div className="text-[10px] text-zinc-500 mt-1 leading-tight">{title}</div>
-      </CardContent>
-    </Card>
+    <div className={`bg-zinc-900 border ${a.border} rounded-xl px-2.5 py-1.5`}>
+      <div className="text-xl font-bold text-white leading-none">{value}</div>
+      <div className="flex items-center gap-1 mt-0.5">
+        <span className="text-[10px] text-zinc-500 leading-tight truncate flex-1">{title}</span>
+        {trendLabel && (
+          <span className={`text-[10px] leading-none shrink-0 ${
+            trend === "up" ? "text-green-400" : trend === "down" ? "text-red-400" : "text-zinc-600"
+          }`}>
+            {trend === "up" && "↑"}{trend === "down" && "↓"}{trendLabel}
+          </span>
+        )}
+      </div>
+    </div>
   )
 }
 
@@ -164,7 +161,7 @@ export function MarketplaceAnalytics() {
 
   if (loading) return <Skeleton />
   if (error) return (
-    <Card className="bg-zinc-900 border-red-900">
+    <Card className="bg-zinc-900 border-red-900 py-0">
       <CardContent className="p-4 flex items-center gap-3">
         <AlertTriangle className="h-4 w-4 text-red-400" />
         <span className="text-red-400 text-sm">{error}</span>
@@ -179,12 +176,12 @@ export function MarketplaceAnalytics() {
   const jobSplit = [{ name: "Urgent", value: health.urgentCount }, { name: "Flexible", value: health.flexibleCount }]
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Marketplace Intelligence</h1>
+          <h1 className="text-xl font-bold text-white tracking-tight">Marketplace Intelligence</h1>
           <p className="text-zinc-600 text-xs">{lastUpdated ? `Updated ${lastUpdated.toLocaleTimeString()}` : "Loading…"}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => fetchData(true)} disabled={refreshing}
@@ -194,13 +191,53 @@ export function MarketplaceAnalytics() {
         </Button>
       </div>
 
+      {/* ── Registration Growth ──────────────────────────────────────────── */}
+      <div>
+        <S icon={TrendingUp} title="Registration Growth (30 days)" color="text-blue-400" />
+        <Card className="bg-zinc-900 border-zinc-800 py-0">
+          <CardContent className="p-3">
+            {data.registrationGrowth.every(d => d.homeowners === 0 && d.tradespeople === 0) ? (
+              <p className="text-zinc-600 text-xs py-3 text-center">No registrations in the last 30 days</p>
+            ) : (
+              <ResponsiveContainer width="100%" height={90}>
+                <AreaChart data={data.registrationGrowth} margin={{ left: -10, right: 8, top: 4, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gradHo" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradTp" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="date" tick={{ fill: "#52525b", fontSize: 9 }} interval={4} />
+                  <YAxis tick={{ fill: "#52525b", fontSize: 9 }} allowDecimals={false} width={20} />
+                  <Tooltip contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 6, fontSize: 11 }} />
+                  <Area type="monotone" dataKey="homeowners" stroke="#3b82f6" fill="url(#gradHo)" strokeWidth={1.5} dot={false} name="Homeowners" />
+                  <Area type="monotone" dataKey="tradespeople" stroke="#8b5cf6" fill="url(#gradTp)" strokeWidth={1.5} dot={false} name="Tradespeople" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+            <div className="flex gap-4 mt-1">
+              <span className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+                <span className="w-3 h-px bg-blue-500 inline-block" /> Homeowners
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px] text-zinc-400">
+                <span className="w-3 h-px bg-purple-500 inline-block" /> Tradespeople
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* ── Row 1: Health (8 cards) + Dispatch (8 cards) ─────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 
         {/* Health */}
         <div>
           <S icon={Activity} title="Marketplace Health" color="text-blue-400" />
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             <K title="Homeowners" value={health.totalHomeowners.toLocaleString()} icon={Users} accent="blue"
               trend="up" trendLabel={`+${health.homeownersLast7d}w`} />
             <K title="Tradespeople" value={health.tradespeopleTotal.toLocaleString()} icon={Hammer} accent="purple"
@@ -213,8 +250,8 @@ export function MarketplaceAnalytics() {
             <K title="Confirmed Today" value={health.jobsConfirmedToday} icon={CheckCircle2} accent="green" />
             <K title="Completed Today" value={health.jobsCompletedToday} icon={Star} accent="amber" />
             {/* Job split mini-card */}
-            <Card className="bg-zinc-900 border-zinc-800">
-              <CardContent className="p-3">
+            <Card className="bg-zinc-900 border-zinc-800 py-0">
+              <CardContent className="p-2">
                 <div className="text-[10px] text-zinc-500 mb-1.5">Type split (7d)</div>
                 <div className="flex items-center gap-2">
                   <PieChart width={44} height={44}>
@@ -243,7 +280,7 @@ export function MarketplaceAnalytics() {
         {/* Dispatch */}
         <div>
           <S icon={Zap} title="Dispatch Engine" color="text-red-400" />
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             <K title="Avg 1st Response" value={mins(dispatch.avgFirstResponseMins)} icon={Clock} accent="green" />
             <K title="Time to 3 Replies" value={mins(dispatch.avgTimeToThreeResponsesMins)} icon={Target} accent="blue" />
             <K title="Resolved @ 3mi" value={pct(dispatch.pctResolvedFirstRadius)} icon={CheckCircle2} accent="green"
@@ -262,13 +299,13 @@ export function MarketplaceAnalytics() {
       </div>
 
       {/* ── Row 2: Funnel + Tradesperson Health ───────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
 
         {/* Conversion Funnel */}
         <div>
           <S icon={TrendingUp} title="Conversion Funnel" color="text-amber-400" />
-          <Card className="bg-zinc-900 border-zinc-800">
-            <CardContent className="p-3 space-y-1.5">
+          <Card className="bg-zinc-900 border-zinc-800 py-0">
+            <CardContent className="p-3 space-y-1">
               {[
                 { label: "Jobs Posted",       value: funnel.jobsPosted,            color: "#3b82f6" },
                 { label: "First Response",    value: funnel.jobsWithFirstResponse, color: "#8b5cf6" },
@@ -284,7 +321,7 @@ export function MarketplaceAnalytics() {
                       <span className="text-zinc-400">{step.label}</span>
                       <span className="text-white font-semibold">{step.value.toLocaleString()} <span className="text-zinc-600">({c}%)</span></span>
                     </div>
-                    <div className="h-5 bg-zinc-800 rounded overflow-hidden">
+                    <div className="h-3 bg-zinc-800 rounded overflow-hidden">
                       <div className="h-full rounded" style={{ width: `${w}%`, backgroundColor: step.color }} />
                     </div>
                     {i < arr.length - 1 && (
@@ -308,9 +345,9 @@ export function MarketplaceAnalytics() {
         {/* Tradesperson Supply Health */}
         <div>
           <S icon={Hammer} title="Tradesperson Supply Health" color="text-purple-400" />
-          <Card className="bg-zinc-900 border-zinc-800">
+          <Card className="bg-zinc-900 border-zinc-800 py-0">
             <CardContent className="p-3">
-              <div className="flex items-center justify-around mb-3">
+              <div className="flex items-center justify-around mb-2">
                 <Ring value={tradespersonHealth.availabilityPct} label="Available" color="#10b981" />
                 <Ring value={tradespersonHealth.urgentAlertsPct} label="Urgent ON" color="#ef4444" />
                 <Ring value={tradespersonHealth.flexibleAlertsPct} label="Flex ON" color="#3b82f6" />
@@ -343,17 +380,17 @@ export function MarketplaceAnalytics() {
       </div>
 
       {/* ── Row 3: Geo + Retention + System ──────────────────────────────── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
 
         {/* Top Trades */}
         <div>
           <S icon={MapPin} title="Top Trades (30d)" color="text-cyan-400" />
-          <Card className="bg-zinc-900 border-zinc-800">
+          <Card className="bg-zinc-900 border-zinc-800 py-0">
             <CardContent className="p-3">
               {geoInsights.topTrades.length === 0 ? (
                 <p className="text-zinc-600 text-xs py-3 text-center">No data yet</p>
               ) : (
-                <ResponsiveContainer width="100%" height={150}>
+                <ResponsiveContainer width="100%" height={120}>
                   <BarChart data={geoInsights.topTrades.slice(0, 6)} layout="vertical" margin={{ left: 0, right: 8, top: 0, bottom: 0 }}>
                     <XAxis type="number" tick={{ fill: "#52525b", fontSize: 9 }} />
                     <YAxis dataKey="name" type="category" tick={{ fill: "#a1a1aa", fontSize: 9 }} width={80} />
@@ -383,7 +420,7 @@ export function MarketplaceAnalytics() {
         {/* Retention */}
         <div>
           <S icon={Repeat2} title="Retention & Trust" color="text-green-400" />
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
             <K title="Repeat Homeowners" value={pct(retention.repeatHomeownersPct)} icon={Repeat2}
               accent={retention.repeatHomeownersPct > 30 ? "green" : "amber"} />
             <K title="Cancellation Rate" value={pct(retention.cancellationRate)} icon={AlertTriangle}
@@ -398,7 +435,7 @@ export function MarketplaceAnalytics() {
         {/* System Health */}
         <div>
           <S icon={Wifi} title="System Health" color="text-emerald-400" />
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-1.5">
             <K title="Push Tokens Registered" value={systemHealth.pushTokensTotal.toLocaleString()} icon={Bell} accent="blue" />
             <K title="Active Dispatch Jobs" value={systemHealth.activeDispatchJobs} icon={Zap}
               accent={systemHealth.activeDispatchJobs > 10 ? "amber" : "green"} />
@@ -420,13 +457,13 @@ function Skeleton() {
         <div className="space-y-1.5"><div className="h-7 w-56 bg-zinc-800 rounded" /><div className="h-3 w-32 bg-zinc-800 rounded" /></div>
         <div className="h-7 w-20 bg-zinc-800 rounded" />
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
         {[0, 1].map(i => <div key={i} className="grid grid-cols-4 gap-2">{Array.from({ length: 8 }).map((_, j) => <div key={j} className="h-16 bg-zinc-900 border border-zinc-800 rounded-lg" />)}</div>)}
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
         {[0, 1].map(i => <div key={i} className="h-52 bg-zinc-900 border border-zinc-800 rounded-lg" />)}
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
         {[0, 1, 2].map(i => <div key={i} className="h-44 bg-zinc-900 border border-zinc-800 rounded-lg" />)}
       </div>
     </div>

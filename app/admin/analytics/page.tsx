@@ -6,9 +6,5 @@ export default async function AdminAnalyticsPage() {
   const adminUser = await getAdminUser()
   if (!adminUser) redirect("/admin/login")
 
-  return (
-    <div className="min-h-screen bg-black text-white p-6">
-      <MarketplaceAnalytics />
-    </div>
-  )
+  return <MarketplaceAnalytics />
 }

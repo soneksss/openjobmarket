@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic"
 
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/server"
+import { createClient, createAdminClient } from "@/lib/server"
 
 export async function POST() {
   try {
@@ -13,8 +13,9 @@ export async function POST() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Only write last_seen_at — is_online is deprecated and must not be used
-    const { error } = await supabase
+    // Use service-role client to bypass RLS — auth is already verified above
+    const admin = createAdminClient()
+    const { error } = await admin
       .from("users")
       .update({ last_seen_at: new Date().toISOString() })
       .eq("id", user.id)
