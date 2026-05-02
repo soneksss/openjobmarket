@@ -5,7 +5,9 @@ import { X, Plus } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 // cc = ISO 3166-1 alpha-2 country code used by flagcdn.com
-const COMMON_LANGUAGES = [
+// This is the canonical language list used across the app.
+// Any language that can be stored in spoken_languages or jobs.languages must appear here.
+export const COMMON_LANGUAGES = [
   { name: "English",              cc: "gb" },
   { name: "Polish",               cc: "pl" },
   { name: "Romanian",             cc: "ro" },
@@ -15,6 +17,11 @@ const COMMON_LANGUAGES = [
   { name: "Czech",                cc: "cz" },
   { name: "Hungarian",            cc: "hu" },
   { name: "Croatian",             cc: "hr" },
+  { name: "Serbian",              cc: "rs" },
+  { name: "Albanian",             cc: "al" },
+  { name: "Lithuanian",           cc: "lt" },
+  { name: "Latvian",              cc: "lv" },
+  { name: "Estonian",             cc: "ee" },
   { name: "Russian",              cc: "ru" },
   { name: "French",               cc: "fr" },
   { name: "German",               cc: "de" },
@@ -29,14 +36,23 @@ const COMMON_LANGUAGES = [
   { name: "Finnish",              cc: "fi" },
   { name: "Greek",                cc: "gr" },
   { name: "Turkish",              cc: "tr" },
+  { name: "Hebrew",               cc: "il" },
   { name: "Arabic",               cc: "sa" },
   { name: "Hindi",                cc: "in" },
+  { name: "Urdu",                 cc: "pk" },
+  { name: "Bengali",              cc: "bd" },
+  { name: "Punjabi",              cc: "pk" },
   { name: "Mandarin",             cc: "cn" },
   { name: "Japanese",             cc: "jp" },
   { name: "Korean",               cc: "kr" },
   { name: "Vietnamese",           cc: "vn" },
   { name: "Thai",                 cc: "th" },
   { name: "Indonesian",           cc: "id" },
+  { name: "Malay",                cc: "my" },
+  { name: "Swahili",              cc: "ke" },
+  { name: "Amharic",              cc: "et" },
+  { name: "Somali",               cc: "so" },
+  { name: "Yoruba",               cc: "ng" },
 ]
 
 function flagUrl(cc: string) {

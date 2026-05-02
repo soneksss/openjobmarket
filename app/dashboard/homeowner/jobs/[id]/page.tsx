@@ -179,8 +179,7 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
             isActive={!!isActive}
             expiresAt={job.expires_at}
             jobStatus={job.status}
-            isFlexibleJob={!!(job.is_tradespeople_job && job.urgency_type === "flexible")}
-            urgencyType={job.urgency_type ?? undefined}
+urgencyType={job.urgency_type ?? undefined}
             currentJob={{
               title: job.title,
               description: job.description,
@@ -238,9 +237,9 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
 
           {/* Meta grid */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2 text-sm text-slate-400">
-              <MapPin className="w-4 h-4 text-slate-500 flex-shrink-0" />
-              <span className="truncate">{job.location}</span>
+            <div className="flex items-start gap-2 text-slate-400">
+              <MapPin className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
+              <span className="text-xs leading-snug break-words min-w-0">{job.location}</span>
             </div>
             {budgetLabel && (
               <div className="flex items-center gap-2 text-sm text-emerald-400 font-semibold">
@@ -279,6 +278,14 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
           )}
         </div>
 
+        {/* Description */}
+        {displayDescription && (
+          <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5">
+            <h2 className="text-sm font-semibold text-slate-300 mb-2">About this job</h2>
+            <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap break-words">{displayDescription}</p>
+          </div>
+        )}
+
         {/* Job photo */}
         {job.job_photo_url && (
           <div className="rounded-2xl overflow-hidden border border-slate-700/60">
@@ -287,14 +294,6 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
               alt={job.title}
               className="w-full max-h-44 sm:max-h-64 object-cover"
             />
-          </div>
-        )}
-
-        {/* Description */}
-        {displayDescription && (
-          <div className="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-5">
-            <h2 className="text-sm font-semibold text-slate-300 mb-2">About this job</h2>
-            <p className="text-sm text-slate-400 leading-relaxed whitespace-pre-wrap break-words">{displayDescription}</p>
           </div>
         )}
 

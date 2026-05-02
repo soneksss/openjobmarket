@@ -57,12 +57,24 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels"
 import { createBrowserClient } from "@supabase/ssr"
 import { CompactStarRating } from "@/components/compact-star-rating"
 import { SignUpPromptModal } from "@/components/sign-up-prompt-modal"
-import { getLanguageFlag } from "@/components/language-selector"
+import { getLanguageFlag, COMMON_LANGUAGES } from "@/components/language-selector"
 import { industries, allSubcategories } from "@/lib/data/industries"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 
 // Searchable trades list for autocomplete
 const searchableTrades = [...allSubcategories, ...industries.map((i: { title: string }) => i.title)]
+
+// WORLD_LANGUAGES is built at module level after COMMON_LANGUAGES is imported,
+// so canonical names always appear first in autocomplete suggestions.
+const WORLD_LANGUAGES_EXTRA = [
+  "Afrikaans","Armenian","Azerbaijani","Basque","Belarusian","Bosnian","Catalan","Cebuano",
+  "Chinese (Cantonese)","Chinese (Mandarin)","Esperanto","Filipino","Galician","Georgian",
+  "Gujarati","Haitian Creole","Hausa","Hmong","Icelandic","Igbo","Irish","Javanese","Kannada",
+  "Kazakh","Khmer","Kurdish","Kyrgyz","Lao","Latin","Luxembourgish","Macedonian","Malagasy",
+  "Malayalam","Maltese","Maori","Marathi","Mongolian","Myanmar (Burmese)","Nepali","Pashto",
+  "Persian","Samoan","Scottish Gaelic","Sesotho","Shona","Sindhi","Sinhala","Slovenian",
+  "Sundanese","Tajik","Tamil","Telugu","Uzbek","Welsh","Xhosa","Yiddish","Zulu",
+]
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ReviewsList } from "@/components/reviews-list"
 import ProfessionalDetailView from "@/components/professional-detail-view"
@@ -404,6 +416,7 @@ function ProfessionalsPageContent({
   // Modal filter local state (applied on Search click, not on URL immediately)
   const [filterRadius, setFilterRadius] = useState(searchParams.radius || "5")
   const [filterCategory, setFilterCategory] = useState((searchParams as any).tradeCategory || "all")
+  const [filterService, setFilterService] = useState((searchParams as any).service || "all")
   const [filterUrgency, setFilterUrgency] = useState((searchParams as any).urgency || "all")
   const [filterBudget, setFilterBudget] = useState("all")
   const [filterAvailability, setFilterAvailability] = useState("all")
@@ -621,6 +634,7 @@ function ProfessionalsPageContent({
     if ((searchParams as any).tab) params.set("tab", (searchParams as any).tab)
     // Modal-specific filters (local state, applied on Search click)
     if (filterCategory !== "all") params.set("tradeCategory", filterCategory)
+    if (filterService !== "all") params.set("service", filterService)
     if (filterUrgency !== "all") params.set("urgency", filterUrgency)
     if (filterBudget !== "all") params.set("budget", filterBudget)
     const effectiveAvailability = overrides?.availability !== undefined ? overrides.availability : filterAvailability
@@ -2477,7 +2491,7 @@ function ProfessionalsPageContent({
             {/* Map Area */}
             <div className="flex-1 relative">
               <ProfessionalMap
-                key={`picker-${Date.now()}`}
+                key="map-picker"
                 professionals={[]}
                 center={selectedLocationCoords ? { lat: selectedLocationCoords.lat, lon: selectedLocationCoords.lon } : { lat: 50.8058, lon: -1.0872 }}
                 zoom={8}
@@ -2767,23 +2781,46 @@ function ProfessionalsPageContent({
                     {/* Search Input — industry dropdown for job search in modal, text input otherwise */}
                     <div className="relative flex-1">
                       {isModal && isShowingJobs ? (
-                        /* Industry dropdown for tradespeople searching jobs */
-                        <Select
-                          value={searchTerm || "all"}
-                          onValueChange={(v) => { setSearchTerm(v === "all" ? "" : v) }}
-                        >
-                          <SelectTrigger className="h-12 text-base bg-slate-700 border-slate-600 text-white font-medium focus:border-emerald-500 focus:ring-emerald-500/30 pl-4">
-                            <SelectValue placeholder="Any industry" />
-                          </SelectTrigger>
-                          <SelectContent className="bg-slate-800 border-slate-600 max-h-[280px]">
-                            <SelectItem value="all" className="text-sm text-white hover:bg-slate-700 font-medium">Any industry</SelectItem>
-                            {TRADE_INDUSTRIES.filter(i => i.title !== 'Not sure / Other').map((ind) => (
-                              <SelectItem key={ind.title} value={ind.title} className="text-sm text-white hover:bg-slate-700">
-                                {ind.icon} {ind.title}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        /* Industry + Trade dropdowns for tradespeople searching jobs */
+                        <div className="flex gap-2">
+                          {/* Industry — fixed half-width so Trade dropdown never shifts */}
+                          <div className="flex-1 min-w-0">
+                          <Select
+                            value={filterCategory}
+                            onValueChange={(v) => { setFilterCategory(v); setFilterService("all") }}
+                          >
+                            <SelectTrigger className="w-full h-12 text-base bg-slate-700 border-slate-600 text-white font-medium focus:border-emerald-500 focus:ring-emerald-500/30 pl-4">
+                              <SelectValue placeholder="Any industry" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-slate-600 max-h-[280px]">
+                              <SelectItem value="all" className="text-sm text-white hover:bg-slate-700 font-medium">Any industry</SelectItem>
+                              {TRADE_INDUSTRIES.filter(i => i.title !== 'Not sure / Other').map((ind) => (
+                                <SelectItem key={ind.title} value={ind.title} className="text-sm text-white hover:bg-slate-700">
+                                  {ind.icon} {ind.title}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          </div>
+                          {/* Trade sub-category — only active after industry is chosen */}
+                          <div className="flex-1 min-w-0">
+                          <Select
+                            value={filterService}
+                            onValueChange={setFilterService}
+                            disabled={filterCategory === "all"}
+                          >
+                            <SelectTrigger className={`w-full h-12 text-base border-slate-600 font-medium pl-4 transition-colors ${filterCategory === "all" ? 'bg-slate-800 text-slate-500' : 'bg-slate-700 text-white focus:border-emerald-500 focus:ring-emerald-500/30'}`}>
+                              <SelectValue placeholder={filterCategory === "all" ? "Select industry first" : "Any trade"} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-slate-800 border-slate-600 max-h-[280px]">
+                              <SelectItem value="all" className="text-sm text-white hover:bg-slate-700 font-medium">Any trade</SelectItem>
+                              {(TRADE_INDUSTRIES.find(i => i.title === filterCategory)?.services ?? []).map((s) => (
+                                <SelectItem key={s} value={s} className="text-sm text-white hover:bg-slate-700">{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          </div>
+                        </div>
                       ) : (
                         <>
                           <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${isModal ? 'h-4 w-4 text-slate-400' : 'h-4 w-4 text-gray-400'} z-10`} />
@@ -2994,8 +3031,8 @@ function ProfessionalsPageContent({
                                   </SelectTrigger>
                                   <SelectContent className="bg-slate-800 border-slate-600 max-h-[220px]">
                                     <SelectItem value="all" className="text-xs text-white hover:bg-slate-700">Any</SelectItem>
-                                    {["English","Spanish","French","German","Italian","Portuguese","Polish","Romanian","Ukrainian","Russian","Arabic","Hindi","Urdu","Bengali","Mandarin"].map((lang) => (
-                                      <SelectItem key={lang} value={lang} className="text-xs text-white hover:bg-slate-700">{lang}</SelectItem>
+                                    {COMMON_LANGUAGES.map(({ name }) => (
+                                      <SelectItem key={name} value={name} className="text-xs text-white hover:bg-slate-700">{name}</SelectItem>
                                     ))}
                                     <SelectItem value="other" className="text-xs text-emerald-400 hover:bg-slate-700">Other…</SelectItem>
                                   </SelectContent>
@@ -3084,20 +3121,43 @@ function ProfessionalsPageContent({
                                 </SelectTrigger>
                                 <SelectContent className="bg-slate-800 border-slate-600 max-h-[220px]">
                                   <SelectItem value="all" className="text-xs text-white hover:bg-slate-700">Any</SelectItem>
-                                  {["English","Spanish","French","German","Italian","Portuguese","Polish","Romanian","Ukrainian","Russian","Arabic","Hindi","Urdu","Bengali","Mandarin"].map((lang) => (
-                                    <SelectItem key={lang} value={lang} className="text-xs text-white hover:bg-slate-700">{lang}</SelectItem>
+                                  {COMMON_LANGUAGES.map(({ name }) => (
+                                    <SelectItem key={name} value={name} className="text-xs text-white hover:bg-slate-700">{name}</SelectItem>
                                   ))}
                                   <SelectItem value="other" className="text-xs text-emerald-400 hover:bg-slate-700">Other…</SelectItem>
                                 </SelectContent>
                               </Select>
                               {languageFilter === "other" && (
-                                <Input
-                                  placeholder="Type language…"
-                                  value={customLanguage}
-                                  onChange={(e) => setCustomLanguage(e.target.value)}
-                                  className="mt-1 h-7 text-xs bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 px-2"
-                                  autoFocus
-                                />
+                                <div className="relative mt-1">
+                                  <Input
+                                    placeholder="Type language…"
+                                    value={customLanguage}
+                                    onChange={(e) => setCustomLanguage(e.target.value)}
+                                    className="h-7 text-xs bg-slate-800 border-slate-600 text-white placeholder:text-slate-400 px-2"
+                                    autoFocus
+                                  />
+                                  {customLanguage.length >= 1 && (() => {
+                                    const allLangs = [...COMMON_LANGUAGES.map(l => l.name), ...WORLD_LANGUAGES_EXTRA]
+                                    const matches = allLangs.filter(l =>
+                                      l.toLowerCase().startsWith(customLanguage.toLowerCase()) &&
+                                      l.toLowerCase() !== customLanguage.toLowerCase()
+                                    ).slice(0, 6)
+                                    return matches.length > 0 ? (
+                                      <div className="absolute z-[100010] w-full top-full mt-0.5 bg-slate-700 border border-slate-600 rounded shadow-xl overflow-hidden">
+                                        {matches.map(lang => (
+                                          <button
+                                            key={lang}
+                                            type="button"
+                                            onMouseDown={(e) => { e.preventDefault(); setCustomLanguage(lang) }}
+                                            className="w-full text-left px-2 py-1.5 text-xs text-white hover:bg-emerald-500/30 transition-colors"
+                                          >
+                                            {lang}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    ) : null
+                                  })()}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -3497,7 +3557,23 @@ function ProfessionalsPageContent({
                       >
                         {isShowingJobs ? (
                           <div className="space-y-2">
+                            {/* Full-width photo when expanded */}
+                            {isExpanded && item.job_photo_url && (
+                              <img
+                                src={item.job_photo_url}
+                                alt={item.title}
+                                className="w-full h-44 object-cover rounded-lg"
+                              />
+                            )}
                             <div className="flex items-start gap-3">
+                              {/* Thumbnail when collapsed */}
+                              {!isExpanded && item.job_photo_url && (
+                                <img
+                                  src={item.job_photo_url}
+                                  alt={item.title}
+                                  className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                                />
+                              )}
                               <div className="flex-1 min-w-0">
                                 <h4 className="font-semibold text-sm text-white line-clamp-2">{item.title}</h4>
                                 <p className="text-xs text-slate-400">
@@ -4007,20 +4083,20 @@ function ProfessionalsPageContent({
 
             {/* Right Sidebar - Scrollable Professional List Panel */}
             <Panel defaultSize={40} minSize={25}>
-              <div className={`h-full border-l shadow-xl flex flex-col ${isModal ? 'bg-slate-800 border-slate-700' : 'bg-white'}`}>
+              <div className={`h-full border-l shadow-xl flex flex-col ${isModal ? 'bg-slate-900 border-slate-700' : 'bg-white'}`}>
               {/* Sidebar Header */}
-              <div className={`p-4 border-b ${isModal ? 'bg-slate-700 border-slate-600' : 'bg-gray-50'}`}>
+              <div className={`p-4 border-b ${isModal ? 'bg-slate-800 border-slate-700' : 'bg-gray-50'}`}>
                 <h3 className={`font-semibold text-lg ${isModal ? 'text-white' : ''}`}>
-                  Results
+                  {isShowingJobs ? "Jobs" : isShowingTraders ? "Tradespeople" : isEmployer ? "Professionals" : "Results"}
                 </h3>
                 <p className={`text-sm ${isModal ? 'text-slate-400' : 'text-gray-600'}`}>
-                  {data.length} {isEmployer ? "professional" : "tradesperson"}{data.length !== 1 ? "s" : ""} found — click to expand
+                  {data.length} {isShowingJobs ? "job" : isEmployer ? "professional" : "tradesperson"}{data.length !== 1 ? "s" : ""} found {isShowingJobs ? "" : "— click to expand"}
                 </p>
               </div>
 
               {/* Scrollable Content */}
-              <div className={`flex-1 overflow-y-auto ${isModal ? 'bg-slate-800' : ''}`}>
-                  <div className={`divide-y ${isModal ? 'divide-slate-700' : ''}`}>
+              <div className={`flex-1 overflow-y-auto ${isModal ? 'bg-slate-900' : ''}`}>
+                  <div className={`${isShowingJobs ? 'p-3 space-y-2' : `divide-y ${isModal ? 'divide-slate-700' : ''}`}`}>
                     {data.slice(0, 50).map((item: any) => {
                       const isSelected = selectedProfessionalId === item.id
 

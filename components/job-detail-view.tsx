@@ -1056,7 +1056,7 @@ export default function JobDetailView({
                   approxLongitude={approxLon}
                   exactLatitude={exactLat}
                   exactLongitude={exactLon}
-                  applicationStatus={myApplicationStatus}
+                  applicationStatus={isJobOwner ? "CONFIRMED" : myApplicationStatus}
                   homeownerAddressLine1={hp?.address_line1}
                   homeownerCity={hp?.city}
                   homeownerPostcode={hp?.location}

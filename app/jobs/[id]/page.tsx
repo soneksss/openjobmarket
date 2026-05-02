@@ -371,6 +371,15 @@ export default async function JobDetailPage({
       console.error("[JOB-DETAIL] Error fetching reviews:", reviewsError)
     }
 
+    if (reviewsData && reviewsData.length > 0) {
+      // Compute live rating from actual reviews (user_review_stats can be stale)
+      const avgRating = reviewsData.reduce((sum, r) => sum + (r.rating || 0), 0) / reviewsData.length
+      companyRating = {
+        average_rating: Math.round(avgRating * 10) / 10,
+        total_reviews: reviewsData.length,
+      }
+    }
+
     if (reviewsData) {
       // Fetch reviewer names — 2-role model: company_profiles (tradespeople) or homeowner_profiles
       const reviewsWithNames = await Promise.all(

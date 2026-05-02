@@ -110,7 +110,9 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const supabase = createClient()
+  // Stable client ref — avoids creating a new instance on every render
+  const supabaseRef = useRef(createClient())
+  const supabase = supabaseRef.current
 
   // Allow 8px movement before drag starts to avoid conflicts with taps
   const sensors = useSensors(
@@ -119,21 +121,30 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
   )
 
   useEffect(() => {
-    supabase
-      .from("trades_portfolio_photos")
-      .select("id, photo_url, storage_path, display_order")
-      .eq("tradesperson_id", profileId)
-      .order("display_order", { ascending: true })
-      .limit(6)
-      .then(({ data, error }) => {
-        if (error) console.error("[PORTFOLIO] load error:", error.message)
+    if (!profileId) { setLoading(false); return }
+    let cancelled = false
+
+    async function load() {
+      try {
+        const { data, error: qErr } = await supabase
+          .from("trades_portfolio_photos")
+          .select("id, photo_url, storage_path, display_order")
+          .eq("tradesperson_id", profileId)
+          .order("display_order", { ascending: true })
+          .limit(6)
+        if (cancelled) return
+        if (qErr) console.error("[PORTFOLIO] load error:", qErr.message)
         setPhotos(data ?? [])
-        setLoading(false)
-      })
-      .catch((err) => {
+      } catch (err) {
+        if (cancelled) return
         console.error("[PORTFOLIO] unexpected error:", err)
-        setLoading(false)
-      })
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    load()
+    return () => { cancelled = true }
   }, [profileId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function compressImage(file: File): Promise<File> {

@@ -344,7 +344,8 @@ const LANGUAGE_FLAGS: { [key: string]: { code: string; en: string; ptBR: string 
   french:     { code: "fr", en: "French",     ptBR: "Francês" },
   german:     { code: "de", en: "German",     ptBR: "Alemão" },
   italian:    { code: "it", en: "Italian",    ptBR: "Italiano" },
-  portuguese: { code: "pt", en: "Portuguese", ptBR: "Português" },
+  portuguese:          { code: "pt", en: "Portuguese",           ptBR: "Português" },
+  brazilian_portuguese:{ code: "br", en: "Brazilian Portuguese", ptBR: "Português Brasileiro" },
   russian:    { code: "ru", en: "Russian",    ptBR: "Russo" },
   arabic:     { code: "sa", en: "Arabic",     ptBR: "Árabe" },
   polish:     { code: "pl", en: "Polish",     ptBR: "Polonês" },
@@ -389,8 +390,8 @@ const getCommonLanguages = (isPtBR: boolean) => {
   const keys = [
     "english", "polish", "romanian", "punjabi", "urdu", "bengali",
     "spanish", "ukrainian", "russian", "japanese", "hindi",
-    "french", "german", "italian", "portuguese", "arabic",
-    "turkish", "mandarin"
+    "french", "german", "italian", "portuguese", "brazilian_portuguese",
+    "arabic", "turkish", "mandarin"
   ]
 
   return keys.map(key => ({
@@ -451,7 +452,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         }))
       }
     } catch {
-      // Silent fail — user can still click the map manually
+      setErr("Couldn't find your saved address — please pin your location on the map.")
     } finally {
       setIsGeocodingPostcode(false)
     }
@@ -805,15 +806,13 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         expirationDate.setDate(expirationDate.getDate() + daysToAdd)
       }
 
-      // Upload job photo if provided (5 s timeout — non-blocking if storage unavailable)
+      // Upload job photo if provided
       let jobPhotoPublicUrl: string | null = null
       if (formData.jobPhoto && formData.postingType === "tradespeople") {
         try {
           const fileName = `${user.id}/${Date.now()}.jpg`
-          const photoAbort = new AbortController()
-          const photoTimeout = setTimeout(() => photoAbort.abort(), 5000)
 
-          const uploadPromise = supabase.storage
+          const { error: uploadError } = await supabase.storage
             .from('job-photos')
             .upload(fileName, formData.jobPhoto, {
               cacheControl: '3600',
@@ -821,25 +820,19 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
               contentType: 'image/jpeg',
             })
 
-          // Race upload against 5-second abort
-          const { error: uploadError } = await Promise.race([
-            uploadPromise,
-            new Promise<{ data: null; error: Error }>((resolve) =>
-              photoAbort.signal.addEventListener("abort", () =>
-                resolve({ data: null, error: new Error("upload_timeout") })
-              )
-            ),
-          ])
-
-          clearTimeout(photoTimeout)
-
-          if (!uploadError) {
+          if (uploadError) {
+            console.error("[JOB PHOTO UPLOAD ERROR]", {
+              message: uploadError.message,
+              bucket: "job-photos",
+              fileName,
+            })
+          } else {
             const { data: urlData } = supabase.storage.from('job-photos').getPublicUrl(fileName)
             jobPhotoPublicUrl = urlData.publicUrl
+            console.log("[JOB PHOTO UPLOAD OK] url:", jobPhotoPublicUrl)
           }
-          // If upload failed or timed out, continue without photo (non-fatal)
-        } catch {
-          // Continue without photo
+        } catch (err: any) {
+          console.error("[JOB PHOTO UPLOAD EXCEPTION]", err?.message ?? err)
         }
       }
 
@@ -921,6 +914,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       if (jobPhotoPublicUrl) {
         payload.job_photo_url = jobPhotoPublicUrl
       }
+      console.log("[JOB PAYLOAD] job_photo_url:", payload.job_photo_url ?? "NOT SET")
 
       // Generate UUID client-side so we know the job ID without needing SELECT to return it.
       // This avoids the common hang where INSERT succeeds but the postgrest RETURNING query stalls.
@@ -1659,51 +1653,56 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
               </div>
             </div>
 
-            {/* Content */}
-            <div className="flex-1 min-h-0 p-4 md:p-6 pb-40 md:pb-6 overflow-y-auto bg-slate-900 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
-              {renderStep()}
-              {err && <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 text-sm rounded-lg">{err}</div>}
-            </div>
+            {/* Content + footer inside the scroll area — user must scroll to reach buttons */}
+            <div className="flex-1 min-h-0 overflow-y-auto bg-slate-900 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+              <div className="p-4 md:p-6">
+                {renderStep()}
+                {err && <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 text-sm rounded-lg">{err}</div>}
+              </div>
 
-            {/* Footer */}
-            <div className="fixed md:relative bottom-16 left-0 right-0 md:bottom-auto md:left-auto md:right-auto z-20 md:z-auto flex-shrink-0 flex items-center justify-between gap-3 px-4 py-3 md:px-6 md:py-4 pointer-events-none border-t border-white/10 bg-slate-900/95 backdrop-blur-sm">
-              <button
-                type="button"
-                onClick={prevStep}
-                disabled={currentStep === 1}
-                className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 border border-slate-700/80 text-slate-400 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 hover:text-slate-200 transition-all text-sm font-medium"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </button>
-
-              {currentStep < totalSteps ? (
+              {/* Navigation buttons — at the bottom of scrollable content */}
+              <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-4 md:px-6 md:pb-6 border-t border-white/10">
                 <button
                   type="button"
-                  onClick={nextStep}
-                  className="pointer-events-auto flex items-center gap-2 px-7 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-400 active:bg-emerald-600 transition-all text-sm font-semibold shadow-lg shadow-emerald-500/25"
+                  onClick={prevStep}
+                  disabled={currentStep === 1}
+                  className="flex items-center gap-2 px-4 py-2.5 border border-slate-700/80 text-slate-400 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 hover:text-slate-200 transition-all text-sm font-medium"
                 >
-                  Continue
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowLeft className="w-4 h-4" />
+                  Back
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={loading}
-                  className="pointer-events-auto flex items-center gap-2 px-7 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-400 active:bg-emerald-600 transition-all text-sm font-semibold shadow-lg shadow-emerald-500/25 disabled:opacity-50"
-                >
-                  {loading ? (
-                    <>
-                      <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                      </svg>
-                      Publishing…
-                    </>
-                  ) : "Publish Job"}
-                </button>
-              )}
+
+                {currentStep < totalSteps ? (
+                  <button
+                    type="button"
+                    onClick={nextStep}
+                    className="flex items-center gap-2 px-7 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-400 active:bg-emerald-600 transition-all text-sm font-semibold shadow-lg shadow-emerald-500/25"
+                  >
+                    Continue
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-7 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-400 active:bg-emerald-600 transition-all text-sm font-semibold shadow-lg shadow-emerald-500/25 disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Publishing…
+                      </>
+                    ) : "Publish Job"}
+                  </button>
+                )}
+              </div>
+
+              {/* Spacer so buttons aren't hidden behind the mobile nav bar */}
+              <div className="h-20 md:hidden" />
             </div>
           </div>
         </div>

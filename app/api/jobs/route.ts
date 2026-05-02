@@ -71,6 +71,27 @@ export async function POST(request: NextRequest) {
 
     revalidateTag(`jobs-user-${user.id}`)
     console.log("[POST /api/jobs] Job created:", payload.id)
+
+    // Server-side geocoding: if client didn't resolve coordinates, do it now
+    if (!payload.latitude && payload.location) {
+      try {
+        const geoRes = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(payload.location)}&limit=1&countrycodes=gb,us,de,fr,br`,
+          { headers: { "User-Agent": "OpenJobMarket/1.0" } }
+        )
+        const geoData = await geoRes.json()
+        if (geoData.length > 0) {
+          await admin.from("jobs").update({
+            latitude: parseFloat(geoData[0].lat),
+            longitude: parseFloat(geoData[0].lon),
+          }).eq("id", payload.id)
+          console.log("[POST /api/jobs] Geocoded:", payload.location, "→", geoData[0].lat, geoData[0].lon)
+        }
+      } catch (geoErr) {
+        console.warn("[POST /api/jobs] Geocoding failed (non-fatal):", geoErr)
+      }
+    }
+
     return NextResponse.json({ success: true, jobId: payload.id })
 
   } catch (err: any) {

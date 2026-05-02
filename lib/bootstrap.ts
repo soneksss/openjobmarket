@@ -163,6 +163,9 @@ export const getHomePageBootstrap = cache(async (user: any): Promise<HomePageBoo
     } else if (hp?.latitude && hp?.longitude) {
       // Homeowner searching for tradespeople — use their registered address as map centre
       profileLocation = { location: hp.location ?? '', latitude: hp.latitude, longitude: hp.longitude }
+    } else if (hp?.location) {
+      // Homeowner has address text but no geocoded coords yet — pass text so client can geocode
+      profileLocation = { location: hp.location, latitude: 0, longitude: 0 }
     }
 
     if (cp) {

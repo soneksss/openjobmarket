@@ -397,7 +397,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
               {pathname === getLocalePath("/") && (currentUserType === "homeowner" || !currentUser) && (
                 <Link
                   href={getLocalePath("/?tab=traders&autoSearch=true")}
-                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
+                  className="md:hidden flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
                 >
                   <Map className="h-3.5 w-3.5" />
                   Map

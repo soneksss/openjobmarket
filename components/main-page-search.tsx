@@ -132,7 +132,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   const [urgency, setUrgency] = useState("all")
   const [budgetRange, setBudgetRange] = useState("all")
   const [tradeJobType, setTradeJobType] = useState("all")
-  const [distance, setDistance] = useState("10")
+  const [distance, setDistance] = useState("5")
   const [employmentStatus, setEmploymentStatus] = useState("all")
   const [hasCVUploaded, setHasCVUploaded] = useState(false)
   const [hasDrivingLicense, setHasDrivingLicense] = useState(false)
@@ -682,7 +682,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       if (radiusParam) setDistance(radiusParam)
       if (languageParam) setSpokenLanguage(languageParam)
       if (urgencyParam) setUrgency(urgencyParam)
-      if (categoryParam) setTradeCategory(categoryParam)
+      setTradeCategory(categoryParam || "all")
       if (is24_7Param === 'true') setAvailableForBusiness(true)
 
       // Set search type from tab
@@ -724,10 +724,37 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       } else if (tab === 'traders') {
         // Live Map — use profile location (homeowner or tradesperson), then try geolocation, then UK-wide fallback
         if (profileLocation?.latitude && profileLocation?.longitude) {
+          // Profile has valid geocoded coords — use directly
           setSelectedLocation({ lat: profileLocation.latitude, lon: profileLocation.longitude })
           setLocation(profileLocation.location || "Your area")
           setDistance(radiusParam || "10")
           setRestoreSearch(searchTypeToUse)
+        } else if (profileLocation?.location) {
+          // Profile has address text but no coords (e.g. postcode only) — geocode it now
+          fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(profileLocation.location)}&limit=1&countrycodes=gb,us,de,fr,br`,
+            { headers: { 'User-Agent': 'OpenJobMarket/1.0' } }
+          )
+            .then(r => r.json())
+            .then((data: any[]) => {
+              if (data.length > 0) {
+                setSelectedLocation({ lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) })
+                setLocation(profileLocation.location || "Your area")
+                setDistance(radiusParam || "10")
+              } else {
+                // Postcode not found — UK-wide fallback
+                setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
+                setLocation("United Kingdom")
+                setDistance("150")
+              }
+              setRestoreSearch(searchTypeToUse)
+            })
+            .catch(() => {
+              setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
+              setLocation("United Kingdom")
+              setDistance("150")
+              setRestoreSearch(searchTypeToUse)
+            })
         } else if (!user) {
           // Unauthenticated: always Portsmouth, 5-mile radius — no geolocation
           setSelectedLocation({ lat: 50.8058, lon: -1.0872 })
@@ -757,24 +784,37 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           setDistance("150")
           setRestoreSearch(searchTypeToUse)
         }
-      } else if (tab === 'jobs_tasks' && typeof navigator !== 'undefined' && navigator.geolocation) {
-        // No profile coords — try browser geolocation as fallback
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            setSelectedLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude })
-            setLocation("Near you")
-            setDistance(radiusParam || "25")
-            setRestoreSearch(searchTypeToUse)
-          },
-          () => {
-            // Denied / unavailable — UK-wide fallback
-            setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
-            setLocation("United Kingdom")
-            setDistance("150")
-            setRestoreSearch(searchTypeToUse)
-          },
-          { timeout: 5000, maximumAge: 60000 }
-        )
+      } else if (tab === 'jobs_tasks') {
+        if (!user) {
+          // Unauthenticated — Portsmouth default (same as traders tab)
+          setSelectedLocation({ lat: 50.8058, lon: -1.0872 })
+          setLocation("Portsmouth")
+          setDistance("5")
+          setRestoreSearch(searchTypeToUse)
+        } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+          // Signed-in user, no profile coords — try browser geolocation
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              setSelectedLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude })
+              setLocation("Near you")
+              setDistance(radiusParam || "25")
+              setRestoreSearch(searchTypeToUse)
+            },
+            () => {
+              // Denied / unavailable — UK-wide fallback
+              setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
+              setLocation("United Kingdom")
+              setDistance("150")
+              setRestoreSearch(searchTypeToUse)
+            },
+            { timeout: 5000, maximumAge: 60000 }
+          )
+        } else {
+          setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
+          setLocation(locationParam || "United Kingdom")
+          setDistance("150")
+          setRestoreSearch(searchTypeToUse)
+        }
       } else {
         // No coords at all — UK-wide fallback
         setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
@@ -1455,23 +1495,17 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         let query = supabase
           .from("jobs")
           .select(`
-            *,
+            id, title, description, short_description, location,
+            latitude, longitude, budget_min, budget_max, skills_required,
+            applications_count, created_at, expires_at, urgency_type, job_photo_url,
+            is_tradespeople_job, work_location, industry, category, service,
+            homeowner_id, company_id, status, is_active,
             company_profiles!company_id (
-              id,
-              company_name,
-              location,
-              industry,
-              logo_url,
-              user_id
+              id, company_name, location, industry, logo_url, user_id
             ),
             homeowner_profiles!homeowner_id (
-              id,
-              user_id,
-              first_name,
-              last_name,
-              profile_photo_url,
-              average_rating,
-              reviews_count
+              id, user_id, first_name, last_name, profile_photo_url,
+              average_rating, reviews_count
             )
           `)
           .eq("status", "POSTED") // Only show jobs open for applications
@@ -1549,15 +1583,17 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         // Server-side bounding box filter: keeps jobs without coordinates (they pass through)
         // AND limits jobs WITH coordinates to a ~4x radius box before precise client-side filtering.
         // This dramatically reduces how many rows are returned, preventing timeouts.
-        if (selectedLocation && workLocation !== "remote") {
+        const locationForBox = selectedLocation || (mapCenter[0] !== 50.8058 ? { lat: mapCenter[0], lon: mapCenter[1] } : null)
+        if (locationForBox && workLocation !== "remote") {
           const radiusMiles = (parseInt(effectiveDistance) || 10) * 4 // generous 4x multiplier
           const latDelta = radiusMiles / 69
-          const lngDelta = radiusMiles / (69 * Math.cos((selectedLocation.lat * Math.PI) / 180))
-          const latMin = selectedLocation.lat - latDelta
-          const latMax = selectedLocation.lat + latDelta
-          const lngMin = selectedLocation.lon - lngDelta
-          const lngMax = selectedLocation.lon + lngDelta
-          // Include jobs with no coordinates OR jobs within the bounding box
+          const lngDelta = radiusMiles / (69 * Math.cos((locationForBox.lat * Math.PI) / 180))
+          const latMin = locationForBox.lat - latDelta
+          const latMax = locationForBox.lat + latDelta
+          const lngMin = locationForBox.lon - lngDelta
+          const lngMax = locationForBox.lon + lngDelta
+          // OR-null bounding box: jobs with NULL coords pass through (shown on map at approx position),
+          // jobs WITH coords are filtered to the bounding box. DB indexes make this fast.
           query = query.or(
             `latitude.is.null,longitude.is.null,and(latitude.gte.${latMin},latitude.lte.${latMax},longitude.gte.${lngMin},longitude.lte.${lngMax})`
           )
@@ -1576,14 +1612,17 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           // Also include jobs with no industry set (homeowner-posted jobs often have industry=null)
           query = query.or(`industry.ilike.%${industryKeyword}%,industry.is.null`)
           // Service filter is applied client-side (prevents complex multi-OR server conditions)
-        } else if (profileSkillsList.length > 0) {
-          // Legacy skills-based OR ilike filter
+        } else if (profileSkillsList.length > 0 && type !== "jobs_tasks") {
+          // Skills-based OR ilike filter for vacancies only.
+          // Trade jobs (jobs_tasks) use industry/category/service fields — not skill names.
+          // Homeowner-posted trade jobs almost always have industry=null, so a skills filter
+          // would exclude them. For jobs_tasks, location alone determines relevance.
           debug(`[MAIN-PAGE-SEARCH] Applying skills-based filter for ${profileSkillsList.length} skills`)
-          const orConditions = profileSkillsList.flatMap(skill => {
+          const topSkills = profileSkillsList.slice(0, 5)
+          const orConditions = topSkills.flatMap(skill => {
             const t = skill.toLowerCase()
             return [
               `title.ilike.%${t}%`,
-              `description.ilike.%${t}%`,
               `category.ilike.%${t}%`,
               `industry.ilike.%${t}%`,
             ]
@@ -1634,11 +1673,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             searchTerms.push('gardening', 'gardener', 'landscaping', 'landscaper')
           }
 
-          // Build OR conditions for all search terms
+          // Build OR conditions for all search terms — skip description (long text, no index)
           const orConditions = searchTerms.flatMap(term => [
             `title.ilike.%${term}%`,
-            `description.ilike.%${term}%`,
-            `category.ilike.%${term}%`
+            `category.ilike.%${term}%`,
+            `industry.ilike.%${term}%`,
           ]).join(',')
 
           query = query.or(orConditions)
@@ -1674,7 +1713,11 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
 
         if (error) {
-          console.warn(`[MAIN-PAGE-SEARCH] Query error:`, error)
+          console.error(`[JOB SEARCH ERROR] code=${error.code} message=${error.message}`, {
+            details: error.details,
+            hint: error.hint,
+            full: error,
+          })
           // Set error state; finally block handles cleanup
           if (error.type === 'timeout' || error.message?.includes('timeout')) {
             setSearchError({
@@ -1920,9 +1963,19 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       // Get location from params or use the original selectedLocation
       const searchLat = params.lat ? parseFloat(params.lat) : selectedLocation?.lat
       const searchLng = params.lng ? parseFloat(params.lng) : selectedLocation?.lon
-      const searchRadius = params.radius ? parseInt(params.radius) : (distance ? parseInt(distance) : 10)
+      const searchRadius = params.radius ? parseInt(params.radius) : (distance ? parseInt(distance) : 5)
+
+      console.log("[MAP SEARCH PARAMS]", {
+        lat: searchLat,
+        lng: searchLng,
+        radius: searchRadius,
+        industry: params.tradeCategory,
+        type: params.jobs_tasks === "true" ? "jobs_tasks" : params.vacancies === "true" ? "vacancies" : params.traders === "true" ? "traders" : "talents",
+      })
       // Sync outer distance state so modalSearchParams.radius stays current
       if (params.radius && params.radius !== distance) setDistance(params.radius)
+      // Sync tradeCategory so modalSearchParams resets when "Any industry" is selected
+      setTradeCategory(params.tradeCategory || "all")
 
       // Determine search type: prefer params.traders/jobs_tasks/vacancies over modalSearchType
       const effectiveSearchType = params.traders === "true" ? "traders"
@@ -2101,12 +2154,20 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           if (params.tradeCategory && params.tradeCategory !== "all") {
             query = query.or(`industry.ilike.%${params.tradeCategory}%,category.ilike.%${params.tradeCategory}%`)
           }
+          if (params.service && params.service !== "all") {
+            query = query.or(`service.ilike.%${params.service}%,title.ilike.%${params.service}%`)
+          }
         }
 
         const { data, error } = await query.limit(RESULT_LIMIT + 1)
 
         if (error) {
-          console.error(`[MAIN-PAGE-SEARCH-MODAL] Query error:`, error)
+          console.error(`[JOB SEARCH ERROR] code=${error.code} message=${error.message}`, {
+            details: error.details,
+            hint: error.hint,
+            full: error,
+          })
+          return
         }
 
         if (!error && data) {

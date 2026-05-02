@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Trash2, Edit, Clock, Eye, EyeOff, Camera, Upload, X as XIcon, Play } from "lucide-react"
+import { Trash2, Edit, Clock, Eye, EyeOff, Camera, Upload, X as XIcon, Loader2, ImageIcon } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
@@ -13,7 +13,6 @@ interface HomeownerJobActionsProps {
   isActive: boolean
   expiresAt: string | null
   jobStatus?: string
-  isFlexibleJob?: boolean
   urgencyType?: string
   currentJob: {
     title: string
@@ -36,7 +35,6 @@ export function HomeownerJobActions({
   isActive,
   expiresAt,
   jobStatus,
-  isFlexibleJob,
   urgencyType,
   currentJob,
 }: HomeownerJobActionsProps) {
@@ -45,8 +43,6 @@ export function HomeownerJobActions({
   const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState(false)
   const [isToggling, setIsToggling] = useState(false)
-  const [isMarkingInProgress, setIsMarkingInProgress] = useState(false)
-  const [localStatus, setLocalStatus] = useState(jobStatus)
   const [isExtending, setIsExtending] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -60,6 +56,7 @@ export function HomeownerJobActions({
   const [jobPhoto, setJobPhoto] = useState<File | null>(null)
   const [jobPhotoUrl, setJobPhotoUrl] = useState<string | null>(currentJob.job_photo_url || null)
   const [photoChanged, setPhotoChanged] = useState(false)
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false)
 
   // Edit form state
   const [editForm, setEditForm] = useState({
@@ -95,12 +92,9 @@ export function HomeownerJobActions({
       return
     }
 
+    setIsProcessingPhoto(true)
     try {
-      // Always convert to JPEG format (required by Supabase Storage bucket)
-      console.log("[HOMEOWNER] Processing image from", (file.size / 1024 / 1024).toFixed(2), "MB")
-      const processedFile = await compressImage(file, 1024 * 1024) // 1MB target, always convert to JPEG
-      console.log("[HOMEOWNER] Processed to", (processedFile.size / 1024 / 1024).toFixed(2), "MB")
-
+      const processedFile = await compressImage(file, 1024 * 1024)
       const previewUrl = URL.createObjectURL(processedFile)
       setJobPhoto(processedFile)
       setJobPhotoUrl(previewUrl)
@@ -111,6 +105,8 @@ export function HomeownerJobActions({
         description: "Failed to process image",
         variant: "destructive",
       })
+    } finally {
+      setIsProcessingPhoto(false)
     }
   }
 
@@ -177,24 +173,6 @@ export function HomeownerJobActions({
     setJobPhoto(null)
     setJobPhotoUrl(null)
     setPhotoChanged(true)
-  }
-
-  const handleMarkInProgress = async () => {
-    setIsMarkingInProgress(true)
-    try {
-      const { error } = await supabase.rpc('mark_flexible_in_progress', { p_job_id: jobId })
-      if (error) throw error
-      setLocalStatus('ACTIVE')
-      toast({ title: "Job marked as in progress" })
-    } catch (error: any) {
-      toast({
-        title: "Failed to update status",
-        description: error.message,
-        variant: "destructive",
-      })
-    } finally {
-      setIsMarkingInProgress(false)
-    }
   }
 
   const handleDelete = async () => {
@@ -349,24 +327,11 @@ export function HomeownerJobActions({
           // Use folder structure to match RLS policy: {userId}/filename.jpg
           const fileName = `${user.id}/${Date.now()}.jpg`
 
-          // 10-second timeout — storage hangs indefinitely if bucket/RLS not configured
-          const photoAbort = new AbortController()
-          const photoTimeout = setTimeout(() => photoAbort.abort(), 10000)
-
-          const { error: uploadError } = await Promise.race([
-            supabase.storage.from('job-photos').upload(fileName, jobPhoto, {
-              cacheControl: '3600',
-              upsert: false,
-              contentType: 'image/jpeg',
-            }),
-            new Promise<{ data: null; error: Error }>((resolve) =>
-              photoAbort.signal.addEventListener("abort", () =>
-                resolve({ data: null, error: new Error("upload_timeout") })
-              )
-            ),
-          ])
-
-          clearTimeout(photoTimeout)
+          const { error: uploadError } = await supabase.storage.from('job-photos').upload(fileName, jobPhoto, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: 'image/jpeg',
+          })
 
           if (uploadError) {
             console.error("[HOMEOWNER-JOB-ACTIONS] Photo upload error:", uploadError)
@@ -459,18 +424,6 @@ export function HomeownerJobActions({
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {/* Mark In Progress — flexible jobs only, while still POSTED */}
-      {isFlexibleJob && localStatus === 'POSTED' && (
-        <button
-          onClick={handleMarkInProgress}
-          disabled={isMarkingInProgress}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-purple-500/10 border border-purple-500/30 text-purple-400 hover:bg-purple-500/20 transition-colors disabled:opacity-50"
-        >
-          <Play className="w-3.5 h-3.5 flex-shrink-0" />
-          {isMarkingInProgress ? "Updating…" : "In Progress"}
-        </button>
-      )}
-
       {/* Edit Button */}
       <button
         onClick={() => setShowEditDialog(true)}
@@ -608,8 +561,8 @@ export function HomeownerJobActions({
 
       {/* Edit Dialog */}
       {showEditDialog && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 flex flex-col" style={{maxHeight: 'calc(100dvh - 80px)'}}>
             <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400 flex-shrink-0" />
 
             {/* Header */}
@@ -657,21 +610,38 @@ export function HomeownerJobActions({
               {/* Job Photo */}
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Job Photo (Optional)</label>
-                <input id="edit-jobPhoto" type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
-                {!jobPhotoUrl ? (
-                  <label
-                    htmlFor="edit-jobPhoto"
-                    className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-700 hover:border-slate-500 rounded-xl p-5 cursor-pointer transition-colors"
-                  >
-                    <Camera className="h-8 w-8 text-slate-500" />
-                    <span className="text-sm text-slate-400">Click to upload a photo</span>
-                    <span className="text-xs text-slate-600">JPG, PNG or other image formats</span>
-                  </label>
+                {/* Gallery input */}
+                <input id="edit-jobPhoto-gallery" type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" />
+                {/* Camera input — capture="environment" opens rear camera on mobile */}
+                <input id="edit-jobPhoto-camera" type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} className="hidden" />
+
+                {isProcessingPhoto ? (
+                  <div className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-700 rounded-xl p-6">
+                    <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
+                    <span className="text-sm text-slate-400">Processing photo…</span>
+                  </div>
+                ) : !jobPhotoUrl ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <label
+                      htmlFor="edit-jobPhoto-camera"
+                      className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-700 hover:border-emerald-500/50 rounded-xl p-4 cursor-pointer transition-colors"
+                    >
+                      <Camera className="h-7 w-7 text-slate-400" />
+                      <span className="text-xs text-slate-400 font-medium">Take Photo</span>
+                    </label>
+                    <label
+                      htmlFor="edit-jobPhoto-gallery"
+                      className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-slate-700 hover:border-emerald-500/50 rounded-xl p-4 cursor-pointer transition-colors"
+                    >
+                      <ImageIcon className="h-7 w-7 text-slate-400" />
+                      <span className="text-xs text-slate-400 font-medium">Choose from Gallery</span>
+                    </label>
+                  </div>
                 ) : (
                   <div className="relative rounded-xl overflow-hidden">
                     <img src={jobPhotoUrl} alt="Job preview" className="w-full max-h-48 object-cover" />
                     <div className="absolute top-2 right-2 flex gap-1.5">
-                      <label htmlFor="edit-jobPhoto" className="cursor-pointer inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-900/80 text-slate-200 hover:bg-slate-800 transition-colors">
+                      <label htmlFor="edit-jobPhoto-gallery" className="cursor-pointer inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-slate-900/80 text-slate-200 hover:bg-slate-800 transition-colors">
                         <Upload className="h-3.5 w-3.5" /> Change
                       </label>
                       <button onClick={handleRemovePhoto} className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-red-600/80 text-white hover:bg-red-600 transition-colors">
@@ -730,20 +700,6 @@ export function HomeownerJobActions({
                 </div>
               </div>
 
-              {/* Work Location */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-300 uppercase tracking-wide">Work Location</label>
-                <Select value={editForm.work_location} onValueChange={(v) => setEditForm({ ...editForm, work_location: v })}>
-                  <SelectTrigger className="bg-slate-800 border-slate-700 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-800 border-slate-700 text-white">
-                    <SelectItem value="on-site">On Site</SelectItem>
-                    <SelectItem value="remote">Remote</SelectItem>
-                    <SelectItem value="hybrid">Hybrid</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
 
             {/* Footer */}
