@@ -6,11 +6,11 @@
     },
     {
       "path": "/api/cron/expire-jobs",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/extend-urgent-jobs",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/cleanup-push-tokens",
