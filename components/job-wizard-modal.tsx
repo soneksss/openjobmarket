@@ -877,8 +877,6 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         location: formData.fullAddress,
         latitude: formData.locationCoords?.lat ?? companyProfile?.latitude ?? null,
         longitude: formData.locationCoords?.lon ?? companyProfile?.longitude ?? null,
-        latitude_approx: companyProfile?.latitude_approx ?? null,
-        longitude_approx: companyProfile?.longitude_approx ?? null,
         work_location: "onsite",
         description: fullDescription,
         short_description: formData.shortDescription,
@@ -1610,7 +1608,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-4 py-4 md:px-6 bg-gradient-to-r from-slate-800 to-slate-900 border-b border-white/10">
+            <div className="flex-shrink-0 flex items-center justify-between px-4 pt-safe pb-4 md:px-6 bg-gradient-to-r from-slate-800 to-slate-900 border-b border-white/10">
               <div className="flex items-center gap-3">
                 {companyProfile?.logo_url && userType === "company" && (
                   <img
@@ -1661,7 +1659,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
               </div>
 
               {/* Navigation buttons — at the bottom of scrollable content */}
-              <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-4 md:px-6 md:pb-6 border-t border-white/10">
+              <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-safe md:px-6 border-t border-white/10" style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 1.5rem)' }}>
                 <button
                   type="button"
                   onClick={prevStep}

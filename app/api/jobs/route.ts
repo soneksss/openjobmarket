@@ -1,4 +1,4 @@
-import { createClient, createAdminClient } from "@/lib/server"
+import { createClient, createAdminWriteClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
 
@@ -54,11 +54,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing homeowner_id or company_id" }, { status: 400 })
     }
 
-    // ── 3. Insert with admin client (bypasses RLS) ───────────────
-    const admin = createAdminClient()
+    // ── 3. Insert with admin write client (bypasses RLS, no safeFetch fallback) ─
+    // Strip columns that don't exist in the jobs table to prevent PostgREST 400.
+    const { latitude_approx, longitude_approx, ...safePayload } = payload
+
+    const admin = createAdminWriteClient()
     const { error: insertError } = await admin
       .from("jobs")
-      .insert(payload)
+      .insert(safePayload)
 
     if (insertError) {
       console.error("[POST /api/jobs] Insert error:", insertError.message, {

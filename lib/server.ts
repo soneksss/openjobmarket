@@ -97,3 +97,23 @@ export function createAdminClient() {
     }
   )
 }
+
+// Admin client for write operations (INSERT/UPDATE/DELETE).
+// Does NOT use safeFetch — mutation errors must propagate, not be silently
+// swallowed by the [] fallback that safeFetch uses for SELECT resilience.
+export function createAdminWriteClient() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("SUPABASE_SERVICE_ROLE_KEY is not set")
+  }
+
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      },
+    }
+  )
+}
