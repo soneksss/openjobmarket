@@ -57,8 +57,8 @@ export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
 
   return (
     <div className="min-h-screen bg-slate-900">
-      {/* Mark jobs as viewed when on active tab */}
-      {activeTab === "active" && <MarkTradespersonJobsViewed />}
+      {/* Mark all confirmed jobs as viewed whenever this page loads */}
+      <MarkTradespersonJobsViewed />
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
 

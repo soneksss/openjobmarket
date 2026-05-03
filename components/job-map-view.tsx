@@ -199,12 +199,16 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
   // User type state
   const [userType, setUserType] = useState<string | null>(null)
 
-  // Mobile bottom sheet state - 'collapsed' shows handle only, 'half' shows 40%, 'expanded' shows 85%
-  const [bottomSheetPosition, setBottomSheetPosition] = useState<'collapsed' | 'half' | 'expanded'>('half')
+  // Mobile bottom sheet state - collapsed/half(30%)/medium(50%)/expanded(85%)
+  const [bottomSheetPosition, setBottomSheetPosition] = useState<'collapsed' | 'half' | 'medium' | 'expanded'>('half')
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartY, setDragStartY] = useState(0)
   const [dragStartHeight, setDragStartHeight] = useState(0)
   const bottomSheetRef = useRef<HTMLDivElement>(null)
+
+  // Per-card swipe-right to navigate gesture
+  const cardSwipeStart = useRef<{ id: string; x: number; y: number } | null>(null)
+  const [swipeCardOffset, setSwipeCardOffset] = useState<{ id: string; dx: number } | null>(null)
 
   // Refs for scrolling to selected jobs
   const jobCardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
@@ -1925,9 +1929,9 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                 selectedJobId={selectedJobId}
                 onJobSelect={(job) => {
                   setSelectedJobId(job?.id || null)
-                  // Expand bottom sheet when job is selected from map
-                  if (job && bottomSheetPosition === 'collapsed') {
-                    setBottomSheetPosition('half')
+                  // Pin tap → 50/50 split so job details are readable
+                  if (job) {
+                    setBottomSheetPosition('medium')
                   }
                 }}
                 onProfileSelect={(profile) => {
@@ -1969,7 +1973,8 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
               }`}
               style={{
                 height: bottomSheetPosition === 'collapsed' ? '80px'
-                      : bottomSheetPosition === 'half' ? '45%'
+                      : bottomSheetPosition === 'half' ? '30%'
+                      : bottomSheetPosition === 'medium' ? '50%'
                       : '85%',
                 maxHeight: 'calc(100% - 60px)'
               }}
@@ -1993,8 +1998,10 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                   // Snap to positions based on current drag
                   if (percentage < 15) {
                     setBottomSheetPosition('collapsed')
-                  } else if (percentage < 60) {
+                  } else if (percentage < 40) {
                     setBottomSheetPosition('half')
+                  } else if (percentage < 65) {
+                    setBottomSheetPosition('medium')
                   } else {
                     setBottomSheetPosition('expanded')
                   }
@@ -2007,6 +2014,8 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                   if (bottomSheetPosition === 'collapsed') {
                     setBottomSheetPosition('half')
                   } else if (bottomSheetPosition === 'half') {
+                    setBottomSheetPosition('medium')
+                  } else if (bottomSheetPosition === 'medium') {
                     setBottomSheetPosition('expanded')
                   } else {
                     setBottomSheetPosition('collapsed')
@@ -2025,7 +2034,9 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                       {selectedProfile ? "Job Details" : `${jobs.length} Job${jobs.length !== 1 ? "s" : ""}`}
                     </h3>
                     {!selectedProfile && bottomSheetPosition !== 'collapsed' && (
-                      <p className="text-xs text-gray-500">Swipe up for full list</p>
+                      <p className="text-xs text-gray-500">
+                        {bottomSheetPosition === 'half' ? 'Drag up — 50/50 or full list' : bottomSheetPosition === 'medium' ? 'Drag up for full list · swipe card →' : 'Drag down for map'}
+                      </p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -2049,7 +2060,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                         className="h-8 w-8 p-0"
                         onClick={(e) => {
                           e.stopPropagation()
-                          setBottomSheetPosition('half')
+                          setBottomSheetPosition('medium')
                         }}
                       >
                         <ChevronUp className="h-5 w-5" />
@@ -2114,11 +2125,33 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                         <div
                           key={job.id}
                           ref={(el) => { jobCardRefs.current[job.id] = el }}
-                          className={`p-4 border-b cursor-pointer transition-all ${
+                          className={`border-b cursor-pointer overflow-hidden ${
                             isSelected
                               ? "bg-blue-50 border-l-4 border-l-blue-500 shadow-md"
                               : "hover:bg-gray-50 active:bg-gray-100"
                           }`}
+                          style={{
+                            transform: swipeCardOffset?.id === job.id ? `translateX(${swipeCardOffset.dx}px)` : 'translateX(0)',
+                            transition: swipeCardOffset?.id === job.id ? 'none' : 'transform 0.2s ease-out',
+                          }}
+                          onTouchStart={(e) => {
+                            cardSwipeStart.current = { id: job.id, x: e.touches[0].clientX, y: e.touches[0].clientY }
+                          }}
+                          onTouchMove={(e) => {
+                            if (!cardSwipeStart.current || cardSwipeStart.current.id !== job.id) return
+                            const dx = e.touches[0].clientX - cardSwipeStart.current.x
+                            const dy = e.touches[0].clientY - cardSwipeStart.current.y
+                            if (Math.abs(dx) > 8 && dx > 0 && Math.abs(dx) > Math.abs(dy)) {
+                              e.stopPropagation()
+                              setSwipeCardOffset({ id: job.id, dx: Math.min(dx, 120) })
+                            }
+                          }}
+                          onTouchEnd={() => {
+                            const dx = swipeCardOffset?.id === job.id ? (swipeCardOffset?.dx || 0) : 0
+                            cardSwipeStart.current = null
+                            setSwipeCardOffset(null)
+                            if (dx > 80) router.push(buildJobUrl(job.id))
+                          }}
                           onClick={() => {
                             // Select job and expand bottom sheet to show details
                             setSelectedJobId(isSelected ? null : job.id)
@@ -2127,6 +2160,19 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                             }
                           }}
                         >
+                          <div className="p-4">
+                          {/* Airbnb-style job photo banner (breaks out of padding) */}
+                          {job.job_photo_url && !isSelected && (
+                            <div className="relative h-28 -mx-4 -mt-4 mb-3 overflow-hidden">
+                              <img
+                                src={job.job_photo_url}
+                                alt={job.title}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { e.currentTarget.parentElement!.style.display = 'none' }}
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                            </div>
+                          )}
                           <div className="flex items-center gap-3 mb-2">
                             {(() => {
                               const logoUrl = job.poster_logo_url || job.company_profiles?.logo_url
@@ -2482,6 +2528,7 @@ export default function JobMapView({ jobs, user, searchParams, center, categorie
                               </div>
                             </div>
                           )}
+                          </div>{/* end p-4 wrapper */}
                         </div>
                       )
                     })}

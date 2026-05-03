@@ -3639,7 +3639,7 @@ function ProfessionalsPageContent({
                                 <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
                                   <Button
                                     size="sm"
-                                    className="h-10 px-4 flex-1 text-sm touch-manipulation bg-blue-600 hover:bg-blue-700 text-white border-0"
+                                    className="h-9 px-2 sm:px-4 flex-1 text-xs sm:text-sm touch-manipulation bg-blue-600 hover:bg-blue-700 text-white border-0 min-w-0"
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       // Build URL with return context to enable "Back to Search"
@@ -3654,12 +3654,12 @@ function ProfessionalsPageContent({
                                       router.push(`/jobs/${item.id}${queryString ? `?${queryString}` : ''}`)
                                     }}
                                   >
-                                    <ExternalLink className="h-4 w-4 mr-2" />
-                                    View Details
+                                    <ExternalLink className="h-3.5 w-3.5 mr-1 sm:mr-2 flex-shrink-0" />
+                                    <span className="truncate">Details</span>
                                   </Button>
                                   <Button
                                     size="sm"
-                                    className={`h-10 px-4 flex-1 text-sm font-medium touch-manipulation ${item.is_tradespeople_job ? "bg-orange-500 hover:bg-orange-600" : "bg-emerald-500 hover:bg-emerald-600"} text-white`}
+                                    className={`h-9 px-2 sm:px-4 flex-1 text-xs sm:text-sm font-medium touch-manipulation min-w-0 ${item.is_tradespeople_job ? "bg-orange-500 hover:bg-orange-600" : "bg-emerald-500 hover:bg-emerald-600"} text-white`}
                                     onClick={(e) => {
                                       e.stopPropagation()
                                       if (item.is_tradespeople_job) {
@@ -3672,8 +3672,8 @@ function ProfessionalsPageContent({
                                     }}
                                   >
                                     {item.is_tradespeople_job ? (
-                                      <><Zap className="h-4 w-4 mr-1.5" />Respond</>
-                                    ) : "Apply Now"}
+                                      <><Zap className="h-3.5 w-3.5 mr-1 flex-shrink-0" /><span className="truncate">Respond</span></>
+                                    ) : <span className="truncate">Apply Now</span>}
                                   </Button>
                                 </div>
                               </div>

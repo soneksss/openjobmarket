@@ -1191,7 +1191,7 @@ export default function ConversationPage() {
               variant="ghost"
               size="sm"
               title="Send a quote"
-              className={`self-end h-[44px] px-3 flex-shrink-0 ${showQuoteInput ? 'text-emerald-400 bg-slate-700' : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-700'}`}
+              className={`self-end h-10 w-10 p-0 flex-shrink-0 ${showQuoteInput ? 'text-emerald-400 bg-slate-700' : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-700'}`}
             >
               <PoundSterling className="h-4 w-4" />
             </Button>

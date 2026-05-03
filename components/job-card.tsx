@@ -719,11 +719,11 @@ const JobCard = forwardRef<HTMLDivElement, JobCardProps>(({ job, isLoggedIn, isS
               )}
 
               {/* Action Buttons - ALWAYS VISIBLE */}
-              <div className="flex items-center justify-between gap-2 mb-2 mt-3">
-                <span className={`text-xs sm:text-xs flex-shrink-0 ${dark ? 'text-slate-500' : 'text-gray-500'}`}>
+              <div className="flex items-center flex-wrap gap-x-2 gap-y-1.5 mb-2 mt-3">
+                <span className={`text-xs flex-shrink-0 mr-auto ${dark ? 'text-slate-500' : 'text-gray-500'}`}>
                   {formatDate(job.created_at)}
                 </span>
-                <div className="flex items-center gap-1.5 sm:gap-1">
+                <div className="flex items-center gap-1.5 sm:gap-1 flex-shrink-0">
                   <Button
                     variant="outline"
                     size="sm"

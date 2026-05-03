@@ -316,8 +316,8 @@ function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavI
 
           if (item.isCenter) {
             return (
-              <Link key={item.key} href={item.href} className="flex flex-col items-center justify-center -mt-5">
-                <div className={`w-13 h-13 rounded-full flex items-center justify-center shadow-lg transition-colors ${item.centerColor || "bg-emerald-500 shadow-emerald-500/30 hover:bg-emerald-600"}`}>
+              <Link key={item.key} href={item.href} className="flex flex-col items-center justify-center -mt-7">
+                <div className={`w-[68px] h-[68px] rounded-full flex items-center justify-center shadow-lg transition-colors ${item.centerColor || "bg-emerald-500 shadow-emerald-500/30 hover:bg-emerald-600"}`}>
                   <Icon className="h-6 w-6 text-white" />
                 </div>
                 <span className="text-[10px] mt-0.5 text-slate-400 font-medium">{item.label}</span>
@@ -332,7 +332,7 @@ function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavI
               key={item.key}
               href={item.href}
               className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] px-2 rounded-lg transition-colors relative ${
-                item.isActive ? "text-emerald-400" : "text-slate-500 hover:text-slate-300"
+                item.isActive ? "text-emerald-400" : "text-emerald-600 hover:text-emerald-400"
               }`}
             >
               <div className="relative">

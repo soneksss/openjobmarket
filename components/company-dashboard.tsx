@@ -1694,7 +1694,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             </div>
 
             {/* My Jobs — matches /dashboard/company/my-jobs layout */}
-            {myJobsTab === "active" && <MarkTradespersonJobsViewed />}
+            <MarkTradespersonJobsViewed />
 
             <div className="space-y-3">
               {/* Header row */}

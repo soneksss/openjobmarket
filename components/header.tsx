@@ -295,7 +295,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
 
   // ─── Header: dark slate bg on mobile home page, default everywhere else ─────
   return (
-    <header className={`${dark ? "bg-slate-900 border-b border-slate-700/50" : "bg-background border-b"}`}>
+    <header className={`pt-safe ${dark ? "bg-slate-900 border-b border-slate-700/50" : "bg-background border-b"}`}>
       <div className="container mx-auto px-2 py-1">
 
         <div className="flex justify-between items-center">
