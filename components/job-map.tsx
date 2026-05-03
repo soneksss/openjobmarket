@@ -10,6 +10,7 @@ import dynamic from "next/dynamic"
 import { useLanguageRegion } from "@/contexts/language-region-context"
 import { getDefaultMapCenter } from "@/lib/i18n/language-region"
 import { createClient } from "@/lib/client"
+import { isLocationGranted } from "@/hooks/use-location-permission"
 
 // Dynamically import map components to avoid SSR issues
 const MapContainer = dynamic(() => import("react-leaflet").then((mod) => mod.MapContainer), { ssr: false })
@@ -373,7 +374,7 @@ export function JobMap({
   const [recenterTrigger, setRecenterTrigger] = useState(0)
 
   useEffect(() => {
-    if (typeof window === "undefined" || !navigator?.geolocation) return
+    if (typeof window === "undefined" || !navigator?.geolocation || !isLocationGranted()) return
     navigator.geolocation.getCurrentPosition(
       (pos) => setUserLocation([pos.coords.latitude, pos.coords.longitude]),
       () => {},

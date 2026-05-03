@@ -431,7 +431,7 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
             </div>
           )}
 
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 pb-4 md:pb-0">
             <Button
               type="button"
               variant="outline"

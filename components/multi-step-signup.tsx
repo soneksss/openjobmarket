@@ -196,13 +196,16 @@ export default function MultiStepSignup() {
         localStorage.setItem('oauth_account_type', signupData.accountType)
       }
 
-      // Pass the intended account type so the callback can set the correct user_type
-      // (Google OAuth doesn't include app metadata, so the DB trigger defaults to 'professional')
-      const accountTypeParam = signupData.accountType ?? 'individual'
+      // Pass account_type only when the user pre-selected one. If nothing was
+      // selected, we omit the param so the callback routes to /auth/choose-role.
+      const callbackBase = `${window.location.origin}/auth/callback`
+      const callbackUrl = signupData.accountType
+        ? `${callbackBase}?account_type=${signupData.accountType}`
+        : callbackBase
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?account_type=${accountTypeParam}`,
+          redirectTo: callbackUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -356,6 +359,16 @@ export default function MultiStepSignup() {
 
   return (
     <div className="w-full max-w-md mx-auto">
+      {/* Full-screen overlay while OAuth browser is loading */}
+      {isSocialLoading && (
+        <div className="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
+          <p className="text-slate-300 text-sm">
+            Connecting to {isSocialLoading === 'google' ? 'Google' : 'Facebook'}…
+          </p>
+        </div>
+      )}
+
       {/* Brand mark above card */}
       <div className="flex items-center justify-center gap-2 mb-6">
         <span className="text-white font-bold text-lg tracking-tight">Open Job Market</span>
@@ -374,13 +387,29 @@ export default function MultiStepSignup() {
           {emailAlreadyExists && (
             <div className="mb-4 p-4 bg-amber-900/40 border border-amber-600/60 rounded-xl space-y-3">
               <p className="text-sm font-semibold text-amber-300">This email already has an account.</p>
-              <p className="text-xs text-amber-400/80">Tap "Sign In" to log in to your existing account instead.</p>
+              <p className="text-xs text-amber-400/80">Sign in to your existing account, or resend the verification email if you haven't confirmed it yet.</p>
               <Link
                 href="/auth/login"
                 className="inline-flex items-center justify-center w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
               >
                 Go to Sign In →
               </Link>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const supabase = createClient()
+                    await supabase.auth.resend({ type: 'signup', email: signupData.email.trim().toLowerCase() })
+                    setError(null)
+                    setEmailAlreadyExists(false)
+                    const url = `/auth/verify-email?email=${encodeURIComponent(signupData.email)}`
+                    router.push(url)
+                  } catch { /* ignore */ }
+                }}
+                className="w-full py-2 rounded-lg border border-amber-600/60 text-amber-300 text-sm font-medium hover:bg-amber-900/30 transition-colors"
+              >
+                Resend verification email
+              </button>
             </div>
           )}
           {error && !emailAlreadyExists && (
@@ -391,86 +420,20 @@ export default function MultiStepSignup() {
 
         {/* Step 1: Account Type */}
         {currentStep === 1 && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="text-center">
-              <h3 className="text-xl font-bold text-white mb-2">{t('signup.whoAreYou')}</h3>
-              <p className="text-sm text-slate-400">
-                {t('signup.chooseAccountType')}
-              </p>
+              <h3 className="text-xl font-bold text-white mb-1">Create your account</h3>
+              <p className="text-sm text-slate-400">Get started in seconds</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={() => updateSignupData({ accountType: "individual" })}
-                className={`p-5 border-2 rounded-xl text-center transition-all ${
-                  signupData.accountType === "individual"
-                    ? "border-blue-500 bg-blue-500/20 shadow-lg shadow-blue-500/20"
-                    : "border-slate-600 hover:border-slate-500 bg-slate-800/50"
-                }`}
-              >
-                <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-3 ${
-                  signupData.accountType === "individual" ? "bg-blue-500" : "bg-slate-700"
-                }`}>
-                  <User className={`h-7 w-7 ${signupData.accountType === "individual" ? "text-white" : "text-slate-400"}`} />
-                </div>
-                <h4 className="font-semibold text-base mb-1 text-white">{t('signup.individual')}</h4>
-                <p className="text-xs text-slate-400 leading-tight">
-                  {t('signup.individualDesc')}
-                </p>
-              </button>
-
-              <button
-                onClick={() => updateSignupData({ accountType: "company" })}
-                className={`p-5 border-2 rounded-xl text-center transition-all ${
-                  signupData.accountType === "company"
-                    ? "border-orange-500 bg-orange-500/20 shadow-lg shadow-orange-500/20"
-                    : "border-slate-600 hover:border-slate-500 bg-slate-800/50"
-                }`}
-              >
-                <div className={`mx-auto w-14 h-14 rounded-full flex items-center justify-center mb-3 ${
-                  signupData.accountType === "company" ? "bg-orange-500" : "bg-slate-700"
-                }`}>
-                  <HardHat className={`h-7 w-7 ${signupData.accountType === "company" ? "text-white" : "text-slate-400"}`} />
-                </div>
-                <h4 className="font-semibold text-base mb-1 text-white">{t('signup.business')}</h4>
-                <p className="text-xs text-slate-400 leading-tight">
-                  {t('signup.companyDesc')}
-                </p>
-              </button>
-            </div>
-
-            <Button
-              onClick={nextStep}
-              disabled={!canProceedFromStep1}
-              className="w-full h-12 text-base font-semibold bg-emerald-500 hover:bg-emerald-600 text-white"
-            >
-              {t('common.continue')}
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-
-            {/* Divider */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-600"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-3 bg-slate-900 text-slate-400">{t('signup.orContinueWith') || 'or continue with'}</span>
-              </div>
-            </div>
-
-            {/* Social Login Buttons */}
-            {!canProceedFromStep1 && (
-              <p className="text-center text-xs text-slate-500">Select an account type above to enable social sign-up</p>
-            )}
+            {/* OAuth buttons — always enabled, shown first ─────────────── */}
             <div className="grid grid-cols-2 gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => handleSocialLogin('google')}
-                disabled={isSocialLoading !== null || !canProceedFromStep1}
-                className={`h-11 border-slate-600 bg-slate-800 text-white transition-opacity ${
-                  canProceedFromStep1 ? "hover:bg-slate-700" : "opacity-40 cursor-not-allowed"
-                }`}
+                disabled={isSocialLoading !== null}
+                className="h-11 border-slate-600 bg-slate-800 text-white hover:bg-slate-700"
               >
                 {isSocialLoading === 'google' ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -490,10 +453,8 @@ export default function MultiStepSignup() {
                 type="button"
                 variant="outline"
                 onClick={() => handleSocialLogin('facebook')}
-                disabled={isSocialLoading !== null || !canProceedFromStep1}
-                className={`h-11 border-slate-600 bg-slate-800 text-white transition-opacity ${
-                  canProceedFromStep1 ? "hover:bg-slate-700" : "opacity-40 cursor-not-allowed"
-                }`}
+                disabled={isSocialLoading !== null}
+                className="h-11 border-slate-600 bg-slate-800 text-white hover:bg-slate-700"
               >
                 {isSocialLoading === 'facebook' ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -507,6 +468,67 @@ export default function MultiStepSignup() {
                 )}
               </Button>
             </div>
+
+            {/* Divider ──────────────────────────────────────────────────── */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-700" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-3 bg-slate-900 text-slate-500">or sign up with email</span>
+              </div>
+            </div>
+
+            {/* Account type — optional pre-selection for email signup ──── */}
+            <div>
+              <p className="text-xs text-slate-500 text-center mb-3">
+                Select your account type to sign up with email
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                <button
+                  onClick={() => updateSignupData({ accountType: "individual" })}
+                  className={`p-2.5 sm:p-4 border-2 rounded-xl text-center transition-all overflow-hidden ${
+                    signupData.accountType === "individual"
+                      ? "border-blue-500 bg-blue-500/20 shadow-lg shadow-blue-500/20"
+                      : "border-slate-700 hover:border-slate-500 bg-slate-800/50"
+                  }`}
+                >
+                  <div className={`mx-auto w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center mb-1.5 ${
+                    signupData.accountType === "individual" ? "bg-blue-500" : "bg-slate-700"
+                  }`}>
+                    <User className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${signupData.accountType === "individual" ? "text-white" : "text-slate-400"}`} />
+                  </div>
+                  <h4 className="font-semibold text-[11px] sm:text-xs mb-0.5 text-white break-words leading-tight">{t('signup.individual')}</h4>
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 leading-tight break-words">{t('signup.individualDesc')}</p>
+                </button>
+
+                <button
+                  onClick={() => updateSignupData({ accountType: "company" })}
+                  className={`p-2.5 sm:p-4 border-2 rounded-xl text-center transition-all overflow-hidden ${
+                    signupData.accountType === "company"
+                      ? "border-orange-500 bg-orange-500/20 shadow-lg shadow-orange-500/20"
+                      : "border-slate-700 hover:border-slate-500 bg-slate-800/50"
+                  }`}
+                >
+                  <div className={`mx-auto w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center mb-1.5 ${
+                    signupData.accountType === "company" ? "bg-orange-500" : "bg-slate-700"
+                  }`}>
+                    <HardHat className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${signupData.accountType === "company" ? "text-white" : "text-slate-400"}`} />
+                  </div>
+                  <h4 className="font-semibold text-[11px] sm:text-xs mb-0.5 text-white break-words leading-tight">{t('signup.business')}</h4>
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 leading-tight break-words">{t('signup.companyDesc')}</p>
+                </button>
+              </div>
+            </div>
+
+            <Button
+              onClick={nextStep}
+              disabled={!canProceedFromStep1}
+              className="w-full h-11 text-sm font-semibold bg-emerald-500 hover:bg-emerald-600 text-white disabled:opacity-40"
+            >
+              {t('common.continue')} with email
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
           </div>
         )}
 

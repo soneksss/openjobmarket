@@ -30,6 +30,8 @@ import {
 import { createClient } from "@/lib/client"
 import { manualLogout } from "@/hooks/use-auto-logout"
 import { StarRating } from "@/components/star-rating"
+import { useLocationPermission } from "@/hooks/use-location-permission"
+import { LocationPermissionModal } from "@/components/location-permission-modal"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -137,6 +139,7 @@ export function HomeownerDashboard({
   reviews = [],
 }: HomeownerDashboardProps) {
   const supabase = createClient()
+  const { permState, showModal, requestLocation, confirmModal, dismissModal } = useLocationPermission()
 
   const [loggingOut, setLoggingOut] = useState(false)
   const [unreadMessages, setUnreadMessages] = useState(0)
@@ -175,44 +178,50 @@ export function HomeownerDashboard({
 
   const handleLogout = () => manualLogout()
 
-  const detectLocation = async () => {
-    if (!navigator.geolocation) return
+  const detectLocation = () => {
     setDetectingLocation(true)
-    try {
-      const pos = await new Promise<GeolocationPosition>((res, rej) =>
-        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 })
-      )
-      const { latitude, longitude } = pos.coords
-      // Reverse-geocode to get a readable postcode/area via Nominatim
-      const geoRes = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
-        { headers: { "User-Agent": "OpenJobMarket/1.0" } }
-      )
-      const geoData = await geoRes.json()
-      const postcode = geoData.address?.postcode ?? null
-      const town = geoData.address?.town ?? geoData.address?.city ?? geoData.address?.county ?? ""
-      const location = postcode ? `${town ? town + ", " : ""}${postcode}` : geoData.display_name?.split(",")[0] ?? ""
+    requestLocation(
+      async (pos) => {
+        try {
+          const { latitude, longitude } = pos.coords
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`,
+            { headers: { "User-Agent": "OpenJobMarket/1.0" } }
+          )
+          const geoData = await geoRes.json()
+          const postcode = geoData.address?.postcode ?? null
+          const town = geoData.address?.town ?? geoData.address?.city ?? geoData.address?.county ?? ""
+          const location = postcode ? `${town ? town + ", " : ""}${postcode}` : geoData.display_name?.split(",")[0] ?? ""
 
-      await supabase.from("homeowner_profiles").update({
-        location: location || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-        latitude,
-        longitude,
-      }).eq("user_id", user?.id)
+          await supabase.from("homeowner_profiles").update({
+            location: location || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+            latitude,
+            longitude,
+          }).eq("user_id", user?.id)
 
-      setLocationDetected(true)
-      // Reload page so the banner disappears and the location shows
-      window.location.reload()
-    } catch (err) {
-      console.error("[LOCATION] Failed to detect location:", err)
-    } finally {
-      setDetectingLocation(false)
-    }
+          setLocationDetected(true)
+          window.location.reload()
+        } catch (err) {
+          console.error("[LOCATION] Failed to detect location:", err)
+        } finally {
+          setDetectingLocation(false)
+        }
+      },
+      () => { setDetectingLocation(false) },
+    )
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
+      <LocationPermissionModal
+        open={showModal}
+        reason="to set your location automatically"
+        permState={permState}
+        onAllow={confirmModal}
+        onDeny={dismissModal}
+      />
 
       {/* ── Profile incomplete banner (both layouts) ── */}
       {!isProfileComplete && (

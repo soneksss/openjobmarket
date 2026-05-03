@@ -202,14 +202,13 @@ export default function MessagesPage() {
 
       // ── Step 6: Fetch ALL profile tables IN PARALLEL ─────────────────────
       const proIds        = (usersResult.data ?? []).filter(u => u.user_type === "professional").map(u => u.id)
-      const compIds       = (usersResult.data ?? []).filter(u => u.user_type === "company").map(u => u.id)
+      // 'professional' is a legacy user_type from the trigger default; their profile lives in company_profiles
+      const compIds       = (usersResult.data ?? []).filter(u => u.user_type === "company" || u.user_type === "professional").map(u => u.id)
       const homeownerIds2 = (usersResult.data ?? []).filter(u => u.user_type === "homeowner").map(u => u.id)
       const contractorIds = (usersResult.data ?? []).filter(u => u.user_type === "contractor").map(u => u.id)
 
       const [proResult, compResult, homeResult, contractorResult] = await Promise.all([
-        proIds.length > 0
-          ? supabase.from("professional_profiles").select("user_id, first_name, last_name, profile_photo_url").in("user_id", proIds)
-          : Promise.resolve({ data: [] }),
+        Promise.resolve({ data: [] }),  // professional_profiles unused; merged into compIds
         compIds.length > 0
           ? supabase.from("company_profiles").select("user_id, company_name, logo_url").in("user_id", compIds)
           : Promise.resolve({ data: [] }),
@@ -239,13 +238,7 @@ export default function MessagesPage() {
           displayName = otherUser.nickname || otherUser.full_name || otherUser.email || "Unknown User"
           photoUrl = otherUser.profile_photo_url
 
-          if (otherUser.user_type === "professional") {
-            const p = proMap.get(otherUserId)
-            if (p) {
-              displayName = [p.first_name, p.last_name].filter(Boolean).join(" ") || displayName
-              photoUrl = p.profile_photo_url || photoUrl
-            }
-          } else if (otherUser.user_type === "company") {
+          if (otherUser.user_type === "company" || otherUser.user_type === "professional") {
             const c = compMap.get(otherUserId)
             if (c) {
               displayName = c.company_name || displayName

@@ -173,6 +173,14 @@ export default function LoginForm() {
   return (
     <div className="w-full max-w-sm mx-auto">
 
+      {/* Full-screen overlay while OAuth browser is loading */}
+      {isSocialLoading && (
+        <div className="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
+          <p className="text-slate-300 text-sm">Connecting to {isSocialLoading === 'google' ? 'Google' : 'Facebook'}…</p>
+        </div>
+      )}
+
       {/* Back link */}
       <Link
         href={getLocalePath("/")}

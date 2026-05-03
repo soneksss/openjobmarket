@@ -37,6 +37,7 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
   const supabase = createClient()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Detect if this is a job/task (for tradespeople) or a vacancy (for jobseekers)
@@ -170,7 +171,7 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
     try {
       // Always convert to JPEG format (required by Supabase Storage bucket)
       console.log("[Job Edit] Processing image from", (file.size / 1024 / 1024).toFixed(2), "MB")
-      const processedFile = await compressImage(file, 1024 * 1024) // 1MB target, always convert to JPEG
+      const processedFile = await compressImage(file, 512 * 1024) // 512KB target — smaller for faster mobile upload
       console.log("[Job Edit] Processed to", (processedFile.size / 1024 / 1024).toFixed(2), "MB")
 
       const previewUrl = URL.createObjectURL(processedFile)
@@ -279,6 +280,7 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
           // Use folder structure to match RLS policy: {userId}/filename.jpg
           const fileName = `${user.id}/${Date.now()}.jpg`
 
+          setUploadingPhoto(true)
           const { error: uploadError } = await supabase.storage
             .from('job-photos')
             .upload(fileName, jobPhoto, {
@@ -286,6 +288,7 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
               upsert: false,
               contentType: 'image/jpeg'
             })
+          setUploadingPhoto(false)
 
           if (uploadError) {
             console.error("[Job Edit] Photo upload error:", uploadError)
@@ -804,12 +807,12 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
             )}
 
             {/* Submit */}
-            <div className="flex justify-end space-x-4">
+            <div className="flex justify-end space-x-4 pb-4 md:pb-0">
               <Button type="button" variant="outline" asChild>
                 <Link href="/dashboard/company">Cancel</Link>
               </Button>
               <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : existingJob ? "Update Job" : "Post Job"}
+                {uploadingPhoto ? "Uploading photo..." : loading ? "Saving..." : existingJob ? "Update Job" : "Post Job"}
               </Button>
             </div>
           </div>

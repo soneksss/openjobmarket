@@ -170,40 +170,11 @@ body {
     max-width: 1280px; /* Standard max width */
   }
 
-  /* Ensure proper text scaling across all elements */
-  h1 {
-    font-size: 2.25rem;
-  } /* 36px */
-  h2 {
-    font-size: 1.875rem;
-  } /* 30px */
-  h3 {
-    font-size: 1.5rem;
-  } /* 24px */
-  h4 {
-    font-size: 1.25rem;
-  } /* 20px */
-  h5 {
-    font-size: 1.125rem;
-  } /* 18px */
-  h6 {
-    font-size: 1rem;
-  } /* 16px */
-
-  p,
-  div,
-  span {
-    font-size: 1rem; /* 16px base for all text */
-  }
-
-  button {
-    font-size: 0.875rem; /* 14px for buttons */
-  }
-
+  /* inputs/textareas must be 16px+ to prevent iOS auto-zoom on focus */
   input,
   textarea,
   select {
-    font-size: 1rem; /* 16px to prevent zoom on iOS */
+    font-size: 1rem;
   }
 }
 
@@ -280,7 +251,24 @@ input[type="number"] {
   animation-delay: 600ms;
 }
 
-/* Safe area padding for bottom navigation on mobile devices with notch */
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+/* Safe area inset utilities — used by components with fixed positioning near edges */
+.pb-safe  { padding-bottom:  env(safe-area-inset-bottom, 0px); }
+.pt-safe  { padding-top:     env(safe-area-inset-top,    0px); }
+.pl-safe  { padding-left:    env(safe-area-inset-left,   0px); }
+.pr-safe  { padding-right:   env(safe-area-inset-right,  0px); }
+.mb-safe  { margin-bottom:   env(safe-area-inset-bottom, 0px); }
+.mt-safe  { margin-top:      env(safe-area-inset-top,    0px); }
+
+/* Minimum 44px touch targets on mobile — applied via touch-target class */
+.touch-target {
+  min-height: 44px;
+  min-width:  44px;
+}
+
+/* Prevent text overflow in flex children — apply to any flex item containing text */
+.text-overflow-safe {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

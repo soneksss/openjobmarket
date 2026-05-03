@@ -135,7 +135,7 @@ export default async function RootLayout({
   return (
     <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased dark`}>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         {/* Preconnect to Supabase (profile images, storage) */}
         <link rel="preconnect" href="https://mklxzrvhanlndkyeteog.supabase.co" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://mklxzrvhanlndkyeteog.supabase.co" />

@@ -1295,7 +1295,7 @@ export function HomeownerProfileForm({ profile: initialProfile, userId }: Homeow
           )}
 
           {/* Actions */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pb-4 md:pb-0">
             <Link href="/dashboard/homeowner">
               <Button type="button" variant="outline">
                 Cancel

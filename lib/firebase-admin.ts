@@ -74,7 +74,6 @@ export async function sendFcmToTokens(
           },
           android: {
             notification: {
-              clickAction: "FLUTTER_NOTIFICATION_CLICK",
               channelId: "urgent_jobs",
             },
             priority: "high",

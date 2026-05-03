@@ -34,6 +34,7 @@ import { useTranslation } from "@/lib/i18n/context"
 import { getBilingualSearchTerms } from "@/lib/bilingual-search"
 import { useSearchType } from "@/lib/contexts/search-type-context"
 import { useSearchLocation } from "@/lib/contexts/search-location-context"
+import { isLocationGranted, PORTSMOUTH } from "@/hooks/use-location-permission"
 
 const RESULT_LIMIT = 100
 
@@ -206,17 +207,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
   // Ref to track if we should skip showing autocomplete (e.g., when query comes from category click)
   const skipAutocompleteRef = useRef(false)
 
-  // Seed mapCenter from GPS on mount so the map opens at the user's actual location.
-  // Runs once; only updates the visual centre — does not trigger a search.
-  useEffect(() => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return
-    if (selectedLocation) return  // profile coords already applied via autoSearch URL
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setMapCenter([pos.coords.latitude, pos.coords.longitude]),
-      () => {},  // keep Portsmouth default on GPS error/denial
-      { timeout: 6000, maximumAge: 5 * 60 * 1000 },
-    )
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Map centre defaults to Portsmouth — never prompt on mount.
+  // GPS seeding only happens when the user explicitly requests it (map tap / "Use my location").
 
   // Restore modal state when the user returns via the Back button from a job detail page
   useEffect(() => {
@@ -712,8 +704,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       // only if geolocation is denied or unavailable.
       const searchTypeToUse = (tab === 'vacancies' || tab === 'jobs_tasks' || tab === 'talents' || tab === 'traders') ? tab : 'jobs_tasks'
 
-      // Portsmouth fallback coords (used when no location is known)
-      const PORTSMOUTH = { lat: 50.8058, lon: -1.0872 }
+
 
       if (latParam && lngParam) {
         // Profile coords in URL — always use them (registered business location takes priority)
@@ -761,7 +752,8 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           setLocation("Portsmouth")
           setDistance("5")
           setRestoreSearch(searchTypeToUse)
-        } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
+        } else if (typeof navigator !== 'undefined' && navigator.geolocation && isLocationGranted()) {
+          // Permission already granted — use silently, no OS prompt
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               setSelectedLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude })
@@ -770,29 +762,29 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               setRestoreSearch(searchTypeToUse)
             },
             () => {
-              // Geolocation denied — UK-wide fallback
-              setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
-              setLocation("United Kingdom")
-              setDistance("150")
+              setSelectedLocation(PORTSMOUTH)
+              setLocation("Portsmouth")
+              setDistance("25")
               setRestoreSearch(searchTypeToUse)
             },
             { timeout: 5000, maximumAge: 60000 }
           )
         } else {
-          setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
-          setLocation("United Kingdom")
-          setDistance("150")
+          // No permission or unavailable — Portsmouth default, no prompt
+          setSelectedLocation(PORTSMOUTH)
+          setLocation("Portsmouth")
+          setDistance("25")
           setRestoreSearch(searchTypeToUse)
         }
       } else if (tab === 'jobs_tasks') {
         if (!user) {
-          // Unauthenticated — Portsmouth default (same as traders tab)
-          setSelectedLocation({ lat: 50.8058, lon: -1.0872 })
+          // Unauthenticated — Portsmouth default
+          setSelectedLocation(PORTSMOUTH)
           setLocation("Portsmouth")
           setDistance("5")
           setRestoreSearch(searchTypeToUse)
-        } else if (typeof navigator !== 'undefined' && navigator.geolocation) {
-          // Signed-in user, no profile coords — try browser geolocation
+        } else if (typeof navigator !== 'undefined' && navigator.geolocation && isLocationGranted()) {
+          // Permission already granted — use silently
           navigator.geolocation.getCurrentPosition(
             (pos) => {
               setSelectedLocation({ lat: pos.coords.latitude, lon: pos.coords.longitude })
@@ -801,18 +793,18 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
               setRestoreSearch(searchTypeToUse)
             },
             () => {
-              // Denied / unavailable — UK-wide fallback
-              setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
-              setLocation("United Kingdom")
-              setDistance("150")
+              setSelectedLocation(PORTSMOUTH)
+              setLocation("Portsmouth")
+              setDistance("25")
               setRestoreSearch(searchTypeToUse)
             },
             { timeout: 5000, maximumAge: 60000 }
           )
         } else {
-          setSelectedLocation({ lat: 52.3555, lon: -1.1743 })
-          setLocation(locationParam || "United Kingdom")
-          setDistance("150")
+          // No permission — Portsmouth default, no prompt
+          setSelectedLocation(PORTSMOUTH)
+          setLocation(locationParam || "Portsmouth")
+          setDistance("25")
           setRestoreSearch(searchTypeToUse)
         }
       } else {
@@ -2409,7 +2401,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
           {/* First row: Search input, Location input, Map picker */}
           <div className="flex gap-2 items-start">
             {/* Search input with autocomplete */}
-            <div className="flex-1 h-8 sm:h-9 md:h-10 relative">
+            <div className="flex-1 h-11 md:h-10 relative">
               <Input
                 value={searchQuery}
                 onChange={(e) => {
@@ -2451,7 +2443,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             </div>
 
             {/* Location input */}
-            <div className="flex-1 h-8 sm:h-9 md:h-10">
+            <div className="flex-1 h-11 md:h-10">
               <LocationInput
                 value={location}
                 onChange={setLocation}
@@ -2464,7 +2456,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             {/* Map picker button */}
             <Button
               onClick={handleMapPickerClick}
-              className="h-8 sm:h-9 md:h-10 px-2 sm:px-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 border border-slate-600"
+              className="h-11 md:h-10 px-2 sm:px-3 bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 border border-slate-600"
               title={t('mainSearch.pickLocationOnMap')}
               type="button"
             >
@@ -2476,7 +2468,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             <Button
               onClick={() => handleSearch(selectedSearchType)}
               disabled={isSearching}
-              className={`hidden sm:flex h-8 sm:h-9 md:h-10 px-4 sm:px-6 text-xs sm:text-sm font-bold text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 flex-shrink-0 ${
+              className={`hidden sm:flex h-11 md:h-10 px-4 sm:px-6 text-xs sm:text-sm font-bold text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 flex-shrink-0 ${
                 selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
                 selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
                 selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
@@ -2490,7 +2482,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             {/* Filter button - desktop only */}
             <Button
               onClick={() => setShowFilters(!showFilters)}
-              className={`hidden sm:flex h-8 sm:h-9 md:h-10 px-2 sm:px-3 text-xs font-medium text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 ${showFilters ? "ring-2 ring-emerald-500/50" : ""}`}
+              className={`hidden sm:flex h-11 md:h-10 px-2 sm:px-3 text-xs font-medium text-white rounded-md md:rounded-lg shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 ${showFilters ? "ring-2 ring-emerald-500/50" : ""}`}
               title={t('mainSearch.toggleFilters')}
             >
               <SlidersHorizontal className="h-4 w-4" />
@@ -2503,7 +2495,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             <Button
               onClick={() => handleSearch(selectedSearchType)}
               disabled={isSearching}
-              className={`flex-1 h-8 text-xs font-bold text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 ${
+              className={`flex-1 h-11 text-sm font-bold text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 ${
                 selectedSearchType === "vacancies" ? "bg-blue-600 hover:bg-blue-700" :
                 selectedSearchType === "jobs_tasks" ? "bg-purple-600 hover:bg-purple-700" :
                 selectedSearchType === "traders" ? "bg-orange-600 hover:bg-orange-700" :
@@ -2517,7 +2509,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
             {/* Filter button - mobile */}
             <Button
               onClick={() => setShowFilters(!showFilters)}
-              className={`h-8 px-3 text-xs font-medium text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 ${showFilters ? "ring-2 ring-emerald-500/50" : ""}`}
+              className={`h-11 px-4 text-sm font-medium text-white rounded-md shadow-md hover:shadow-lg transition-all duration-200 flex-shrink-0 bg-slate-700 hover:bg-slate-600 border border-slate-600 ${showFilters ? "ring-2 ring-emerald-500/50" : ""}`}
               title={t('mainSearch.toggleFilters')}
             >
               <SlidersHorizontal className="h-4 w-4" />

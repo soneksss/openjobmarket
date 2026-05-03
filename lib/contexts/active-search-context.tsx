@@ -7,10 +7,12 @@ export interface ActiveSearch {
   jobTitle: string
   tradesCount: number
   phase: string
-  startedAt: number   // Date.now() when the job was posted — survives page reload
+  startedAt: number          // epoch ms when search was started — survives reload
   notifiedCount: number
-  userId?: string     // homeowner who started the search — used to clear on account switch
-  expiresAt?: number  // Date.now() + TTL — bar auto-hides after this timestamp
+  userId?: string            // homeowner who started — cleared on account switch
+  expiresAt?: number         // epoch ms hard deadline (from DB expires_at)
+  urgencyType?: "asap" | "today"
+  initialDurationSeconds?: number  // allows timer restoration on restart
 }
 
 interface ActiveSearchContextType {
@@ -30,16 +32,15 @@ const STORAGE_KEY = "ojm_active_search"
 export function ActiveSearchProvider({ children }: { children: ReactNode }) {
   const [activeSearch, setActiveSearchState] = useState<ActiveSearch | null>(null)
 
-  // Hydrate from localStorage on mount (avoids SSR mismatch)
-  // Auto-discard if the job has already expired
+  // Hydrate from localStorage — auto-discard expired entries
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) return
       const saved: ActiveSearch = JSON.parse(raw)
-      // If expiresAt is set and in the past, wipe it so the bar never re-appears
-      // Fallback: if expiresAt is missing, use startedAt + 4 h as the max TTL
-      const effectiveExpiry = saved.expiresAt ?? (saved.startedAt ? saved.startedAt + 4 * 60 * 60 * 1000 : null)
+      const effectiveExpiry =
+        saved.expiresAt ??
+        (saved.startedAt ? saved.startedAt + 4 * 60 * 60 * 1000 : null)
       if (effectiveExpiry && Date.now() > effectiveExpiry) {
         localStorage.removeItem(STORAGE_KEY)
         return
@@ -48,6 +49,7 @@ export function ActiveSearchProvider({ children }: { children: ReactNode }) {
     } catch {}
   }, [])
 
+  // Sync writes to localStorage and broadcast to other tabs
   const setActiveSearch = (s: ActiveSearch) => {
     setActiveSearchState(s)
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)) } catch {}
@@ -57,6 +59,20 @@ export function ActiveSearchProvider({ children }: { children: ReactNode }) {
     setActiveSearchState(null)
     try { localStorage.removeItem(STORAGE_KEY) } catch {}
   }
+
+  // Cross-tab sync: another tab cleared the search (e.g. job confirmed)
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key !== STORAGE_KEY) return
+      if (!e.newValue) {
+        setActiveSearchState(null)
+      } else {
+        try { setActiveSearchState(JSON.parse(e.newValue)) } catch {}
+      }
+    }
+    window.addEventListener("storage", handleStorage)
+    return () => window.removeEventListener("storage", handleStorage)
+  }, [])
 
   return (
     <ActiveSearchContext.Provider value={{ activeSearch, setActiveSearch, clearActiveSearch }}>

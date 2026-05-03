@@ -201,21 +201,44 @@ export function CapacitorInit() {
         )
         cleanupFns.push(() => pushHandle.remove())
 
-        // ── 5. Push registration — Android only, delayed, permission-gated ──────
+        // ── 5. Push registration — all platforms, delayed, permission-gated ────
         // Android 13+ (API 33+): must call requestPermissions() before register().
-        // On older APIs, requestPermissions() resolves immediately with 'granted'.
-        if (Capacitor.getPlatform() === 'android') {
-          setTimeout(async () => {
-            if (!canBridge()) return
-            try {
-              const permResult = await PushNotifications.requestPermissions()
-              if (permResult.receive === 'granted') {
-                await PushNotifications.register()
-              }
-            } catch (e) {
-              console.error('[CapacitorInit] Push registration failed:', e)
+        // On older APIs and iOS, requestPermissions() resolves immediately.
+        // Delay 3 s and verify an active session first — avoids the permission
+        // popup appearing before the auth screen has loaded.
+        setTimeout(async () => {
+          if (!canBridge()) return
+          try {
+            const { createClient: getClient } = await import('@/lib/client')
+            const { data: { session } } = await getClient().auth.getSession()
+            if (!session) return  // not logged in — skip until next cold start
+            const permResult = await PushNotifications.requestPermissions()
+            if (permResult.receive === 'granted') {
+              await PushNotifications.register()
             }
-          }, 1000)
+          } catch (e) {
+            console.error('[CapacitorInit] Push registration failed:', e)
+          }
+        }, 3000)
+
+        if (Capacitor.getPlatform() === 'android') {
+          // Create notification channel so push notifications are delivered in
+          // the background with high importance. Must match the channelId used
+          // in FCM payloads (lib/firebase-admin.ts → android.notification.channelId).
+          try {
+            await PushNotifications.createChannel({
+              id: 'urgent_jobs',
+              name: 'Job Alerts',
+              description: 'Job matches and application updates',
+              importance: 4,   // IMPORTANCE_HIGH — shows heads-up notification
+              visibility: 1,   // VISIBILITY_PUBLIC
+              sound: 'default',
+              vibration: true,
+              lights: true,
+            })
+          } catch {
+            // Channel creation is best-effort; older Capacitor versions may lack createChannel
+          }
 
           // ── 6. Swipe-back gesture — left-edge swipe triggers history.back() ─────
           // Guards against accidental triggers:

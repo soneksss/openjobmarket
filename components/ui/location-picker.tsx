@@ -6,6 +6,8 @@ import { MapPin, X, Crosshair } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
+import { useLocationPermission } from '@/hooks/use-location-permission'
+import { LocationPermissionModal } from '@/components/location-permission-modal'
 
 // Dynamically import the map component to avoid SSR issues
 const LocationMap = dynamic(() => import('./location-map'), {
@@ -52,6 +54,7 @@ export function LocationPicker({
   const [isGettingAddress, setIsGettingAddress] = useState(false)
   const [isLocating, setIsLocating] = useState(false)
   const mapRef = useRef<LocationMapRef>(null)
+  const { permState, showModal, requestLocation, confirmModal, dismissModal } = useLocationPermission()
 
   const handleLocationSelect = (lat: number, lng: number) => {
     setTempLocation({lat, lng})
@@ -120,44 +123,35 @@ export function LocationPicker({
     setIsOpen(false)
   }
 
-  const handleLocateMe = async () => {
-    if ("geolocation" in navigator) {
-      setIsLocating(true)
-      try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-          })
-        })
-        const lat = position.coords.latitude
-        const lng = position.coords.longitude
-        setTempLocation({ lat, lng })
-
-        // Use the map ref to fly to the location with zoom 14 (town visibility)
-        if (mapRef.current) {
-          mapRef.current.flyToLocation(lat, lng, 14)
-        }
-      } catch (error) {
-        console.error("Error getting location:", error)
-        toast({
-          title: "Location Access Denied",
-          description: "Unable to get your location. Please ensure location permissions are enabled in your browser settings.",
-          variant: "destructive",
-          duration: 5000,
-        })
-      } finally {
-        setIsLocating(false)
-      }
-    } else {
+  const handleLocateMe = () => {
+    if (!("geolocation" in navigator)) {
       toast({
         title: "Geolocation Not Supported",
         description: "Your browser does not support geolocation. Please enter your location manually or use a modern browser.",
         variant: "destructive",
         duration: 5000,
       })
+      return
     }
+    setIsLocating(true)
+    requestLocation(
+      (position) => {
+        const lat = position.coords.latitude
+        const lng = position.coords.longitude
+        setTempLocation({ lat, lng })
+        if (mapRef.current) mapRef.current.flyToLocation(lat, lng, 14)
+        setIsLocating(false)
+      },
+      () => {
+        toast({
+          title: "Location Access Denied",
+          description: "Unable to get your location. Please ensure location permissions are enabled in your browser settings.",
+          variant: "destructive",
+          duration: 5000,
+        })
+        setIsLocating(false)
+      },
+    )
   }
 
   const hasLocation = latitude && longitude
@@ -225,6 +219,13 @@ export function LocationPicker({
 
   return (
     <div className={className}>
+      <LocationPermissionModal
+        open={showModal}
+        reason="to pin your exact location on the map"
+        permState={permState}
+        onAllow={confirmModal}
+        onDeny={dismissModal}
+      />
       {!isControlled && hasLocation ? (
         <div className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
           <div className="flex items-center gap-2.5 min-w-0">

@@ -309,18 +309,18 @@ interface NavItem {
 
 function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavItem[], unreadMessages: number, unreadNotifications: number }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900 border-t border-slate-700 pb-safe">
-      <div className="flex justify-around items-center h-16 px-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900 border-t border-slate-700 pb-safe pl-safe pr-safe">
+      <div className="flex justify-around items-center h-14 px-1">
         {items.map((item) => {
           const Icon = item.icon
 
           if (item.isCenter) {
             return (
-              <Link key={item.key} href={item.href} className="flex flex-col items-center justify-center -mt-4">
-                <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-lg transition-colors ${item.centerColor || "bg-emerald-500 shadow-emerald-500/30 hover:bg-emerald-600"}`}>
-                  <Icon className="h-7 w-7 text-white" />
+              <Link key={item.key} href={item.href} className="flex flex-col items-center justify-center -mt-5">
+                <div className={`w-13 h-13 rounded-full flex items-center justify-center shadow-lg transition-colors ${item.centerColor || "bg-emerald-500 shadow-emerald-500/30 hover:bg-emerald-600"}`}>
+                  <Icon className="h-6 w-6 text-white" />
                 </div>
-                <span className="text-xs mt-1 text-slate-400 font-medium">{item.label}</span>
+                <span className="text-[10px] mt-0.5 text-slate-400 font-medium">{item.label}</span>
               </Link>
             )
           }
@@ -331,23 +331,23 @@ function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavI
             <Link
               key={item.key}
               href={item.href}
-              className={`flex flex-col items-center justify-center py-2 px-3 rounded-lg transition-colors relative ${
+              className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] px-2 rounded-lg transition-colors relative ${
                 item.isActive ? "text-emerald-400" : "text-slate-500 hover:text-slate-300"
               }`}
             >
               <div className="relative">
-                <Icon className={`h-6 w-6 ${item.isActive ? "stroke-[2.5]" : ""}`} />
+                <Icon className={`h-5 w-5 ${item.isActive ? "stroke-[2.5]" : ""}`} />
                 {badgeCount > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-[16px] flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full px-0.5">
+                  <span className="absolute -top-1 -right-1 min-w-[17px] h-[17px] flex items-center justify-center bg-red-500 text-white text-[9px] font-bold rounded-full px-0.5">
                     {badgeCount > 99 ? "99+" : badgeCount}
                   </span>
                 )}
               </div>
-              <span className={`text-xs mt-1 ${item.isActive ? "font-semibold" : "font-medium"}`}>
+              <span className={`text-[10px] mt-0.5 ${item.isActive ? "font-semibold" : "font-medium"}`}>
                 {item.label}
               </span>
               {item.isActive && (
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500" />
+                <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500" />
               )}
             </Link>
           )

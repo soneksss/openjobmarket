@@ -519,22 +519,8 @@ export default function ConversationPage() {
 
           // Get profile-specific data with error handling
           try {
-            if (userData.user_type === 'professional') {
-              console.log('[CONVERSATION] Step 13a: Fetching professional profile...')
-              const { data: profData } = await supabase
-                .from('professional_profiles')
-                .select('id, first_name, last_name, profile_photo_url')
-                .eq('user_id', determinedOtherId)
-                .maybeSingle()
-
-              console.log('[CONVERSATION] Step 13b: Professional profile retrieved:', !!profData)
-              if (profData) {
-                const fullName = [profData.first_name, profData.last_name].filter(Boolean).join(' ')
-                displayName = fullName || displayName
-                photoUrl = profData.profile_photo_url || photoUrl
-                setOtherUserProfileId(profData.id)
-              }
-            } else if (userData.user_type === 'company') {
+            if (userData.user_type === 'company' || userData.user_type === 'professional') {
+              // 'professional' is a legacy trigger default; profile lives in company_profiles
               console.log('[CONVERSATION] Step 13a: Fetching company profile...')
               const { data: compData } = await supabase
                 .from('company_profiles')
@@ -1175,7 +1161,7 @@ export default function ConversationPage() {
             <p className="text-xs text-red-400 mb-1.5">{photoError}</p>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             {/* Hidden file input */}
             <input
               ref={fileInputRef}
@@ -1194,7 +1180,7 @@ export default function ConversationPage() {
               variant="ghost"
               size="sm"
               title="Attach photos (max 3)"
-              className={`self-end h-[44px] px-3 flex-shrink-0 ${photoFiles.length > 0 ? 'text-emerald-400 bg-slate-700' : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-700'}`}
+              className={`self-end h-10 w-10 p-0 flex-shrink-0 ${photoFiles.length > 0 ? 'text-emerald-400 bg-slate-700' : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-700'}`}
             >
               <ImageIcon className="h-4 w-4" />
             </Button>

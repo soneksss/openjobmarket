@@ -131,7 +131,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
         {userType === "homeowner" && user?.id && (
           <HomeownerJobNotifier userId={user.id} />
         )}
-        <main className={`flex-1 ${user ? 'pb-20 md:pb-0' : ''}`}><PageTransition>{children}</PageTransition></main>
+        <main className={`flex-1 ${user ? 'pb-24 md:pb-0' : ''}`}><PageTransition>{children}</PageTransition></main>
         {/* Hide footer completely on homepage and dashboard pages */}
         {!isHomePage && !isDashboardPage && (
           <Footer />

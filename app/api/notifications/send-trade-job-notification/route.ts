@@ -141,6 +141,22 @@ export async function POST(request: NextRequest) {
     const jobUrl = `${baseUrl}/jobs/${jobId}`
     const settingsUrl = `${baseUrl}/account/settings#notifications`
 
+    const isUrgent = urgencyType === "asap" || urgencyType === "today"
+
+    // For flexible jobs: batch-fetch which companies opted into flexible push notifications.
+    // Urgent jobs skip this — all matched companies already opted in via trade_job_notifications.
+    const flexibleOptIns = new Set<string>()
+    if (!isUrgent && matchingCompanies.length > 0) {
+      const userIds = matchingCompanies.map((c: any) => c.user_id)
+      const { data: flexRows } = await adminClient
+        .from("company_profiles")
+        .select("user_id, flexible_job_notifications")
+        .in("user_id", userIds)
+      for (const row of flexRows ?? []) {
+        if (row.flexible_job_notifications === true) flexibleOptIns.add(row.user_id)
+      }
+    }
+
     let successCount = 0
     let emailCount = 0
 
@@ -148,7 +164,6 @@ export async function POST(request: NextRequest) {
     for (const company of matchingCompanies) {
       try {
         // Create in-app notification
-        const isUrgent = urgencyType === "asap" || urgencyType === "today"
         const notifTitle = isUrgent
           ? `🚨 Urgent job nearby: ${jobTitle}`
           : `🔔 New job nearby: ${jobTitle}`
@@ -188,8 +203,11 @@ export async function POST(request: NextRequest) {
           console.log("[TRADE-JOB-NOTIFICATION] Skipping email for ASAP job (quick expiry)")
         }
 
-        // Send web/FCM push notifications for urgent jobs
-        if (isUrgent) {
+        // Send web/FCM push notifications:
+        //   - Urgent jobs  → always push (all matched companies opted in)
+        //   - Flexible jobs → push only to companies with flexible_job_notifications = true
+        const shouldPush = isUrgent || flexibleOptIns.has(company.user_id)
+        if (shouldPush) {
           const cutoff90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
           const { data: tokenRows } = await adminClient
             .from('user_push_tokens')
@@ -204,12 +222,14 @@ export async function POST(request: NextRequest) {
             .filter((r: { token: string; device_type: string }) => r.device_type === 'fcm')
             .map((r: { token: string; device_type: string }) => r.token)
 
+          const pushTag = isUrgent ? `urgent-job-${jobId}` : `flexible-job-${jobId}`
+
           if (webTokens.length > 0) {
             try {
               const { sendWebPushToUser } = await import('@/lib/web-push')
               const { expired } = await sendWebPushToUser(webTokens, {
                 title: notifTitle, body: notifMessage, url: jobUrl,
-                tag: `urgent-job-${jobId}`, requireInteraction: true,
+                tag: pushTag, requireInteraction: isUrgent,
               })
               if (expired.length > 0) await adminClient.from('user_push_tokens').delete().in('token', expired)
             } catch { /* non-fatal */ }
@@ -219,7 +239,7 @@ export async function POST(request: NextRequest) {
               const { sendFcmToTokens } = await import('@/lib/firebase-admin')
               const { failed } = await sendFcmToTokens(fcmTokens, {
                 title: notifTitle, body: notifMessage, url: jobUrl,
-                tag: `urgent-job-${jobId}`, jobId,
+                tag: pushTag, jobId,
               })
               if (failed.length > 0) await adminClient.from('user_push_tokens').delete().in('token', failed)
             } catch { /* non-fatal */ }
