@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
 import { TRADE_INDUSTRIES, INDUSTRY_TO_CATEGORY as TRADE_INDUSTRY_TO_CATEGORY, findTradeIndustry } from "@/lib/data/trade-industries"
+import imageCompression from "browser-image-compression"
 
 type Props = {
   companyProfile: any
@@ -419,6 +420,15 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
   const [open, setOpen] = useState(true)
   const [currentStep, setCurrentStep] = useState(1)
   const [loading, setLoading] = useState(false)
+
+  // Hide the global bottom nav while the wizard is open so the keyboard
+  // doesn't push it up and block form fields on Android.
+  useEffect(() => {
+    if (open) {
+      document.body.classList.add("wizard-open")
+    }
+    return () => { document.body.classList.remove("wizard-open") }
+  }, [open])
   const [vacancyEnabled, setVacancyEnabled] = useState(true)
 
   useEffect(() => {
@@ -522,17 +532,16 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file size (max 5MB before compression)
-    if (file.size > 5 * 1024 * 1024) {
+    // Reject anything over 10MB (before compression)
+    if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "⚠️ File Too Large",
-        description: "Photo size must be less than 5MB",
+        description: "Photo must be under 10MB",
         variant: "destructive",
       })
       return
     }
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       toast({
         title: "⚠️ Invalid File Type",
@@ -542,12 +551,17 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       return
     }
 
-    try {
-      // Always convert to JPEG format (required by Supabase Storage bucket)
-      // Compress if larger than 1MB, otherwise just convert to JPEG
-      const processedFile = await compressImage(file, 1024 * 1024) // 1MB target, always convert to JPEG
+    const { dismiss } = toast({ title: "Optimising photo…", description: "Just a moment." })
 
-      // Create preview URL
+    try {
+      const processedFile = await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1600,
+        useWebWorker: true,
+        fileType: "image/webp",
+      })
+
+      dismiss()
       const previewUrl = URL.createObjectURL(processedFile)
       setFormData((prev) => ({
         ...prev,
@@ -555,6 +569,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         jobPhotoUrl: previewUrl,
       }))
     } catch (error) {
+      dismiss()
       console.error("[Job Wizard] Error processing image:", error)
       toast({
         title: "❌ Image Processing Failed",
@@ -562,68 +577,6 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         variant: "destructive",
       })
     }
-  }
-
-  const compressImage = (file: File, maxSizeBytes: number): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = (event) => {
-        const img = new Image()
-        img.src = event.target?.result as string
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          // Maintain original dimensions
-          canvas.width = img.width
-          canvas.height = img.height
-
-          const ctx = canvas.getContext('2d')
-          if (!ctx) {
-            reject(new Error('Failed to get canvas context'))
-            return
-          }
-
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-
-          // Try different quality levels to get under target size
-          let quality = 0.9
-          const tryCompress = () => {
-            canvas.toBlob(
-              (blob) => {
-                if (!blob) {
-                  reject(new Error('Failed to compress image'))
-                  return
-                }
-
-                // If still too large and quality can be reduced, try again
-                if (blob.size > maxSizeBytes && quality > 0.1) {
-                  quality -= 0.1
-                  tryCompress()
-                } else {
-                  // Create new file with compressed blob (always JPEG)
-                  // Replace original extension with .jpg
-                  const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
-                  const jpegFileName = `${nameWithoutExt}.jpg`
-
-                  const compressedFile = new File(
-                    [blob],
-                    jpegFileName,
-                    { type: 'image/jpeg', lastModified: Date.now() }
-                  )
-                  resolve(compressedFile)
-                }
-              },
-              'image/jpeg', // Always create JPEG blob
-              quality
-            )
-          }
-
-          tryCompress()
-        }
-        img.onerror = () => reject(new Error('Failed to load image'))
-      }
-      reader.onerror = () => reject(new Error('Failed to read file'))
-    })
   }
 
   const handleRemovePhoto = () => {
@@ -1001,21 +954,15 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       const isFlexible = formData.urgencyType === "flexible"
 
       if (isFlexible) {
-        // Flexible jobs: redirect to jobs list with confirmation banner
+        // Flexible jobs: simple confirmation, then go to My Jobs (active tab)
         setLoading(false)
         router.push(`/dashboard/homeowner/jobs?posted=${jobId}`)
       } else {
-        // Urgent (ASAP/Today): uber-style live tracking
-        toast({
-          title: "✅ Job Posted Successfully!",
-          description: "Finding the best available trades near you…",
-          variant: "default",
-        })
-        // ASAP expires in 60 min, today/other urgent jobs in 3 hours
+        // Urgent (ASAP/Today): Uber-style live tracking
         const ttlMs = formData.urgencyType === "asap" ? 60 * 60 * 1000 : 3 * 60 * 60 * 1000
         setActiveSearch({
           jobId,
-          jobTitle: formData.profession.trim() || "Job",
+          jobTitle: formData.profession.trim() || formData.service || "Job",
           tradesCount:   0,
           notifiedCount: 0,
           phase:         "searching",

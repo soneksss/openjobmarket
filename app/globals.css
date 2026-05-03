@@ -259,6 +259,12 @@ input[type="number"] {
 .mb-safe  { margin-bottom:   env(safe-area-inset-bottom, 0px); }
 .mt-safe  { margin-top:      env(safe-area-inset-top,    0px); }
 
+/* Hide the mobile bottom nav when the job wizard modal is open.
+   On Android the soft keyboard pushes fixed elements up, covering form inputs. */
+body.wizard-open nav.fixed.bottom-0 {
+  display: none !important;
+}
+
 /* Minimum 44px touch targets on mobile — applied via touch-target class */
 .touch-target {
   min-height: 44px;

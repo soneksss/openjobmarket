@@ -30,7 +30,7 @@ export async function POST(
     // ── 1. Fetch job details (title, location, coordinates) ──────────────────
     const { data: job } = await admin
       .from("jobs")
-      .select("title, location, dispatch_state, status, expires_at, is_active")
+      .select("title, location, category, dispatch_state, status, expires_at, is_active, latitude, longitude")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -87,41 +87,58 @@ export async function POST(
     if (profileIds.length === 0) {
       console.log("[DISPATCH-URGENT] Using direct company_profiles fallback")
 
-      const { data: jobData } = await admin
-        .from("jobs")
-        .select("category, title")
-        .eq("id", jobId)
-        .maybeSingle()
+      const jobLat = (job as any)?.latitude as number | null | undefined
+      const jobLon = (job as any)?.longitude as number | null | undefined
+      const jobCategory = ((job as any)?.category || (job as any)?.title || "").toLowerCase()
 
       const { data: allCandidates } = await admin
         .from("company_profiles")
-        .select("id, industry, services")
+        .select("id, industry, services, latitude, longitude")
         .eq("open_for_business", true)
         .eq("trade_job_notifications", true)
-        .limit(100)
+        .limit(200)
 
       if (allCandidates && allCandidates.length > 0) {
-        const jobCategory = (jobData?.category || jobData?.title || "").toLowerCase()
-        let matched = allCandidates
+        // 1. Skill filter first — only matching tradespeople
+        let matched = jobCategory
+          ? allCandidates.filter((p: any) => skillMatch(p, jobCategory))
+          : allCandidates
 
-        if (jobCategory) {
-          matched = allCandidates.filter((p: { id: string; industry?: string; services?: string[] }) => {
-            const industry = (p.industry || "").toLowerCase()
-            const services = (p.services || []).map((s: string) => s.toLowerCase())
-            return (
-              industry.includes(jobCategory) ||
-              jobCategory.includes(industry) ||
-              services.some((s) => s.includes(jobCategory) || jobCategory.includes(s))
-            )
-          })
-          if (matched.length === 0) {
-            console.log("[DISPATCH-URGENT] No skill match — using all opted-in companies")
-            matched = allCandidates
+        // 2. Location filter within 15mi if job has coordinates
+        if (jobLat && jobLon) {
+          const nearby = matched.filter((p: any) => distanceMiles(jobLat, jobLon, p.latitude, p.longitude) <= 15)
+          if (nearby.length > 0) {
+            matched = nearby
+            console.log(`[DISPATCH-URGENT] Fallback: ${nearby.length} skill+location match`)
+          } else {
+            // No one nearby with coordinates — keep skill-matched list as-is
+            console.log(`[DISPATCH-URGENT] Fallback: ${matched.length} skill match (no coords to filter by location)`)
           }
         }
 
-        profileIds = matched.slice(0, 10).map((p: { id: string }) => p.id)
-        console.log(`[DISPATCH-URGENT] Fallback: ${profileIds.length} company(s)`)
+        profileIds = matched.slice(0, 10).map((p: any) => p.id)
+        console.log(`[DISPATCH-URGENT] Fallback final: ${profileIds.length} company(s)`)
+      }
+    }
+
+    // ── 2c. Post-filter RPC results by skill ────────────────────────────────
+    // The RPC ranks by distance/score but does not filter by trade type.
+    // Re-fetch profiles and drop candidates whose industry/services don't match.
+    if (profileIds.length > 0) {
+      const jobCategory = ((job as any)?.category || (job as any)?.title || "").toLowerCase()
+      if (jobCategory) {
+        const { data: skillProfiles } = await admin
+          .from("company_profiles")
+          .select("id, industry, services")
+          .in("id", profileIds)
+
+        const matched = (skillProfiles ?? []).filter((p: any) => skillMatch(p, jobCategory))
+        if (matched.length > 0) {
+          profileIds = matched.map((p: any) => p.id)
+          console.log(`[DISPATCH-URGENT] Skill-filtered RPC results: ${profileIds.length} of original`)
+        } else {
+          console.log(`[DISPATCH-URGENT] Skill filter returned 0 — keeping all ${profileIds.length} RPC results`)
+        }
       }
     }
 
@@ -299,6 +316,26 @@ export async function POST(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function skillMatch(profile: { industry?: string; services?: string[] }, jobCategory: string): boolean {
+  const industry = (profile.industry || "").toLowerCase()
+  const services = (profile.services || []).map((s: string) => s.toLowerCase())
+  return (
+    industry.includes(jobCategory) ||
+    jobCategory.includes(industry) ||
+    services.some((s) => s.includes(jobCategory) || jobCategory.includes(s))
+  )
+}
+
+function distanceMiles(lat1: number, lon1: number, lat2?: number | null, lon2?: number | null): number {
+  if (!lat2 || !lon2) return Infinity
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const R = 3958.8
+  const dLat = toRad(lat2 - lat1)
+  const dLon = toRad(lon2 - lon1)
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
 
 function nextRadius(current: number): number {
   const TIERS = [3, 5, 10]

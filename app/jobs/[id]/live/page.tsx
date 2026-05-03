@@ -96,16 +96,20 @@ export default async function LiveJobPage({ params }: PageProps) {
 
   if (!isOwner) redirect("/dashboard")
 
+  // For flexible jobs the search_radius_miles defaults to 10 mi (wider area)
+  const searchRadius = job.search_radius_miles
+    ?? (job.urgency_type === "flexible" ? 10 : 5)
+
   return (
     <FindingTradesView
       job={{
         id:                  job.id,
         title:               job.title,
         location:            job.location,
-        latitude:            job.latitude            ?? null,
-        longitude:           job.longitude           ?? null,
+        latitude:            job.latitude  ?? null,
+        longitude:           job.longitude ?? null,
         urgency_type:        job.urgency_type        ?? null,
-        search_radius_miles: job.search_radius_miles ?? null,
+        search_radius_miles: searchRadius,
         expires_at:          job.expires_at          ?? null,
         job_state:           job.job_state           ?? null,
       }}

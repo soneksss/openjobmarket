@@ -21,7 +21,7 @@ export async function GET(
     // Fetch job
     const { data: job } = await supabase
       .from("jobs")
-      .select("id, urgency_type, search_radius_miles, homeowner_id, company_id, job_state")
+      .select("id, urgency_type, search_radius_miles, homeowner_id, company_id, job_state, is_tradespeople_job")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -95,11 +95,23 @@ export async function GET(
     let notifiedCount = 0
     let alertedTrades: any[] = []
     try {
+      const isFlexible = (job as any).urgency_type === "flexible"
+
+      if (isFlexible) {
+        // Flexible jobs use job_notifications_sent (not urgent_job_dispatch_alerts)
+        const { count: flexCount } = await adminClient
+          .from("job_notifications_sent")
+          .select("*", { count: "exact", head: true })
+          .eq("job_id", jobId)
+        notifiedCount = flexCount ?? 0
+        // alertedTrades stays [] for flexible — no per-company status tracking
+      }
+
       const { data: allAlerts, count } = await adminClient
         .from("urgent_job_dispatch_alerts")
         .select("company_id, responded", { count: "exact" })
         .eq("job_id", jobId)
-      notifiedCount = count ?? 0
+      if (!isFlexible) notifiedCount = count ?? 0
 
       // Build alerted trades list (dispatched but haven't applied yet)
       const respondedIds = new Set((applications ?? []).map((a: any) => a.company_id))
@@ -110,7 +122,7 @@ export async function GET(
       if (alertedIds.length > 0) {
         const { data: alertProfiles } = await adminClient
           .from("company_profiles")
-          .select("id, user_id, company_name, logo_url")
+          .select("id, user_id, company_name, logo_url, latitude, longitude")
           .in("id", alertedIds)
 
         // Try to get viewed_at (graceful — column may not exist in DB yet)
@@ -132,6 +144,8 @@ export async function GET(
           name:      p.company_name || "A tradesperson",
           avatar_url: p.logo_url ?? null,
           viewed_at: viewedAtMap.get(p.id) ?? null,
+          lat:       p.latitude  ?? null,
+          lng:       p.longitude ?? null,
         }))
       }
     } catch {}

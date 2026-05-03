@@ -86,6 +86,10 @@ export default async function HomeownerJobsPage({
       label: "Completed", dot: "bg-emerald-400",
       badge: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
     }
+    if (dbStatus === "CANCELLED") return {
+      label: "Cancelled", dot: "bg-red-400",
+      badge: "bg-red-500/15 text-red-400 border-red-500/30",
+    }
     if (isClosed(job)) return {
       label: "Closed", dot: "bg-slate-500",
       badge: "bg-slate-700/60 text-slate-400 border-slate-600/50",
@@ -352,6 +356,19 @@ export default async function HomeownerJobsPage({
                         >
                           <MessageCircle className="h-3.5 w-3.5" />
                           Messages
+                        </Link>
+                      </>
+                    )}
+
+                    {showHistory && job.status?.toUpperCase() === "CANCELLED" && (
+                      <>
+                        <div className="w-px bg-slate-700/40" />
+                        <Link
+                          href="/jobs/new"
+                          className="flex-1 text-center text-xs font-semibold py-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <Zap className="h-3.5 w-3.5" />
+                          Post again
                         </Link>
                       </>
                     )}

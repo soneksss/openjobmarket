@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/client"
 import { X, ImagePlus, Loader2, GripVertical } from "lucide-react"
-import pica from "pica"
+import imageCompression from "browser-image-compression"
 import {
   DndContext,
   closestCenter,
@@ -29,7 +29,7 @@ interface PortfolioPhoto {
 }
 
 const MAX_PHOTOS = 6
-const MAX_FILE_BYTES = 3 * 1024 * 1024
+const MAX_FILE_BYTES = 10 * 1024 * 1024
 
 // ── Single sortable photo tile ────────────────────────────────────────────────
 function SortablePhoto({
@@ -107,6 +107,7 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
   const [photos, setPhotos] = useState<PortfolioPhoto[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [optimising, setOptimising] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -147,45 +148,6 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
     return () => { cancelled = true }
   }, [profileId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function compressImage(file: File): Promise<File> {
-    const TIMEOUT_MS = 15_000
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => resolve(file), TIMEOUT_MS)
-      const done = (result: File) => { clearTimeout(timer); resolve(result) }
-
-      const img = new Image()
-      const url = URL.createObjectURL(file)
-      img.onload = async () => {
-        URL.revokeObjectURL(url)
-        const maxW = 1600
-        let { width, height } = img
-        if (width > maxW) { height = Math.round((height * maxW) / width); width = maxW }
-        const canvas = document.createElement("canvas")
-        canvas.width = width
-        canvas.height = height
-        try {
-          const picaInst = pica()
-          await picaInst.resize(img, canvas)
-          const blob = await picaInst.toBlob(canvas, "image/webp", 0.75)
-          done(new File([blob], "photo.webp", { type: "image/webp" }))
-        } catch {
-          const ctx = canvas.getContext("2d")
-          if (ctx) {
-            ctx.drawImage(img, 0, 0, width, height)
-            canvas.toBlob(
-              (blob) => done(blob ? new File([blob], "photo.webp", { type: "image/webp" }) : file),
-              "image/webp", 0.75
-            )
-          } else {
-            done(file)
-          }
-        }
-      }
-      img.onerror = () => { URL.revokeObjectURL(url); done(file) }
-      img.src = url
-    })
-  }
-
   async function handleFiles(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ""
@@ -195,15 +157,26 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
     const remaining = MAX_PHOTOS - photos.length
     const toUpload = files.slice(0, remaining)
 
-    setUploading(true)
     try {
       for (const file of toUpload) {
         if (file.size > MAX_FILE_BYTES) {
-          setError(`"${file.name}" exceeds the 3 MB limit before compression.`)
+          setError(`"${file.name}" is over 10 MB — please choose a smaller photo.`)
+          continue
+        }
+        if (!file.type.startsWith("image/")) {
+          setError(`"${file.name}" is not an image file.`)
           continue
         }
         try {
-          const compressed = await compressImage(file)
+          setOptimising(true)
+          const compressed = await imageCompression(file, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1600,
+            useWebWorker: true,
+            fileType: "image/webp",
+          })
+          setOptimising(false)
+          setUploading(true)
           const storagePath = `${profileId}/${Date.now()}.webp`
 
           const { error: uploadErr } = await supabase.storage
@@ -227,10 +200,13 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
           setPhotos((prev) => [...prev, body.photo])
         } catch (err: any) {
           setError(err?.message ?? "Upload failed")
+        } finally {
+          setOptimising(false)
+          setUploading(false)
         }
       }
-    } finally {
-      setUploading(false)
+    } catch (err) {
+      console.error("[PORTFOLIO] unexpected error:", err)
     }
   }
 
@@ -290,11 +266,12 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
 
   return (
     <div className="space-y-3">
-      {photos.length > 0 && (
-        <p className="text-xs text-slate-500">
-          Drag photos to reorder — the first photo is the cover shown on your profile.
-        </p>
-      )}
+      <p className="text-xs text-slate-500">
+        {photos.length > 0
+          ? "Drag to reorder — the first photo is your cover."
+          : "Add up to 6 photos of your work."}{" "}
+        Photos are automatically cropped to square and optimised — no manual resizing needed.
+      </p>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={photos.map((p) => p.id)} strategy={rectSortingStrategy}>
@@ -314,14 +291,14 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || optimising}
                 className="aspect-square rounded-xl border-2 border-dashed border-slate-600 flex flex-col items-center justify-center gap-1.5 hover:border-emerald-500 hover:bg-emerald-500/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {uploading
+                {(uploading || optimising)
                   ? <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
                   : <ImagePlus className="w-5 h-5 text-slate-400" />}
                 <span className="text-[10px] text-slate-500 font-medium">
-                  {uploading ? "Uploading…" : "Add photo"}
+                  {optimising ? "Optimising…" : uploading ? "Uploading…" : "Add photo"}
                 </span>
               </button>
             )}
@@ -341,7 +318,7 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/*"
         multiple
         className="hidden"
         onChange={handleFiles}

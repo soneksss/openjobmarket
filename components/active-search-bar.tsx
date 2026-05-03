@@ -47,13 +47,15 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
   const poll = useCallback(async () => {
     if (!activeSearch || isOnLivePage) return
     try {
-      // Check if job is already confirmed/completed — if so, clear the banner
-      const { data: jobRow } = await supabase
+      // Check if job is done / cancelled / deleted — if so, clear the banner
+      const { data: jobRow, error: jobErr } = await supabase
         .from("jobs")
-        .select("status")
+        .select("status, is_active")
         .eq("id", activeSearch.jobId)
         .single()
-      if (jobRow?.status === "CONFIRMED" || jobRow?.status === "COMPLETED") {
+      const done = ["CONFIRMED", "COMPLETED", "CANCELLED"].includes(jobRow?.status ?? "")
+      const inactive = jobRow?.is_active === false
+      if (jobErr || !jobRow || done || inactive) {
         clearActiveSearch()
         return
       }
@@ -95,11 +97,12 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
     // Immediately check DB status on mount so banner clears without waiting for first poll
     supabase
       .from("jobs")
-      .select("status")
+      .select("status, is_active")
       .eq("id", activeSearch.jobId)
       .single()
-      .then(({ data }) => {
-        if (data?.status === "CONFIRMED" || data?.status === "COMPLETED") {
+      .then(({ data, error }) => {
+        const done = ["CONFIRMED", "COMPLETED", "CANCELLED"].includes(data?.status ?? "")
+        if (error || !data || done || data?.is_active === false) {
           clearActiveSearch()
         }
       })
@@ -120,13 +123,10 @@ export function ActiveSearchBar({ userType, userId }: ActiveSearchBarProps = {})
     if (cancelling) return
     setCancelling(true)
     try {
-      await supabase
-        .from("jobs")
-        .update({ is_active: false, matching_status: "cancelled" })
-        .eq("id", activeSearch.jobId)
+      await fetch(`/api/jobs/${activeSearch.jobId}/cancel`, { method: "POST", credentials: "include" })
     } catch {}
     clearActiveSearch()
-    router.push("/dashboard/homeowner")
+    router.push("/dashboard/homeowner/jobs?status=closed")
   }
 
   // ── Progression message ───────────────────────────────────────────────

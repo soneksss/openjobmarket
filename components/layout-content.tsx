@@ -38,6 +38,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
   const isAdminRoute = pathname?.startsWith("/admin")
   const isHomePage = pathname === "/" || pathname === "/br"
   const isDashboardPage = pathname?.startsWith("/dashboard")
+  const isJobPostingPage = pathname?.includes("/jobs/new") || pathname?.includes("/post-job")
 
   // Check query parameter first (highest priority), then server locale, then pathname
   const localeParam = searchParams?.get('locale')
@@ -136,8 +137,8 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
         {!isHomePage && !isDashboardPage && (
           <Footer />
         )}
-        {/* MobileBottomNav handles its own auth check internally */}
-        <MobileBottomNav user={user} userType={userType} />
+        {/* Hide nav on job posting pages — keyboard pushes it over the form */}
+        {!isJobPostingPage && <MobileBottomNav user={user} userType={userType} />}
         <Toaster />
         <LanguageRegionModal />
       </LanguageRegionProvider>

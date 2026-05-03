@@ -2321,6 +2321,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
     setAutoSearchSkillsLabel(null)
     setSearchQuery("")
     setShowNoJobsOverlay(false)
+    setTradeCategory("all")
     autoSearchFallbackStageRef.current = 3  // skip skill-based fallback stages
 
     // If no location is set, validateSearch() would reject the call.

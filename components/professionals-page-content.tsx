@@ -447,6 +447,13 @@ function ProfessionalsPageContent({
   const [showApplicationModal, setShowApplicationModal] = useState(false)
   const [selectedJobForApplication, setSelectedJobForApplication] = useState<any | null>(null)
 
+  // Sync filter state from parent searchParams (e.g. when "View all jobs nearby" clears tradeCategory)
+  useEffect(() => {
+    const incoming = (searchParams as any).tradeCategory || "all"
+    setFilterCategory(incoming)
+    if (incoming === "all") setFilterService("all")
+  }, [(searchParams as any).tradeCategory]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Scroll to selected professional card
   useEffect(() => {
     if (selectedProfessionalId && professionalCardRefs.current[selectedProfessionalId]) {
@@ -593,7 +600,7 @@ function ProfessionalsPageContent({
     }
   }
 
-  const handleSearch = (customRadius?: string, overrides?: { availability?: string; language?: string; is247?: boolean }) => {
+  const handleSearch = (customRadius?: string, overrides?: { availability?: string; language?: string; is247?: boolean; category?: string; service?: string }) => {
     setSearchApplied(true)
     const params = new URLSearchParams()
 
@@ -633,8 +640,10 @@ function ProfessionalsPageContent({
     if ((searchParams as any).autoSearch) params.set("autoSearch", (searchParams as any).autoSearch)
     if ((searchParams as any).tab) params.set("tab", (searchParams as any).tab)
     // Modal-specific filters (local state, applied on Search click)
-    if (filterCategory !== "all") params.set("tradeCategory", filterCategory)
-    if (filterService !== "all") params.set("service", filterService)
+    const effectiveCategory = overrides?.category !== undefined ? overrides.category : filterCategory
+    const effectiveService  = overrides?.service  !== undefined ? overrides.service  : filterService
+    if (effectiveCategory !== "all") params.set("tradeCategory", effectiveCategory)
+    if (effectiveService  !== "all") params.set("service",  effectiveService)
     if (filterUrgency !== "all") params.set("urgency", filterUrgency)
     if (filterBudget !== "all") params.set("budget", filterBudget)
     const effectiveAvailability = overrides?.availability !== undefined ? overrides.availability : filterAvailability
@@ -2787,7 +2796,7 @@ function ProfessionalsPageContent({
                           <div className="flex-1 min-w-0">
                           <Select
                             value={filterCategory}
-                            onValueChange={(v) => { setFilterCategory(v); setFilterService("all") }}
+                            onValueChange={(v) => { setFilterCategory(v); setFilterService("all"); if (isModal) handleSearch(undefined, { category: v, service: "all" }) }}
                           >
                             <SelectTrigger className="w-full h-12 text-base bg-slate-700 border-slate-600 text-white font-medium focus:border-emerald-500 focus:ring-emerald-500/30 pl-4">
                               <SelectValue placeholder="Any industry" />
@@ -2806,7 +2815,7 @@ function ProfessionalsPageContent({
                           <div className="flex-1 min-w-0">
                           <Select
                             value={filterService}
-                            onValueChange={setFilterService}
+                            onValueChange={(v) => { setFilterService(v); if (isModal) handleSearch(undefined, { category: filterCategory, service: v }) }}
                             disabled={filterCategory === "all"}
                           >
                             <SelectTrigger className={`w-full h-12 text-base border-slate-600 font-medium pl-4 transition-colors ${filterCategory === "all" ? 'bg-slate-800 text-slate-500' : 'bg-slate-700 text-white focus:border-emerald-500 focus:ring-emerald-500/30'}`}>

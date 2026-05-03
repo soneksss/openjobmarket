@@ -320,7 +320,7 @@ export default function FindingTradesMap({
     <div
       ref={containerRef}
       className="w-full h-full"
-      style={{ background: "#e8ecf0" }}
+      style={{ background: "#e8ecf0", position: "relative", zIndex: 0 }}
     />
   )
 }

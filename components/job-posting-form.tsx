@@ -20,6 +20,7 @@ import { ProfessionalMap } from "@/components/professional-map"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/client"
 import { useToast } from "@/hooks/use-toast"
+import imageCompression from "browser-image-compression"
 
 interface CompanyProfile {
   id: string
@@ -148,17 +149,16 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Validate file size (max 5MB before compression)
-    if (file.size > 5 * 1024 * 1024) {
+    // Reject anything over 10MB (before compression)
+    if (file.size > 10 * 1024 * 1024) {
       toast({
         title: "⚠️ File Too Large",
-        description: "Photo size must be less than 5MB",
+        description: "Photo must be under 10MB",
         variant: "destructive",
       })
       return
     }
 
-    // Validate file type
     if (!file.type.startsWith("image/")) {
       toast({
         title: "⚠️ Invalid File Type",
@@ -168,17 +168,23 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
       return
     }
 
-    try {
-      // Always convert to JPEG format (required by Supabase Storage bucket)
-      console.log("[Job Edit] Processing image from", (file.size / 1024 / 1024).toFixed(2), "MB")
-      const processedFile = await compressImage(file, 512 * 1024) // 512KB target — smaller for faster mobile upload
-      console.log("[Job Edit] Processed to", (processedFile.size / 1024 / 1024).toFixed(2), "MB")
+    const { dismiss } = toast({ title: "Optimising photo…", description: "Just a moment." })
 
+    try {
+      const processedFile = await imageCompression(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1600,
+        useWebWorker: true,
+        fileType: "image/webp",
+      })
+
+      dismiss()
       const previewUrl = URL.createObjectURL(processedFile)
       setJobPhoto(processedFile)
       setJobPhotoUrl(previewUrl)
       setPhotoChanged(true)
     } catch (error) {
+      dismiss()
       console.error("[Job Edit] Error processing image:", error)
       toast({
         title: "❌ Image Processing Failed",
@@ -186,64 +192,6 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
         variant: "destructive",
       })
     }
-  }
-
-  const compressImage = (file: File, maxSizeBytes: number): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = (event) => {
-        const img = new Image()
-        img.src = event.target?.result as string
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          canvas.width = img.width
-          canvas.height = img.height
-          const ctx = canvas.getContext('2d')
-          if (!ctx) {
-            reject(new Error('Failed to get canvas context'))
-            return
-          }
-          ctx.drawImage(img, 0, 0)
-
-          // Try different quality levels to get under target size
-          let quality = 0.9
-          const tryCompress = () => {
-            canvas.toBlob(
-              (blob) => {
-                if (!blob) {
-                  reject(new Error('Failed to compress image'))
-                  return
-                }
-
-                // If still too large and quality can be reduced, try again
-                if (blob.size > maxSizeBytes && quality > 0.1) {
-                  quality -= 0.1
-                  tryCompress()
-                  return
-                }
-
-                // Create file from blob (always JPEG)
-                // Replace original extension with .jpg
-                const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
-                const jpegFileName = `${nameWithoutExt}.jpg`
-
-                const compressedFile = new File([blob], jpegFileName, {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
-                })
-                resolve(compressedFile)
-              },
-              'image/jpeg',
-              quality
-            )
-          }
-          tryCompress()
-        }
-        img.onerror = () => reject(new Error('Failed to load image'))
-      }
-      reader.onerror = () => reject(new Error('Failed to read file'))
-    })
   }
 
   const handleRemovePhoto = () => {
@@ -407,7 +355,7 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
                   <div className="space-y-2">
                     <Label htmlFor="jobPhoto">Job Photo (Optional)</Label>
                     <p className="text-sm text-muted-foreground mb-2">
-                      Upload a photo to help describe the job (max 5MB, will be compressed to 1MB)
+                      Upload a photo to help describe the job (max 10MB, auto-optimised)
                     </p>
                     <div className="flex flex-col gap-4">
                       {!jobPhotoUrl ? (

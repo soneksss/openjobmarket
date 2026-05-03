@@ -66,6 +66,8 @@ interface AlertedTrade {
   name: string
   avatarUrl?: string | null
   viewedAt?: string | null
+  lat?: number | null
+  lng?: number | null
 }
 
 interface FindingTradesViewProps {
@@ -367,10 +369,17 @@ function AlertedCard({ trade, index, elapsed }: { trade: AlertedTrade; index: nu
       className="animate-fade-in-up flex items-center gap-3 p-3.5 rounded-2xl bg-slate-800/60 border border-slate-700/40"
       style={{ animationDelay: `${index * 70}ms`, animationFillMode: "both" }}
     >
-      <div className="w-11 h-11 rounded-full bg-slate-700 animate-pulse flex-shrink-0 ring-2 ring-slate-600/30" />
+      <div className="w-11 h-11 rounded-full bg-slate-700 overflow-hidden flex-shrink-0 ring-2 ring-slate-600/30">
+        {trade.avatarUrl
+          ? <img src={trade.avatarUrl} alt={trade.name} className="w-full h-full object-cover" />
+          : <span className="w-full h-full flex items-center justify-center text-sm font-bold text-slate-300">
+              {trade.name.charAt(0).toUpperCase()}
+            </span>
+        }
+      </div>
       <div className="flex-1 min-w-0">
-        <div className="h-3 rounded-full bg-slate-700 animate-pulse mb-1.5" style={{ width: `${52 + (index % 3) * 13}%` }} />
-        <div className="flex items-center gap-1.5">
+        <p className="text-sm font-semibold text-slate-300 truncate leading-tight">{trade.name}</p>
+        <div className="flex items-center gap-1.5 mt-0.5">
           <Bell className="w-3 h-3 text-slate-500 flex-shrink-0" />
           <span className="text-xs text-slate-500">Notified · {fmt(elapsed)}</span>
         </div>
@@ -455,8 +464,9 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   const [stopped, setStopped]                     = useState(false)
   const [dbJobState, setDbJobState]               = useState<string | null>(job.job_state ?? null)
   const [confirmingId, setConfirmingId]           = useState<string | null>(null)
+  const isFlexibleJob = job.urgency_type === "flexible"
   const [timeLeft, setTimeLeft]                   = useState<number>(() => {
-    if (!job.expires_at) return 3600
+    if (!job.expires_at || isFlexibleJob) return 3600
     return Math.max(0, Math.min(Math.floor((new Date(job.expires_at).getTime() - Date.now()) / 1000), 3600))
   })
   const [showBrowseCta, setShowBrowseCta]         = useState(false)
@@ -555,7 +565,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
 
   /* ── Phase effects ──────────────────────────────────────────── */
   useEffect(() => {
-    if (!job.expires_at) return
+    if (!job.expires_at || isFlexibleJob) return
     if (new Date(job.expires_at).getTime() - Date.now() <= 0) {
       setStopped(true); setPhase("timed_out")
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
@@ -564,7 +574,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   }, [])
 
   useEffect(() => {
-    if (stopped || !job.expires_at) return
+    if (stopped || !job.expires_at || isFlexibleJob) return
     const t = setInterval(() => setTimeLeft((p) => {
       if (p <= 1) {
         setStopped(true); setPhase("timed_out")
@@ -665,19 +675,16 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     } catch {}
   }
 
-  const handleCancelSearch = () => {
+  const cancelJob = () => {
     setStopped(true)
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
     clearActiveSearch()
-    router.push("/dashboard/homeowner")
-    supabase.from("jobs").update({ is_active: false }).eq("id", job.id).catch(() => {})
+    fetch(`/api/jobs/${job.id}/cancel`, { method: "POST", credentials: "include" }).catch(() => {})
+    router.push("/dashboard/homeowner/jobs?status=closed")
   }
 
-  const handleCancelRequest = () => {
-    clearActiveSearch()
-    router.push("/dashboard/homeowner")
-    supabase.from("jobs").update({ is_active: false }).eq("id", job.id).catch(() => {})
-  }
+  const handleCancelSearch  = cancelJob
+  const handleCancelRequest = cancelJob
 
   const handleExtendSearch = async () => {
     const newExpiry = new Date(Date.now() + 3_600_000).toISOString()
@@ -718,6 +725,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
         setAlertedTrades((data.alertedTrades ?? []).map((a: any): AlertedTrade => ({
           id: a.id, userId: a.user_id, name: a.name,
           avatarUrl: a.avatar_url ?? null, viewedAt: a.viewed_at ?? null,
+          lat: a.lat ?? null, lng: a.lng ?? null,
         })))
       }
 
@@ -916,7 +924,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
         </div>
 
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          {!stopped && job.expires_at && (
+          {!stopped && job.expires_at && !isFlexibleJob && (
             <span className={`inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border ${
               timeLeft < 300 ? "bg-red-500/15 text-red-300 border-red-500/30 animate-pulse" :
               timeLeft < 600 ? "bg-orange-500/12 text-orange-300 border-orange-500/25" :
@@ -924,6 +932,12 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
             }`}>
               <Clock className="w-2.5 h-2.5" />
               {fmt(timeLeft)}
+            </span>
+          )}
+          {!stopped && isFlexibleJob && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full border bg-emerald-500/12 text-emerald-400 border-emerald-500/25">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block" />
+              Live
             </span>
           )}
           {!stopped && (
@@ -934,21 +948,31 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
         </div>
       </div>
 
-      {/* ── Full-screen map ──────────────────────────────────────── */}
-      <div className="absolute inset-0" style={{ top: `calc(${HEADER_H}px + env(safe-area-inset-top, 0px))` }}>
+      {/* ── Full-screen map — z-0 keeps it below the sheet (z-[60]) ── */}
+      <div className="absolute inset-0 z-0" style={{ top: `calc(${HEADER_H}px + env(safe-area-inset-top, 0px))` }}>
         <FindingTradesMap
           lat={lat}
           lon={lon}
           searchRadiusMiles={radiusMiles}
           isExpanding={isExpanding && !stopped}
-          trades={trades.map((t) => ({
-            id: t.id,
-            name: t.businessName || t.name,
-            distanceMiles: t.distanceMiles,
-            status: t.status,
-            lat: t.lat,
-            lng: t.lng,
-          }))}
+          trades={[
+            ...trades.map((t) => ({
+              id: t.id,
+              name: t.businessName || t.name,
+              distanceMiles: t.distanceMiles,
+              status: t.status as "waiting" | "accepted" | "declined",
+              lat: t.lat,
+              lng: t.lng,
+            })),
+            ...alertedTrades.map((a) => ({
+              id: a.id,
+              name: a.name,
+              distanceMiles: 0,
+              status: "waiting" as const,
+              lat: a.lat,
+              lng: a.lng,
+            })),
+          ]}
           alertedCount={alertedTrades.length}
         />
       </div>
