@@ -317,13 +317,41 @@ export async function POST(
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Strip common English suffixes so "cleaner"→"clean", "cleaning"→"clean", "plumber"→"plumb"
+function stemWord(w: string): string {
+  return w
+    .replace(/ying$/, "y")   // tidying → tidy
+    .replace(/nning$/, "n")  // running → run
+    .replace(/ning$/, "n")   // cleaning → clean
+    .replace(/ing$/, "")     // plumbing → plumb
+    .replace(/ners$/, "n")   // cleaners → clean
+    .replace(/ner$/, "n")    // cleaner → clean
+    .replace(/ers$/, "")     // plumbers → plumb
+    .replace(/er$/, "")      // plumber → plumb
+    .replace(/ors$/, "")     // contractors → contract
+    .replace(/or$/, "")      // contractor → contract
+    .replace(/tion$/, "t")   // construction → construct
+    .replace(/s$/, "")       // cleanups → cleanup
+}
+
+function stemWords(phrase: string): string[] {
+  return phrase.toLowerCase()
+    .split(/[\s,&/()\-]+/)
+    .filter(w => w.length > 2)
+    .map(stemWord)
+}
+
 function skillMatch(profile: { industry?: string; services?: string[] }, jobCategory: string): boolean {
-  const industry = (profile.industry || "").toLowerCase()
-  const services = (profile.services || []).map((s: string) => s.toLowerCase())
-  return (
-    industry.includes(jobCategory) ||
-    jobCategory.includes(industry) ||
-    services.some((s) => s.includes(jobCategory) || jobCategory.includes(s))
+  const jobStems = stemWords(jobCategory)
+  if (jobStems.length === 0) return false
+
+  const industryStems = stemWords(profile.industry || "")
+  const serviceStems  = (profile.services || []).flatMap((s: string) => stemWords(s))
+  const profileStems  = [...industryStems, ...serviceStems]
+
+  // A match if any job stem shares a root with any profile stem
+  return jobStems.some(js =>
+    profileStems.some(ps => ps.length > 2 && (ps.startsWith(js) || js.startsWith(ps)))
   )
 }
 

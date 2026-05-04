@@ -25,7 +25,7 @@ type JobFormData = {
   // Step 2: Job posting type
   postingType: "employee" | "tradespeople"
   // Step 2b: Urgency for tradespeople jobs
-  urgencyType: "asap" | "flexible" | ""
+  urgencyType: "asap" | "flexible" | "" // "" = not yet selected (validated before submit)
   flexibleDays: number
   // Step 3: Job details
   profession: string   // kept for employee-type jobs
@@ -837,10 +837,10 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         is_tradespeople_job: formData.postingType === "tradespeople",
         // Flexible jobs use classic marketplace (no dispatch, no 15-min window, no reliability penalties)
         is_urgent: formData.postingType === "tradespeople" && formData.urgencyType !== "flexible",
-        urgency_type: formData.postingType === "tradespeople" ? formData.urgencyType : null,
+        urgency_type: formData.postingType === "tradespeople" ? (formData.urgencyType || null) : null,
         deadline_at: formData.postingType === "tradespeople" ? expirationDate.toISOString() : null,
         // Uber-style job matching fields for trade jobs
-        search_state: formData.postingType === "tradespeople" && (formData.urgencyType === "asap" || formData.urgencyType === "today") ? "active_search" : null,
+        search_state: formData.postingType === "tradespeople" && formData.urgencyType === "asap" ? "active_search" : null,
         search_radius_miles: formData.postingType === "tradespeople" ? (formData.urgencyType === "asap" ? 5 : 10) : null,
         matching_status: formData.postingType === "tradespeople" ? "searching" : null,
         max_applications: formData.postingType === "tradespeople" ? 5 : null,
@@ -943,8 +943,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
             }),
           }).catch(() => {})
 
-          // Uber-style radius dispatch for urgent jobs
-          if (formData.urgencyType === "asap" || formData.urgencyType === "today") {
+          // Uber-style radius dispatch for urgent jobs (asap only from wizard)
+          if (formData.urgencyType === "asap") {
             fetch(`/api/jobs/${jobId}/dispatch-urgent`, { method: "POST" }).catch(() => {})
           }
         }
