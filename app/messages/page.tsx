@@ -197,8 +197,8 @@ export default function MessagesPage() {
           : Promise.resolve({ data: [] }),
       ])
 
-      const usersMap = new Map((usersResult.data ?? []).map(u => [u.id, u]))
-      const jobsMap  = new Map((jobsResult.data ?? []).map((j: any) => [j.id, j]))
+      const usersMap = new Map<string, any>((usersResult.data ?? []).map(u => [u.id, u as any]))
+      const jobsMap  = new Map<string, any>((jobsResult.data ?? []).map((j: any) => [j.id, j]))
 
       // ── Step 6: Fetch ALL profile tables IN PARALLEL ─────────────────────
       const proIds        = (usersResult.data ?? []).filter(u => u.user_type === "professional").map(u => u.id)
@@ -220,10 +220,10 @@ export default function MessagesPage() {
           : Promise.resolve({ data: [] }),
       ])
 
-      const proMap        = new Map((proResult.data ?? []).map((p: any) => [p.user_id, p]))
-      const compMap       = new Map((compResult.data ?? []).map((c: any) => [c.user_id, c]))
-      const homeMap       = new Map((homeResult.data ?? []).map((h: any) => [h.user_id, h]))
-      const contractorMap = new Map((contractorResult.data ?? []).map((c: any) => [c.user_id, c]))
+      const proMap        = new Map<string, any>((proResult.data ?? []).map((p: any) => [p.user_id, p]))
+      const compMap       = new Map<string, any>((compResult.data ?? []).map((c: any) => [c.user_id, c]))
+      const homeMap       = new Map<string, any>((homeResult.data ?? []).map((h: any) => [h.user_id, h]))
+      const contractorMap = new Map<string, any>((contractorResult.data ?? []).map((c: any) => [c.user_id, c]))
 
       // ── Step 7: Build conversation list ──────────────────────────────────
       const conversationsData: Conversation[] = []

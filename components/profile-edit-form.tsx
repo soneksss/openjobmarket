@@ -88,6 +88,7 @@ interface ProfessionalProfile {
   ready_to_relocate?: boolean
   employed_open_to_offers?: boolean
   unemployed_seeking?: boolean
+  industry?: string
   nickname?: string
   share_personal_info?: boolean
   profile_photo_url?: string

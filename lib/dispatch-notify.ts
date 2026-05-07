@@ -20,15 +20,39 @@ export interface DispatchTarget {
 }
 
 export interface DispatchPayload {
-  jobId:    string
-  jobTitle: string | undefined
-  location: string | undefined
-  jobUrl:   string
+  jobId:        string
+  jobTitle:     string | undefined
+  location:     string | undefined
+  jobUrl:       string
+  budgetMin?:   number | null
+  budgetMax?:   number | null
+  budgetPeriod?: string | null
 }
 
-function copy(title: string | undefined, location: string | undefined) {
+function formatBudget(min?: number | null, max?: number | null, period?: string | null): string {
+  if (!min && !max) return ""
+  const periodLabel: Record<string, string> = {
+    per_hour:  "/hr",
+    per_day:   "/day",
+    per_week:  "/wk",
+    per_month: "/mo",
+  }
+  const suffix = period ? (periodLabel[period] ?? "") : ""
+  const fmt = (n: number) => `£${n}${suffix}`
+  if (min && max && min !== max) return `Budget: ${fmt(min)}–${fmt(max)}`
+  return `Budget: ${fmt((min ?? max)!)}`
+}
+
+function copy(
+  title: string | undefined,
+  location: string | undefined,
+  budgetMin?: number | null,
+  budgetMax?: number | null,
+  budgetPeriod?: string | null,
+) {
   const t = `Urgent job near you: ${title ?? "New job"}`
-  const b = `A new urgent job has been posted${location ? ` in ${location}` : ""}. Tap to respond quickly — first come, first served.`
+  const budget = formatBudget(budgetMin, budgetMax, budgetPeriod)
+  const b = `A new urgent job has been posted${location ? ` in ${location}` : ""}${budget ? `. ${budget}` : ""}. Tap to respond quickly — first come, first served.`
   return { title: t, body: b }
 }
 
@@ -41,9 +65,9 @@ export async function notifyOne(
   target:  DispatchTarget,
   payload: DispatchPayload,
 ): Promise<{ notified: boolean }> {
-  const { jobId, jobTitle, location, jobUrl } = payload
+  const { jobId, jobTitle, location, jobUrl, budgetMin, budgetMax, budgetPeriod } = payload
   const { companyProfileId, userId } = target
-  const { title, body } = copy(jobTitle, location)
+  const { title, body } = copy(jobTitle, location, budgetMin, budgetMax, budgetPeriod)
 
   // ── 1. Dedup guard ────────────────────────────────────────────────────────
   await admin

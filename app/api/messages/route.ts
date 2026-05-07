@@ -1,4 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/server"
+import { sendFcmToTokens } from "@/lib/firebase-admin"
+import { sendWebPushToUser } from "@/lib/web-push"
 import { NextRequest, NextResponse } from "next/server"
 
 // POST /api/messages
@@ -189,12 +191,88 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: msgError.message }, { status: 500 })
     }
 
+    // Push notification to recipient — fire-and-forget, never blocks the response
+    sendMessagePush({
+      admin,
+      senderId:        user.id,
+      senderType,
+      recipientId:     recipient_id,
+      content:         message!.content,
+      conversationId:  message!.conversation_id,
+      hasPhotos,
+    }).catch(console.error)
+
     return NextResponse.json({ success: true, message })
 
   } catch (error) {
     console.error("[MESSAGES POST] Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+// ── Push notification on every new message ───────────────────────────────────
+// Resolves sender display name, fetches recipient device tokens, sends push.
+// Called fire-and-forget so it never delays the API response.
+async function sendMessagePush({
+  admin,
+  senderId,
+  senderType,
+  recipientId,
+  content,
+  conversationId,
+  hasPhotos,
+}: {
+  admin: ReturnType<typeof createAdminClient>
+  senderId: string
+  senderType: string | null
+  recipientId: string
+  content: string
+  conversationId: string | null
+  hasPhotos: boolean
+}) {
+  // Resolve sender's display name
+  let senderName = "New message"
+  try {
+    if (senderType === "homeowner") {
+      const { data } = await admin.from("homeowner_profiles").select("first_name, last_name").eq("user_id", senderId).maybeSingle()
+      if (data) senderName = `${data.first_name} ${data.last_name}`.trim()
+    } else if (senderType === "company") {
+      const { data } = await admin.from("company_profiles").select("company_name").eq("user_id", senderId).maybeSingle()
+      if (data?.company_name) senderName = data.company_name
+    }
+  } catch { /* name is non-critical */ }
+
+  // Fetch recipient's push tokens
+  const { data: tokenRows } = await admin
+    .from("user_push_tokens")
+    .select("token, device_type")
+    .eq("user_id", recipientId)
+
+  if (!tokenRows || tokenRows.length === 0) return
+
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://openjobmarket.com"
+  const url     = conversationId ? `${baseUrl}/messages/${conversationId}` : `${baseUrl}/messages`
+  const body    = content?.trim() || (hasPhotos ? "📎 Photo" : "New message")
+  const tag     = `message-${conversationId ?? recipientId}`
+
+  const webTokens = tokenRows.filter((r: any) => r.device_type === "web").map((r: any) => r.token as string)
+  const fcmTokens = tokenRows.filter((r: any) => r.device_type === "fcm").map((r: any) => r.token as string)
+
+  if (webTokens.length > 0) {
+    const { expired } = await sendWebPushToUser(webTokens, { title: senderName, body, url, tag })
+    if (expired.length > 0) {
+      await admin.from("user_push_tokens").delete().in("token", expired)
+    }
+  }
+
+  if (fcmTokens.length > 0) {
+    const { failed } = await sendFcmToTokens(fcmTokens, { title: senderName, body, url, tag })
+    if (failed.length > 0) {
+      await admin.from("user_push_tokens").delete().in("token", failed)
+    }
+  }
+
+  console.log(`[MESSAGES] Push sent to ${recipientId} — web=${webTokens.length} fcm=${fcmTokens.length}`)
 }
 
 // Notify tradesperson when homeowner sends them a message — "Message now" deep link

@@ -18,7 +18,7 @@ export default async function SavedJobsPageBR() {
     const supabase = await createClient()
 
     // Get current user with error handling
-    let user = null
+    let user: any = null
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
       console.log("[SAVED-JOBS-PAGE-BR] Auth check result:", { authUser: !!authUser, authError })

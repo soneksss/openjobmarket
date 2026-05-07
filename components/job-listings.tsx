@@ -23,6 +23,9 @@ interface Job {
     company_name: string
     location: string
     industry: string
+    id?: string
+    user_id?: string
+    logo_url?: string
   }
 }
 
@@ -80,7 +83,7 @@ export default function JobListings({ jobs, user, searchParams }: JobListingsPro
               {jobs.map((job) => (
                 <JobCard
                   key={job.id}
-                  job={job}
+                  job={job as any}
                   isLoggedIn={!!user}
                 />
               ))}

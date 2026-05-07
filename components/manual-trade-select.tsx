@@ -39,6 +39,8 @@ interface Job {
   latitude: number | null
   longitude: number | null
   urgency_type: string | null
+  industry: string | null
+  category: string | null
 }
 
 interface ManualTradeSelectProps {
@@ -109,9 +111,11 @@ export function ManualTradeSelect({ job, tradespeople, userId, posterName }: Man
           jobTitle:    job.title,
           jobLat:      lat,
           jobLon:      lon,
-          jobSkills:   [job.title],
+          jobSkills:   [job.category || job.title, job.industry].filter(Boolean),
           posterName,
           urgencyType: job.urgency_type,
+          jobIndustry: job.industry || null,
+          jobService:  job.category || null,
         }),
       })
     } catch {}

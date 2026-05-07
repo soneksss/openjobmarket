@@ -51,6 +51,7 @@ interface Job {
     average_rating?: number
     reviews_count?: number
   } | null
+  poster_company_name?: string | null
   poster_type?: 'company' | 'individual'
   poster_first_name?: string
   poster_last_name?: string

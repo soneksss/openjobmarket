@@ -16,6 +16,7 @@ export function getFirebaseAdmin(): admin.app.App | null {
   if (app) return app
 
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+  console.log("Firebase env exists:", !!raw)
   if (!raw) return null
 
   try {

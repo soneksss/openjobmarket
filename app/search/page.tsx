@@ -21,7 +21,7 @@ export default async function SearchPage() {
   // Allow unauthenticated browsing - removed auth redirect
 
   // Fetch user profile for recommendations (only if logged in)
-  let profile = null
+  let profile: any = null
   if (user) {
     const { data: profileData } = await supabase
       .from("professional_profiles")

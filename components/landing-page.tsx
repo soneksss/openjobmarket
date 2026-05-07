@@ -340,16 +340,14 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
   }
 
   const handleCategoryClick = (category: string, industry?: string, service?: string) => {
-    if (!isSignedIn) {
-      router.push("/auth/sign-up")
-    } else if (userType === "company") {
-      // Tradespeople browse jobs, they don't post them
-      router.push("/")
+    if (userType === "company") return
+    const industryParam = industry ?? category
+    if (heroPostcode.trim()) {
+      router.push(`/find?postcode=${encodeURIComponent(heroPostcode.trim())}&industry=${encodeURIComponent(industryParam)}`)
     } else {
-      const params = new URLSearchParams({ category })
-      if (industry) params.set("industry", industry)
-      if (service) params.set("service", service)
-      router.push(`/jobs/new?${params.toString()}`)
+      setPendingIndustry(industryParam)
+      setModalPostcode("")
+      setShowPostcodeModal(true)
     }
   }
 
@@ -364,11 +362,24 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
     router.push(`/?${params.toString()}`)
   }
 
+  const [heroPostcode, setHeroPostcode] = useState("")
+  const [pendingIndustry, setPendingIndustry] = useState<string | null>(null)
+  const [pendingMapRoute, setPendingMapRoute] = useState<"/find" | "/find-jobs">("/find")
+  const [showPostcodeModal, setShowPostcodeModal] = useState(false)
+  const [modalPostcode, setModalPostcode] = useState("")
+  const [locating, setLocating] = useState(false)
+
+  const handlePostcodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (userType === "company") return // tradespeople don't post jobs
+    const qs = heroPostcode.trim() ? `?postcode=${encodeURIComponent(heroPostcode.trim())}` : ""
+    router.push(`/find${qs}`)
+  }
+
   const handlePostJob = () => {
     if (!isSignedIn) {
       router.push("/auth/sign-up")
     } else if (userType === "company") {
-      // Tradespeople browse jobs, they don't post them
       router.push("/")
     } else {
       router.push("/jobs/new")
@@ -757,19 +768,27 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
             {/* Dynamic Visual CTA - Changes based on active tab */}
             {activeTab === "jobs" ? null : (
               <div className="mb-6 -mt-16 md:mt-4 relative z-10">
-                {/* Fake search bar → opens job posting */}
-                <div
-                  className="flex items-center gap-3 bg-white hover:bg-gray-50 active:bg-gray-100 rounded-full px-4 py-3.5 transition-all duration-200 cursor-text max-w-xl mx-auto shadow-2xl shadow-black/40 group"
-                  onClick={handlePostJob}
+                {/* Postcode input → opens guest job posting wizard */}
+                <form
+                  onSubmit={handlePostcodeSubmit}
+                  className="flex items-center gap-2 bg-white rounded-full px-3 py-2.5 w-full max-w-xl mx-auto shadow-2xl shadow-black/40"
                 >
-                  {/* Left magnifier in orange circle */}
-                  <div className="flex-shrink-0 w-9 h-9 rounded-full bg-orange-500 group-hover:bg-orange-400 transition-colors flex items-center justify-center shadow-md shadow-orange-500/40">
-                    <Search className="h-4 w-4 text-white" />
-                  </div>
-                  <span className="flex-1 text-gray-400 text-sm sm:text-base select-none font-medium">
-                    Describe your project or problem…
-                  </span>
-                </div>
+                  <Search className="flex-shrink-0 h-4 w-4 text-gray-400 ml-1" />
+                  <input
+                    type="text"
+                    value={heroPostcode}
+                    onChange={(e) => setHeroPostcode(e.target.value.toUpperCase())}
+                    placeholder="Enter your postcode…"
+                    maxLength={8}
+                    className="flex-1 min-w-0 bg-transparent text-gray-700 placeholder:text-gray-400 text-sm font-medium outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="flex-shrink-0 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-400 active:bg-orange-600 rounded-full px-3 py-1.5 transition-colors whitespace-nowrap"
+                  >
+                    Get started
+                  </button>
+                </form>
               </div>
             )}
 
@@ -986,7 +1005,45 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               /* ── TRADESPEOPLE: Keep existing compact map section ── */
               <>
                 <button
-                  onClick={() => router.push(`/?${getBrowseJobsParams().toString()}`)}
+                  onClick={() => {
+                    // Signed-in with known location → go straight in
+                    if (userProfileLocation) {
+                      const p = new URLSearchParams()
+                      p.set("lat", userProfileLocation.latitude.toString())
+                      p.set("lng", userProfileLocation.longitude.toString())
+                      if (profileIndustry) p.set("industry", profileIndustry)
+                      router.push(`/find-jobs?${p.toString()}`)
+                      return
+                    }
+                    // Try browser geolocation (triggers native Android prompt)
+                    if (typeof navigator !== "undefined" && navigator.geolocation) {
+                      setLocating(true)
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          setLocating(false)
+                          const p = new URLSearchParams()
+                          p.set("lat", pos.coords.latitude.toString())
+                          p.set("lng", pos.coords.longitude.toString())
+                          if (profileIndustry) p.set("industry", profileIndustry)
+                          router.push(`/find-jobs?${p.toString()}`)
+                        },
+                        () => {
+                          setLocating(false)
+                          setPendingIndustry(profileIndustry ?? null)
+                          setPendingMapRoute("/find-jobs")
+                          setModalPostcode("")
+                          setShowPostcodeModal(true)
+                        },
+                        { timeout: 8000, maximumAge: 60000 }
+                      )
+                    } else {
+                      // No geolocation API → postcode modal
+                      setPendingIndustry(profileIndustry ?? null)
+                      setPendingMapRoute("/find-jobs")
+                      setModalPostcode("")
+                      setShowPostcodeModal(true)
+                    }
+                  }}
                   className="relative w-full h-44 md:h-52 rounded-2xl overflow-hidden block group border border-slate-700/50 hover:border-emerald-400/50 transition-all duration-300 shadow-xl"
                 >
                   <img
@@ -1006,8 +1063,9 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     />
                   </div>
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 bg-orange-500 group-hover:bg-orange-400 text-white px-7 py-3 rounded-full shadow-lg shadow-orange-500/40 font-bold text-base transition-colors whitespace-nowrap">
-                    <Map className="h-5 w-5 flex-shrink-0" />
-                    View Jobs on Map
+                    {locating
+                      ? <><span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin flex-shrink-0" />Locating…</>
+                      : <><Map className="h-5 w-5 flex-shrink-0" />View Jobs on Map</>}
                   </div>
                 </button>
               </>
@@ -1869,6 +1927,38 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
 
       {/* Mobile Bottom Nav — only for logged-out users; logged-in users use global MobileBottomNav */}
       {!isSignedIn && <MobileBottomNavLanding isSignedIn={isSignedIn} userType={userType} onNavClick={handleNavClick} />}
+
+      {/* Postcode modal — shown when user taps a category without a postcode entered */}
+      <Dialog open={showPostcodeModal} onOpenChange={setShowPostcodeModal}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-white w-[min(360px,calc(100vw-2rem))] p-4 rounded-2xl">
+          <DialogHeader className="mb-3">
+            <DialogTitle className="text-sm font-bold text-white">Enter your postcode</DialogTitle>
+            <DialogDescription className="text-xs text-slate-400 mt-0.5">
+              {pendingIndustry ? `Find ${pendingIndustry} specialists near you.` : "Find tradespeople near you."}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!modalPostcode.trim()) return
+              setShowPostcodeModal(false)
+              router.push(`${pendingMapRoute}?postcode=${encodeURIComponent(modalPostcode.trim())}${pendingIndustry ? `&industry=${encodeURIComponent(pendingIndustry)}` : ""}`)
+            }}
+            className="space-y-3"
+          >
+            <Input
+              value={modalPostcode}
+              onChange={e => setModalPostcode(e.target.value)}
+              placeholder="e.g. SW1A 1AA"
+              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-500 h-9 text-sm"
+              autoFocus
+            />
+            <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-semibold h-9 text-sm">
+              Find {pendingIndustry ?? "tradespeople"} nearby
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

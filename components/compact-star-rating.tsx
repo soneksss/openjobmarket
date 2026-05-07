@@ -35,7 +35,7 @@ export function CompactStarRating({
   const textSize = textSizeClasses[size]
 
   // Render 5 stars
-  const stars = []
+  const stars: React.ReactElement[] = []
   for (let i = 1; i <= 5; i++) {
     const isFilled = i <= Math.round(displayRating)
     stars.push(

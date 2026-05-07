@@ -24,7 +24,7 @@ export default async function HomePageBR() {
   console.log("[v0] HomePage BR rendering")
 
   // Check if current user is an admin
-  let adminUser = null
+  let adminUser: any = null
   try {
     adminUser = await getAdminUser()
   } catch (error) {

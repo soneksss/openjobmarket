@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export default async function HomeownerDashboardPage() {
   const supabase = await createClient()
 
-  let user = null
+  let user: any = null
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user ?? null
@@ -130,7 +130,7 @@ async function DashboardData({
       user={user}
       profile={profile}
       jobs={jobs}
-      savedTradespeople={savedTradespeople}
+      savedTradespeople={savedTradespeople as any}
       isProfileComplete={isProfileComplete}
       missingFields={missingFields}
       reviews={reviews}

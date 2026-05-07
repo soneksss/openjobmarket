@@ -40,7 +40,7 @@ interface Review {
 
 interface ReviewsListProps {
   userId: string
-  userType: "homeowner" | "company"
+  userType: "homeowner" | "company" | "contractor" | "professional"
   title?: string
   limit?: number
   showViewAll?: boolean

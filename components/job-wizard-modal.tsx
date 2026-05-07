@@ -4,7 +4,7 @@ import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import MapLocationPicker from "./map-location-picker"
 import { LocationInput } from "./location-input"
-import { X, ArrowLeft, ArrowRight, Eye, Briefcase, Hammer, Zap, Clock, Calendar, ChevronDown } from "lucide-react"
+import { X, ArrowLeft, ArrowRight, Eye, Briefcase, Hammer, Zap, Clock, Calendar, ChevronDown, User, Mail, Phone, Lock, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
@@ -14,9 +14,11 @@ import imageCompression from "browser-image-compression"
 type Props = {
   companyProfile: any
   userType: "company" | "homeowner"
-  redirectPath?: string // Optional redirect path after successful job posting
+  redirectPath?: string
   initialIndustry?: string
   initialService?: string
+  guestMode?: boolean      // true when user is not authenticated
+  initialPostcode?: string // pre-fills Step 3 location from homepage input
 }
 
 type JobFormData = {
@@ -25,7 +27,7 @@ type JobFormData = {
   // Step 2: Job posting type
   postingType: "employee" | "tradespeople"
   // Step 2b: Urgency for tradespeople jobs
-  urgencyType: "asap" | "flexible" | "" // "" = not yet selected (validated before submit)
+  urgencyType: "asap" | "today" | "flexible" | "" // "" = not yet selected (validated before submit)
   flexibleDays: number
   // Step 3: Job details
   profession: string   // kept for employee-type jobs
@@ -43,8 +45,14 @@ type JobFormData = {
   // Step 4: Location
   fullAddress: string
   locationCoords: { lat: number; lon: number } | null
+  locationAddressType: 'exact' | 'approx'
   // Step 4: Send mode
   sendMode: "auto" | "manual" | null
+}
+
+const extractPostcode = (address: string): string | null => {
+  const m = address.match(/[A-Z]{1,2}[0-9][0-9A-Z]?\s?[0-9][A-Z]{2}/i)
+  return m ? m[0].toUpperCase().replace(/\s+/, ' ') : null
 }
 
 const getActiveDurationOptions = (isPtBR: boolean) => [
@@ -410,7 +418,7 @@ const getAllLanguages = (isPtBR: boolean) =>
     name: isPtBR ? v.ptBR : v.en,
   }))
 
-export default function JobWizardModal({ companyProfile, userType, redirectPath, initialIndustry, initialService }: Props) {
+export default function JobWizardModal({ companyProfile, userType, redirectPath, initialIndustry, initialService, guestMode = false, initialPostcode }: Props) {
   const supabase = createClient()
   const router = useRouter()
   const { toast } = useToast()
@@ -437,9 +445,13 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
     })
   }, [])
 
-  // 3-step flow for all users: 1=details, 2=urgency, 3=location
+  // 3-step flow for logged-in users; 4-step for guests (step 4 = account creation)
   const isHomeowner = userType === "homeowner"
-  const totalSteps = 3
+  const totalSteps = guestMode ? 4 : 3
+  const [contactData, setContactData] = useState({
+    firstName: "", lastName: "", email: "", phone: "", password: "",
+    termsAccepted: false, ageConfirmation: false,
+  })
   const [err, setErr] = useState<string | null>(null)
   const [showPreview, setShowPreview] = useState(false)
   const [locationChoice, setLocationChoice] = useState<"myLocation" | "differentLocation" | null>(null)
@@ -467,6 +479,14 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       setIsGeocodingPostcode(false)
     }
   }
+
+  // Pre-fill postcode in guest mode
+  useEffect(() => {
+    if (!guestMode || !initialPostcode) return
+    setFormData((prev) => ({ ...prev, fullAddress: initialPostcode }))
+    geocodeProfileLocation(initialPostcode)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestMode, initialPostcode])
 
   // Autocomplete state
   const [showIndustryDropdown, setShowIndustryDropdown] = useState(!initialIndustry)
@@ -500,6 +520,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
     languages: [],
     fullAddress: "",
     locationCoords: null,
+    locationAddressType: 'exact',
     sendMode: "auto", // always auto — Fast dispatch logic
   })
 
@@ -644,7 +665,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           return false
         }
         break
-      case 3: // Location
+      case 3: { // Location
         const hasProfileLocation = !!(companyProfile?.location || (companyProfile?.latitude && companyProfile?.longitude))
         if (hasProfileLocation && !locationChoice) {
           setErr("Please choose whether this job is at your location or a different location.")
@@ -659,13 +680,23 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           return false
         }
         break
+      }
+      case 4: { // Guest contact details
+        if (!contactData.firstName.trim()) { setErr("Please enter your first name."); return false }
+        if (!contactData.lastName.trim())  { setErr("Please enter your last name."); return false }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactData.email)) { setErr("Please enter a valid email address."); return false }
+        if (contactData.password.length < 6) { setErr("Password must be at least 6 characters."); return false }
+        if (!contactData.ageConfirmation) { setErr("Please confirm you are 18 or over."); return false }
+        if (!contactData.termsAccepted)   { setErr("Please accept the Terms & Conditions."); return false }
+        break
+      }
     }
     return true
   }
 
   const nextStep = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep((prev) => Math.min(prev + 1, 3))
+      setCurrentStep((prev) => Math.min(prev + 1, totalSteps))
     }
   }
 
@@ -675,7 +706,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
   }
 
   const handleSubmit = async () => {
-    if (!validateStep(3)) return
+    const lastStep = guestMode ? 4 : 3
+    if (!validateStep(lastStep)) return
 
     setLoading(true)
 
@@ -686,6 +718,105 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
     }, 30000)
 
     try {
+      // ── Guest mode: create account + post job atomically ─────────────────────
+      if (guestMode) {
+        const expirationDate = new Date()
+        if (formData.urgencyType === "asap") expirationDate.setHours(expirationDate.getHours() + 1)
+        else if (formData.urgencyType === "flexible") expirationDate.setDate(expirationDate.getDate() + formData.flexibleDays)
+        else expirationDate.setDate(expirationDate.getDate() + 1)
+
+        const jobId = crypto.randomUUID()
+        const guestJobData: Record<string, any> = {
+          id: jobId,
+          title: (formData.service && formData.service !== "Not sure / Other" ? formData.service : formData.industry).trim(),
+          industry: formData.industry || null,
+          service: formData.service && formData.service !== "Not sure / Other" ? formData.service : null,
+          category: INDUSTRY_TO_CATEGORY[formData.industry] ?? formData.industry ?? null,
+          location: formData.fullAddress,
+          latitude: formData.locationCoords?.lat ?? null,
+          longitude: formData.locationCoords?.lon ?? null,
+          work_location: "onsite",
+          description: formData.shortDescription,
+          short_description: formData.shortDescription,
+          country: "United Kingdom",
+          is_tradespeople_job: true,
+          is_urgent: formData.urgencyType !== "flexible",
+          urgency_type: formData.urgencyType || null,
+          deadline_at: expirationDate.toISOString(),
+          search_state: formData.urgencyType === "asap" ? "active_search" : null,
+          search_radius_miles: formData.urgencyType === "asap" ? 5 : 10,
+          matching_status: "searching",
+          max_applications: 5,
+          max_responses: formData.urgencyType === "flexible" ? 10 : null,
+          broadcast_radius: 5.0,
+          current_radius: 5.0,
+          max_radius: 50.0,
+          last_broadcast_at: new Date().toISOString(),
+          homeowner_notified: false,
+          budget_min: formData.payMin ? parseInt(formData.payMin) : null,
+          budget_max: formData.payMax ? parseInt(formData.payMax) : null,
+          budget_period: formData.payFrequency,
+          preferred_language: locale ?? "en",
+          status: "POSTED",
+          is_active: true,
+          expires_at: expirationDate.toISOString(),
+          created_at: new Date().toISOString(),
+        }
+
+        const guestRes = await fetch("/api/auth/create-guest-account", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firstName:  contactData.firstName.trim(),
+            lastName:   contactData.lastName.trim(),
+            email:      contactData.email.trim().toLowerCase(),
+            password:   contactData.password,
+            phone:      contactData.phone.trim() || undefined,
+            postcode:   initialPostcode ?? formData.fullAddress,
+            location:   formData.fullAddress,
+            latitude:   formData.locationCoords?.lat ?? null,
+            longitude:  formData.locationCoords?.lon ?? null,
+            jobData:    guestJobData,
+          }),
+        })
+
+        const guestBody = await guestRes.json().catch(() => ({}))
+
+        if (!guestRes.ok) {
+          clearTimeout(timeoutId)
+          if (guestBody?.error === "email_exists") {
+            setErr("An account with this email already exists. Please sign in instead.")
+          } else {
+            setErr(guestBody?.error ?? "Failed to create account. Please try again.")
+          }
+          setLoading(false)
+          return
+        }
+
+        // Sign in so the user has a session
+        await supabase.auth.signInWithPassword({ email: contactData.email.trim().toLowerCase(), password: contactData.password })
+
+        clearTimeout(timeoutId)
+        setLoading(false)
+
+        const urgencyType = guestBody.urgencyType
+        if (urgencyType === "flexible") {
+          router.push(`/dashboard/homeowner/jobs?posted=${jobId}`)
+        } else {
+          const ttlMs = urgencyType === "asap" ? 60 * 60 * 1000 : 3 * 60 * 60 * 1000
+          setActiveSearch({
+            jobId,
+            jobTitle: formData.service || formData.industry || "Job",
+            tradesCount: 0, notifiedCount: 0, phase: "searching",
+            startedAt: Date.now(), expiresAt: Date.now() + ttlMs,
+            userId: "",
+          })
+          router.push(`/jobs/${jobId}/live`)
+        }
+        return
+      }
+
+      // ── Authenticated user flow ───────────────────────────────────────────────
       // Use the already-loaded profile to get user ID — no auth network call needed.
       // RLS on the jobs table will enforce auth on the actual INSERT.
       const userId: string | undefined = companyProfile?.user_id
@@ -828,6 +959,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           ? INDUSTRY_TO_CATEGORY[formData.industry] ?? formData.industry ?? PROFESSION_TO_CATEGORY[formData.profession.trim()] ?? null
           : null,
         location: formData.fullAddress,
+        address_full: formData.locationAddressType === 'exact' ? (formData.fullAddress || null) : null,
+        postcode: extractPostcode(formData.fullAddress),
+        location_type: formData.locationAddressType,
         latitude: formData.locationCoords?.lat ?? companyProfile?.latitude ?? null,
         longitude: formData.locationCoords?.lon ?? companyProfile?.longitude ?? null,
         work_location: "onsite",
@@ -1486,6 +1620,29 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
               </div>
             )}
 
+            {/* Location privacy — only shown once coords are set */}
+            {formData.locationCoords && (
+              <div className="mt-3">
+                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-2">Location privacy</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className={`flex items-start gap-2 p-3 border-2 rounded-xl cursor-pointer transition-all text-xs ${formData.locationAddressType === 'exact' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 hover:border-slate-600'}`}>
+                    <input type="radio" name="locationAddressType" className="mt-0.5 accent-emerald-500" checked={formData.locationAddressType === 'exact'} onChange={() => setFormData(p => ({ ...p, locationAddressType: 'exact' }))} />
+                    <div>
+                      <div className="font-semibold text-white">Exact address</div>
+                      <div className="text-slate-400 mt-0.5">Revealed to tradesperson only after job accepted</div>
+                    </div>
+                  </label>
+                  <label className={`flex items-start gap-2 p-3 border-2 rounded-xl cursor-pointer transition-all text-xs ${formData.locationAddressType === 'approx' ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 hover:border-slate-600'}`}>
+                    <input type="radio" name="locationAddressType" className="mt-0.5 accent-blue-500" checked={formData.locationAddressType === 'approx'} onChange={() => setFormData(p => ({ ...p, locationAddressType: 'approx' }))} />
+                    <div>
+                      <div className="font-semibold text-white">Approximate only</div>
+                      <div className="text-slate-400 mt-0.5">Your exact street stays private</div>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+
             {/* Compact Job Summary */}
             <div className="mt-4 rounded-xl border border-slate-700/60 bg-slate-800/60 overflow-hidden">
               <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-700/40">
@@ -1534,6 +1691,120 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
               </div>
             </div>
 
+          </div>
+        )
+
+      case 4:
+        return (
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-base font-semibold text-white mb-0.5">Create your account</h3>
+              <p className="text-xs text-slate-400">Your job will be posted immediately after sign-up — no email verification required.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-slate-300 mb-1 block">First name <span className="text-red-400">*</span></label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    value={contactData.firstName}
+                    onChange={(e) => setContactData((p) => ({ ...p, firstName: e.target.value }))}
+                    placeholder="Jane"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-300 mb-1 block">Last name <span className="text-red-400">*</span></label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="text"
+                    value={contactData.lastName}
+                    onChange={(e) => setContactData((p) => ({ ...p, lastName: e.target.value }))}
+                    placeholder="Smith"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-slate-300 mb-1 block">Email address <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="email"
+                  value={contactData.email}
+                  onChange={(e) => setContactData((p) => ({ ...p, email: e.target.value }))}
+                  placeholder="jane@example.com"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-slate-300 mb-1 block">Phone <span className="text-slate-500">(optional)</span></label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="tel"
+                  value={contactData.phone}
+                  onChange={(e) => setContactData((p) => ({ ...p, phone: e.target.value }))}
+                  placeholder="+44 7700 000000"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-slate-300 mb-1 block">Password <span className="text-red-400">*</span></label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  type="password"
+                  value={contactData.password}
+                  onChange={(e) => setContactData((p) => ({ ...p, password: e.target.value }))}
+                  placeholder="Min. 6 characters"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2.5 pt-1">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <button
+                  type="button"
+                  onClick={() => setContactData((p) => ({ ...p, ageConfirmation: !p.ageConfirmation }))}
+                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${contactData.ageConfirmation ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-800"}`}
+                >
+                  {contactData.ageConfirmation && <Check className="w-3 h-3 text-white" />}
+                </button>
+                <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
+                  I confirm I am 18 years of age or older <span className="text-red-400">*</span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <button
+                  type="button"
+                  onClick={() => setContactData((p) => ({ ...p, termsAccepted: !p.termsAccepted }))}
+                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${contactData.termsAccepted ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-800"}`}
+                >
+                  {contactData.termsAccepted && <Check className="w-3 h-3 text-white" />}
+                </button>
+                <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
+                  I agree to the <a href="/terms" target="_blank" className="text-emerald-400 underline underline-offset-2">Terms & Conditions</a> and <a href="/privacy" target="_blank" className="text-emerald-400 underline underline-offset-2">Privacy Policy</a> <span className="text-red-400">*</span>
+                </span>
+              </label>
+            </div>
+
+            <p className="text-xs text-slate-500 pt-1">
+              Already have an account?{" "}
+              <a href="/auth/login" className="text-emerald-400 underline underline-offset-2">Sign in</a>
+            </p>
           </div>
         )
 
@@ -1641,7 +1912,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                         </svg>
                         Publishing…
                       </>
-                    ) : "Publish Job"}
+                    ) : (guestMode && currentStep === 4 ? "Create account & post job" : "Publish Job")}
                   </button>
                 )}
               </div>

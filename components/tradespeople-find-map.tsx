@@ -1,0 +1,763 @@
+"use client"
+
+import { useState, useEffect, useCallback, useRef } from "react"
+import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/client"
+import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
+import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
+import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search } from "lucide-react"
+import JobWizardModal from "@/components/job-wizard-modal"
+
+// ── Leaflet dynamic imports ────────────────────────────────────────────────────
+const MapContainer = dynamic(() => import("react-leaflet").then(m => m.MapContainer), { ssr: false })
+const TileLayer    = dynamic(() => import("react-leaflet").then(m => m.TileLayer),    { ssr: false })
+const Marker       = dynamic(() => import("react-leaflet").then(m => m.Marker),       { ssr: false })
+const Popup        = dynamic(() => import("react-leaflet").then(m => m.Popup),        { ssr: false })
+const ZoomControl  = dynamic(() => import("react-leaflet").then(m => m.ZoomControl),  { ssr: false })
+
+// Invalidates map size after mount and on container resize
+const MapSizeHandler = dynamic(
+  () => import("react-leaflet").then(mod => {
+    const { useMap } = mod
+    function Comp() {
+      const map = useMap()
+      useEffect(() => {
+        if (!map) return
+        map.whenReady(() => map.invalidateSize({ pan: false }))
+        const obs = new ResizeObserver(() => map.invalidateSize())
+        obs.observe(map.getContainer())
+        return () => obs.disconnect()
+      }, [map])
+      return null
+    }
+    return Comp
+  }),
+  { ssr: false }
+)
+
+const MapViewUpdater = dynamic(
+  () => Promise.all([import("react-leaflet"), import("react")]).then(([lm, rm]) => {
+    const { useMap } = lm
+    const { useEffect, useRef } = rm
+    function Comp({ center }: { center: [number, number] }) {
+      const map = useMap()
+      const prev = useRef(center)
+      useEffect(() => {
+        const [pLat, pLon] = prev.current
+        const [lat, lon] = center
+        if (Math.abs(lat - pLat) > 0.001 || Math.abs(lon - pLon) > 0.001) {
+          prev.current = center
+          map.flyTo(center, map.getZoom(), { animate: true, duration: 0.6 })
+        }
+      }, [map, center])
+      return null
+    }
+    return Comp
+  }),
+  { ssr: false }
+)
+
+// ── Custom pin ─────────────────────────────────────────────────────────────────
+function createTraderIcon(L: any, isSelected: boolean, industryTitle?: string | null, isBusy?: boolean) {
+  const baseColor = getIndustryPinColor(industryTitle)
+  const color     = isBusy ? "#64748b" : baseColor   // slate-500 for busy
+  const size      = isSelected ? 44 : 36
+  const pinBg     = isSelected ? color : "#0f172a"
+  const iconClr   = isSelected ? "#ffffff" : color
+  const iconSize  = Math.round(size * 0.50)
+  const svg       = getIndustryPinSvg(industryTitle, iconClr, iconSize)
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:${size}px;height:${size}px;background:${pinBg};border:2.5px solid ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.4),0 0 0 4px ${color}30">${svg}</div>`,
+    iconSize: [size, size], iconAnchor: [size/2, size/2], popupAnchor: [0, -(size/2+4)],
+  })
+}
+
+// ── Static data ────────────────────────────────────────────────────────────────
+const RADIUS_OPTIONS = [
+  { label: "5 mi", value: "5" }, { label: "10 mi", value: "10" },
+  { label: "25 mi", value: "25" }, { label: "50 mi", value: "50" },
+]
+const LANGUAGE_OPTIONS = [
+  "English","Spanish","French","German","Portuguese",
+  "Polish","Romanian","Italian","Russian","Arabic","Chinese","Hindi",
+]
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+type Trader = {
+  id: string; name: string; industry: string | null; location: string | null
+  latitude: number | null; longitude: number | null; logo_url: string | null
+  rating: number | null; reviews_count: number | null; user_id: string
+  profile_type: string; services: string[] | null
+  open_for_business?: boolean; service_24_7?: boolean
+}
+type SheetState = "collapsed" | "peek" | "expanded"
+type Filters = { industry: string | null; radius: string; language: string; available: boolean; h24: boolean }
+const DEFAULT_FILTERS: Filters = { industry: null, radius: "10", language: "", available: false, h24: false }
+
+function filterStorageKey(postcode: string | undefined) {
+  return `ojm_find_filters_${postcode ?? "default"}`
+}
+function loadSavedFilters(postcode: string | undefined, fallbackIndustry: string | undefined): Filters {
+  if (typeof window === "undefined") return { ...DEFAULT_FILTERS, industry: fallbackIndustry ?? null }
+  try {
+    const raw = sessionStorage.getItem(filterStorageKey(postcode))
+    if (raw) return { ...DEFAULT_FILTERS, ...JSON.parse(raw) }
+  } catch {}
+  return { ...DEFAULT_FILTERS, industry: fallbackIndustry ?? null }
+}
+
+type Props = {
+  initialTraders: Trader[]; initialCoords: [number, number]
+  initialPostcode?: string; initialIndustry?: string
+}
+
+// ── Component ──────────────────────────────────────────────────────────────────
+export default function TradespeopleFindMap({ initialTraders, initialCoords, initialPostcode, initialIndustry }: Props) {
+  const router   = useRouter()
+  const supabase = createClient()
+
+  const [traders,          setTraders]          = useState<Trader[]>(initialTraders)
+  const [filters,          setFilters]          = useState<Filters>({ ...DEFAULT_FILTERS, industry: initialIndustry ?? null })
+  const [draftFilters,     setDraftFilters]     = useState<Filters>({ ...DEFAULT_FILTERS, industry: initialIndustry ?? null })
+  const [sheetState,       setSheetState]       = useState<SheetState>("peek")
+  const [selectedTrader,   setSelectedTrader]   = useState<Trader | null>(null)
+  const [profilePhotos,    setProfilePhotos]    = useState<{ id: string; photo_url: string }[]>([])
+  const [loadingProfile,   setLoadingProfile]   = useState(false)
+  const [lightboxIndex,    setLightboxIndex]    = useState<number | null>(null)
+  const [showJobWizard,    setShowJobWizard]    = useState(false)
+  const [showFilters,      setShowFilters]      = useState(false)
+  const [loading,          setLoading]          = useState(false)
+  const [mounted,          setMounted]          = useState(false)
+  const [leafletL,         setLeafletL]         = useState<any>(null)
+  const [user,             setUser]             = useState<any>(null)
+  const [homeownerProfile, setHomeownerProfile] = useState<any>(null)
+  const [isDesktop,        setIsDesktop]        = useState(false)
+
+  const touchStartY = useRef<number | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+    import("leaflet").then(mod => setLeafletL(mod.default ?? mod))
+    const mq = window.matchMedia("(min-width: 1024px)")
+    setIsDesktop(mq.matches)
+    const onMqChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
+    mq.addEventListener("change", onMqChange)
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user)
+      if (user) supabase.from("homeowner_profiles").select("*").eq("user_id", user.id)
+        .maybeSingle().then(({ data }) => setHomeownerProfile(data))
+    })
+    // Push zoom controls below the floating header
+    const style = document.createElement("style")
+    style.id = "find-map-zoom-offset"
+    style.textContent = `#find-map-container .leaflet-top { margin-top: 60px; }`
+    if (!document.getElementById("find-map-zoom-offset")) document.head.appendChild(style)
+    return () => {
+      document.getElementById("find-map-zoom-offset")?.remove()
+      mq.removeEventListener("change", onMqChange)
+    }
+  }, [])
+
+  // Fetch portfolio photos when a trader pin is clicked
+  useEffect(() => {
+    if (!selectedTrader) { setProfilePhotos([]); return }
+    setLoadingProfile(true)
+    supabase
+      .from("trades_portfolio_photos")
+      .select("id, photo_url")
+      .eq("tradesperson_id", selectedTrader.id)
+      .order("display_order", { ascending: true })
+      .limit(6)
+      .then(({ data }) => { setProfilePhotos(data ?? []); setLoadingProfile(false) })
+  }, [selectedTrader?.id])
+
+  const refetchTraders = useCallback(async (f: Filters) => {
+    setLoading(true)
+    try {
+      const { data } = await supabase.rpc("search_traders", {
+        p_lat: initialCoords[0], p_lon: initialCoords[1],
+        p_radius_miles: parseInt(f.radius),
+        p_search: f.industry ?? null, p_language: f.language || null, p_limit: 100,
+      })
+      let results: Trader[] = data ?? []
+      if (f.available) results = results.filter(t => t.open_for_business === true)
+      if (f.h24)       results = results.filter(t => t.service_24_7 === true)
+      setTraders(results)
+    } finally { setLoading(false) }
+  }, [initialCoords, supabase])
+
+  const applyFilters = () => { setFilters(draftFilters); setShowFilters(false); refetchTraders(draftFilters) }
+  const clearFilters = () => {
+    const r = { ...DEFAULT_FILTERS }
+    setDraftFilters(r); setFilters(r); setShowFilters(false); refetchTraders(r)
+  }
+  const hasActiveFilters = filters.industry !== null || filters.radius !== "10" || filters.language !== "" || filters.available || filters.h24
+
+  // Persist filters to sessionStorage whenever they change
+  useEffect(() => {
+    try { sessionStorage.setItem(filterStorageKey(initialPostcode), JSON.stringify(filters)) } catch {}
+  }, [filters, initialPostcode])
+
+  // On mount: restore filters from sessionStorage (client-only, after hydration)
+  useEffect(() => {
+    const saved = loadSavedFilters(initialPostcode, initialIndustry)
+    const isNonDefault = saved.industry !== null || saved.radius !== "10" || saved.language !== "" || saved.available || saved.h24
+    if (isNonDefault) {
+      setFilters(saved)
+      setDraftFilters(saved)
+      refetchTraders(saved)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartY.current = e.touches[0].clientY }
+  const handleTouchEnd   = (e: React.TouchEvent) => {
+    if (touchStartY.current === null) return
+    const dy = touchStartY.current - e.changedTouches[0].clientY
+    touchStartY.current = null
+    if (Math.abs(dy) < 25) return
+    if (dy > 0) setSheetState(p => p === "collapsed" ? "peek" : "expanded")
+    else        setSheetState(p => p === "expanded"   ? "peek" : "collapsed")
+  }
+
+  const distanceMi = (lat: number, lon: number) => {
+    const R = 3959, dLat = (lat - initialCoords[0]) * Math.PI/180, dLon = (lon - initialCoords[1]) * Math.PI/180
+    const a = Math.sin(dLat/2)**2 + Math.cos(initialCoords[0]*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)**2
+    return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1)
+  }
+
+  const tradersWithCoords = traders.filter(t => t.latitude && t.longitude)
+  const findPageUrl = `/find${initialPostcode ? `?postcode=${encodeURIComponent(initialPostcode)}` : ""}`
+
+  // Mobile bottom sheet dimensions
+  const HEADER = "52px"
+  const mobileSheetStyle: React.CSSProperties =
+    sheetState === "expanded" ? { top: HEADER, bottom: 0, left: 0, right: 0 } :
+    sheetState === "peek"     ? { bottom: 0, left: 0, right: 0, height: "48vh" } :
+                                { bottom: 0, left: 0, right: 0, height: "160px" }
+
+  /* ── Shared panel content ────────────────────────────────────────────────── */
+  const profilePanel = selectedTrader && (
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      {/* Photo strip */}
+      <div className="flex gap-2 overflow-x-auto px-3 pb-3 pt-1" style={{ scrollbarWidth: "none" }}>
+        {loadingProfile ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex-shrink-0 w-36 h-24 rounded-xl bg-slate-800 animate-pulse" />
+          ))
+        ) : profilePhotos.length > 0 ? (
+          profilePhotos.map((photo, i) => (
+            <button key={photo.id} onClick={() => setLightboxIndex(i)}
+              className="flex-shrink-0 w-36 h-24 rounded-xl overflow-hidden bg-slate-800 focus:outline-none">
+              <img src={photo.photo_url} alt={`Work photo ${i + 1}`}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-200" />
+            </button>
+          ))
+        ) : (
+          <div className="flex-shrink-0 w-full h-20 rounded-xl bg-slate-800 flex items-center justify-center gap-3">
+            {selectedTrader.logo_url
+              ? <img src={selectedTrader.logo_url} alt={selectedTrader.name} className="w-12 h-12 rounded-full object-cover" />
+              : (() => { const s = getIndustryStyle(selectedTrader.industry ?? ""); const I = s.icon; return <span className={`w-12 h-12 rounded-xl ${s.iconBg} flex items-center justify-center`}><I className={`w-6 h-6 ${s.iconColor}`} /></span> })()}
+            <span className="text-slate-400 text-xs">No portfolio photos yet</span>
+          </div>
+        )}
+      </div>
+      {/* Profile info */}
+      <div className="px-4 pb-2">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 w-12 h-12 rounded-full overflow-hidden flex items-center justify-center border-2 border-slate-600">
+            {selectedTrader.logo_url
+              ? <img src={selectedTrader.logo_url} alt={selectedTrader.name} className="w-full h-full object-cover" />
+              : (() => { const s = getIndustryStyle(selectedTrader.industry ?? ""); const I = s.icon; return <span className={`w-full h-full ${s.iconBg} flex items-center justify-center`}><I className={`w-5 h-5 ${s.iconColor}`} /></span> })()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-white truncate">{selectedTrader.name}</p>
+            <p className="text-xs text-slate-400">{selectedTrader.industry ?? "Tradesperson"}</p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              {selectedTrader.rating ? (
+                <span className="flex items-center gap-0.5 text-xs text-amber-400 font-semibold">
+                  <Star className="w-3 h-3 fill-amber-400" />{selectedTrader.rating.toFixed(1)}
+                  {selectedTrader.reviews_count ? <span className="text-slate-500 font-normal ml-0.5">({selectedTrader.reviews_count})</span> : null}
+                </span>
+              ) : null}
+              {selectedTrader.latitude && selectedTrader.longitude &&
+                <span className="text-xs text-slate-500">{distanceMi(selectedTrader.latitude, selectedTrader.longitude)} mi away</span>}
+              {selectedTrader.open_for_business === true
+                ? <span className="px-2 py-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-xs text-emerald-400 font-semibold">Available</span>
+                : selectedTrader.open_for_business === false
+                ? <span className="px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-xs text-slate-400 font-semibold">Busy</span>
+                : null}
+              {selectedTrader.service_24_7 && <span className="px-2 py-0.5 bg-blue-500/15 border border-blue-500/30 rounded-full text-xs text-blue-400 font-semibold">24/7</span>}
+            </div>
+          </div>
+        </div>
+        {selectedTrader.services && selectedTrader.services.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            {selectedTrader.services.slice(0, 5).map(s => (
+              <span key={s} className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded-full text-[10px] text-slate-300">{s}</span>
+            ))}
+          </div>
+        )}
+      </div>
+      {/* Action buttons */}
+      <div className="flex gap-2 px-4 pb-4 pt-2">
+        <button onClick={() => router.push(`/messages/${selectedTrader.user_id}`)}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-500/20 transition-colors">
+          <MessageSquare className="w-4 h-4" /> Message
+        </button>
+        <button onClick={() => router.push(`/${selectedTrader.profile_type === "company" ? "companies" : "professionals"}/${selectedTrader.id}`)}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-sm rounded-xl transition-colors">
+          <User className="w-4 h-4" /> Full profile
+        </button>
+      </div>
+    </div>
+  )
+
+  const listPanel = (
+    <>
+      {/* Post a Job */}
+      <div className="flex-shrink-0 flex justify-center pt-2 pb-2 px-3">
+        <button onClick={() => setShowJobWizard(true)}
+          className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-500/30 transition-colors">
+          + Post a Job
+        </button>
+      </div>
+      {/* Title row — hidden on desktop (shown in sidebar header instead) */}
+      <div className="flex-shrink-0 px-3 pb-1 lg:hidden">
+        <span className="text-xs font-semibold text-white flex items-center gap-1.5">
+          {filters.industry && (() => {
+            const s = getIndustryStyle(filters.industry); const I = s.icon
+            return <span className={`w-4 h-4 rounded flex items-center justify-center ${s.iconBg} flex-shrink-0`}><I className={`w-2.5 h-2.5 ${s.iconColor}`} /></span>
+          })()}
+          {filters.industry ? filters.industry : "Tradespeople nearby"}
+          {!loading && <span className="text-slate-500 font-normal ml-1">({traders.length})</span>}
+        </span>
+      </div>
+
+      {/* Active filter chips — visible on both mobile and desktop when filters applied */}
+      {hasActiveFilters && (
+        <div className="flex-shrink-0 flex items-center gap-1.5 px-3 pb-1.5 flex-wrap">
+          {filters.industry && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-[10px] text-emerald-300 font-medium">
+              {filters.industry}
+              <button onClick={() => { const f = { ...filters, industry: null }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-emerald-400 hover:text-white">×</button>
+            </span>
+          )}
+          {filters.radius !== "10" && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-300 font-medium">
+              {filters.radius} mi
+              <button onClick={() => { const f = { ...filters, radius: "10" }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
+            </span>
+          )}
+          {filters.available && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-300 font-medium">
+              Available now
+              <button onClick={() => { const f = { ...filters, available: false }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
+            </span>
+          )}
+          {filters.h24 && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-300 font-medium">
+              24/7
+              <button onClick={() => { const f = { ...filters, h24: false }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
+            </span>
+          )}
+          {filters.language && (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-300 font-medium">
+              {filters.language}
+              <button onClick={() => { const f = { ...filters, language: "" }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
+            </span>
+          )}
+        </div>
+      )}
+      {/* List */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 pb-2 space-y-1">
+        {loading ? (
+          <div className="flex items-center justify-center py-6">
+            <div className="animate-spin w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full" />
+          </div>
+        ) : traders.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-slate-400 text-xs mb-2">No tradespeople found nearby.</p>
+            <button onClick={() => setShowJobWizard(true)} className="text-emerald-400 text-xs font-semibold underline underline-offset-2">Post a job instead →</button>
+          </div>
+        ) : traders.map(trader => (
+          <div key={trader.id} onClick={() => setSelectedTrader(p => p?.id === trader.id ? null : trader)}
+            className="flex items-center gap-2 px-2 py-1.5 rounded-xl border cursor-pointer transition-all bg-slate-800 border-slate-700 active:bg-slate-700 hover:bg-slate-700/70">
+            <div className="flex-shrink-0 w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center">
+              {trader.logo_url
+                ? <img src={trader.logo_url} alt={trader.name} className="w-full h-full object-cover rounded-lg" />
+                : (() => { const s = getIndustryStyle(trader.industry ?? ""); const I = s.icon; return <span className={`w-full h-full rounded-lg ${s.iconBg} flex items-center justify-center`}><I className={`w-4 h-4 ${s.iconColor}`} /></span> })()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{trader.name}</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {trader.rating ? (
+                  <span className="flex items-center gap-0.5 text-[10px] text-amber-400">
+                    <Star className="w-2.5 h-2.5 fill-amber-400" />{trader.rating.toFixed(1)}
+                    {trader.reviews_count ? <span className="text-slate-500">({trader.reviews_count})</span> : null}
+                  </span>
+                ) : null}
+                {trader.latitude && trader.longitude
+                  ? <span className="text-[10px] text-slate-500">{distanceMi(trader.latitude, trader.longitude)} mi</span>
+                  : null}
+                {trader.open_for_business === true
+                  ? <span className="px-1.5 py-px bg-emerald-500/15 border border-emerald-500/30 rounded-full text-[10px] text-emerald-400 font-semibold">Available</span>
+                  : trader.open_for_business === false
+                  ? <span className="px-1.5 py-px bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-400 font-semibold">Busy</span>
+                  : null}
+                {trader.service_24_7 && <span className="px-1.5 py-px bg-blue-500/15 border border-blue-500/30 rounded-full text-[10px] text-blue-400 font-semibold">24/7</span>}
+              </div>
+            </div>
+            <div className="flex-shrink-0 flex gap-1">
+              <button onClick={e => { e.stopPropagation(); router.push(`/messages/${trader.user_id}`) }}
+                className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <MessageSquare className="w-3 h-3" />
+              </button>
+              <button onClick={e => { e.stopPropagation(); router.push(`/${trader.profile_type === "company" ? "companies" : "professionals"}/${trader.id}`) }}
+                className="w-7 h-7 rounded-lg bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300">
+                <User className="w-3 h-3" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+
+  /* ── Filter panel content (shared) ───────────────────────────────────────── */
+  const filterPanel = showFilters && (
+    <div className="fixed inset-0" style={{ zIndex: 50 }}>
+      <div className="absolute inset-0 backdrop-blur-sm" style={{ background: "rgba(2,6,23,0.65)" }}
+        onClick={() => setShowFilters(false)} />
+      <div className="absolute rounded-3xl shadow-2xl border border-slate-700/60 flex flex-col overflow-hidden"
+        style={{
+          top: HEADER, bottom: "max(env(safe-area-inset-bottom,0px),10px)",
+          left: "12px",
+          right: isDesktop ? "auto" : "12px",
+          width: isDesktop ? "400px" : undefined,
+          backgroundColor: "#0f172a", zIndex: 51,
+        }}>
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800">
+          <span className="text-sm font-bold text-white">Filters</span>
+          <div className="flex items-center gap-3">
+            {hasActiveFilters && <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-white transition-colors">Clear all</button>}
+            <button onClick={() => setShowFilters(false)} className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="px-3 pt-3 pb-1">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Trade / Industry</p>
+            {[{ title: "All trades" } as const, ...TRADE_INDUSTRIES].map((ind, i) => {
+              const isAll = i === 0
+              const active = isAll ? draftFilters.industry === null : draftFilters.industry === ind.title
+              const style = isAll ? null : getIndustryStyle(ind.title)
+              const Icon = style?.icon ?? null
+              return (
+                <button key={ind.title}
+                  onClick={() => setDraftFilters(f => ({ ...f, industry: isAll ? null : (f.industry === ind.title ? null : ind.title) }))}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl mb-1 border text-left transition-colors ${active ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "bg-slate-800 border-slate-700/60 text-slate-300"}`}>
+                  <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${isAll ? "bg-slate-700" : (active ? "bg-white/10" : style!.iconBg)}`}>
+                    {isAll ? <Search className="w-3 h-3 text-slate-300" /> : Icon && <Icon className={`w-3 h-3 ${active ? "text-emerald-300" : style!.iconColor}`} />}
+                  </span>
+                  <span className="flex-1 text-xs font-medium">{ind.title}</span>
+                  {active && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+                </button>
+              )
+            })}
+          </div>
+          <div className="px-3 pt-2 pb-1">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Search radius</p>
+            <div className="flex gap-1.5">
+              {RADIUS_OPTIONS.map(opt => (
+                <button key={opt.value} onClick={() => setDraftFilters(f => ({ ...f, radius: opt.value }))}
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.radius === opt.value ? "bg-emerald-500 border-emerald-500 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="px-3 pt-2 pb-1">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Language</p>
+            <div className="flex flex-wrap gap-1">
+              {["Any language", ...LANGUAGE_OPTIONS].map((lang, i) => {
+                const isAny  = i === 0
+                const active = isAny ? draftFilters.language === "" : draftFilters.language === lang
+                return (
+                  <button key={lang} onClick={() => setDraftFilters(f => ({ ...f, language: isAny ? "" : (f.language === lang ? "" : lang) }))}
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors ${active ? "bg-emerald-500 border-emerald-500 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
+                    {lang}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div className="px-3 pt-2 pb-3">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Availability</p>
+            {([
+              { key: "available" as const, label: "Available now", sub: "Currently open for work" },
+              { key: "h24"       as const, label: "24/7 service",  sub: "Around-the-clock availability" },
+            ]).map(({ key, label, sub }) => (
+              <button key={key} onClick={() => setDraftFilters(f => ({ ...f, [key]: !f[key] }))}
+                className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-xl mb-1.5 border transition-colors ${draftFilters[key] ? "bg-emerald-500/15 border-emerald-500/40" : "bg-slate-800 border-slate-700"}`}>
+                <div className="text-left">
+                  <p className="text-xs font-semibold text-white">{label}</p>
+                  <p className="text-[10px] text-slate-400">{sub}</p>
+                </div>
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${draftFilters[key] ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-900"}`}>
+                  {draftFilters[key] && <Check className="w-2.5 h-2.5 text-white" />}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex-shrink-0 px-3 py-3 border-t border-slate-800">
+          <button onClick={applyFilters} className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-2xl text-sm transition-colors shadow-lg shadow-emerald-500/30">
+            Show results
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  /* ══════════════════════════════════════════════════════════════════════════ */
+  return (
+    <div className="fixed inset-0 bg-slate-950 flex flex-col lg:flex-row">
+
+      {/* ── LEFT: Map area (full on mobile, flex-1 on desktop) ──────────────── */}
+      <div className="relative flex-1 min-h-0">
+
+        {/* Map */}
+        {mounted && (
+          <div id="find-map-container" className="absolute inset-0" style={{ zIndex: 0 }}>
+            <MapContainer center={initialCoords} zoom={11}
+              style={{ height: "100%", width: "100%" }} zoomControl={false}>
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              />
+              <ZoomControl position="topright" />
+              <MapSizeHandler />
+              <MapViewUpdater center={initialCoords} />
+              {leafletL && tradersWithCoords.map(trader => (
+                <Marker key={trader.id}
+                  position={[trader.latitude!, trader.longitude!]}
+                  icon={createTraderIcon(leafletL, selectedTrader?.id === trader.id, trader.industry, trader.open_for_business === false) as any}
+                  eventHandlers={{ click: () => setSelectedTrader(p => p?.id === trader.id ? null : trader) }}>
+                  <Popup>
+                    <b className="text-sm">{trader.name}</b>
+                    {trader.industry && <div className="text-xs text-gray-500">{trader.industry}</div>}
+                    {trader.rating   && <div className="text-xs text-amber-500">★ {trader.rating.toFixed(1)}</div>}
+                  </Popup>
+                </Marker>
+              ))}
+            </MapContainer>
+          </div>
+        )}
+
+        {/* Header — absolute within the map area, overlays only the map column */}
+        <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3 py-2"
+          style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top,0px),8px)" }}>
+          <button onClick={() => router.back()}
+            className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white shadow-md">
+            <ArrowLeft className="w-3.5 h-3.5" />
+          </button>
+          <div className="flex-1 min-w-0 lg:flex-none lg:w-72 flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1.5 shadow-md">
+            <MapPin className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+            <span className="text-xs text-white font-medium truncate">{initialPostcode || "Nearby tradespeople"}</span>
+            <span className="ml-auto text-[10px] flex-shrink-0">
+              {loading ? <span className="text-emerald-400">Searching…</span> : <span className="text-slate-400">{traders.length} found</span>}
+            </span>
+          </div>
+          {/* Filter button — shown on mobile (sidebar has its own on desktop) */}
+          <button onClick={() => { setDraftFilters(filters); setShowFilters(true) }}
+            className={`lg:hidden flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center shadow-md relative transition-colors ${hasActiveFilters ? "bg-emerald-500 border-emerald-400 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-slate-950" />}
+          </button>
+        </div>
+      </div>
+
+      {/* ── RIGHT: Desktop sidebar ──────────────────────────────────────────── */}
+      {isDesktop && (
+        <div className="hidden lg:flex flex-col w-[420px] flex-shrink-0 border-l border-slate-700 overflow-hidden"
+          style={{ backgroundColor: "#0f172a", zIndex: 30 }}>
+          {/* Sidebar chrome */}
+          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-slate-800"
+            style={{ paddingTop: "max(env(safe-area-inset-top,0px),10px)" }}>
+            {selectedTrader ? (
+              <button onClick={() => setSelectedTrader(null)}
+                className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                <span className="text-xs font-medium">All tradespeople</span>
+              </button>
+            ) : (
+              <span className="text-xs font-semibold text-white flex items-center gap-1.5 min-w-0">
+                {filters.industry && (() => {
+                  const s = getIndustryStyle(filters.industry); const I = s.icon
+                  return <span className={`w-4 h-4 rounded flex items-center justify-center ${s.iconBg} flex-shrink-0`}><I className={`w-2.5 h-2.5 ${s.iconColor}`} /></span>
+                })()}
+                <span className="truncate">{filters.industry || "Tradespeople nearby"}</span>
+                {!loading && <span className="text-slate-500 font-normal flex-shrink-0">({traders.length})</span>}
+              </span>
+            )}
+            <button onClick={() => { setDraftFilters(filters); setShowFilters(true) }}
+              className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center relative transition-colors ${hasActiveFilters ? "bg-emerald-500 border-emerald-400 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
+              <SlidersHorizontal className="w-3 h-3" />
+              {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full border border-slate-800" />}
+            </button>
+          </div>
+          {/* Panel content */}
+          {selectedTrader ? profilePanel : listPanel}
+        </div>
+      )}
+
+      {/* ── MOBILE: Uber-style bottom sheet ─────────────────────────────────── */}
+      {!isDesktop && (
+        <div className="fixed rounded-t-3xl shadow-2xl border-t border-x border-slate-700/50 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+          style={{ ...mobileSheetStyle, zIndex: 30, backgroundColor: "#0f172a" }}>
+          {/* Drag handle */}
+          <div className="flex-shrink-0 flex items-center justify-between px-3 pt-2 pb-1 cursor-grab select-none"
+            onClick={() => {
+              if (selectedTrader) { setSelectedTrader(null); setSheetState("peek"); return }
+              setSheetState(p => p === "collapsed" ? "peek" : p === "peek" ? "expanded" : "peek")
+            }}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}>
+            {selectedTrader ? (
+              <>
+                <button className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
+                  <ArrowLeft className="w-4 h-4" /><span className="text-xs">All tradespeople</span>
+                </button>
+                <div className="w-10 h-1 rounded-full bg-slate-600 absolute left-1/2 -translate-x-1/2" />
+                <div className="w-20" />
+              </>
+            ) : (
+              <div className="w-full flex justify-center">
+                <div className="w-10 h-1 rounded-full bg-slate-600" />
+              </div>
+            )}
+          </div>
+          {selectedTrader ? profilePanel : listPanel}
+        </div>
+      )}
+
+      {/* ── Overlays (filter panel, lightbox, job wizard) ───────────────────── */}
+      {filterPanel}
+
+      {lightboxIndex !== null && profilePhotos.length > 0 && (
+        <LightboxOverlay
+          photos={profilePhotos}
+          index={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+          onPrev={() => setLightboxIndex(i => ((i ?? 0) - 1 + profilePhotos.length) % profilePhotos.length)}
+          onNext={() => setLightboxIndex(i => ((i ?? 0) + 1) % profilePhotos.length)}
+        />
+      )}
+
+      {showJobWizard && (
+        <div className="fixed inset-0" style={{ zIndex: 60 }}>
+          <JobWizardModal
+            guestMode={!user} initialPostcode={initialPostcode}
+            companyProfile={homeownerProfile ?? null} userType="homeowner" redirectPath={findPageUrl}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Lightbox ───────────────────────────────────────────────────────────────────
+function LightboxOverlay({
+  photos, index, onClose, onPrev, onNext,
+}: {
+  photos: { id: string; photo_url: string }[]
+  index: number
+  onClose: () => void
+  onPrev: () => void
+  onNext: () => void
+}) {
+  const touchStartX = useRef<number | null>(null)
+
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
+  const handleTouchEnd   = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return
+    const dx = touchStartX.current - e.changedTouches[0].clientX
+    touchStartX.current = null
+    if (Math.abs(dx) < 40) return
+    if (dx > 0) onNext(); else onPrev()
+  }
+
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose() }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [onClose])
+
+  return (
+    <div
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ zIndex: 70, background: "rgba(0,0,0,0.95)" }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {/* Close */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white z-10"
+      >
+        <X className="w-5 h-5" />
+      </button>
+
+      {/* Counter */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/60 text-white text-xs z-10">
+        {index + 1} / {photos.length}
+      </div>
+
+      {/* Prev */}
+      {photos.length > 1 && (
+        <button
+          onClick={onPrev}
+          className="absolute left-3 w-9 h-9 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white z-10"
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Image */}
+      <img
+        src={photos[index].photo_url}
+        alt={`Photo ${index + 1}`}
+        className="max-w-full max-h-full object-contain select-none"
+        draggable={false}
+      />
+
+      {/* Next */}
+      {photos.length > 1 && (
+        <button
+          onClick={onNext}
+          className="absolute right-3 w-9 h-9 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white z-10"
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Dot indicators */}
+      {photos.length > 1 && (
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-1.5">
+          {photos.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => { if (i < index) onPrev(); else if (i > index) onNext() }}
+              className={`w-1.5 h-1.5 rounded-full transition-colors ${i === index ? "bg-white" : "bg-white/40"}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

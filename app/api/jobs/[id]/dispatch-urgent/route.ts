@@ -30,7 +30,7 @@ export async function POST(
     // ── 1. Fetch job details (title, location, coordinates) ──────────────────
     const { data: job } = await admin
       .from("jobs")
-      .select("title, location, category, dispatch_state, status, expires_at, is_active, latitude, longitude")
+      .select("title, location, category, dispatch_state, status, expires_at, is_active, latitude, longitude, budget_min, budget_max, budget_period")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -228,6 +228,9 @@ export async function POST(
 
         await notifyOne(admin, { companyProfileId, userId }, {
           jobId, jobTitle: job?.title, location: job?.location, jobUrl,
+          budgetMin: (job as any)?.budget_min ?? null,
+          budgetMax: (job as any)?.budget_max ?? null,
+          budgetPeriod: (job as any)?.budget_period ?? null,
         })
 
         dispatched++
@@ -285,6 +288,9 @@ export async function POST(
 
             await notifyOne(admin, { companyProfileId: cid, userId: uid }, {
               jobId, jobTitle: job?.title, location: job?.location, jobUrl,
+              budgetMin: (job as any)?.budget_min ?? null,
+              budgetMax: (job as any)?.budget_max ?? null,
+              budgetPeriod: (job as any)?.budget_period ?? null,
             })
 
             expandDispatched++

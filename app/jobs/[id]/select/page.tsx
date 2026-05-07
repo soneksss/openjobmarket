@@ -33,7 +33,7 @@ export default async function SelectTradePage({ params }: PageProps) {
     .from("jobs")
     .select(`
       id, title, location, latitude, longitude,
-      urgency_type,
+      urgency_type, category, industry,
       homeowner_id, company_id,
       homeowner_profiles ( user_id, first_name, last_name ),
       company_profiles   ( user_id, company_name )
@@ -142,6 +142,8 @@ export default async function SelectTradePage({ params }: PageProps) {
         latitude:     job.latitude,
         longitude:    job.longitude,
         urgency_type: job.urgency_type,
+        industry:     (job as any).industry ?? null,
+        category:     (job as any).category ?? null,
       }}
       tradespeople={tradespeople}
       userId={user.id}

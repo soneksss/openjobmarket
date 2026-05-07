@@ -217,6 +217,7 @@ export default function ConversationPage() {
   console.log('[CONVERSATION] Return URL:', returnUrl)
 
   const [user, setUser] = useState<any>(null)
+  const userIdRef = useRef<string | null>(null)
   const [currentUserPhoto, setCurrentUserPhoto] = useState<string | undefined>(undefined)
   const [otherUser, setOtherUser] = useState<any>(null)
   const [otherUserId, setOtherUserId] = useState<string | null>(null)
@@ -274,6 +275,54 @@ export default function ConversationPage() {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [jobContext?.id])
+
+  // Keep userIdRef in sync so the realtime callback always has the current user ID
+  useEffect(() => { userIdRef.current = user?.id ?? null }, [user])
+
+  // Real-time: append new messages as they arrive so both sides see them instantly
+  useEffect(() => {
+    if (!actualConvId) return
+
+    const channel = supabase
+      .channel(`messages-${actualConvId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${actualConvId}`,
+        },
+        (payload) => {
+          const msg = payload.new as Message
+          const currentUserId = userIdRef.current
+
+          setMessages(prev => {
+            // Skip if this exact message ID is already in state
+            if (prev.some(m => m.id === msg.id)) return prev
+
+            if (msg.sender_id === currentUserId) {
+              // Replace the optimistic temp message (numeric string ID) with the real DB row
+              const tempIdx = prev.findIndex(m => /^\d{10,}$/.test(m.id) && m.sender_id === currentUserId)
+              if (tempIdx >= 0) {
+                const next = [...prev]
+                next[tempIdx] = msg
+                return next
+              }
+              // No temp found — add normally (e.g. quote messages that had no optimistic entry)
+              return [...prev, msg]
+            }
+
+            // Message from the other person — mark as read immediately
+            supabase.from('messages').update({ is_read: true }).eq('id', msg.id).then(() => {})
+            return [...prev, msg]
+          })
+        }
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [actualConvId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Prefill message on first open when navigated from a job context
   useEffect(() => {
@@ -736,9 +785,7 @@ export default function ConversationPage() {
       setPhotoPreviews([])
       setPhotoError(null)
       updatePresence() // update own presence on send
-
-      // Refresh to get actual message from DB
-      setTimeout(() => fetchConversation(), 500)
+      // Realtime subscription replaces the temp message with the real DB row
     } catch (error) {
       console.error("[CONVERSATION] Error sending:", error)
       alert("Failed to send message")

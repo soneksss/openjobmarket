@@ -14,7 +14,7 @@ const dictionaries = {
  * @returns The dictionary for that locale
  */
 export function getDictionary(locale: Locale): Dictionary {
-  return dictionaries[locale] || dictionaries.en
+  return (dictionaries[locale] as Dictionary) || dictionaries.en
 }
 
 /**

@@ -98,7 +98,7 @@ export default async function HomeownerDetailPage({ params }: { params: Promise<
   })
 
   // Get current user to check if they can contact
-  let user = null
+  let user: any = null
   let userType = null
   try {
     const { data: authData, error: authError } = await supabase.auth.getUser()

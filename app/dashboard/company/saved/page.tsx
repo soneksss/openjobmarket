@@ -18,7 +18,7 @@ export default async function CompanySavedJobsPage() {
     const supabase = await createClient()
 
     // Get current user with error handling
-    let user = null
+    let user: any = null
     try {
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
       console.log("[COMPANY-SAVED-JOBS] Auth check result:", { authUser: !!authUser, authError })
@@ -37,7 +37,7 @@ export default async function CompanySavedJobsPage() {
     console.log("[COMPANY-SAVED-JOBS] User authenticated:", user.email)
 
   // Get user's company profile
-  let profile = null
+  let profile: any = null
   let savedJobs: any[] = []
 
   try {

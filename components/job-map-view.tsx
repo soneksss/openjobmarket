@@ -98,6 +98,7 @@ interface Job {
   poster_first_name?: string
   poster_last_name?: string
   poster_logo_url?: string
+  poster_company_name?: string | null
 }
 
 interface User {

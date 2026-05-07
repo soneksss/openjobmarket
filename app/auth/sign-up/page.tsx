@@ -25,7 +25,7 @@ export default async function SignUpPage() {
         {/* Very faint grid texture */}
         <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:64px_64px]" />
 
-        <div className="relative z-10 flex min-h-screen items-center justify-center px-4 py-12">
+        <div className="relative z-10 flex min-h-screen items-start sm:items-center justify-center px-4 py-4 sm:py-12">
           <MultiStepSignup />
         </div>
       </div>

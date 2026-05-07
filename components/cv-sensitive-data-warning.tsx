@@ -85,7 +85,7 @@ export default function CVSensitiveDataWarning({
               {t('cv.sensitiveWarning.doNotIncludeTitle')}
             </p>
             <ul className="space-y-1 sm:space-y-2">
-              {t('cv.sensitiveWarning.doNotInclude').map((item: string, index: number) => (
+              {(t('cv.sensitiveWarning.doNotInclude') as unknown as string[]).map((item: string, index: number) => (
                 <li key={index} className="flex items-start gap-2 text-xs sm:text-sm text-red-800">
                   <XCircle className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0 mt-0.5" />
                   <span>{item}</span>

@@ -21,7 +21,7 @@ export default async function HomePage() {
   const supabase = await createClient()
 
   // Round-trip 1: auth
-  let user = null
+  let user: any = null
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user ?? null

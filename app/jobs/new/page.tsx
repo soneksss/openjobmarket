@@ -4,35 +4,51 @@ export const dynamic = 'force-dynamic'
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/server"
 
-export default async function NewJobPage({ searchParams }: { searchParams: Promise<{ industry?: string; service?: string }> }) {
-  const { industry: initialIndustry, service: initialService } = await searchParams
+export default async function NewJobPage({ searchParams }: { searchParams: Promise<{ industry?: string; service?: string; postcode?: string }> }) {
+  const { industry: initialIndustry, service: initialService, postcode: initialPostcode } = await searchParams
 
   try {
     const supabase = await createClient()
-
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) redirect("/auth/login")
+    const { default: JobWizardModal } = await import("@/components/job-wizard-modal")
+
+    // ── Guest (unauthenticated) — show wizard with Step 4 account creation ───
+    if (!user) {
+      return (
+        <div className="min-h-screen bg-slate-900">
+          <JobWizardModal
+            companyProfile={null}
+            userType="homeowner"
+            guestMode={true}
+            initialPostcode={initialPostcode}
+            initialIndustry={initialIndustry}
+            initialService={initialService}
+          />
+        </div>
+      )
+    }
 
     const [{ data: userData }, { data: homeownerProfile }, { data: companyProfile }] = await Promise.all([
-      supabase.from("users").select("user_type").eq("id", user!.id).single(),
-      supabase.from("homeowner_profiles").select("*").eq("user_id", user!.id).maybeSingle(),
-      supabase.from("company_profiles").select("*").eq("user_id", user!.id).maybeSingle(),
+      supabase.from("users").select("user_type").eq("id", user.id).single(),
+      supabase.from("homeowner_profiles").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("company_profiles").select("*").eq("user_id", user.id).maybeSingle(),
     ])
 
     const userType = userData?.user_type ?? null
 
-    // Block tradesperson (company) users
-    if (userType === "company") {
-      redirect("/dashboard/company")
-    }
-
-    const { default: JobWizardModal } = await import("@/components/job-wizard-modal")
+    if (userType === "company") redirect("/dashboard/company")
 
     if (userType === "homeowner") {
       if (!homeownerProfile) redirect("/onboarding/homeowner")
       return (
         <div className="min-h-screen bg-slate-900">
-          <JobWizardModal companyProfile={homeownerProfile} userType="homeowner" initialIndustry={initialIndustry} initialService={initialService} />
+          <JobWizardModal
+            companyProfile={homeownerProfile}
+            userType="homeowner"
+            initialPostcode={initialPostcode}
+            initialIndustry={initialIndustry}
+            initialService={initialService}
+          />
         </div>
       )
     }

@@ -79,6 +79,7 @@ interface ProfessionalSearchProps {
     lng?: string
     radius?: string
     self_employed?: string
+    availability?: string
   }
   center: [number, number]
 }

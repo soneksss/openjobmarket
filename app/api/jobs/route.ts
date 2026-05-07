@@ -55,8 +55,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ── 3. Insert with admin write client (bypasses RLS, no safeFetch fallback) ─
-    // Strip columns that don't exist in the jobs table to prevent PostgREST 400.
-    const { latitude_approx, longitude_approx, ...safePayload } = payload
+    // Strip only legacy client-sent values that we recompute server-side.
+    const { latitude_approx: _la, longitude_approx: _lo, ...safePayload } = payload
 
     const admin = createAdminWriteClient()
     const { error: insertError } = await admin
@@ -75,25 +75,55 @@ export async function POST(request: NextRequest) {
     revalidateTag(`jobs-user-${user.id}`)
     console.log("[POST /api/jobs] Job created:", payload.id)
 
-    // Server-side geocoding: if client didn't resolve coordinates, do it now
-    if (!payload.latitude && payload.location) {
+    // ── 4. Post-insert: geocode + compute approx coords ─────────────────────
+    // Run as a single update after creation so we never block the insert.
+    ;(async () => {
       try {
-        const geoRes = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(payload.location)}&limit=1&countrycodes=gb,us,de,fr,br`,
-          { headers: { "User-Agent": "OpenJobMarket/1.0" } }
-        )
-        const geoData = await geoRes.json()
-        if (geoData.length > 0) {
-          await admin.from("jobs").update({
-            latitude: parseFloat(geoData[0].lat),
-            longitude: parseFloat(geoData[0].lon),
-          }).eq("id", payload.id)
-          console.log("[POST /api/jobs] Geocoded:", payload.location, "→", geoData[0].lat, geoData[0].lon)
+        let lat: number | null = payload.latitude ?? null
+        let lng: number | null = payload.longitude ?? null
+
+        // Server-side geocoding fallback
+        if (!lat && payload.location) {
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(payload.location)}&limit=1&countrycodes=gb,us,de,fr,br`,
+            { headers: { "User-Agent": "OpenJobMarket/1.0" } }
+          )
+          const geoData = await geoRes.json()
+          if (geoData.length > 0) {
+            lat = parseFloat(geoData[0].lat)
+            lng = parseFloat(geoData[0].lon)
+            console.log("[POST /api/jobs] Geocoded:", payload.location, "→", lat, lng)
+          }
         }
-      } catch (geoErr) {
-        console.warn("[POST /api/jobs] Geocoding failed (non-fatal):", geoErr)
+
+        if (lat !== null && lng !== null) {
+          const locationType: string = payload.location_type ?? 'exact'
+          let latApprox: number
+          let lngApprox: number
+
+          if (locationType === 'approx') {
+            // User already chose an approximate point — no further offset needed
+            latApprox = lat
+            lngApprox = lng
+          } else {
+            // Exact address — offset by 300–500 m for privacy on the public map
+            const angle  = Math.random() * 2 * Math.PI
+            const radius = 0.003 + Math.random() * 0.002  // ~330–550 m in degrees
+            latApprox = lat + radius * Math.sin(angle)
+            lngApprox = lng + radius * Math.cos(angle)
+          }
+
+          await admin.from("jobs").update({
+            latitude:         lat,
+            longitude:        lng,
+            latitude_approx:  latApprox,
+            longitude_approx: lngApprox,
+          } as any).eq("id", payload.id)
+        }
+      } catch (err) {
+        console.warn("[POST /api/jobs] Post-insert geocode/approx failed (non-fatal):", err)
       }
-    }
+    })()
 
     return NextResponse.json({ success: true, jobId: payload.id })
 

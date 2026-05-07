@@ -357,7 +357,7 @@ function ProfessionalsPageContent({
         setCurrentUserType(fetchedUserType)
 
         // Fetch appropriate profile
-        let profileData = null
+        let profileData: any = null
         if (fetchedUserType === 'professional') {
           const { data } = await supabase
             .from("professional_profiles")
@@ -1148,7 +1148,7 @@ function ProfessionalsPageContent({
   const handlePreviewAction = (id: string, name: string) => {
     if (isShowingJobs) {
       const job = data.find((d: any) => d.id === id)
-      if (job?.is_tradespeople_job) {
+      if ((job as any)?.is_tradespeople_job) {
         // Trade jobs use UrgentJobApplySection on the detail page — navigate there
         router.push(`/jobs/${id}`)
         return
@@ -2944,7 +2944,7 @@ function ProfessionalsPageContent({
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {/* Search button */}
                       <button
-                        onClick={handleSearch}
+                        onClick={() => handleSearch()}
                         className="flex-shrink-0 h-10 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm flex items-center gap-1.5 transition-colors"
                       >
                         <Search className="h-3.5 w-3.5" />

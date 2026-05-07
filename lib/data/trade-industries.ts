@@ -20,7 +20,7 @@ export interface TradeIndustry {
 export const TRADE_INDUSTRIES: readonly TradeIndustry[] = [
   {
     title: "Plumbing & Heating",
-    icon: "🛠️",
+    icon: "🚰",
     category: "Plumbing",
     services: [
       "Plumber",

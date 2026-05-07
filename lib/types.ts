@@ -35,6 +35,7 @@ export interface Job {
   id: string
   title: string
   description: string
+  short_description?: string
   work_location: string
   location: string
   budget_min?: number
@@ -42,8 +43,45 @@ export interface Job {
   skills_required: string[]
   languages?: string[]
   is_active: boolean
+  status?: string
+  search_state?: string
+  urgency_type?: string
   applications_count: number
   views_count: number
   created_at: string
-  company_profiles?: CompanyProfile
+  expires_at?: string
+  // Geolocation
+  latitude?: number | null
+  longitude?: number | null
+  // Ownership
+  homeowner_id?: string | null
+  company_id?: string | null
+  poster_company_name?: string | null
+  // Feature flags
+  is_tradespeople_job?: boolean
+  // Nested relations (shape varies by query — keep loose)
+  company_profiles?: {
+    company_name: string
+    location: string
+    industry: string
+    id?: string
+    user_id?: string
+    logo_url?: string
+    [key: string]: unknown
+  }
+  homeowner_profiles?: {
+    id?: string
+    user_id?: string
+    first_name?: string
+    last_name?: string
+    profile_photo_url?: string
+    latitude?: number | null
+    longitude?: number | null
+    latitude_approx?: number | null
+    longitude_approx?: number | null
+    address_line1?: string
+    city?: string
+    location?: string
+    [key: string]: unknown
+  }
 }

@@ -255,7 +255,7 @@ export function UsersTableWithBan({ userType, adminRole }: UsersTableProps) {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser()
 
-      let banExpiresAt = null
+      let banExpiresAt: string | null = null
       if (banDuration !== "permanent") {
         const now = new Date()
         const days = parseInt(banDuration)

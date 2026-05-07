@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic'
 export default async function LoginPage() {
   const supabase = await createClient()
 
-  let user = null
+  let user: any = null
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user ?? null

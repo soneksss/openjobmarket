@@ -12,12 +12,16 @@ import { createClient } from "@/lib/client"
 interface ReviewSubmissionModalProps {
   isOpen: boolean
   onClose: () => void
-  jobId: string
-  jobTitle: string
-  reviewedUserId: string
-  reviewedUserName: string
-  reviewedUserType: 'homeowner' | 'company' | 'contractor' | 'professional'
-  reviewerType: 'homeowner' | 'company' | 'contractor' | 'professional'
+  jobId?: string
+  jobTitle?: string
+  reviewedUserId?: string
+  reviewedUserName?: string
+  reviewedUserType?: 'homeowner' | 'company' | 'contractor' | 'professional'
+  reviewerType?: 'homeowner' | 'company' | 'contractor' | 'professional'
+  /** Generic aliases used by conversation-view */
+  revieweeId?: string
+  revieweeName?: string
+  conversationId?: string
   onSuccess?: () => void
 }
 

@@ -140,7 +140,7 @@ export default async function JobDetailPage({
   console.log("[JOB-DETAIL] Job loaded:", { jobId: job.id, slug: job.slug, title: job.title })
 
   // Get current user to check if they can apply
-  let user = null
+  let user: any = null
   try {
     const { data: authData, error: authError } = await supabase.auth.getUser()
 
@@ -160,7 +160,7 @@ export default async function JobDetailPage({
 
   let userProfile = null
   let hasApplied = false
-  let companyStatus = null        // poster activity status { isActive: true }
+  let companyStatus: { isActive: boolean } | null = null        // poster activity status { isActive: true }
   let applicationStatus: string | null = null  // tradesperson's application status string
   let isJobOwner = false
   let jobApplications: any[] = []

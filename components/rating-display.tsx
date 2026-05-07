@@ -43,7 +43,7 @@ export function RatingDisplay({
 
   // Render stars
   const renderStars = () => {
-    const stars = []
+    const stars: React.ReactElement[] = []
     const fullStars = Math.floor(clampedRating)
     const hasHalfStar = clampedRating % 1 >= 0.5
     const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0)

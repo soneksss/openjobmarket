@@ -100,7 +100,7 @@ export default async function RootLayout({
   const supabase = await createClient()
 
   // Auth must never throw — ECONNRESET or network hiccup would break the entire layout
-  let user = null
+  let user: any = null
   try {
     const { data } = await supabase.auth.getUser()
     user = data.user ?? null
@@ -143,8 +143,7 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://unpkg.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://tile.openstreetmap.org" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
-        <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" crossOrigin="anonymous" />
-        <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" as="script" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossOrigin="anonymous" />
         {/* Organization schema */}
         <script
           type="application/ld+json"

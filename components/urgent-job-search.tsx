@@ -53,20 +53,35 @@ const TIMING = {
   },
 } as const
 
-/* ─── localStorage key for timer persistence ───────────────────── */
-const timerKey = (jobId: string) => `ojm_ust_${jobId}`
+const MAX_RESTORE_AGE_MS    = 1000 * 60 * 60 * 6  // 6 hours
+const STORAGE_VERSION       = 2
+const HIDDEN_POLL_MULTIPLIER = 4                   // slow to 4× interval when tab hidden
+
+/* ─── localStorage keys ─────────────────────────────────────────── */
+const timerKey  = (jobId: string) => `ojm_ust_${jobId}`
+const tradesKey = (jobId: string) => `ojm_ust_trades_${jobId}`
 
 interface PersistedTimer {
+  version:                number
   startedAt:              number  // epoch ms when timer started
   initialDurationSeconds: number
   urgencyType:            UrgencyType
   searchState:            SearchState
+  currentRadius:          number
+  consecutivePollFailures: number
+  acceptedTradeId?:       string
+  confirmedTradeId?:      string
 }
 
 /* ─── Backoff schedule: 0→base, 1→2x, 2→4x … capped at 30 s ──── */
 function backoffMs(fails: number, base: number) {
   if (fails <= 0) return 0
   return Math.min(base * Math.pow(2, fails - 1), 30_000)
+}
+
+function clearJobCache(jobId: string) {
+  try { localStorage.removeItem(timerKey(jobId)) } catch {}
+  try { localStorage.removeItem(tradesKey(jobId)) } catch {}
 }
 
 /* ═══════════════════════════════════════════════════════════════ */
@@ -96,11 +111,15 @@ export function UrgentJobSearch({
   const [stuckSecs,      setStuckSecs]      = useState(0)
   const [timerRestored,  setTimerRestored]  = useState(false)
   const [showCancelConf, setShowCancelConf] = useState(false)
+  const [acceptedTradeId,  setAcceptedTradeId]  = useState<string | null>(null)
+  const [confirmedTradeId, setConfirmedTradeId] = useState<string | null>(null)
 
   /* ── Refs ───────────────────────────────────────────────────── */
   const pollTimeoutRef   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const countdownRef     = useRef<ReturnType<typeof setInterval> | null>(null)
   const isOfflineRef     = useRef(false)
+  const isHiddenRef      = useRef(false)        // tab hidden
+  const pollInFlightRef  = useRef(false)        // guard against double-poll
   const consecFailsRef   = useRef(0)
   const searchStateRef   = useRef<SearchState>("active_search")
   const pollRef          = useRef<(() => Promise<void>) | null>(null)  // forward-ref to avoid stale closure
@@ -114,35 +133,95 @@ export function UrgentJobSearch({
   /* 1. TIMER RESTORATION — read localStorage on first mount     */
   /* ─────────────────────────────────────────────────────────── */
   useEffect(() => {
+    let restoredState: SearchState = "active_search"
+
+    /* ── Restore cached tradespeople ─────────────────────────── */
+    try {
+      const rawTrades = localStorage.getItem(tradesKey(jobId))
+      if (rawTrades) {
+        const cached: Tradesperson[] = JSON.parse(rawTrades)
+        if (Array.isArray(cached) && cached.length > 0) setTradespeople(cached)
+      }
+    } catch {
+      // Corrupt trades cache — discard
+      try { localStorage.removeItem(tradesKey(jobId)) } catch {}
+    }
+
+    /* ── Restore timer + search state ────────────────────────── */
     try {
       const raw = localStorage.getItem(timerKey(jobId))
       if (raw) {
         const saved: PersistedTimer = JSON.parse(raw)
-        const elapsed    = Math.floor((Date.now() - saved.startedAt) / 1000)
-        const remaining  = Math.max(0, saved.initialDurationSeconds - elapsed)
+
+        // Discard stale v1 sessions or sessions older than 6 hours
+        const sessionAge = Date.now() - (saved.startedAt ?? 0)
+        if ((saved.version ?? 1) < STORAGE_VERSION || sessionAge > MAX_RESTORE_AGE_MS) {
+          clearJobCache(jobId)
+          setTimerRestored(true)
+          return
+        }
+
+        if (saved.currentRadius)          setCurrentRadius(saved.currentRadius)
+        if (saved.consecutivePollFailures) {
+          setConsecFails(saved.consecutivePollFailures)
+          consecFailsRef.current = saved.consecutivePollFailures
+        }
+        if (saved.acceptedTradeId)  setAcceptedTradeId(saved.acceptedTradeId)
+        if (saved.confirmedTradeId) {
+          // Trade was already confirmed before restart — skip searching entirely
+          setConfirmedTradeId(saved.confirmedTradeId)
+          setSearchState("response_received")
+          setTimerRestored(true)
+          return
+        }
+
+        const elapsed   = Math.floor((Date.now() - saved.startedAt) / 1000)
+        const remaining = Math.max(0, saved.initialDurationSeconds - elapsed)
 
         if (remaining === 0) {
-          // Timer ran out while the app was closed
           if (saved.urgencyType === "asap") {
-            // Silently downgrade — don't trigger DB write again, just set local state
             setUrgencyType("today")
             setSearchState("auto_downgraded")
             setSecsLeft(TIMING.today.initialSearchSeconds)
+            restoredState = "auto_downgraded"
           } else {
             setSearchState("background_search")
-            setSecsLeft(() => 0)
+            setSecsLeft(0)
+            restoredState = "background_search"
           }
         } else {
-          setSecsLeft(() => remaining)
+          setSecsLeft(remaining)
           if (saved.urgencyType !== initialUrgencyType) setUrgencyType(saved.urgencyType)
-          // Restore background state if that's where we left off
-          if (saved.searchState === "background_search" ||
-              saved.searchState === "response_received") {
+          if (saved.searchState !== "active_search") {
             setSearchState(saved.searchState)
+            restoredState = saved.searchState
           }
         }
       }
-    } catch {}
+    } catch {
+      // Corrupt timer cache — clear and start fresh
+      clearJobCache(jobId)
+    }
+
+    /* ── DB validity check — server state always wins ─────────── */
+    supabase
+      .from("jobs")
+      .select("status, search_state, search_radius_miles")
+      .eq("id", jobId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return
+        if (data.search_radius_miles) setCurrentRadius(data.search_radius_miles)
+        // Job no longer active — exit searching immediately
+        if (data.status !== "POSTED" || data.search_state === "closed") {
+          setSearchState("background_search")
+          clearJobCache(jobId)
+        } else if (data.search_state === "response_received" && restoredState === "active_search") {
+          setSearchState("response_received")
+        }
+      })
+      .catch(() => {/* offline — sync on first successful poll */})
+
     setTimerRestored(true)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId])
@@ -155,28 +234,72 @@ export function UrgentJobSearch({
     try {
       const elapsed = TIMING[urgencyType].initialSearchSeconds - secsLeft
       const saved: PersistedTimer = {
-        startedAt:              Date.now() - elapsed * 1_000,
-        initialDurationSeconds: TIMING[urgencyType].initialSearchSeconds,
+        version:                 STORAGE_VERSION,
+        startedAt:               Date.now() - elapsed * 1_000,
+        initialDurationSeconds:  TIMING[urgencyType].initialSearchSeconds,
         urgencyType,
         searchState,
+        currentRadius,
+        consecutivePollFailures: consecFails,
+        ...(acceptedTradeId  ? { acceptedTradeId }  : {}),
+        ...(confirmedTradeId ? { confirmedTradeId } : {}),
       }
       localStorage.setItem(timerKey(jobId), JSON.stringify(saved))
     } catch {}
-  }, [secsLeft, urgencyType, searchState, jobId, timerRestored])
+  }, [secsLeft, urgencyType, searchState, currentRadius, consecFails,
+      acceptedTradeId, confirmedTradeId, jobId, timerRestored])
+
+  /* ─── Persist tradespeople list whenever it changes ─────── */
+  useEffect(() => {
+    if (!timerRestored || tradespeople.length === 0) return
+    try { localStorage.setItem(tradesKey(jobId), JSON.stringify(tradespeople)) } catch {}
+  }, [tradespeople, jobId, timerRestored])
 
   /* ─────────────────────────────────────────────────────────── */
-  /* 3. NETWORK STATE — offline banner + reconnect retry         */
+  /* 3. NETWORK STATE — offline banner + reconnect reconciliation */
   /* ─────────────────────────────────────────────────────────── */
   useEffect(() => {
-    const goOffline = () => { isOfflineRef.current = true;  setIsOffline(true) }
-    const goOnline  = () => {
+    const goOffline = () => { isOfflineRef.current = true; setIsOffline(true) }
+    const goOnline  = async () => {
       isOfflineRef.current = false
       setIsOffline(false)
       setConsecFails(0)
       consecFailsRef.current = 0
-      // Immediate poll on reconnect
-      pollRef.current?.()
+
+      // Reconnect reconciliation: fetch authoritative DB state and reconcile
+      try {
+        const { data: job } = await supabase
+          .from("jobs")
+          .select("status, search_state, search_radius_miles")
+          .eq("id", jobId)
+          .maybeSingle()
+
+        if (job) {
+          if (job.search_radius_miles) setCurrentRadius(job.search_radius_miles)
+          if (job.status !== "POSTED" || job.search_state === "closed") {
+            // Job ended while offline — clear stale cache and exit
+            setSearchState("background_search")
+            clearJobCache(jobId)
+            return
+          }
+        }
+      } catch {}
+
+      // Fetch fresh responses and discard stale local trades if server has more
+      try {
+        const res = await fetch(`/api/jobs/${jobId}/urgent-responses`, { credentials: "include" })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.notifiedCount) setNotifiedCount(data.notifiedCount)
+          if (data.responses?.length > 0) {
+            // Server state always wins — replace cached trades
+            setTradespeople(data.responses)
+            if (searchStateRef.current !== "response_received") setSearchState("response_received")
+          }
+        }
+      } catch {}
     }
+
     if (!navigator.onLine) { isOfflineRef.current = true; setIsOffline(true) }
     window.addEventListener("offline", goOffline)
     window.addEventListener("online",  goOnline)
@@ -184,6 +307,22 @@ export function UrgentJobSearch({
       window.removeEventListener("offline", goOffline)
       window.removeEventListener("online",  goOnline)
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId])
+
+  /* ─────────────────────────────────────────────────────────── */
+  /* 3b. VISIBILITY — slow polling when tab is hidden            */
+  /* ─────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      isHiddenRef.current = document.visibilityState === "hidden"
+      // Resume with immediate poll when tab becomes visible again
+      if (!isHiddenRef.current && !isOfflineRef.current) {
+        pollRef.current?.()
+      }
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange)
   }, [])
 
   /* ─────────────────────────────────────────────────────────── */
@@ -252,24 +391,28 @@ export function UrgentJobSearch({
   }, [searchState, urgencyType])
 
   /* ─────────────────────────────────────────────────────────── */
-  /* 5. POLLING with exponential backoff                          */
+  /* 5. POLLING with exponential backoff + double-poll guard     */
   /* ─────────────────────────────────────────────────────────── */
   const schedulePoll = useCallback((extraDelayMs = 0) => {
+    // Guarantee only ONE scheduled poll at a time
     if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current)
+    // When tab is hidden, multiply interval to reduce battery + Supabase load
+    const visibilityMultiplier = isHiddenRef.current ? HIDDEN_POLL_MULTIPLIER : 1
+    const delay = (timing.pollIntervalMs * visibilityMultiplier) + extraDelayMs
     pollTimeoutRef.current = setTimeout(async () => {
       await pollRef.current?.()
-      // Next poll delay: base interval + backoff for consecutive failures
       const fails = consecFailsRef.current
-      const delay = backoffMs(fails, timing.pollIntervalMs)
-      schedulePoll(delay)
-    }, timing.pollIntervalMs + extraDelayMs)
+      schedulePoll(backoffMs(fails, timing.pollIntervalMs))
+    }, delay)
   }, [timing.pollIntervalMs])
 
   const pollForResponses = useCallback(async () => {
-    // Don't poll while offline or after search ended
     if (isOfflineRef.current) return
     const state = searchStateRef.current
     if (state === "background_search") return
+    // Prevent concurrent in-flight requests (double-poll guard)
+    if (pollInFlightRef.current) return
+    pollInFlightRef.current = true
 
     try {
       const res = await fetch(`/api/jobs/${jobId}/urgent-responses`, {
@@ -278,7 +421,6 @@ export function UrgentJobSearch({
 
       if (!res.ok) {
         if (res.status === 401 || res.status === 403) {
-          // Auth lost — stop polling silently
           if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current)
           return
         }
@@ -288,12 +430,11 @@ export function UrgentJobSearch({
         return
       }
 
-      // Success — reset fail counter
       setConsecFails(0)
       consecFailsRef.current = 0
 
       const data = await res.json()
-      if (data.notifiedCount)  setNotifiedCount(data.notifiedCount)
+      if (data.notifiedCount) setNotifiedCount(data.notifiedCount)
       if (data.responses?.length > 0) {
         setTradespeople(data.responses)
         if (state !== "response_received") setSearchState("response_received")
@@ -302,6 +443,8 @@ export function UrgentJobSearch({
       const next = consecFailsRef.current + 1
       setConsecFails(next)
       consecFailsRef.current = next
+    } finally {
+      pollInFlightRef.current = false
     }
   }, [jobId])
 
@@ -322,10 +465,8 @@ export function UrgentJobSearch({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchState])
 
-  // Clean up timer key when job is confirmed/cancelled
-  const clearPersistedTimer = useCallback(() => {
-    try { localStorage.removeItem(timerKey(jobId)) } catch {}
-  }, [jobId])
+  // Clean up persisted state when job is confirmed/cancelled
+  const clearPersistedTimer = useCallback(() => { clearJobCache(jobId) }, [jobId])
 
   /* ─────────────────────────────────────────────────────────── */
   /* Action handlers                                              */

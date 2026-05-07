@@ -17,6 +17,15 @@ import { NextRequest, NextResponse } from "next/server"
  *   urgencyType?: string // "asap" | "today" | "flexible" | null
  * }
  */
+function formatBudget(min?: number | null, max?: number | null, period?: string | null): string {
+  if (!min && !max) return ""
+  const periodLabel: Record<string, string> = { per_hour: "/hr", per_day: "/day", per_week: "/wk", per_month: "/mo" }
+  const suffix = period ? (periodLabel[period] ?? "") : ""
+  const fmt = (n: number) => `£${n}${suffix}`
+  if (min && max && min !== max) return `Budget: ${fmt(min)}–${fmt(max)}`
+  return `Budget: ${fmt((min ?? max)!)}`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
@@ -61,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Prevents "Urgent job available" → tap → "Job expired" UX.
     const { data: jobCheck } = await adminClient
       .from("jobs")
-      .select("status, is_active, expires_at")
+      .select("status, is_active, expires_at, budget_min, budget_max, budget_period")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -72,6 +81,8 @@ export async function POST(request: NextRequest) {
       })
       return NextResponse.json({ success: true, notificationsSent: 0, message: "Job expired or inactive" })
     }
+
+    const budgetStr = formatBudget(jobCheck.budget_min, jobCheck.budget_max, jobCheck.budget_period)
 
     // Find matching companies using the database function
     const { data: matchingCompanies, error: matchError } = await adminClient.rpc(
@@ -167,9 +178,10 @@ export async function POST(request: NextRequest) {
         const notifTitle = isUrgent
           ? `🚨 Urgent job nearby: ${jobTitle}`
           : `🔔 New job nearby: ${jobTitle}`
+        const budgetSuffix = budgetStr ? ` ${budgetStr}.` : ""
         const notifMessage = isUrgent
-          ? `${posterName} posted an urgent job within ${Math.round(company.distance_miles)} miles. Respond quickly!`
-          : `${posterName} posted a flexible job matching your trade within ${Math.round(company.distance_miles)} miles.`
+          ? `${posterName} posted an urgent job within ${Math.round(company.distance_miles)} miles.${budgetSuffix} Respond quickly!`
+          : `${posterName} posted a flexible job matching your trade within ${Math.round(company.distance_miles)} miles.${budgetSuffix}`
 
         const { error: notifError } = await adminClient
           .from("notifications")
@@ -204,9 +216,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Send web/FCM push notifications:
-        //   - Urgent jobs  → always push (all matched companies opted in)
-        //   - Flexible jobs → push only to companies with flexible_job_notifications = true
-        const shouldPush = isUrgent || flexibleOptIns.has(company.user_id)
+        //   - Urgent (ASAP) jobs → push handled exclusively by dispatch-urgent; skip here to avoid duplicates
+        //   - Flexible jobs      → push only to companies with flexible_job_notifications = true
+        const shouldPush = !isUrgent && flexibleOptIns.has(company.user_id)
         if (shouldPush) {
           const cutoff90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
           const { data: tokenRows } = await adminClient

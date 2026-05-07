@@ -16,6 +16,17 @@ const nextConfig = {
   reactStrictMode: false, // Disabled for react-leaflet compatibility
   compress: true,
 
+  // br/ locale disabled — redirect all /br/* to home until pt-BR is reactivated
+  async redirects() {
+    return [
+      {
+        source: '/br/:path*',
+        destination: '/',
+        permanent: false,
+      },
+    ]
+  },
+
   // Pin Turbopack's workspace root to this project so it doesn't scan D:\MAIN
   // and spin up dozens of Node worker processes.
   turbopack: {

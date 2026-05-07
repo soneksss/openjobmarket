@@ -123,7 +123,7 @@ export function CapacitorInit() {
     appInitialized = true
 
     // Remove tap flash on Android WebView — eliminates perceived input lag
-    document.body.style.webkitTapHighlightColor = 'transparent'
+    ;(document.body.style as any).webkitTapHighlightColor = 'transparent'
 
     // Suppress verbose logs in production — small but real CPU/memory saving
     if (process.env.NODE_ENV === 'production') {

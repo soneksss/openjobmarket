@@ -86,7 +86,7 @@ function HomeownerMyJobsButton({ userId }: { userId: string }) {
 
 interface HeaderProps {
   user?: any
-  userType?: "professional" | "company"
+  userType?: "professional" | "company" | "homeowner" | "contractor" | "jobseeker" | "employer" | "admin"
   /** Pre-resolved server-side — eliminates client-side admin status query */
   isAdmin?: boolean
   showAuth?: boolean
@@ -396,11 +396,21 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
               {/* Live Map — mobile only, homepage only, homeowners + logged-out users */}
               {pathname === getLocalePath("/") && (currentUserType === "homeowner" || !currentUser) && (
                 <Link
-                  href={getLocalePath("/?tab=traders&autoSearch=true")}
+                  href={getLocalePath("/find")}
                   className="md:hidden flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
                 >
                   <Map className="h-3.5 w-3.5" />
                   Map
+                </Link>
+              )}
+              {/* Jobs Map — mobile only, company/tradesperson users */}
+              {currentUserType === "company" && (
+                <Link
+                  href={getLocalePath("/find-jobs")}
+                  className="md:hidden flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
+                >
+                  <Map className="h-3.5 w-3.5" />
+                  Jobs Map
                 </Link>
               )}
               {/* Language & Region Selector - temporarily hidden (English only for now) */}
@@ -431,9 +441,22 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                         size="sm"
                         className="bg-emerald-600 hover:bg-emerald-700 text-xs gap-1.5"
                       >
-                        <Link href={getLocalePath("/?tab=traders&autoSearch=true")}>
+                        <Link href={getLocalePath("/find")}>
                           <Map className="h-3.5 w-3.5" />
                           Live Map
+                        </Link>
+                      </Button>
+                    )}
+                    {/* Jobs Map — desktop, company/tradesperson users */}
+                    {currentUserType === "company" && (
+                      <Button
+                        asChild
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-xs gap-1.5"
+                      >
+                        <Link href={getLocalePath("/find-jobs")}>
+                          <Map className="h-3.5 w-3.5" />
+                          Jobs Map
                         </Link>
                       </Button>
                     )}

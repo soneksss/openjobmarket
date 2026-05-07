@@ -127,8 +127,14 @@ export default function MultiStepSignup() {
   const validateStep2 = async () => {
     setError(null)
 
-    // Check required fields
-    if (!signupData.email || !signupData.password || !signupData.confirmPassword) {
+    const isIndividual = signupData.accountType === "individual"
+
+    // Check required fields (confirmPassword only required for company accounts)
+    if (!signupData.email || !signupData.password) {
+      setError(t('signup.fillAllFields'))
+      return false
+    }
+    if (!isIndividual && !signupData.confirmPassword) {
       setError(t('signup.fillAllFields'))
       return false
     }
@@ -140,8 +146,8 @@ export default function MultiStepSignup() {
       return false
     }
 
-    // Check password match
-    if (signupData.password !== signupData.confirmPassword) {
+    // Check password match — only for company accounts
+    if (!isIndividual && signupData.password !== signupData.confirmPassword) {
       setError(t('signup.passwordsDoNotMatch'))
       return false
     }
@@ -229,54 +235,94 @@ export default function MultiStepSignup() {
     setError(null)
     setIsLoading(true)
 
+    const isIndividual = signupData.accountType === "individual"
+
+    // ── Homeowner fast-path: admin API creates account without OTP ────────────
+    if (isIndividual) {
+      try {
+        const res = await fetch("/api/auth/signup-homeowner", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email:     signupData.email.trim().toLowerCase(),
+            password:  signupData.password,
+            firstName: signupData.firstName,
+            lastName:  signupData.lastName,
+            postcode:  signupData.postcode,
+            phone:     signupData.phone || undefined,
+            location:  signupData.location || signupData.postcode,
+            latitude:  signupData.latitude,
+            longitude: signupData.longitude,
+          }),
+        })
+
+        const data = await res.json()
+
+        if (res.status === 409 || data.error === "email_exists") {
+          setEmailAlreadyExists(true)
+          setIsLoading(false)
+          return
+        }
+        if (!res.ok) {
+          throw new Error(data.error ?? "Signup failed")
+        }
+
+        // Account created and email confirmed — sign in immediately (no OTP needed)
+        const supabase = createClient()
+        const { error: signInErr } = await supabase.auth.signInWithPassword({
+          email:    signupData.email.trim().toLowerCase(),
+          password: signupData.password,
+        })
+        if (signInErr) throw signInErr
+
+        router.push(dashboardUrl)
+      } catch (err: any) {
+        console.error("[SIGNUP] Homeowner signup error:", err)
+        let msg = err.message ?? "An error occurred. Please try again."
+        if (msg.includes("already")) msg = "This email is already registered. Please sign in."
+        setError(msg)
+        setIsLoading(false)
+      }
+      return
+    }
+
+    // ── Company / tradesperson: keep original flow (with OTP) ─────────────────
     try {
       const supabase = createClient()
 
-      // Determine user_type based on account type
-      // Individual (Homeowner) → homeowner, Business (Tradesperson) → company
-      const userType = signupData.accountType === "individual" ? "homeowner" : "company"
-
-      // Map accountType to database values: 'individual' stays as is, 'company' becomes 'business'
-      const dbAccountType = signupData.accountType === 'company' ? 'business' : 'individual'
-
-      const isIndividual = signupData.accountType === "individual"
+      const userType = "company"
+      const dbAccountType = "business"
 
       const metadata: Record<string, any> = {
-        user_type: userType,
-        account_type: dbAccountType,
-        is_jobseeker: false,
-        is_homeowner: isIndividual,
-        is_employer: !isIndividual,
-        is_tradespeople: !isIndividual,
+        user_type:       userType,
+        account_type:    dbAccountType,
+        is_jobseeker:    false,
+        is_homeowner:    false,
+        is_employer:     true,
+        is_tradespeople: true,
       }
 
-      // Add optional fields only if they exist
-      if (signupData.firstName) metadata.first_name = signupData.firstName
-      if (signupData.lastName) metadata.last_name = signupData.lastName
       if (signupData.companyName) metadata.company_name = signupData.companyName
-      // display_name keeps Supabase Auth → Users list readable for both homeowners and companies
-      metadata.display_name = isIndividual
-        ? `${signupData.firstName} ${signupData.lastName}`.trim()
-        : signupData.companyName || signupData.email.split("@")[0]
-      if (signupData.title) metadata.title = signupData.title
+      metadata.display_name = signupData.companyName || signupData.email.split("@")[0]
+      if (signupData.title)    metadata.title    = signupData.title
       if (signupData.industry) metadata.industry = signupData.industry
       if (signupData.services && signupData.services.length > 0) {
-        metadata.trade = signupData.services[0]
+        metadata.trade    = signupData.services[0]
         metadata.services = signupData.services.filter(s => s)
       }
       if (signupData.phone) {
-        metadata.phone = signupData.phone
+        metadata.phone        = signupData.phone
         metadata.phone_number = signupData.phone
       }
-      if (signupData.location) metadata.location = signupData.location
+      if (signupData.location)  metadata.location  = signupData.location
       else if (signupData.postcode) metadata.location = signupData.postcode
-      if (signupData.latitude !== undefined) metadata.latitude = signupData.latitude
+      if (signupData.latitude  !== undefined) metadata.latitude  = signupData.latitude
       if (signupData.longitude !== undefined) metadata.longitude = signupData.longitude
 
-      console.log("[SIGNUP] Metadata prepared:", { email: signupData.email, metadata })
+      console.log("[SIGNUP] Company metadata:", { email: signupData.email, metadata })
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: signupData.email.trim().toLowerCase(),
+        email:    signupData.email.trim().toLowerCase(),
         password: signupData.password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
@@ -284,27 +330,17 @@ export default function MultiStepSignup() {
         },
       })
 
-      console.log("[SIGNUP] Response:", { user: authData?.user?.id, error: signUpError })
-
-      if (signUpError) {
-        console.error("[SIGNUP] Signup error:", signUpError)
-        throw signUpError
-      }
+      if (signUpError) throw signUpError
       if (!authData.user) throw new Error("Failed to create user")
 
-      // Supabase silently "succeeds" for existing confirmed emails but returns identities: [].
-      // Detect this and show a clear "Go to Login" prompt instead of leaving the user
-      // waiting for a verification email that will never arrive.
       if (!authData.user.identities || authData.user.identities.length === 0) {
         setEmailAlreadyExists(true)
         setIsLoading(false)
         return
       }
 
-      // Save email to localStorage for resend functionality
       localStorage.setItem('signup_email', signupData.email)
 
-      // Redirect to email verification page
       if (!authData.user.email_confirmed_at) {
         const verifyEmailUrl = isOnBrRoute
           ? `/auth/verify-email?locale=pt-BR&email=${encodeURIComponent(signupData.email)}`
@@ -314,10 +350,9 @@ export default function MultiStepSignup() {
         router.push(dashboardUrl)
       }
     } catch (err: any) {
-      console.error("[SIGNUP] ❌ Signup error:", err)
-
+      console.error("[SIGNUP] Company signup error:", err)
       let errorMessage = ""
-      if (err.message?.includes('already registered') || err.message?.includes('already exists') || err.message?.includes('User already registered')) {
+      if (err.message?.includes('already registered') || err.message?.includes('already exists')) {
         errorMessage = 'This email is already registered. Please use a different email or sign in.'
       } else if (err.message?.includes('Password')) {
         errorMessage = 'Password must be at least 6 characters long.'
@@ -330,7 +365,6 @@ export default function MultiStepSignup() {
       } else {
         errorMessage = "An error occurred during signup. Please try again."
       }
-
       setError(errorMessage)
       setIsLoading(false)
     }
@@ -369,21 +403,20 @@ export default function MultiStepSignup() {
         </div>
       )}
 
-      {/* Brand mark above card */}
-      <div className="flex items-center justify-center gap-2 mb-6">
+      <div className="hidden sm:flex items-center justify-center gap-2 mb-6">
         <span className="text-white font-bold text-lg tracking-tight">Open Job Market</span>
       </div>
 
       <Card className="bg-slate-900 border border-slate-700/60 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_32px_64px_rgba(0,0,0,0.6)] ring-1 ring-white/[0.04]">
         {/* Thin emerald top accent */}
         <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent rounded-t-xl" />
-        <CardHeader className="pb-4 pt-6">
-          <CardTitle className="text-2xl text-white text-center">{t('signup.title')}</CardTitle>
-          <CardDescription className="text-slate-400 text-center">
+        <CardHeader className="pb-1 pt-2 sm:pb-4 sm:pt-6">
+          <CardTitle className="text-sm sm:text-2xl text-white text-center leading-tight">{t('signup.title')}</CardTitle>
+          <CardDescription className="text-slate-400 text-center text-xs sm:text-sm mt-0.5">
             {t('signup.step')} {currentStep} {t('signup.of')} 2
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
           {emailAlreadyExists && (
             <div className="mb-4 p-4 bg-amber-900/40 border border-amber-600/60 rounded-xl space-y-3">
               <p className="text-sm font-semibold text-amber-300">This email already has an account.</p>
@@ -536,15 +569,12 @@ export default function MultiStepSignup() {
         {/* Step 2: Profile Setup */}
         {currentStep === 2 && (
           <div className="space-y-4">
-            <div className="text-center mb-2">
-              <h3 className="text-lg font-bold text-white">{t('signup.profileSetup')}</h3>
-            </div>
 
             <div className="space-y-3">
               {signupData.accountType === "individual" ? (
                 <>
                   {/* Name Row */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="firstName" className="text-sm font-medium text-slate-300">{t('signup.firstNameLabel')} *</Label>
                       <Input
@@ -570,7 +600,7 @@ export default function MultiStepSignup() {
                   </div>
 
                   {/* Email & Postcode Row */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="email" className="text-sm font-medium text-slate-300">{t('signup.emailLabel')} *</Label>
                       <Input
@@ -604,34 +634,19 @@ export default function MultiStepSignup() {
                     </div>
                   </div>
 
-                  {/* Password Row */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="password" className="text-sm font-medium text-slate-300">{t('signup.passwordLabel')} *</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={signupData.password}
-                        onChange={(e) => updateSignupData({ password: e.target.value })}
-                        placeholder="Min 6 characters"
-                        autoComplete="new-password"
-                        required
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="confirmPassword" className="text-sm font-medium text-slate-300">{t('signup.confirmPasswordLabel')} *</Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        value={signupData.confirmPassword}
-                        onChange={(e) => updateSignupData({ confirmPassword: e.target.value })}
-                        placeholder="Confirm password"
-                        autoComplete="new-password"
-                        required
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
-                      />
-                    </div>
+                  {/* Password — single field for homeowners, no confirm needed */}
+                  <div>
+                    <Label htmlFor="password" className="text-sm font-medium text-slate-300">{t('signup.passwordLabel')} *</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={signupData.password}
+                      onChange={(e) => updateSignupData({ password: e.target.value })}
+                      placeholder="Min 6 characters"
+                      autoComplete="new-password"
+                      required
+                      className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                    />
                   </div>
 
                   {/* Checkboxes */}
@@ -677,7 +692,7 @@ export default function MultiStepSignup() {
                   </div>
 
                   {/* Email & Postcode Row */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="email" className="text-sm font-medium text-slate-300">{t('signup.emailLabel')} *</Label>
                       <Input
@@ -712,7 +727,7 @@ export default function MultiStepSignup() {
                   </div>
 
                   {/* Password Row */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <Label htmlFor="password" className="text-sm font-medium text-slate-300">{t('signup.passwordLabel')} *</Label>
                       <Input

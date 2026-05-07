@@ -62,7 +62,7 @@ export default async function ProfessionalDetailPage({ params }: { params: Promi
   }
 
   // Get current user
-  let user = null
+  let user: any = null
   try {
     const { data: authData } = await supabase.auth.getUser()
     user = authData.user ?? null

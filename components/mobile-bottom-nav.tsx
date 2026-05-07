@@ -185,25 +185,12 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     // Use industry= + services= params (single ilike path) instead of skills= (slow multi-column ilike)
     const buildUrl = (lat: number | null, lng: number | null, industry: string | null, services: string[]) => {
       const params = new URLSearchParams()
-      params.set("tab", "jobs_tasks")
-      params.set("autoSearch", "true")
       if (lat && lng) {
-        params.set("location", "Near Me")
         params.set("lat", lat.toString())
         params.set("lng", lng.toString())
-        params.set("radius", "5")
-      } else {
-        params.set("location", "London, UK")
-        params.set("lat", "51.5074")
-        params.set("lng", "-0.1278")
-        params.set("radius", "10")
       }
-      if (industry) {
-        params.set("industry", industry)
-        const cleanServices = services.filter(Boolean).slice(0, 2)
-        if (cleanServices.length > 0) params.set("services", cleanServices.join(","))
-      }
-      return `/?${params.toString()}`
+      if (industry) params.set("industry", industry)
+      return `/find-jobs?${params.toString()}`
     }
 
     const effectiveUserType = userType
@@ -218,7 +205,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
             const services = Array.isArray(data.services) ? data.services.slice(0, 2) : []
             setJobsSearchUrl(buildUrl(data.latitude, data.longitude, data.industry, services))
           } else {
-            setJobsSearchUrl("/?tab=jobs_tasks&autoSearch=true&location=London%2C+UK&lat=51.5074&lng=-0.1278&radius=10")
+            setJobsSearchUrl("/find-jobs?lat=51.5074&lng=-0.1278")
           }
         })
     } else {
@@ -241,7 +228,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
                 if (comp) {
                   setJobsSearchUrl(buildUrl(comp.latitude, comp.longitude, comp.industry, []))
                 } else {
-                  setJobsSearchUrl("/?tab=jobs_tasks&autoSearch=true&location=London%2C+UK&lat=51.5074&lng=-0.1278&radius=10")
+                  setJobsSearchUrl("/find-jobs?lat=51.5074&lng=-0.1278")
                 }
               })
           }
@@ -265,7 +252,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     const items = [
       { key: "search",   icon: Home,          label: "Search",   href: `${base}/`,                              isActive: pathname === "/" || pathname === "/br" },
       { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/messages`,                      isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
-      { key: "post",     icon: Plus,          label: "Post",     href: `${base}/jobs/new`,                      isActive: !!pathname?.includes("/jobs/new"), isCenter: true },
+      { key: "post",     icon: Plus,          label: "Post",     href: `${base}/find`,                          isActive: !!pathname?.includes("/find"), isCenter: true },
       { key: "myjobs",   icon: Briefcase,     label: "My Jobs",  href: `${base}/dashboard/homeowner/jobs`,      isActive: !!pathname?.includes("/dashboard/homeowner/jobs"), badge: unreadJobNotifs },
       { key: "account",  icon: User,          label: "Account",  href: `${base}/dashboard/homeowner`,           isActive: !!pathname?.includes("/dashboard/homeowner") && !pathname?.includes("/jobs") },
     ]
@@ -274,7 +261,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
 
   // ── Tradesperson nav ───────────────────────────────────────────────────────
   if (isTradesperson) {
-    const defaultJobsUrl = "/?tab=jobs_tasks&autoSearch=true"
+    const defaultJobsUrl = "/find-jobs"
     const jobsUrl = `${base}${(jobsSearchUrl || defaultJobsUrl)}`
     const items = [
       { key: "home",          icon: Home,          label: "Home",          href: `${base}/`,              isActive: pathname === "/" || pathname === "/br" },

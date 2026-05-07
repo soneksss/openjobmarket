@@ -11,11 +11,14 @@ import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 
 type MessageModalProps = {
-  isOpen: boolean
+  isOpen?: boolean
   onClose: () => void
-  professionalName: string
-  professionalId: string
-  user: any
+  professionalName?: string
+  professionalId?: string
+  /** Generic aliases used by non-professional callers */
+  recipientName?: string
+  recipientId?: string
+  user?: any
 }
 
 export default function MessageModal({

@@ -53,6 +53,8 @@ interface Job {
   job_photo_url?: string
   urgency_type?: string
   expires_at?: string
+  latitude?: number | null
+  longitude?: number | null
   company_profiles?: {
     id: string
     company_name: string
@@ -70,6 +72,13 @@ interface Job {
     first_name: string
     last_name: string
     profile_photo_url?: string
+    latitude_approx?: number | null
+    longitude_approx?: number | null
+    latitude?: number | null
+    longitude?: number | null
+    address_line1?: string
+    city?: string
+    location?: string
   }
 }
 

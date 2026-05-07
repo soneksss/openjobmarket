@@ -586,7 +586,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
       setShowMapModal(true)
 
       // Trigger search restoration (even with partial params)
-      setRestoreSearch(searchType)
+      setRestoreSearch(searchType as any)
 
       return // Exit early - restoration takes priority
     } else {
@@ -1108,6 +1108,10 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
         setSearchResultCount(results.length)
 
         // ── legacy block kept for reference but now skipped ───────────────
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        let professionalResults: any[] = []
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        let companyResults: any[] = []
         if (false) { // eslint-disable-line no-constant-condition
 
         // Fetch self-employed professionals as well
@@ -1175,7 +1179,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
           if (selectedLocation) {
             const radiusMiles = parseInt(effectiveDistance) || 10
-            filteredProfessionals = filterByRadius(filteredProfessionals, selectedLocation.lat, selectedLocation.lon, radiusMiles)
+            filteredProfessionals = filterByRadius(filteredProfessionals, selectedLocation!.lat, selectedLocation!.lon, radiusMiles)
           }
 
           if (spokenLanguage && spokenLanguage !== "all") {
@@ -1289,7 +1293,7 @@ export function MainPageSearch({ onSearchStateChange, externalSearchQuery, initi
 
           if (selectedLocation) {
             const radiusMiles = parseInt(effectiveDistance) || 10
-            filteredCompanies = filterByRadius(filteredCompanies, selectedLocation.lat, selectedLocation.lon, radiusMiles)
+            filteredCompanies = filterByRadius(filteredCompanies, selectedLocation!.lat, selectedLocation!.lon, radiusMiles)
           }
 
           // Client-side services filter for companies
