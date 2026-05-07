@@ -6,6 +6,9 @@ import Link from "next/link"
 import { Home, MessageCircle, Plus, Bookmark, User, Map, Briefcase } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { useTranslation } from "@/lib/i18n/context"
+import dynamic from "next/dynamic"
+
+const JobWizardModal = dynamic(() => import("@/components/job-wizard-modal"), { ssr: false })
 
 interface MobileBottomNavProps {
   user?: { id: string; user_metadata?: any } | null
@@ -48,6 +51,8 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   const [unreadJobNotifs, setUnreadJobNotifs] = useState(0)
   const [myJobsBadge, setMyJobsBadge] = useState(0)
   const [jobsSearchUrl, setJobsSearchUrl] = useState<string | null>(null)
+  const [showWizard, setShowWizard] = useState(false)
+  const [homeownerProfile, setHomeownerProfile] = useState<any>(null)
 
   // Notification types homeowners receive about their jobs
   const HOMEOWNER_JOB_NOTIF_TYPES = ["job_application", "job_expiring"]
@@ -176,6 +181,13 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     }
   }, [userId, userType])
 
+  // Fetch homeowner profile for the job wizard
+  useEffect(() => {
+    if (!userId || userType !== "homeowner") return
+    supabase.from("homeowner_profiles").select("*").eq("user_id", userId).maybeSingle()
+      .then(({ data }) => setHomeownerProfile(data))
+  }, [userId, userType])
+
   // Fetch tradesperson profile to build a personalised jobs search URL
   useEffect(() => {
     if (!userId) return
@@ -250,13 +262,27 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   // ── Homeowner nav ──────────────────────────────────────────────────────────
   if (isHomeowner) {
     const items = [
-      { key: "search",   icon: Home,          label: "Search",   href: `${base}/`,                              isActive: pathname === "/" || pathname === "/br" },
-      { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/messages`,                      isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
-      { key: "post",     icon: Plus,          label: "Post",     href: `${base}/find`,                          isActive: !!pathname?.includes("/find"), isCenter: true },
-      { key: "myjobs",   icon: Briefcase,     label: "My Jobs",  href: `${base}/dashboard/homeowner/jobs`,      isActive: !!pathname?.includes("/dashboard/homeowner/jobs"), badge: unreadJobNotifs },
-      { key: "account",  icon: User,          label: "Account",  href: `${base}/dashboard/homeowner`,           isActive: !!pathname?.includes("/dashboard/homeowner") && !pathname?.includes("/jobs") },
+      { key: "search",   icon: Home,          label: "Search",   href: `${base}/`,                         isActive: pathname === "/" || pathname === "/br" },
+      { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/messages`,                  isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
+      { key: "post",     icon: Plus,          label: "Post",     href: "#",                                 isActive: false, isCenter: true, onClick: () => setShowWizard(true) },
+      { key: "myjobs",   icon: Briefcase,     label: "My Jobs",  href: `${base}/dashboard/homeowner/jobs`, isActive: !!pathname?.includes("/dashboard/homeowner/jobs"), badge: unreadJobNotifs },
+      { key: "account",  icon: User,          label: "Account",  href: `${base}/dashboard/homeowner`,      isActive: !!pathname?.includes("/dashboard/homeowner") && !pathname?.includes("/jobs") },
     ]
-    return <BottomNav items={items} unreadMessages={unreadMessages} unreadNotifications={unreadNotifications} />
+    return (
+      <>
+        <BottomNav items={items} unreadMessages={unreadMessages} unreadNotifications={unreadNotifications} />
+        {showWizard && (
+          <div className="fixed inset-0" style={{ zIndex: 60 }}>
+            <JobWizardModal
+              guestMode={!user}
+              companyProfile={homeownerProfile ?? null}
+              userType="homeowner"
+              onClose={() => setShowWizard(false)}
+            />
+          </div>
+        )}
+      </>
+    )
   }
 
   // ── Tradesperson nav ───────────────────────────────────────────────────────
@@ -292,6 +318,7 @@ interface NavItem {
   isCenter?: boolean
   centerColor?: string
   badge?: number
+  onClick?: () => void
 }
 
 function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavItem[], unreadMessages: number, unreadNotifications: number }) {
@@ -302,12 +329,24 @@ function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavI
           const Icon = item.icon
 
           if (item.isCenter) {
-            return (
-              <Link key={item.key} href={item.href} className="flex flex-col items-center justify-center -mt-7">
+            const centerInner = (
+              <>
                 <div className={`w-[68px] h-[68px] rounded-full flex items-center justify-center shadow-lg transition-colors ${item.centerColor || "bg-emerald-500 shadow-emerald-500/30 hover:bg-emerald-600"}`}>
                   <Icon className="h-6 w-6 text-white" />
                 </div>
                 <span className="text-[10px] mt-0.5 text-slate-400 font-medium">{item.label}</span>
+              </>
+            )
+            if (item.onClick) {
+              return (
+                <button key={item.key} onClick={item.onClick} className="flex flex-col items-center justify-center -mt-7">
+                  {centerInner}
+                </button>
+              )
+            }
+            return (
+              <Link key={item.key} href={item.href} className="flex flex-col items-center justify-center -mt-7">
+                {centerInner}
               </Link>
             )
           }

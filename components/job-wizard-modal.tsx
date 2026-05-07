@@ -15,6 +15,7 @@ type Props = {
   companyProfile: any
   userType: "company" | "homeowner"
   redirectPath?: string
+  onClose?: () => void     // overrides router.back() when closing without submitting
   initialIndustry?: string
   initialService?: string
   guestMode?: boolean      // true when user is not authenticated
@@ -418,7 +419,7 @@ const getAllLanguages = (isPtBR: boolean) =>
     name: isPtBR ? v.ptBR : v.en,
   }))
 
-export default function JobWizardModal({ companyProfile, userType, redirectPath, initialIndustry, initialService, guestMode = false, initialPostcode }: Props) {
+export default function JobWizardModal({ companyProfile, userType, redirectPath, onClose, initialIndustry, initialService, guestMode = false, initialPostcode }: Props) {
   const supabase = createClient()
   const router = useRouter()
   const { toast } = useToast()
@@ -526,7 +527,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
 
   const closeModal = () => {
     setOpen(false)
-    if (redirectPath) {
+    if (onClose) {
+      onClose()
+    } else if (redirectPath) {
       router.push(redirectPath)
     } else {
       router.back()

@@ -1,8 +1,8 @@
 import { generateSEO } from "@/lib/seo"
 import { createClient } from "@/lib/server"
 import Link from "next/link"
-import Image from "next/image"
-import { MapPin, Zap, MessageSquare, Star, Wrench, Home } from "lucide-react"
+import { MapPin, Zap, MessageSquare, Star, Wrench, Home, Map } from "lucide-react"
+import BrowseTradespeopleButton from "@/components/browse-tradespeople-button"
 
 export const dynamic = "force-dynamic"
 
@@ -13,15 +13,6 @@ export const metadata = generateSEO({
   path: "/about",
 })
 
-const HOW_IT_WORKS = [
-  { step: 1, title: "Post your job",             text: "Choose the job type and describe what you need.",                              img: "/Post_job_1.jpg" },
-  { step: 2, title: "Set urgency",               text: "Select how quickly you need the job done.",                                    img: "/Post_job_2.jpg" },
-  { step: 3, title: "Choose location & publish", text: "Set your location and publish your job.",                                      img: "/Post_job_3.jpg" },
-  { step: 4, title: "Get applications",          text: "Nearby tradespeople receive notifications and apply.",                         img: "/Tradesperson_get_notification.jpeg" },
-  { step: 5, title: "Compare & choose",          text: "See up to 3 applicants in a simple, Uber-style interface.",                   img: "/Find_tradespeople.jpg" },
-  { step: 6, title: "Complete & review",         text: "Confirm the job, arrange the visit, and leave a review after completion.",     img: "/Completed.jpg" },
-]
-
 export default async function AboutPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -29,35 +20,27 @@ export default async function AboutPage() {
 
   return (
     <div className="min-h-screen bg-slate-900 text-white">
-      <div className="container mx-auto px-4 max-w-4xl py-8 space-y-8">
+      <div className="container mx-auto px-4 max-w-4xl py-8 space-y-6">
 
-        {/* ── About description ──────────────────────────────────────── */}
+        {/* ── Hero ──────────────────────────────────────────────────────── */}
         <section className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
           <h1 className="text-2xl font-bold text-white mb-4">About Open Job Market</h1>
           <div className="space-y-3 text-sm text-slate-400 leading-relaxed">
             <p>
-              Open Job Market connects homeowners with nearby tradespeople in real time — no waiting, no lead selling, no spam calls.
+              Open Job Market connects homeowners with nearby tradespeople in real time — without lead selling, spam calls, or middlemen.
             </p>
-            <div className="hidden sm:block space-y-3">
-              <p>
-                Users post a job and instantly reach professionals in their area. Tradespeople receive notifications based on location and job type, and apply directly through the app.
-              </p>
-              <p>
-                Homeowners compare a small number of relevant applicants, review profiles, and communicate without unwanted calls or intermediaries.
-              </p>
-            </div>
-            <p className="text-slate-300 font-medium">Two ways to work:</p>
-            <ul className="space-y-2 pl-2">
-              <li className="flex items-start gap-2">
-                <Zap className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                <span><span className="text-slate-200 font-medium">Urgent jobs</span> — ride-hailing style, nearby tradespeople respond quickly.</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <Star className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                <span><span className="text-slate-200 font-medium">Flexible work</span> — review options and choose the right person over time.</span>
-              </li>
-            </ul>
-            <p className="text-emerald-400 font-medium">Fast, fair, and reliable — whatever the job.</p>
+            <p className="hidden sm:block">
+              If you've ever tried to find a tradesperson, you know the frustration: calling around to check availability, waiting days for quotes, or being contacted by salespeople instead of the actual professional.
+            </p>
+            <p className="hidden sm:block">
+              Open Job Market solves this by making local trades discoverable instantly on a map.
+            </p>
+            <p className="hidden sm:block">
+              Homeowners stay in control — compare options, message professionals directly, and hire when you're ready.
+            </p>
+            <p className="text-slate-300 italic text-sm">
+              "Think Uber for urgent jobs, Google Maps for finding tradespeople, and Airbnb-style applications for larger projects."
+            </p>
           </div>
 
           <div className="flex flex-wrap gap-2 mt-6">
@@ -75,24 +58,60 @@ export default async function AboutPage() {
                 <Link href="/auth/sign-up" className="inline-flex items-center px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm transition-colors">
                   Get Started Free
                 </Link>
-                <Link href="/find" className="inline-flex items-center px-5 py-2.5 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-semibold text-sm transition-colors">
-                  Browse Tradespeople
-                </Link>
+                <BrowseTradespeopleButton className="inline-flex items-center px-5 py-2.5 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-semibold text-sm transition-colors" />
               </>
             )}
           </div>
         </section>
 
-        {/* ── Comparison ───────────────────────────────────────────────── */}
+        {/* ── Two ways ──────────────────────────────────────────────────── */}
         <section>
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-1 mb-3">
-            Why choose Open Job Market?
+            Two simple ways to find a tradesperson
+          </p>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="bg-slate-800/50 border border-emerald-500/25 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                  <Map className="h-4 w-4 text-emerald-400" />
+                </div>
+                <p className="text-sm font-bold text-white">1. Discover tradespeople on the map</p>
+              </div>
+              <p className="text-sm text-slate-400 leading-relaxed mb-2">
+                Browse nearby professionals, view profiles, reviews and availability, and contact them directly.
+              </p>
+              <p className="text-xs text-emerald-400 font-semibold">Instant map discovery. No waiting.</p>
+            </div>
+            <div className="bg-slate-800/50 border border-blue-500/25 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0">
+                  <Zap className="h-4 w-4 text-blue-400" />
+                </div>
+                <p className="text-sm font-bold text-white">2. Post a job</p>
+              </div>
+              <p className="text-sm text-slate-400 leading-relaxed mb-2">
+                Describe your project, set your budget, and receive applications from local tradespeople.
+              </p>
+              <p className="text-xs text-slate-300">Compare responses, chat inside the app, and choose the right professional.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Why different ─────────────────────────────────────────────── */}
+        <section>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-1 mb-3">
+            Why Open Job Market is different
           </p>
           <div className="grid md:grid-cols-2 gap-3">
             <div className="bg-slate-800/50 rounded-2xl border border-slate-700/50 p-5">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Other platforms</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-4">Traditional platforms</p>
               <ul className="space-y-3">
-                {["Sell your job as paid leads", "Multiple unwanted sales calls", "Often matched with non-local companies", "Slow quote process"].map((p) => (
+                {[
+                  "Sell your contact details as paid leads",
+                  "Multiple unwanted sales calls",
+                  "Tradespeople may be far away",
+                  "Slow quoting process",
+                ].map((p) => (
                   <li key={p} className="flex items-start gap-2 text-sm text-slate-400">
                     <span className="text-red-400 font-bold flex-shrink-0">✕</span>{p}
                   </li>
@@ -102,7 +121,12 @@ export default async function AboutPage() {
             <div className="bg-emerald-950/40 rounded-2xl border border-emerald-500/25 p-5">
               <p className="text-xs font-semibold text-emerald-500 uppercase tracking-widest mb-4">Open Job Market</p>
               <ul className="space-y-3">
-                {["No lead selling — fair pricing", "Connect directly with nearby tradespeople", "Messaging only — no spam calls", "Fast matching (Uber-style for urgent jobs)"].map((p) => (
+                {[
+                  "Instant map discovery of local tradespeople",
+                  "Direct messaging — no spam calls",
+                  "No lead selling — fairer pricing",
+                  "Fast responses for urgent jobs",
+                ].map((p) => (
                   <li key={p} className="flex items-start gap-2 text-sm text-slate-300">
                     <span className="text-emerald-400 font-bold flex-shrink-0">✓</span>{p}
                   </li>
@@ -112,25 +136,35 @@ export default async function AboutPage() {
           </div>
         </section>
 
-        {/* ── For each audience ────────────────────────────────────────── */}
-        <section className="grid md:grid-cols-2 gap-3">
-          <div className="bg-slate-800/60 rounded-2xl border border-orange-500/25 overflow-hidden">
-            <div className="bg-gradient-to-r from-orange-600/80 to-orange-700/80 px-4 py-3 flex items-center gap-2">
-              <Wrench className="h-5 w-5 text-orange-100 flex-shrink-0" />
-              <div>
-                <p className="text-base font-bold text-white leading-none">For Tradespeople</p>
-                <p className="text-orange-200 text-sm mt-0.5">More local jobs without paying for leads.</p>
+        {/* ── Job types ─────────────────────────────────────────────────── */}
+        <section>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-1 mb-3">
+            Two types of jobs
+          </p>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="bg-slate-800/50 border border-orange-500/25 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Zap className="h-4 w-4 text-orange-400 flex-shrink-0" />
+                <p className="text-sm font-bold text-white">Urgent jobs</p>
               </div>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Ride-hailing style matching. Nearby tradespeople receive notifications and can respond quickly.
+              </p>
             </div>
-            <ul className="px-4 py-4 space-y-2.5">
-              {["See nearby jobs on a live map", "Apply instantly", "Get discovered by homeowners", "Fill gaps in your schedule"].map((p) => (
-                <li key={p} className="flex items-start gap-2 text-sm text-slate-300">
-                  <span className="text-emerald-400 font-bold flex-shrink-0">✓</span>{p}
-                </li>
-              ))}
-            </ul>
+            <div className="bg-slate-800/50 border border-blue-500/25 rounded-2xl p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Star className="h-4 w-4 text-blue-400 flex-shrink-0" />
+                <p className="text-sm font-bold text-white">Flexible projects</p>
+              </div>
+              <p className="text-sm text-slate-400 leading-relaxed">
+                Compare applications, discuss details, and choose the right professional at your own pace.
+              </p>
+            </div>
           </div>
+        </section>
 
+        {/* ── For each audience ─────────────────────────────────────────── */}
+        <section className="grid md:grid-cols-2 gap-3">
           <div className="bg-slate-800/60 rounded-2xl border border-blue-500/25 overflow-hidden">
             <div className="bg-gradient-to-r from-blue-700/80 to-blue-800/80 px-4 py-3 flex items-center gap-2">
               <Home className="h-5 w-5 text-blue-100 flex-shrink-0" />
@@ -140,47 +174,35 @@ export default async function AboutPage() {
               </div>
             </div>
             <ul className="px-4 py-4 space-y-2.5">
-              {["Post jobs with photos & budget", "Reach nearby tradespeople instantly", "Compare applications easily", "Hire with confidence using reviews"].map((p) => (
+              {["Post jobs with photos and budget", "Reach nearby tradespeople instantly", "Compare applications easily", "Hire with confidence using reviews"].map((p) => (
                 <li key={p} className="flex items-start gap-2 text-sm text-slate-300">
                   <span className="text-emerald-400 font-bold flex-shrink-0">✓</span>{p}
                 </li>
               ))}
             </ul>
+            <p className="px-4 pb-4 text-xs text-emerald-400 font-semibold">Completely free for homeowners.</p>
           </div>
-        </section>
 
-        {/* ── How It Works ─────────────────────────────────────────────── */}
-        <section>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-1 mb-3">
-            How it works
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-            {HOW_IT_WORKS.map(({ step, title, text, img }) => (
-              <div key={step} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden flex flex-col">
-                <div className="relative w-full aspect-[9/16] bg-slate-800">
-                  <Image
-                    src={img}
-                    alt={title}
-                    fill
-                    className="object-cover object-top"
-                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                  />
-                </div>
-                <div className="px-2.5 py-2.5 flex flex-col gap-1.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-[10px] font-bold text-emerald-400 flex-shrink-0">
-                      {step}
-                    </span>
-                    <p className="text-xs font-semibold text-slate-100 leading-tight">{title}</p>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-snug pl-6">{text}</p>
-                </div>
+          <div className="bg-slate-800/60 rounded-2xl border border-orange-500/25 overflow-hidden">
+            <div className="bg-gradient-to-r from-orange-600/80 to-orange-700/80 px-4 py-3 flex items-center gap-2">
+              <Wrench className="h-5 w-5 text-orange-100 flex-shrink-0" />
+              <div>
+                <p className="text-base font-bold text-white leading-none">For Tradespeople</p>
+                <p className="text-orange-200 text-sm mt-0.5">More local work without paying for leads.</p>
               </div>
-            ))}
+            </div>
+            <ul className="px-4 py-4 space-y-2.5">
+              {["See nearby jobs on a live map", "Apply instantly", "Get discovered by homeowners", "Fill gaps in your schedule"].map((p) => (
+                <li key={p} className="flex items-start gap-2 text-sm text-slate-300">
+                  <span className="text-emerald-400 font-bold flex-shrink-0">✓</span>{p}
+                </li>
+              ))}
+            </ul>
+            <p className="px-4 pb-4 text-xs text-slate-400">Tradespeople pay a small subscription — no lead buying required.</p>
           </div>
         </section>
 
-        {/* ── Trust badges ─────────────────────────────────────────────── */}
+        {/* ── Trust badges ──────────────────────────────────────────────── */}
         <section className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
             { icon: MapPin,        label: "Hyper-local",   sub: "Jobs near you" },
@@ -198,27 +220,23 @@ export default async function AboutPage() {
           ))}
         </section>
 
-        {/* ── Final CTA ────────────────────────────────────────────────── */}
+        {/* ── Final CTA ─────────────────────────────────────────────────── */}
         <section className="bg-slate-800/50 border border-emerald-700/25 rounded-2xl p-6 text-center">
-          {isSignedIn ? (
-            <>
-              <p className="text-lg font-bold text-white mb-1">Ready to post your next job?</p>
-              <p className="text-sm text-slate-400 mb-5">Reach verified local tradespeople in seconds.</p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
+          <p className="text-lg font-bold text-white mb-1">Fast. Local. Transparent.</p>
+          <p className="text-sm text-slate-400 mb-5">Find the right tradesperson without the hassle.</p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {isSignedIn ? (
+              <>
                 <Link href="/post-job" className="inline-flex items-center px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm transition-colors">Post a Job</Link>
                 <Link href="/find" className="inline-flex items-center px-5 py-2.5 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-semibold text-sm transition-colors">Find Tradespeople</Link>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-lg font-bold text-white mb-1">Ready to get started?</p>
-              <p className="text-sm text-slate-400 mb-5">Join thousands already using Open Job Market.</p>
-              <div className="flex flex-wrap items-center justify-center gap-2">
+              </>
+            ) : (
+              <>
                 <Link href="/auth/sign-up" className="inline-flex items-center px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm transition-colors">Create Free Account</Link>
-                <Link href="/find" className="inline-flex items-center px-5 py-2.5 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-semibold text-sm transition-colors">Browse Tradespeople</Link>
-              </div>
-            </>
-          )}
+                <BrowseTradespeopleButton className="inline-flex items-center px-5 py-2.5 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-semibold text-sm transition-colors" />
+              </>
+            )}
+          </div>
         </section>
 
       </div>

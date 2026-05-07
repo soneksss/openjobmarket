@@ -38,7 +38,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
   const isAdminRoute = pathname?.startsWith("/admin")
   const isHomePage = pathname === "/" || pathname === "/br"
   const isDashboardPage = pathname?.startsWith("/dashboard")
-  const isJobPostingPage = pathname?.includes("/jobs/new") || pathname?.includes("/post-job")
+  const isJobPostingPage = pathname?.includes("/jobs/new") || pathname?.includes("/post-job") || pathname?.startsWith("/find")
 
   // Check query parameter first (highest priority), then server locale, then pathname
   const localeParam = searchParams?.get('locale')

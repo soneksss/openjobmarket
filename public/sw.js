@@ -29,13 +29,18 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function (event) {
   event.notification.close()
 
-  const url = event.notification.data?.url || '/'
+  // "Not today" action — just dismiss, no navigation
+  if (event.action === 'decline') return
+
+  // "Yes" action — navigate to confirm-availability page
+  const url = event.action === 'confirm'
+    ? '/confirm-availability'
+    : (event.notification.data?.url || '/')
 
   event.waitUntil(
     clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then(function (clientList) {
-        // Focus an existing tab that is already on our origin
         for (const client of clientList) {
           if ('focus' in client) {
             client.focus()
@@ -43,7 +48,6 @@ self.addEventListener('notificationclick', function (event) {
             return
           }
         }
-        // No existing tab — open a new one
         if (clients.openWindow) return clients.openWindow(url)
       })
   )

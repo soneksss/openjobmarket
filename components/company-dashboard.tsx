@@ -970,9 +970,16 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     try {
       const supabase = createClient()
 
+      const now = new Date().toISOString()
+      const expiresAt = status ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
       const { error } = await supabase
         .from("company_profiles")
-        .update({ open_for_business: status })
+        .update({
+          open_for_business: status,
+          ...(status
+            ? { last_availability_confirmed_at: now, availability_expires_at: expiresAt }
+            : { availability_expires_at: null }),
+        })
         .eq("id", profile.id)
 
       if (error) {

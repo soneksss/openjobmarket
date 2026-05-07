@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createAdminClient } from "@/lib/server"
+import { createAdminClient, createClient } from "@/lib/server"
 import TradespeopleFindMap from "@/components/tradespeople-find-map"
 
 const DEFAULT_COORDS: [number, number] = [51.5074, -0.1278] // London
@@ -25,6 +25,28 @@ export default async function FindPage({
       const geoData = await geo.json()
       if (geoData?.[0]) {
         coords = [parseFloat(geoData[0].lat), parseFloat(geoData[0].lon)]
+      }
+    } catch {
+      // fall back to user location or London
+    }
+  }
+
+  // If still on default coords (no postcode/lat given), try user's saved location
+  if (coords === DEFAULT_COORDS) {
+    try {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from("homeowner_profiles")
+          .select("latitude, longitude, latitude_approx, longitude_approx")
+          .eq("user_id", user.id)
+          .maybeSingle()
+        const profileLat = profile?.latitude ?? profile?.latitude_approx
+        const profileLon = profile?.longitude ?? profile?.longitude_approx
+        if (profileLat && profileLon) {
+          coords = [profileLat, profileLon]
+        }
       }
     } catch {
       // fall back to London

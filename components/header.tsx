@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info, Map } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
 import { TradespersonMyJobsButton } from "@/components/tradesperson-my-jobs-button"
 import { useRouter, usePathname } from "next/navigation"
@@ -393,26 +393,6 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
 
           {showAuth && (
             <div className="flex items-center gap-2 sm:gap-3">
-              {/* Live Map — mobile only, homepage only, homeowners + logged-out users */}
-              {pathname === getLocalePath("/") && (currentUserType === "homeowner" || !currentUser) && (
-                <Link
-                  href={getLocalePath("/find")}
-                  className="md:hidden flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
-                >
-                  <Map className="h-3.5 w-3.5" />
-                  Map
-                </Link>
-              )}
-              {/* Jobs Map — mobile only, company/tradesperson users */}
-              {currentUserType === "company" && (
-                <Link
-                  href={getLocalePath("/find-jobs")}
-                  className="md:hidden flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
-                >
-                  <Map className="h-3.5 w-3.5" />
-                  Jobs Map
-                </Link>
-              )}
               {/* Language & Region Selector - temporarily hidden (English only for now) */}
 
               {isLoading ? (
@@ -434,32 +414,6 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                         "/dashboard"
                       )}>{t('header.dashboard')}</Link>
                     </Button>
-                    {/* Live Map — desktop, homepage only — homeowners and logged-out users only */}
-                    {pathname === getLocalePath("/") && currentUserType !== "company" && currentUserType !== "admin" && (currentUserType === "homeowner" || !currentUser) && (
-                      <Button
-                        asChild
-                        size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-xs gap-1.5"
-                      >
-                        <Link href={getLocalePath("/find")}>
-                          <Map className="h-3.5 w-3.5" />
-                          Live Map
-                        </Link>
-                      </Button>
-                    )}
-                    {/* Jobs Map — desktop, company/tradesperson users */}
-                    {currentUserType === "company" && (
-                      <Button
-                        asChild
-                        size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700 text-xs gap-1.5"
-                      >
-                        <Link href={getLocalePath("/find-jobs")}>
-                          <Map className="h-3.5 w-3.5" />
-                          Jobs Map
-                        </Link>
-                      </Button>
-                    )}
                     {/* Message Icon */}
                     <MessageIcon user={currentUser} />
                     {/* My Jobs: homeowners → job list, tradespeople → applications */}

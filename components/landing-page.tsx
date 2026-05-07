@@ -231,10 +231,10 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
         if (userType === "company") {
           const { data } = await supabase
             .from("company_profiles")
-            .select("trade_job_notifications")
+            .select("open_for_business")
             .eq("user_id", user.id)
             .maybeSingle()
-          if (data) setAvailableForWork(data.trade_job_notifications ?? true)
+          if (data) setAvailableForWork(data.open_for_business ?? false)
         } else {
           const { data } = await supabase
             .from("professional_profiles")
@@ -254,9 +254,17 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
     setAvailableForWork(newValue)
     try {
       if (userType === "company") {
+        const now = new Date().toISOString()
+        const expiresAt = newValue ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
         const { error } = await supabase
           .from("company_profiles")
-          .update({ trade_job_notifications: newValue })
+          .update({
+            open_for_business: newValue,
+            trade_job_notifications: newValue,
+            ...(newValue
+              ? { last_availability_confirmed_at: now, availability_expires_at: expiresAt }
+              : { availability_expires_at: null }),
+          })
           .eq("user_id", user.id)
         if (error) setAvailableForWork(!newValue)
       } else {
@@ -714,18 +722,10 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent" />
                     {/* Bottom fade — blends into page bg (#0f172a) */}
                     <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent to-[#0f172a]" />
-                    {/* Activity ticker — top-left corner of hero photo */}
-                    <div className="absolute top-3 left-4">
-                      <ActivityTickerCard
-                        inline
-                        className="bg-slate-900/80 backdrop-blur-sm rounded-full px-3 py-1 border border-slate-700/50 justify-start"
-                        textClassName="text-[11px] font-semibold text-emerald-300 whitespace-nowrap"
-                      />
-                    </div>
                     {/* Text anchored to the bottom of the photo, just above the search bar overlap */}
                     <div className="absolute inset-x-0 bottom-16 md:bottom-4 px-4">
                       <p className="font-black text-white drop-shadow-lg text-[20px] md:text-[28px]" style={{ lineHeight: '1.15' }}>
-                        Post a job. Nearby tradespeople respond in minutes<br /><span className="text-emerald-400">— no middleman, no hassle</span>
+                        Nearby tradespeople respond in minutes<br /><span className="text-emerald-400">Check who is available today</span>
                       </p>
                     </div>
                   </div>
@@ -789,6 +789,14 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     Get started
                   </button>
                 </form>
+                {/* Live activity ticker — below postcode input */}
+                <div className="mt-3 flex justify-center">
+                  <ActivityTickerCard
+                    inline
+                    className="bg-slate-800/70 backdrop-blur-sm rounded-full px-3 py-1.5 border border-slate-700/50 justify-center"
+                    textClassName="text-[11px] font-semibold text-emerald-300 whitespace-nowrap"
+                  />
+                </div>
               </div>
             )}
 

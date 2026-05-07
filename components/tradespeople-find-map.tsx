@@ -127,7 +127,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const [loadingProfile,   setLoadingProfile]   = useState(false)
   const [lightboxIndex,    setLightboxIndex]    = useState<number | null>(null)
   const [showJobWizard,    setShowJobWizard]    = useState(false)
-  const [showFilters,      setShowFilters]      = useState(false)
+  const [showFilters,      setShowFilters]      = useState(true)
+  const [showAllIndustries, setShowAllIndustries] = useState(false)
   const [loading,          setLoading]          = useState(false)
   const [mounted,          setMounted]          = useState(false)
   const [leafletL,         setLeafletL]         = useState<any>(null)
@@ -188,10 +189,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     } finally { setLoading(false) }
   }, [initialCoords, supabase])
 
-  const applyFilters = () => { setFilters(draftFilters); setShowFilters(false); refetchTraders(draftFilters) }
+  const applyFilters = () => { setFilters(draftFilters); setShowFilters(false); setShowAllIndustries(false); refetchTraders(draftFilters) }
   const clearFilters = () => {
     const r = { ...DEFAULT_FILTERS }
-    setDraftFilters(r); setFilters(r); setShowFilters(false); refetchTraders(r)
+    setDraftFilters(r); setFilters(r); setShowFilters(false); setShowAllIndustries(false); refetchTraders(r)
   }
   const hasActiveFilters = filters.industry !== null || filters.radius !== "10" || filters.language !== "" || filters.available || filters.h24
 
@@ -451,23 +452,38 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         <div className="flex-1 overflow-y-auto">
           <div className="px-3 pt-3 pb-1">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Trade / Industry</p>
-            {[{ title: "All trades" } as const, ...TRADE_INDUSTRIES].map((ind, i) => {
-              const isAll = i === 0
-              const active = isAll ? draftFilters.industry === null : draftFilters.industry === ind.title
-              const style = isAll ? null : getIndustryStyle(ind.title)
-              const Icon = style?.icon ?? null
+            {(() => {
+              const allItems = [{ title: "All trades" } as const, ...TRADE_INDUSTRIES]
+              const VISIBLE = 9 // "All trades" + 8 industries
+              const visibleItems = showAllIndustries ? allItems : allItems.slice(0, VISIBLE)
               return (
-                <button key={ind.title}
-                  onClick={() => setDraftFilters(f => ({ ...f, industry: isAll ? null : (f.industry === ind.title ? null : ind.title) }))}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl mb-1 border text-left transition-colors ${active ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "bg-slate-800 border-slate-700/60 text-slate-300"}`}>
-                  <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${isAll ? "bg-slate-700" : (active ? "bg-white/10" : style!.iconBg)}`}>
-                    {isAll ? <Search className="w-3 h-3 text-slate-300" /> : Icon && <Icon className={`w-3 h-3 ${active ? "text-emerald-300" : style!.iconColor}`} />}
-                  </span>
-                  <span className="flex-1 text-xs font-medium">{ind.title}</span>
-                  {active && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
-                </button>
+                <>
+                  {visibleItems.map((ind, i) => {
+                    const isAll = i === 0 && ind.title === "All trades"
+                    const active = isAll ? draftFilters.industry === null : draftFilters.industry === ind.title
+                    const style = isAll ? null : getIndustryStyle(ind.title)
+                    const Icon = style?.icon ?? null
+                    return (
+                      <button key={ind.title}
+                        onClick={() => setDraftFilters(f => ({ ...f, industry: isAll ? null : (f.industry === ind.title ? null : ind.title) }))}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl mb-1 border text-left transition-colors ${active ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300" : "bg-slate-800 border-slate-700/60 text-slate-300"}`}>
+                        <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${isAll ? "bg-slate-700" : (active ? "bg-white/10" : style!.iconBg)}`}>
+                          {isAll ? <Search className="w-3 h-3 text-slate-300" /> : Icon && <Icon className={`w-3 h-3 ${active ? "text-emerald-300" : style!.iconColor}`} />}
+                        </span>
+                        <span className="flex-1 text-xs font-medium">{ind.title}</span>
+                        {active && <Check className="w-3 h-3 text-emerald-400 flex-shrink-0" />}
+                      </button>
+                    )
+                  })}
+                  {!showAllIndustries && allItems.length > VISIBLE && (
+                    <button onClick={() => setShowAllIndustries(true)}
+                      className="w-full py-1.5 text-xs text-emerald-400 font-semibold hover:text-emerald-300 transition-colors text-center">
+                      More ({allItems.length - VISIBLE} more trades) ›
+                    </button>
+                  )}
+                </>
               )
-            })}
+            })()}
           </div>
           <div className="px-3 pt-2 pb-1">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Search radius</p>
