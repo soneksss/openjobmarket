@@ -1,8 +1,8 @@
 import { MetadataRoute } from "next"
 import { createAdminClient } from "@/lib/server"
 
-// Always render at request time — never cache a static XML file during build
-export const dynamic = "force-dynamic"
+// Regenerate once per hour — sitemap does not need to be fresh on every request
+export const revalidate = 3600
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://www.openjobmarket.com"

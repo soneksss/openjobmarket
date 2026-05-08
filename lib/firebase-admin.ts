@@ -76,6 +76,8 @@ export async function sendFcmToTokens(
           android: {
             notification: {
               channelId: "urgent_jobs",
+              icon: "ic_notification",
+              color: "#10b981",
             },
             priority: "high",
           },

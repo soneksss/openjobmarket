@@ -515,28 +515,32 @@ export default function ConversationPage() {
 
       // ── Messages ──
       if (messagesError) throw messagesError
-      setMessages(messagesData || [])
 
-      // Mark unread as read — includes legacy messages (no conversation_id) sent
-      // by the other participant to the current user for this same job.
-      const unreadIds = (messagesData || [])
+      // Also fetch any legacy messages (conversation_id IS NULL) between these two users —
+      // old messages were stored without a conversation_id and the backfill may have missed some.
+      const { data: legacyMessages } = await supabase
+        .from("messages")
+        .select("*")
+        .is("conversation_id", null)
+        .or(
+          `and(sender_id.eq.${currentUser.id},recipient_id.eq.${determinedOtherId}),` +
+          `and(sender_id.eq.${determinedOtherId},recipient_id.eq.${currentUser.id})`
+        )
+        .order("created_at", { ascending: true })
+
+      // Merge conversation messages + legacy messages, deduplicate by id, sort by time
+      const seenIds = new Set<string>()
+      const allMessages = [...(messagesData || []), ...(legacyMessages || [])]
+        .filter(m => { if (seenIds.has(m.id)) return false; seenIds.add(m.id); return true })
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+      setMessages(allMessages)
+
+      const unreadIds = allMessages
         .filter(msg => msg.recipient_id === currentUser.id && !msg.is_read)
         .map(msg => msg.id)
 
-      // Also catch any legacy messages (conversation_id IS NULL) between the same pair.
-      // These are created by direct Supabase inserts that bypass /api/messages.
-      const legacyUnreadQuery = supabase
-        .from("messages")
-        .select("id")
-        .is("conversation_id", null)
-        .eq("recipient_id", currentUser.id)
-        .eq("sender_id", determinedOtherId)
-        .eq("is_read", false)
-
-      const allUnreadIds = await legacyUnreadQuery.then(({ data }) => [
-        ...unreadIds,
-        ...(data ?? []).map((r: any) => r.id),
-      ])
+      const allUnreadIds = unreadIds
 
       if (allUnreadIds.length > 0) {
         supabase.from("messages").update({ is_read: true }).in("id", allUnreadIds).then(() => {})

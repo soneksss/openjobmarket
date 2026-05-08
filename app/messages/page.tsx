@@ -109,14 +109,14 @@ export default function MessagesPage() {
           .select("id, subject, content, created_at, is_read, sender_id, recipient_id, conversation_id, job_id")
           .or(`sender_id.eq.${uid},recipient_id.eq.${uid}`)
           .order("created_at", { ascending: false })
-          .limit(100),
+          .limit(200),
 
         supabase
           .from("conversations")
           .select("id, participant_1, participant_2, created_at, job_id, subject")
           .or(`participant_1.eq.${uid},participant_2.eq.${uid}`)
           .order("created_at", { ascending: false })
-          .limit(50),
+          .limit(100),
       ])
 
       if (messagesResult.error) throw messagesResult.error

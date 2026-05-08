@@ -38,10 +38,12 @@ export const metadata: Metadata = {
   publisher: "Open Job Market",
   icons: {
     icon: [
-      { url: "/Logo.png", type: "image/png" },
+      { url: "/favicon.ico",        sizes: "48x48"  },
+      { url: "/favicon.svg",        type: "image/svg+xml" },
+      { url: "/favicon-96x96.png",  type: "image/png", sizes: "96x96" },
     ],
-    apple: "/Logo.png",
-    shortcut: "/Logo.png",
+    apple: "/apple-touch-icon.png",
+    shortcut: "/favicon.ico",
   },
   robots: {
     index: true,

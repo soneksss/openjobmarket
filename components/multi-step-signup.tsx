@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Badge } from "@/components/ui/badge"
-import { User, Building2, HardHat, ArrowRight, ArrowLeft, Loader2, Check } from "lucide-react"
+import { User, Building2, HardHat, ArrowRight, ArrowLeft, Loader2, Check, Eye, EyeOff } from "lucide-react"
 import Link from "next/link"
 import { useTranslation } from "@/lib/i18n/context"
 
@@ -48,6 +48,7 @@ export default function MultiStepSignup() {
   const dashboardUrl = '/dashboard'
 
   const [currentStep, setCurrentStep] = useState(1)
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | 'facebook' | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -129,12 +130,7 @@ export default function MultiStepSignup() {
 
     const isIndividual = signupData.accountType === "individual"
 
-    // Check required fields (confirmPassword only required for company accounts)
     if (!signupData.email || !signupData.password) {
-      setError(t('signup.fillAllFields'))
-      return false
-    }
-    if (!isIndividual && !signupData.confirmPassword) {
       setError(t('signup.fillAllFields'))
       return false
     }
@@ -143,12 +139,6 @@ export default function MultiStepSignup() {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(signupData.email)) {
       setError('Please enter a valid email address')
-      return false
-    }
-
-    // Check password match — only for company accounts
-    if (!isIndividual && signupData.password !== signupData.confirmPassword) {
-      setError(t('signup.passwordsDoNotMatch'))
       return false
     }
 
@@ -637,16 +627,26 @@ export default function MultiStepSignup() {
                   {/* Password — single field for homeowners, no confirm needed */}
                   <div>
                     <Label htmlFor="password" className="text-sm font-medium text-slate-300">{t('signup.passwordLabel')} *</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={signupData.password}
-                      onChange={(e) => updateSignupData({ password: e.target.value })}
-                      placeholder="Min 6 characters"
-                      autoComplete="new-password"
-                      required
-                      className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
-                    />
+                    <div className="relative mt-1">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        value={signupData.password}
+                        onChange={(e) => updateSignupData({ password: e.target.value })}
+                        placeholder="Min 6 characters"
+                        autoComplete="new-password"
+                        required
+                        className="h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Checkboxes */}
@@ -726,33 +726,28 @@ export default function MultiStepSignup() {
                     </div>
                   </div>
 
-                  {/* Password Row */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="password" className="text-sm font-medium text-slate-300">{t('signup.passwordLabel')} *</Label>
+                  {/* Password */}
+                  <div>
+                    <Label htmlFor="password" className="text-sm font-medium text-slate-300">{t('signup.passwordLabel')} *</Label>
+                    <div className="relative mt-1">
                       <Input
                         id="password"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         value={signupData.password}
                         onChange={(e) => updateSignupData({ password: e.target.value })}
                         placeholder="Min 6 characters"
                         autoComplete="new-password"
                         required
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                        className="h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500 pr-10"
                       />
-                    </div>
-                    <div>
-                      <Label htmlFor="confirmPassword" className="text-sm font-medium text-slate-300">{t('signup.confirmPasswordLabel')} *</Label>
-                      <Input
-                        id="confirmPassword"
-                        type="password"
-                        value={signupData.confirmPassword}
-                        onChange={(e) => updateSignupData({ confirmPassword: e.target.value })}
-                        placeholder="Confirm password"
-                        autoComplete="new-password"
-                        required
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(v => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                        tabIndex={-1}
+                      >
+                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
                     </div>
                   </div>
 
