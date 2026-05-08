@@ -10,71 +10,50 @@ export interface SEOConfig {
   type?: 'website' | 'article'
 }
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://openjobmarket.com'
+// Always use www — canonical and OG URLs must be consistent with the production domain
+const baseUrl = 'https://www.openjobmarket.com'
 
 /**
- * Generate consistent SEO metadata for pages with i18n and hreflang support
+ * Generate consistent SEO metadata for pages.
+ * /br/ locale is currently disabled (redirects to /) so hreflang alternates
+ * are omitted — pointing them to redirect targets confuses Googlebot.
  */
 export function generateSEO(config: SEOConfig): Metadata {
   const {
     title,
     description,
     path,
-    locale = 'en',
     noindex = false,
     image = `${baseUrl}/Logo.png`,
     type = 'website',
   } = config
 
-  const fullTitle = title.includes('OpenJobMarket')
+  const fullTitle = title.includes('Open Job Market')
     ? title
-    : `${title} | OpenJobMarket`
+    : `${title} | Open Job Market`
 
-  const canonicalPath = locale === 'pt-BR' ? `/br${path}` : path
-  const canonicalUrl = `${baseUrl}${canonicalPath}`
-
-  // Generate alternate language URLs
-  const enUrl = `${baseUrl}${path}`
-  const ptUrl = `${baseUrl}/br${path}`
+  const canonicalUrl = `${baseUrl}${path}`
 
   const metadata: Metadata = {
     title: fullTitle,
     description,
     robots: noindex
-      ? {
-          index: false,
-          follow: false,
-        }
+      ? { index: false, follow: false }
       : {
           index: true,
           follow: true,
-          googleBot: {
-            index: true,
-            follow: true,
-          },
+          googleBot: { index: true, follow: true },
         },
     alternates: {
       canonical: canonicalUrl,
-      languages: {
-        en: enUrl,
-        'pt-BR': ptUrl,
-        'x-default': enUrl,
-      },
     },
     openGraph: {
       title: fullTitle,
       description,
       url: canonicalUrl,
-      siteName: 'OpenJobMarket',
-      images: [
-        {
-          url: image,
-          width: 1200,
-          height: 630,
-          alt: title,
-        },
-      ],
-      locale: locale === 'pt-BR' ? 'pt_BR' : 'en_GB',
+      siteName: 'Open Job Market',
+      images: [{ url: image, width: 1200, height: 630, alt: title }],
+      locale: 'en_GB',
       type,
     },
     twitter: {

@@ -22,7 +22,7 @@ const nextConfig = {
       {
         source: '/br/:path*',
         destination: '/',
-        permanent: false,
+        permanent: true,
       },
       // Google Search Console was submitted the wrong URL (/site-map with hyphen)
       { source: '/site-map', destination: '/sitemap.xml', permanent: true },

@@ -78,14 +78,9 @@ export const metadata: Metadata = {
     description: 'Connect homeowners with nearby plumbers, electricians, builders and more.',
     images: ['/Logo.png'],
   },
-  alternates: {
-    canonical: 'https://www.openjobmarket.com',
-    languages: {
-      'en': 'https://www.openjobmarket.com',
-      'pt-BR': 'https://www.openjobmarket.com/br',
-      'x-default': 'https://www.openjobmarket.com',
-    },
-  },
+  // No global canonical — each page sets its own via generateMetadata.
+  // A root-level canonical would point every page's canonical to the homepage,
+  // causing Google to mark all pages as "Alternative with proper canonical tag".
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   },

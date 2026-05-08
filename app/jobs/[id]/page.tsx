@@ -65,14 +65,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const posterName = job.company_profiles?.company_name ||
     (job.homeowner_profiles ? `${job.homeowner_profiles.first_name} ${job.homeowner_profiles.last_name}` : "Poster")
 
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://openjobmarket.com"
+  const baseUrl = "https://www.openjobmarket.com"
+  const jobPath = `/jobs/${job.slug ?? job.id}`
   const salaryText =
     job.budget_min && job.budget_max
       ? `£${job.budget_min.toLocaleString()} - £${job.budget_max.toLocaleString()}`
       : ""
 
   return {
-    title: `${job.title} at ${posterName} | OpenJobMarket`,
+    title: `${job.title} at ${posterName} | Open Job Market`,
     description: `${job.title} job in ${job.location}. ${
       salaryText ? ` - ${salaryText}` : ""
     }. ${job.description?.substring(0, 150)}...`,
@@ -84,12 +85,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
       "trade jobs",
       "local tradespeople",
     ].filter(Boolean),
+    alternates: {
+      canonical: `${baseUrl}${jobPath}`,
+    },
     openGraph: {
       title: `${job.title} at ${posterName}`,
       description: job.description?.substring(0, 200),
-      url: `${baseUrl}/jobs/${job.slug ?? job.id}`,
+      url: `${baseUrl}${jobPath}`,
       type: "website",
-      siteName: "OpenJobMarket",
+      siteName: "Open Job Market",
     },
     twitter: {
       card: "summary_large_image",

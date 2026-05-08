@@ -28,13 +28,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: page.changeFrequency,
     priority: page.priority,
   }))
-
-  const ptPages: MetadataRoute.Sitemap = staticPages.map(page => ({
-    url: `${baseUrl}/br${page.path}`,
-    lastModified: new Date(),
-    changeFrequency: page.changeFrequency,
-    priority: page.priority,
-  }))
+  // /br/* locale URLs are permanently redirected to / — exclude from sitemap
+  // so Google doesn't crawl redirect chains
 
   let jobPages: MetadataRoute.Sitemap = []
   let tradespeoplePages: MetadataRoute.Sitemap = []
@@ -42,39 +37,50 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const admin = createAdminClient()
 
-    // Only open, active jobs — prevents indexing of closed/confirmed/completed listings
-    const { data: jobs } = await admin
-      .from("jobs")
-      .select("id, slug, updated_at")
-      .eq("is_active", true)
-      .eq("status", "POSTED")
-      .not("title", "is", null)
-      .not("location", "is", null)
-      .limit(10000)
+    // Fetch both in parallel — each has a 5 s soft deadline via safeFetch.
+    // Limit to 3 000 rows each so the combined response stays well under
+    // Vercel's 10 s serverless timeout.
+    const [jobsResult, tradespeopleResult] = await Promise.allSettled([
+      admin
+        .from("jobs")
+        .select("id, slug, updated_at")
+        .eq("is_active", true)
+        .eq("status", "POSTED")
+        .not("title", "is", null)
+        .not("location", "is", null)
+        .limit(3000),
 
-    jobPages =
-      jobs?.map((job) => ({
-        url: `${baseUrl}/jobs/${job.slug ?? job.id}`,
-        lastModified: new Date(job.updated_at),
-        changeFrequency: "weekly" as const,
-        priority: 0.7,
-      })) || []
+      admin
+        .from("company_profiles")
+        .select("id, updated_at")
+        .not("company_name", "is", null)
+        .not("company_name", "eq", "Tradesperson")
+        .limit(3000),
+    ])
 
-    // Tradesperson profiles — company_profiles with real names
-    const { data: tradespeople } = await admin
-      .from("company_profiles")
-      .select("id, updated_at")
-      .not("company_name", "is", null)
-      .not("company_name", "eq", "Tradesperson")
-      .limit(10000)
+    if (jobsResult.status === "fulfilled") {
+      jobPages =
+        jobsResult.value.data?.map((job) => ({
+          url: `${baseUrl}/jobs/${job.slug ?? job.id}`,
+          lastModified: new Date(job.updated_at),
+          changeFrequency: "weekly" as const,
+          priority: 0.7,
+        })) || []
+    } else {
+      console.error("[SITEMAP] Jobs query failed:", jobsResult.reason)
+    }
 
-    tradespeoplePages =
-      tradespeople?.map((t) => ({
-        url: `${baseUrl}/professionals/${t.id}`,
-        lastModified: t.updated_at ? new Date(t.updated_at) : new Date(),
-        changeFrequency: "weekly" as const,
-        priority: 0.6,
-      })) || []
+    if (tradespeopleResult.status === "fulfilled") {
+      tradespeoplePages =
+        tradespeopleResult.value.data?.map((t) => ({
+          url: `${baseUrl}/professionals/${t.id}`,
+          lastModified: t.updated_at ? new Date(t.updated_at) : new Date(),
+          changeFrequency: "weekly" as const,
+          priority: 0.6,
+        })) || []
+    } else {
+      console.error("[SITEMAP] Tradespeople query failed:", tradespeopleResult.reason)
+    }
   } catch (err) {
     // DB unavailable or env var missing — return static pages only so Google
     // still gets valid XML instead of an HTML error page
@@ -83,7 +89,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     ...enPages,
-    ...ptPages,
     ...jobPages,
     ...tradespeoplePages,
   ]
