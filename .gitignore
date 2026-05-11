@@ -40,3 +40,4 @@ Null
 import { SpeedInsights } from "@vercel/speed-insights/next"
 # Sentry Config File
 .env.sentry-build-plugin
+.env*.local
