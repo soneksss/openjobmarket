@@ -5,8 +5,8 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
-import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
-import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg, normaliseCategory } from "@/lib/data/industry-styles"
+import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2 } from "lucide-react"
 import JobWizardModal from "@/components/job-wizard-modal"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
@@ -58,14 +58,52 @@ const MapViewUpdater = dynamic(
   { ssr: false }
 )
 
+type BBox = { north: number; south: number; east: number; west: number }
+
+// Fires onBoundsChange once on mount and again after every pan/zoom
+const ViewportLoader = dynamic(
+  () => Promise.all([import("react-leaflet"), import("react")]).then(([lm, rm]) => {
+    const { useMap, useMapEvents } = lm
+    const { useEffect }            = rm
+    function Comp({ onBoundsChange }: { onBoundsChange: (b: BBox) => void }) {
+      const map = useMap()
+      const emit = () => {
+        const b = map.getBounds()
+        onBoundsChange({ north: b.getNorth(), south: b.getSouth(), east: b.getEast(), west: b.getWest() })
+      }
+      useEffect(() => { emit() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+      useMapEvents({ moveend: emit, zoomend: emit })
+      return null
+    }
+    return Comp
+  }),
+  { ssr: false }
+)
+
 // ── Custom pin ─────────────────────────────────────────────────────────────────
-function createTraderIcon(L: any, isSelected: boolean, industryTitle?: string | null, isBusy?: boolean) {
+function createTraderIcon(L: any, isSelected: boolean, industryTitle?: string | null, isBusy?: boolean, isSeeded?: boolean) {
+  const size     = isSelected ? 44 : 36
+  const iconSize = Math.round(size * 0.50)
+
+  // Seeded trades: correct industry icon but dimmed grey (looks like a busy unregistered business).
+  // Use a dashed border so they are visually distinguishable from real-but-busy traders on close inspection.
+  if (isSeeded) {
+    const mappedTitle = normaliseCategory(industryTitle)
+    const color  = "#64748b"   // slate-500
+    const pinBg  = isSelected ? "#475569" : "#0f172a"
+    const iconClr = isSelected ? "#ffffff" : "#94a3b8"
+    const svg    = getIndustryPinSvg(mappedTitle, iconClr, iconSize)
+    return L.divIcon({
+      className: "",
+      html: `<div style="width:${size}px;height:${size}px;background:${pinBg};border:2px dashed ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.35),0 0 0 3px ${color}20">${svg}</div>`,
+      iconSize: [size, size], iconAnchor: [size/2, size/2], popupAnchor: [0, -(size/2+4)],
+    })
+  }
+
   const baseColor = getIndustryPinColor(industryTitle)
-  const color     = isBusy ? "#64748b" : baseColor   // slate-500 for busy
-  const size      = isSelected ? 44 : 36
+  const color     = isBusy ? "#64748b" : baseColor
   const pinBg     = isSelected ? color : "#0f172a"
   const iconClr   = isSelected ? "#ffffff" : color
-  const iconSize  = Math.round(size * 0.50)
   const svg       = getIndustryPinSvg(industryTitle, iconClr, iconSize)
   return L.divIcon({
     className: "",
@@ -88,9 +126,11 @@ const LANGUAGE_OPTIONS = [
 type Trader = {
   id: string; name: string; industry: string | null; location: string | null
   latitude: number | null; longitude: number | null; logo_url: string | null
-  rating: number | null; reviews_count: number | null; user_id: string
+  rating: number | null; reviews_count: number | null; user_id: string | null
   profile_type: string; services: string[] | null
   open_for_business?: boolean; service_24_7?: boolean
+  claim_token?: string | null
+  phone_number?: string | null
 }
 type SheetState = "collapsed" | "peek" | "expanded"
 type Filters = { industry: string | null; radius: string; language: string; available: boolean; h24: boolean }
@@ -119,15 +159,15 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const supabase = createClient()
 
   const [traders,          setTraders]          = useState<Trader[]>(initialTraders)
-  const [filters,          setFilters]          = useState<Filters>({ ...DEFAULT_FILTERS, industry: initialIndustry ?? null })
-  const [draftFilters,     setDraftFilters]     = useState<Filters>({ ...DEFAULT_FILTERS, industry: initialIndustry ?? null })
+  const [filters,          setFilters]          = useState<Filters>(() => loadSavedFilters(initialPostcode, initialIndustry))
+  const [draftFilters,     setDraftFilters]     = useState<Filters>(() => loadSavedFilters(initialPostcode, initialIndustry))
   const [sheetState,       setSheetState]       = useState<SheetState>("peek")
   const [selectedTrader,   setSelectedTrader]   = useState<Trader | null>(null)
   const [profilePhotos,    setProfilePhotos]    = useState<{ id: string; photo_url: string }[]>([])
   const [loadingProfile,   setLoadingProfile]   = useState(false)
   const [lightboxIndex,    setLightboxIndex]    = useState<number | null>(null)
   const [showJobWizard,    setShowJobWizard]    = useState(false)
-  const [showFilters,      setShowFilters]      = useState(true)
+  const [showFilters,      setShowFilters]      = useState(!!initialPostcode)
   const [showAllIndustries, setShowAllIndustries] = useState(false)
   const [loading,          setLoading]          = useState(false)
   const [mounted,          setMounted]          = useState(false)
@@ -136,7 +176,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const [homeownerProfile, setHomeownerProfile] = useState<any>(null)
   const [isDesktop,        setIsDesktop]        = useState(false)
 
-  const touchStartY = useRef<number | null>(null)
+  const touchStartY      = useRef<number | null>(null)
+  const currentBoundsRef = useRef<BBox | null>(null)
+  const fetchTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const filtersRef       = useRef(loadSavedFilters(initialPostcode, initialIndustry))
 
   useEffect(() => {
     setMounted(true)
@@ -174,25 +217,45 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       .then(({ data }) => { setProfilePhotos(data ?? []); setLoadingProfile(false) })
   }, [selectedTrader?.id])
 
-  const refetchTraders = useCallback(async (f: Filters) => {
+  // Keep filtersRef in sync so the debounced viewport callback always has current filters
+  useEffect(() => { filtersRef.current = filters }, [filters])
+
+  const fetchByViewport = useCallback(async (bounds: BBox, f: Filters) => {
     setLoading(true)
     try {
-      const { data } = await supabase.rpc("search_traders", {
-        p_lat: initialCoords[0], p_lon: initialCoords[1],
-        p_radius_miles: parseInt(f.radius),
-        p_search: f.industry ?? null, p_language: f.language || null, p_limit: 100,
+      const params = new URLSearchParams({
+        north: bounds.north.toFixed(6), south: bounds.south.toFixed(6),
+        east:  bounds.east.toFixed(6),  west:  bounds.west.toFixed(6),
       })
-      let results: Trader[] = data ?? []
+      if (f.industry) params.set("industry", f.industry)
+      if (f.language) params.set("language", f.language)
+      const res = await fetch(`/api/traders?${params}`)
+      if (!res.ok) return
+      let results: Trader[] = await res.json()
       if (f.available) results = results.filter(t => t.open_for_business === true)
       if (f.h24)       results = results.filter(t => t.service_24_7 === true)
       setTraders(results)
+    } catch {
+      // silent — map stays with last good data
     } finally { setLoading(false) }
-  }, [initialCoords, supabase])
+  }, [])
 
-  const applyFilters = () => { setFilters(draftFilters); setShowFilters(false); setShowAllIndustries(false); refetchTraders(draftFilters) }
+  const onBoundsChange = useCallback((bounds: BBox) => {
+    currentBoundsRef.current = bounds
+    if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current)
+    fetchTimerRef.current = setTimeout(() => {
+      fetchByViewport(bounds, filtersRef.current)
+    }, 600)
+  }, [fetchByViewport])
+
+  const applyFilters = () => {
+    setFilters(draftFilters); setShowFilters(false); setShowAllIndustries(false)
+    if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, draftFilters)
+  }
   const clearFilters = () => {
     const r = { ...DEFAULT_FILTERS }
-    setDraftFilters(r); setFilters(r); setShowFilters(false); setShowAllIndustries(false); refetchTraders(r)
+    setDraftFilters(r); setFilters(r); setShowFilters(false); setShowAllIndustries(false)
+    if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, r)
   }
   const hasActiveFilters = filters.industry !== null || filters.radius !== "10" || filters.language !== "" || filters.available || filters.h24
 
@@ -201,17 +264,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     try { sessionStorage.setItem(filterStorageKey(initialPostcode), JSON.stringify(filters)) } catch {}
   }, [filters, initialPostcode])
 
-  // On mount: restore filters from sessionStorage (client-only, after hydration)
-  useEffect(() => {
-    const saved = loadSavedFilters(initialPostcode, initialIndustry)
-    const isNonDefault = saved.industry !== null || saved.radius !== "10" || saved.language !== "" || saved.available || saved.h24
-    if (isNonDefault) {
-      setFilters(saved)
-      setDraftFilters(saved)
-      refetchTraders(saved)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Filters are initialised synchronously from sessionStorage — no restore effect needed.
 
   const handleTouchStart = (e: React.TouchEvent) => { touchStartY.current = e.touches[0].clientY }
   const handleTouchEnd   = (e: React.TouchEvent) => {
@@ -242,8 +295,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   /* ── Shared panel content ────────────────────────────────────────────────── */
   const profilePanel = selectedTrader && (
     <div className="flex-1 min-h-0 overflow-y-auto">
-      {/* Photo strip */}
-      <div className="flex gap-2 overflow-x-auto px-3 pb-3 pt-1" style={{ scrollbarWidth: "none" }}>
+      {/* Photo strip — hidden for seeded trades */}
+      {selectedTrader.profile_type !== 'seeded' && <div className="flex gap-2 overflow-x-auto px-3 pb-3 pt-1" style={{ scrollbarWidth: "none" }}>
         {loadingProfile ? (
           Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className="flex-shrink-0 w-36 h-24 rounded-xl bg-slate-800 animate-pulse" />
@@ -264,20 +317,25 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
             <span className="text-slate-400 text-xs">No portfolio photos yet</span>
           </div>
         )}
-      </div>
+      </div>}
       {/* Profile info */}
       <div className="px-4 pb-2">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 w-12 h-12 rounded-full overflow-hidden flex items-center justify-center border-2 border-slate-600">
             {selectedTrader.logo_url
               ? <img src={selectedTrader.logo_url} alt={selectedTrader.name} className="w-full h-full object-cover" />
+              : selectedTrader.profile_type === 'seeded'
+              ? <span className="w-full h-full bg-amber-500/15 flex items-center justify-center"><Building2 className="w-5 h-5 text-amber-400" /></span>
               : (() => { const s = getIndustryStyle(selectedTrader.industry ?? ""); const I = s.icon; return <span className={`w-full h-full ${s.iconBg} flex items-center justify-center`}><I className={`w-5 h-5 ${s.iconColor}`} /></span> })()}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-white truncate">{selectedTrader.name}</p>
             <p className="text-xs text-slate-400">{selectedTrader.industry ?? "Tradesperson"}</p>
             <div className="flex items-center gap-2 mt-1 flex-wrap">
-              {selectedTrader.rating ? (
+              {selectedTrader.profile_type === 'seeded' && (
+                <span className="px-2 py-0.5 bg-amber-500/15 border border-amber-500/30 rounded-full text-xs text-amber-300 font-semibold">Local business</span>
+              )}
+              {selectedTrader.rating > 0 ? (
                 <span className="flex items-center gap-0.5 text-xs text-amber-400 font-semibold">
                   <Star className="w-3 h-3 fill-amber-400" />{selectedTrader.rating.toFixed(1)}
                   {selectedTrader.reviews_count ? <span className="text-slate-500 font-normal ml-0.5">({selectedTrader.reviews_count})</span> : null}
@@ -285,9 +343,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               ) : null}
               {selectedTrader.latitude && selectedTrader.longitude &&
                 <span className="text-xs text-slate-500">{distanceMi(selectedTrader.latitude, selectedTrader.longitude)} mi away</span>}
-              {selectedTrader.open_for_business === true
+              {selectedTrader.profile_type !== 'seeded' && selectedTrader.open_for_business === true
                 ? <span className="px-2 py-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-xs text-emerald-400 font-semibold">Available</span>
-                : selectedTrader.open_for_business === false
+                : selectedTrader.profile_type !== 'seeded' && selectedTrader.open_for_business === false
                 ? <span className="px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-xs text-slate-400 font-semibold">Busy</span>
                 : null}
               {selectedTrader.service_24_7 && <span className="px-2 py-0.5 bg-blue-500/15 border border-blue-500/30 rounded-full text-xs text-blue-400 font-semibold">24/7</span>}
@@ -302,16 +360,48 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           </div>
         )}
       </div>
+      {/* Seeded trade contact info */}
+      {selectedTrader.profile_type === 'seeded' && (selectedTrader.phone_number || selectedTrader.location) && (
+        <div className="px-4 pb-2 space-y-1">
+          {selectedTrader.phone_number && (
+            <a href={`tel:${selectedTrader.phone_number}`} className="flex items-center gap-2 text-xs text-slate-300 hover:text-white">
+              <span className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-slate-400">📞</span>
+              {selectedTrader.phone_number}
+            </a>
+          )}
+          {selectedTrader.location && (
+            <p className="flex items-center gap-2 text-xs text-slate-400">
+              <span className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-slate-400"><MapPin className="w-3 h-3" /></span>
+              {selectedTrader.location}
+            </p>
+          )}
+        </div>
+      )}
       {/* Action buttons */}
       <div className="flex gap-2 px-4 pb-4 pt-2">
-        <button onClick={() => router.push(`/messages/${selectedTrader.user_id}`)}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-500/20 transition-colors">
-          <MessageSquare className="w-4 h-4" /> Message
-        </button>
-        <button onClick={() => router.push(`/${selectedTrader.profile_type === "company" ? "companies" : "professionals"}/${selectedTrader.id}`)}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-sm rounded-xl transition-colors">
-          <User className="w-4 h-4" /> Full profile
-        </button>
+        {selectedTrader.profile_type === 'seeded' ? (
+          <>
+            <button onClick={() => router.push(`/seeded/${selectedTrader.id}`)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-sm rounded-xl transition-colors">
+              <User className="w-4 h-4" /> View profile
+            </button>
+            <button onClick={() => router.push(`/claim/${selectedTrader.claim_token}`)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-amber-500/20 transition-colors">
+              <Building2 className="w-4 h-4" /> Claim
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => router.push(`/messages/${selectedTrader.user_id}`)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-500/20 transition-colors">
+              <MessageSquare className="w-4 h-4" /> Message
+            </button>
+            <button onClick={() => router.push(`/${selectedTrader.profile_type === "company" ? "companies" : "professionals"}/${selectedTrader.id}`)}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-sm rounded-xl transition-colors">
+              <User className="w-4 h-4" /> Full profile
+            </button>
+          </>
+        )}
       </div>
     </div>
   )
@@ -343,31 +433,31 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           {filters.industry && (
             <span className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500/15 border border-emerald-500/30 rounded-full text-[10px] text-emerald-300 font-medium">
               {filters.industry}
-              <button onClick={() => { const f = { ...filters, industry: null }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-emerald-400 hover:text-white">×</button>
+              <button onClick={() => { const f = { ...filters, industry: null }; setFilters(f); setDraftFilters(f); if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, f) }} className="ml-0.5 text-emerald-400 hover:text-white">×</button>
             </span>
           )}
           {filters.radius !== "10" && (
             <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-300 font-medium">
               {filters.radius} mi
-              <button onClick={() => { const f = { ...filters, radius: "10" }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
+              <button onClick={() => { const f = { ...filters, radius: "10" }; setFilters(f); setDraftFilters(f); if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
             </span>
           )}
           {filters.available && (
             <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-300 font-medium">
               Available now
-              <button onClick={() => { const f = { ...filters, available: false }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
+              <button onClick={() => { const f = { ...filters, available: false }; setFilters(f); setDraftFilters(f); if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
             </span>
           )}
           {filters.h24 && (
             <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-300 font-medium">
               24/7
-              <button onClick={() => { const f = { ...filters, h24: false }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
+              <button onClick={() => { const f = { ...filters, h24: false }; setFilters(f); setDraftFilters(f); if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
             </span>
           )}
           {filters.language && (
             <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-300 font-medium">
               {filters.language}
-              <button onClick={() => { const f = { ...filters, language: "" }; setFilters(f); setDraftFilters(f); refetchTraders(f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
+              <button onClick={() => { const f = { ...filters, language: "" }; setFilters(f); setDraftFilters(f); if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, f) }} className="ml-0.5 text-slate-400 hover:text-white">×</button>
             </span>
           )}
         </div>
@@ -385,16 +475,21 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           </div>
         ) : traders.map(trader => (
           <div key={trader.id} onClick={() => setSelectedTrader(p => p?.id === trader.id ? null : trader)}
-            className="flex items-center gap-2 px-2 py-1.5 rounded-xl border cursor-pointer transition-all bg-slate-800 border-slate-700 active:bg-slate-700 hover:bg-slate-700/70">
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-xl border cursor-pointer transition-all active:bg-slate-700 hover:bg-slate-700/70 ${trader.profile_type === 'seeded' ? 'bg-slate-800/70 border-amber-500/20' : 'bg-slate-800 border-slate-700'}`}>
             <div className="flex-shrink-0 w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center">
               {trader.logo_url
                 ? <img src={trader.logo_url} alt={trader.name} className="w-full h-full object-cover rounded-lg" />
+                : trader.profile_type === 'seeded'
+                ? <span className="w-full h-full rounded-lg bg-amber-500/15 flex items-center justify-center"><Building2 className="w-4 h-4 text-amber-400" /></span>
                 : (() => { const s = getIndustryStyle(trader.industry ?? ""); const I = s.icon; return <span className={`w-full h-full rounded-lg ${s.iconBg} flex items-center justify-center`}><I className={`w-4 h-4 ${s.iconColor}`} /></span> })()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-white truncate">{trader.name}</p>
-              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {trader.rating ? (
+              <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                {trader.profile_type === 'seeded' && (
+                  <span className="px-1.5 py-px bg-amber-500/15 border border-amber-500/25 rounded-full text-[10px] text-amber-300 font-semibold">Local business</span>
+                )}
+                {trader.rating > 0 ? (
                   <span className="flex items-center gap-0.5 text-[10px] text-amber-400">
                     <Star className="w-2.5 h-2.5 fill-amber-400" />{trader.rating.toFixed(1)}
                     {trader.reviews_count ? <span className="text-slate-500">({trader.reviews_count})</span> : null}
@@ -403,23 +498,32 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
                 {trader.latitude && trader.longitude
                   ? <span className="text-[10px] text-slate-500">{distanceMi(trader.latitude, trader.longitude)} mi</span>
                   : null}
-                {trader.open_for_business === true
+                {trader.profile_type !== 'seeded' && trader.open_for_business === true
                   ? <span className="px-1.5 py-px bg-emerald-500/15 border border-emerald-500/30 rounded-full text-[10px] text-emerald-400 font-semibold">Available</span>
-                  : trader.open_for_business === false
+                  : trader.profile_type !== 'seeded' && trader.open_for_business === false
                   ? <span className="px-1.5 py-px bg-slate-700 border border-slate-600 rounded-full text-[10px] text-slate-400 font-semibold">Busy</span>
                   : null}
                 {trader.service_24_7 && <span className="px-1.5 py-px bg-blue-500/15 border border-blue-500/30 rounded-full text-[10px] text-blue-400 font-semibold">24/7</span>}
               </div>
             </div>
             <div className="flex-shrink-0 flex gap-1">
-              <button onClick={e => { e.stopPropagation(); router.push(`/messages/${trader.user_id}`) }}
-                className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                <MessageSquare className="w-3 h-3" />
-              </button>
-              <button onClick={e => { e.stopPropagation(); router.push(`/${trader.profile_type === "company" ? "companies" : "professionals"}/${trader.id}`) }}
-                className="w-7 h-7 rounded-lg bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300">
-                <User className="w-3 h-3" />
-              </button>
+              {trader.profile_type === 'seeded' ? (
+                <button onClick={e => { e.stopPropagation(); router.push(`/seeded/${trader.id}`) }}
+                  className="w-7 h-7 rounded-lg bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300">
+                  <User className="w-3 h-3" />
+                </button>
+              ) : (
+                <>
+                  <button onClick={e => { e.stopPropagation(); router.push(`/messages/${trader.user_id}`) }}
+                    className="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <MessageSquare className="w-3 h-3" />
+                  </button>
+                  <button onClick={e => { e.stopPropagation(); router.push(`/${trader.profile_type === "company" ? "companies" : "professionals"}/${trader.id}`) }}
+                    className="w-7 h-7 rounded-lg bg-slate-700 border border-slate-600 flex items-center justify-center text-slate-300">
+                    <User className="w-3 h-3" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
         ))}
@@ -435,9 +539,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       <div className="absolute rounded-3xl shadow-2xl border border-slate-700/60 flex flex-col overflow-hidden"
         style={{
           top: HEADER, bottom: "max(env(safe-area-inset-bottom,0px),10px)",
-          left: "12px",
+          left: isDesktop ? "50%" : "12px",
           right: isDesktop ? "auto" : "12px",
-          width: isDesktop ? "400px" : undefined,
+          transform: isDesktop ? "translateX(-50%)" : undefined,
+          width: isDesktop ? "420px" : undefined,
           backgroundColor: "#0f172a", zIndex: 51,
         }}>
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800">
@@ -558,15 +663,17 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               <ZoomControl position="topright" />
               <MapSizeHandler />
               <MapViewUpdater center={initialCoords} />
+              <ViewportLoader onBoundsChange={onBoundsChange} />
               {leafletL && tradersWithCoords.map(trader => (
                 <Marker key={trader.id}
                   position={[trader.latitude!, trader.longitude!]}
-                  icon={createTraderIcon(leafletL, selectedTrader?.id === trader.id, trader.industry, trader.open_for_business === false) as any}
+                  icon={createTraderIcon(leafletL, selectedTrader?.id === trader.id, trader.industry, trader.open_for_business === false, trader.profile_type === 'seeded') as any}
                   eventHandlers={{ click: () => setSelectedTrader(p => p?.id === trader.id ? null : trader) }}>
                   <Popup>
                     <b className="text-sm">{trader.name}</b>
+                    {trader.profile_type === 'seeded' && <div className="text-xs text-amber-500 font-semibold mt-0.5">Local business</div>}
                     {trader.industry && <div className="text-xs text-gray-500">{trader.industry}</div>}
-                    {trader.rating   && <div className="text-xs text-amber-500">★ {trader.rating.toFixed(1)}</div>}
+                    {trader.rating > 0 && <div className="text-xs text-amber-500">★ {trader.rating.toFixed(1)}</div>}
                   </Popup>
                 </Marker>
               ))}
@@ -575,7 +682,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         )}
 
         {/* Header — absolute within the map area, overlays only the map column */}
-        <div className="absolute top-0 left-0 right-0 flex items-center gap-2 px-3 py-2"
+        <div className="absolute top-0 left-0 right-0 flex items-center lg:justify-center gap-2 px-3 py-2"
           style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top,0px),8px)" }}>
           <button onClick={() => router.back()}
             className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white shadow-md">
@@ -588,9 +695,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               {loading ? <span className="text-emerald-400">Searching…</span> : <span className="text-slate-400">{traders.length} found</span>}
             </span>
           </div>
-          {/* Filter button — shown on mobile (sidebar has its own on desktop) */}
+          {/* Filter button — mobile always, desktop next to postcode bar */}
           <button onClick={() => { setDraftFilters(filters); setShowFilters(true) }}
-            className={`lg:hidden flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center shadow-md relative transition-colors ${hasActiveFilters ? "bg-emerald-500 border-emerald-400 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
+            className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center shadow-md relative transition-colors ${hasActiveFilters ? "bg-emerald-500 border-emerald-400 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
             <SlidersHorizontal className="w-3.5 h-3.5" />
             {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-slate-950" />}
           </button>

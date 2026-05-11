@@ -371,17 +371,23 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
   }
 
   const [heroPostcode, setHeroPostcode] = useState("")
+  const [postcodeError, setPostcodeError] = useState(false)
   const [pendingIndustry, setPendingIndustry] = useState<string | null>(null)
   const [pendingMapRoute, setPendingMapRoute] = useState<"/find" | "/find-jobs">("/find")
   const [showPostcodeModal, setShowPostcodeModal] = useState(false)
   const [modalPostcode, setModalPostcode] = useState("")
-  const [locating, setLocating] = useState(false)
-
   const handlePostcodeSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (userType === "company") return // tradespeople don't post jobs
-    const qs = heroPostcode.trim() ? `?postcode=${encodeURIComponent(heroPostcode.trim())}` : ""
-    router.push(`/find${qs}`)
+    if (!heroPostcode.trim()) { setPostcodeError(true); return }
+    setPostcodeError(false)
+    if (userType === "company") return
+    router.push(`/find?postcode=${encodeURIComponent(heroPostcode.trim())}`)
+  }
+  const handleJobsPostcodeSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!heroPostcode.trim()) { setPostcodeError(true); return }
+    setPostcodeError(false)
+    router.push(`/find-jobs?postcode=${encodeURIComponent(heroPostcode.trim())}`)
   }
 
   const handlePostJob = () => {
@@ -573,37 +579,29 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
 
   return (
     <div className="min-h-screen bg-slate-900 pb-20 md:pb-0">
-      {/* Premium Tabs - Under Header — only shown to non-logged-in users */}
-      {!isSignedIn && <div className="border-b border-slate-700/50 bg-slate-900/95 sticky top-0 z-40">
-        <div className="container mx-auto px-4">
-          <div className="flex justify-center gap-2 sm:gap-4">
+      {/* Mode switch tabs — Uber-style pill toggle */}
+      {!isSignedIn && <div className="bg-slate-900/95 sticky top-0 z-40 py-2.5 border-b border-slate-700/40">
+        <div className="flex justify-center">
+          <div className="flex bg-slate-800 rounded-full p-1 border border-slate-700/60 shadow-lg gap-0.5">
             <button
               onClick={() => setActiveTab("tradespeople")}
-              className={`relative flex items-center py-2.5 px-5 sm:px-6 transition-all duration-300 ${
+              className={`px-4 sm:px-6 py-2 rounded-full text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
                 activeTab === "tradespeople"
-                  ? "text-white"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
+                  : "text-slate-400 hover:text-white"
               }`}
             >
-              <span className="font-semibold text-base sm:text-lg whitespace-nowrap">For Homeowners</span>
-              {/* Animated underline */}
-              <span className={`absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-500 transition-all duration-300 ease-out ${
-                activeTab === "tradespeople" ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
-              }`} />
+              Find a Tradesperson
             </button>
             <button
               onClick={() => setActiveTab("jobs")}
-              className={`relative flex items-center py-2.5 px-5 sm:px-6 transition-all duration-300 ${
+              className={`px-4 sm:px-6 py-2 rounded-full text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
                 activeTab === "jobs"
-                  ? "text-white"
-                  : "text-slate-400 hover:text-slate-200"
+                  ? "bg-orange-500 text-white shadow-md shadow-orange-500/30"
+                  : "text-slate-400 hover:text-white"
               }`}
             >
-              <span className="font-semibold text-base sm:text-lg whitespace-nowrap">For Tradespeople</span>
-              {/* Animated underline */}
-              <span className={`absolute bottom-0 left-0 right-0 h-0.5 bg-orange-500 transition-all duration-300 ease-out ${
-                activeTab === "jobs" ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"
-              }`} />
+              Find Jobs
             </button>
           </div>
         </div>
@@ -707,7 +705,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     <span className="text-white block" style={{ fontSize: '32px', lineHeight: '1.15' }}>No lead fees.</span>
                   </>
                 ) : (
-                  <div className="relative w-[calc(100%+2rem)] md:w-full overflow-hidden h-[320px] md:h-[460px] -mx-4 md:mx-0 md:rounded-2xl bg-slate-900">
+                  <div className="relative w-[calc(100%+2rem)] md:hidden overflow-hidden h-[220px] -mx-4 bg-slate-900">
                     {/* LCP image — explicit <img> so browser can preload and optimise it */}
                     <img
                       src="/Tradespeople.jpg"
@@ -723,8 +721,8 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     {/* Bottom fade — blends into page bg (#0f172a) */}
                     <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent to-[#0f172a]" />
                     {/* Text anchored to the bottom of the photo, just above the search bar overlap */}
-                    <div className="absolute inset-x-0 bottom-16 md:bottom-4 px-4">
-                      <p className="font-black text-white drop-shadow-lg text-[20px] md:text-[28px]" style={{ lineHeight: '1.15' }}>
+                    <div className="absolute inset-x-0 bottom-11 md:bottom-4 px-4">
+                      <p className="font-black text-white drop-shadow-lg text-[15px] md:text-[28px]" style={{ lineHeight: '1.15' }}>
                         Nearby tradespeople respond in minutes<br /><span className="text-emerald-400">Check who is available today</span>
                       </p>
                     </div>
@@ -766,36 +764,108 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
             </div>
 
             {/* Dynamic Visual CTA - Changes based on active tab */}
-            {activeTab === "jobs" ? null : (
-              <div className="mb-6 -mt-16 md:mt-4 relative z-10">
-                {/* Postcode input → opens guest job posting wizard */}
-                <form
-                  onSubmit={handlePostcodeSubmit}
-                  className="flex items-center gap-2 bg-white rounded-full px-3 py-2.5 w-full max-w-xl mx-auto shadow-2xl shadow-black/40"
-                >
-                  <Search className="flex-shrink-0 h-4 w-4 text-gray-400 ml-1" />
-                  <input
-                    type="text"
-                    value={heroPostcode}
-                    onChange={(e) => setHeroPostcode(e.target.value.toUpperCase())}
-                    placeholder="Enter your postcode…"
-                    maxLength={8}
-                    className="flex-1 min-w-0 bg-transparent text-gray-700 placeholder:text-gray-400 text-sm font-medium outline-none"
+            {activeTab === "jobs" ? (
+              /* ── TRADESPEOPLE: image-backed postcode section ── */
+              <div className="mb-6 -mt-10 md:mt-4 relative z-10">
+                <div className="relative w-full h-44 md:h-52 rounded-2xl overflow-hidden border border-slate-700/50 shadow-xl">
+                  <img
+                    src="/live_map.jpg"
+                    alt="Active jobs near you on the map"
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
-                  <button
-                    type="submit"
-                    className="flex-shrink-0 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-400 active:bg-orange-600 rounded-full px-3 py-1.5 transition-colors whitespace-nowrap"
-                  >
-                    Get started
-                  </button>
-                </form>
-                {/* Live activity ticker — below postcode input */}
-                <div className="mt-3 flex justify-center">
-                  <ActivityTickerCard
-                    inline
-                    className="bg-slate-800/70 backdrop-blur-sm rounded-full px-3 py-1.5 border border-slate-700/50 justify-center"
-                    textClassName="text-[11px] font-semibold text-emerald-300 whitespace-nowrap"
+                  <div className="absolute inset-0 bg-black/40" />
+                  {/* Live activity ticker — top left */}
+                  <div className="absolute top-3 left-3 w-fit max-w-[calc(100%-24px)]">
+                    <ActivityTickerCard
+                      inline
+                      className="bg-slate-900/80 backdrop-blur-sm rounded-full px-3 py-1 border border-slate-700/50 justify-start"
+                      textClassName="text-[11px] font-semibold text-emerald-300 whitespace-nowrap"
+                    />
+                  </div>
+                  {/* Postcode form — vertically centered */}
+                  <div className="absolute top-1/2 -translate-y-1/2 left-3 right-3">
+                    <form
+                      onSubmit={handleJobsPostcodeSubmit}
+                      className={`flex items-center gap-2 bg-white rounded-full px-3 py-2 w-full max-w-sm mx-auto shadow-2xl shadow-black/40 transition-all ${postcodeError ? "ring-2 ring-red-400" : ""}`}
+                    >
+                      <Search className="flex-shrink-0 h-4 w-4 text-gray-400 ml-1" />
+                      <input
+                        type="text"
+                        value={heroPostcode}
+                        onChange={(e) => { setHeroPostcode(e.target.value.toUpperCase()); setPostcodeError(false) }}
+                        placeholder="Enter your postcode…"
+                        maxLength={8}
+                        className="flex-1 min-w-0 bg-transparent text-gray-700 placeholder:text-gray-400 text-sm font-medium outline-none"
+                      />
+                      <button
+                        type="submit"
+                        className="flex-shrink-0 text-xs font-semibold text-white bg-orange-500 hover:bg-orange-400 active:bg-orange-600 rounded-full px-3 py-1.5 transition-colors whitespace-nowrap"
+                      >
+                        View Jobs
+                      </button>
+                    </form>
+                    {postcodeError && (
+                      <p className="mt-2 text-center text-xs font-semibold text-white bg-red-500/80 backdrop-blur-sm rounded-full py-1 px-3 mx-auto w-fit">
+                        Please enter your postcode
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* ── HOMEOWNERS: image-backed postcode section ── */
+              <div className="mb-6 -mt-10 md:mt-0 relative z-10">
+                <div className="relative w-full h-52 md:h-72 rounded-2xl overflow-hidden border border-slate-700/50 shadow-xl">
+                  <img
+                    src="/live_map_trade.jpg"
+                    alt="Find a tradesperson near you"
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 w-full h-full object-cover"
                   />
+                  <div className="absolute inset-0 bg-black/40" />
+                  {/* Live activity ticker — top left */}
+                  <div className="absolute top-3 left-3 w-fit max-w-[calc(100%-24px)]">
+                    <ActivityTickerCard
+                      inline
+                      className="bg-slate-900/80 backdrop-blur-sm rounded-full px-3 py-1 border border-slate-700/50 justify-start"
+                      textClassName="text-[11px] font-semibold text-emerald-300 whitespace-nowrap"
+                    />
+                  </div>
+                  {/* Postcode form — vertically centered */}
+                  <div className="absolute top-1/2 -translate-y-1/2 left-4 right-4 md:left-8 md:right-8">
+                    <p className="hidden md:block text-center text-white font-semibold text-lg mb-3 drop-shadow">
+                      Find trusted tradespeople near you
+                    </p>
+                    <form
+                      onSubmit={handlePostcodeSubmit}
+                      className={`flex items-center gap-2 bg-white rounded-full px-4 py-2.5 md:py-3 w-full max-w-sm md:max-w-lg mx-auto shadow-2xl shadow-black/40 transition-all ${postcodeError ? "ring-2 ring-red-400" : ""}`}
+                    >
+                      <Search className="flex-shrink-0 h-4 w-4 md:h-5 md:w-5 text-gray-400 ml-1" />
+                      <input
+                        type="text"
+                        value={heroPostcode}
+                        onChange={(e) => { setHeroPostcode(e.target.value.toUpperCase()); setPostcodeError(false) }}
+                        placeholder="Postcode…"
+                        maxLength={8}
+                        className="flex-1 min-w-0 bg-transparent text-gray-700 placeholder:text-gray-400 text-sm md:text-base font-medium outline-none"
+                      />
+                      <button
+                        type="submit"
+                        className="flex-shrink-0 text-xs md:text-sm font-semibold text-white bg-orange-500 hover:bg-orange-400 active:bg-orange-600 rounded-full px-3 md:px-4 py-2 transition-colors whitespace-nowrap"
+                      >
+                        <span className="hidden sm:inline">See available trades</span>
+                        <span className="sm:hidden">Search</span>
+                      </button>
+                    </form>
+                    {postcodeError && (
+                      <p className="mt-2 text-center text-xs font-semibold text-white bg-red-500/80 backdrop-blur-sm rounded-full py-1 px-3 mx-auto w-fit">
+                        Please enter your postcode
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -1008,77 +1078,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                 </div>
               </div>
 
-            ) : (
-
-              /* ── TRADESPEOPLE: Keep existing compact map section ── */
-              <>
-                <button
-                  onClick={() => {
-                    // Signed-in with known location → go straight in
-                    if (userProfileLocation) {
-                      const p = new URLSearchParams()
-                      p.set("lat", userProfileLocation.latitude.toString())
-                      p.set("lng", userProfileLocation.longitude.toString())
-                      if (profileIndustry) p.set("industry", profileIndustry)
-                      router.push(`/find-jobs?${p.toString()}`)
-                      return
-                    }
-                    // Try browser geolocation (triggers native Android prompt)
-                    if (typeof navigator !== "undefined" && navigator.geolocation) {
-                      setLocating(true)
-                      navigator.geolocation.getCurrentPosition(
-                        (pos) => {
-                          setLocating(false)
-                          const p = new URLSearchParams()
-                          p.set("lat", pos.coords.latitude.toString())
-                          p.set("lng", pos.coords.longitude.toString())
-                          if (profileIndustry) p.set("industry", profileIndustry)
-                          router.push(`/find-jobs?${p.toString()}`)
-                        },
-                        () => {
-                          setLocating(false)
-                          setPendingIndustry(profileIndustry ?? null)
-                          setPendingMapRoute("/find-jobs")
-                          setModalPostcode("")
-                          setShowPostcodeModal(true)
-                        },
-                        { timeout: 8000, maximumAge: 60000 }
-                      )
-                    } else {
-                      // No geolocation API → postcode modal
-                      setPendingIndustry(profileIndustry ?? null)
-                      setPendingMapRoute("/find-jobs")
-                      setModalPostcode("")
-                      setShowPostcodeModal(true)
-                    }
-                  }}
-                  className="relative w-full h-44 md:h-52 rounded-2xl overflow-hidden block group border border-slate-700/50 hover:border-emerald-400/50 transition-all duration-300 shadow-xl"
-                >
-                  <img
-                    src="/live_map.jpg"
-                    alt="Active trades near you on the map"
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/60" />
-                  {/* Top label — live activity ticker */}
-                  <div className="absolute top-3 left-3 w-fit max-w-[calc(100%-24px)]">
-                    <ActivityTickerCard
-                      inline
-                      className="bg-slate-900/80 backdrop-blur-sm rounded-full px-3 py-1 border border-slate-700/50 justify-start"
-                      textClassName="text-[11px] font-semibold text-emerald-300 whitespace-nowrap"
-                    />
-                  </div>
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2.5 bg-orange-500 group-hover:bg-orange-400 text-white px-7 py-3 rounded-full shadow-lg shadow-orange-500/40 font-bold text-base transition-colors whitespace-nowrap">
-                    {locating
-                      ? <><span className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin flex-shrink-0" />Locating…</>
-                      : <><Map className="h-5 w-5 flex-shrink-0" />View Jobs on Map</>}
-                  </div>
-                </button>
-              </>
-
-            )}
+            ) : null}
           </div>
         </div>
       </section>
@@ -1281,181 +1281,35 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                 <h2 className="text-2xl font-bold text-white">How It Works</h2>
               </div>
 
+              {/* Screenshot cards — 4 steps */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-
-                {/* ── Step 1: Post your job ── */}
-                <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-3 flex flex-col gap-3">
-                  <div className="bg-slate-950 rounded-xl overflow-hidden border border-slate-700/40 shadow-inner">
-                    <div className="p-2.5 flex flex-col gap-2">
-                      <div className="flex justify-between items-center px-0.5">
-                        <span className="text-[8px] text-slate-500 font-medium">9:30</span>
-                        <Home className="w-2.5 h-2.5 text-slate-500" />
-                      </div>
-                      <p className="text-[9px] text-slate-400 font-medium text-center">Post a Job</p>
-                      {/* Job title input */}
-                      <div className="bg-slate-800 rounded-lg px-2 py-1.5 border border-slate-700/60">
-                        <p className="text-[9px] text-white">Boiler repair needed</p>
-                      </div>
-                      {/* Location row */}
-                      <div className="flex items-center gap-1 bg-slate-800 rounded-lg px-2 py-1.5">
-                        <MapPin className="w-2.5 h-2.5 text-emerald-400 flex-shrink-0" />
-                        <p className="text-[9px] text-slate-300">London, UK</p>
-                      </div>
-                      {/* Category pill */}
-                      <div className="flex gap-1 flex-wrap">
-                        {["Plumbing", "Urgent"].map((tag) => (
-                          <span key={tag} className="text-[7px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 px-1.5 py-0.5 rounded-full">{tag}</span>
-                        ))}
-                      </div>
-                      {/* Post button */}
-                      <div className="w-full bg-emerald-500 rounded-lg py-1.5 text-center shadow-sm shadow-emerald-500/30">
-                        <span className="text-[10px] font-bold text-white">Post Job — Free</span>
-                      </div>
+                {[
+                  { step: 1, label: "Post job",             img: "/Post_job_3.jpg"                    },
+                  { step: 2, label: "Tradespeople apply",   img: "/Tradesperson_get_notification.jpeg" },
+                  { step: 3, label: "Get replies",          img: "/Find_tradespeople.jpg"              },
+                  { step: 4, label: "Compare &amp; hire",   img: "/View_profile.jpeg"                  },
+                ].map(item => (
+                  <div key={item.step} className="flex flex-col gap-2">
+                    {/* Step label — above image */}
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                        {item.step}
+                      </span>
+                      <p className="text-lg font-bold text-white leading-tight truncate" dangerouslySetInnerHTML={{ __html: item.label }} />
+                    </div>
+                    {/* Screenshot */}
+                    <div className="rounded-xl overflow-hidden border border-slate-700/50 shadow-lg bg-slate-950">
+                      <img
+                        src={item.img}
+                        alt={item.label}
+                        loading="lazy"
+                        decoding="async"
+                        className="w-full h-auto object-contain"
+                      />
                     </div>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
-                    <div>
-                      <p className="text-sm font-bold text-white leading-tight">Post your job</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Takes 30 seconds. Free.</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Step 2: Get replies fast ── */}
-                <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-3 flex flex-col gap-3">
-                  <div className="bg-slate-950 rounded-xl overflow-hidden border border-slate-700/40 shadow-inner">
-                    <div className="p-2.5 flex flex-col gap-1.5">
-                      <div className="flex justify-between items-center px-0.5 mb-0.5">
-                        <span className="text-[8px] text-slate-500 font-medium">9:34</span>
-                        <span className="text-[8px] text-emerald-400 font-bold">3 replies</span>
-                      </div>
-                      {/* Notification */}
-                      <div className="bg-emerald-500/15 border border-emerald-500/25 rounded-lg p-1.5 flex items-center gap-1.5">
-                        <Zap className="w-2.5 h-2.5 text-emerald-400 flex-shrink-0" />
-                        <p className="text-[8px] text-emerald-300 font-semibold leading-tight">3 trades replied to your job</p>
-                      </div>
-                      {/* Trade cards */}
-                      {[
-                        { name: "Mike P.", rating: "4.9", dist: "0.8 mi", avail: "Today" },
-                        { name: "Sarah T.", rating: "4.7", dist: "1.2 mi", avail: "Tomorrow" },
-                      ].map((t) => (
-                        <div key={t.name} className="bg-slate-800 rounded-lg p-1.5 flex items-center gap-1.5">
-                          <div className="w-5 h-5 rounded-full bg-slate-600 flex items-center justify-center flex-shrink-0">
-                            <span className="text-[7px] font-bold text-slate-200">{t.name[0]}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[9px] font-semibold text-white leading-none">{t.name}</p>
-                            <p className="text-[7px] text-slate-400 mt-0.5">★{t.rating} · {t.dist}</p>
-                          </div>
-                          <span className="text-[7px] text-emerald-400 font-medium flex-shrink-0">{t.avail}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
-                    <div>
-                      <p className="text-sm font-bold text-white leading-tight">Get replies fast</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Nearby trades respond in minutes</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Step 3: View profiles & reviews ── */}
-                <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-3 flex flex-col gap-3">
-                  <div className="bg-slate-950 rounded-xl overflow-hidden border border-slate-700/40 shadow-inner">
-                    <div className="p-2.5 flex flex-col gap-2">
-                      <div className="flex justify-between items-center px-0.5">
-                        <span className="text-[8px] text-slate-500 font-medium">9:36</span>
-                        <CheckCircle className="w-2.5 h-2.5 text-emerald-400" />
-                      </div>
-                      {/* Profile header */}
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[9px] font-bold text-white">MP</span>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold text-white leading-none">Mike Parker</p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <span className="text-[8px] text-amber-400">★★★★★</span>
-                            <span className="text-[7px] text-slate-400">4.9 (42)</span>
-                          </div>
-                        </div>
-                        <div className="ml-auto bg-emerald-500/20 rounded px-1 py-0.5">
-                          <span className="text-[7px] text-emerald-400 font-bold">✓ Verified</span>
-                        </div>
-                      </div>
-                      {/* Review snippet */}
-                      <div className="bg-slate-800 rounded-lg p-1.5">
-                        <p className="text-[8px] text-slate-300 leading-tight italic">&ldquo;Fast, reliable, great price&rdquo;</p>
-                        <p className="text-[7px] text-slate-500 mt-0.5">— James, London</p>
-                      </div>
-                      {/* Portfolio strip */}
-                      <div className="flex gap-1">
-                        {["bg-slate-700", "bg-slate-600", "bg-slate-700"].map((bg, i) => (
-                          <div key={i} className={`flex-1 h-6 rounded ${bg} flex items-center justify-center`}>
-                            <span className="text-[7px] text-slate-400">🖼</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
-                    <div>
-                      <p className="text-sm font-bold text-white leading-tight">Check profiles</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Real reviews &amp; portfolios</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Step 4: Choose & book ── */}
-                <div className="bg-slate-800/70 rounded-2xl border border-slate-700/50 p-3 flex flex-col gap-3">
-                  <div className="bg-slate-950 rounded-xl overflow-hidden border border-slate-700/40 shadow-inner">
-                    <div className="p-2.5 flex flex-col gap-1.5">
-                      <div className="flex justify-between items-center px-0.5 mb-0.5">
-                        <span className="text-[8px] text-slate-500 font-medium">9:41</span>
-                        <div className="flex items-center gap-0.5">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                          <span className="text-[7px] text-emerald-400">Online</span>
-                        </div>
-                      </div>
-                      {/* Chat header */}
-                      <div className="flex items-center gap-1.5 bg-slate-800/60 rounded-lg px-2 py-1">
-                        <div className="w-4 h-4 rounded-full bg-blue-500/30 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[7px] text-blue-300 font-bold">M</span>
-                        </div>
-                        <p className="text-[9px] font-semibold text-white">Mike Parker</p>
-                      </div>
-                      {/* Trade message */}
-                      <div className="flex justify-start">
-                        <div className="bg-slate-700 rounded-lg rounded-bl-none px-2 py-1 max-w-[85%]">
-                          <p className="text-[8px] text-slate-100 leading-tight">I can come tomorrow at 10am</p>
-                        </div>
-                      </div>
-                      {/* User reply */}
-                      <div className="flex justify-end">
-                        <div className="bg-emerald-600 rounded-lg rounded-br-none px-2 py-1 max-w-[75%]">
-                          <p className="text-[8px] text-white leading-tight">Perfect, see you then! ✓</p>
-                        </div>
-                      </div>
-                      {/* Booked confirmation */}
-                      <div className="w-full bg-emerald-500/15 border border-emerald-500/30 rounded-lg py-1.5 text-center">
-                        <span className="text-[9px] font-bold text-emerald-400">✓ Booked!</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
-                    <div>
-                      <p className="text-sm font-bold text-white leading-tight">Choose &amp; book</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Chat directly, no middleman</p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>{/* end grid */}
+                ))}
+              </div>
             </div>
 
           )}
@@ -1558,17 +1412,17 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
           <div className="grid grid-cols-2 gap-4">
             {/* Other platforms column */}
             <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
-              <div className="text-center text-sm font-bold text-slate-400 mb-4 pb-3 border-b border-slate-700">Other platforms</div>
-              <ul className="space-y-3">
+              <div className="text-center text-xs sm:text-sm font-bold text-slate-400 mb-4 pb-3 border-b border-slate-700">Other platforms</div>
+              <ul className="space-y-2.5">
                 {[
                   "Sell your request as paid leads",
                   "Multiple unwanted sales calls",
                   "Often matched with non-local companies",
                   "Slow quote process",
                 ].map((text, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-red-400 flex-shrink-0 mt-0.5">✕</span>
-                    <span className="text-slate-400 text-sm leading-snug">{text}</span>
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="text-red-400 flex-shrink-0 mt-0.5 text-xs">✕</span>
+                    <span className="text-slate-400 text-[11px] sm:text-sm leading-snug">{text}</span>
                   </li>
                 ))}
               </ul>
@@ -1576,17 +1430,17 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
 
             {/* Open Job Market column */}
             <div className="bg-emerald-950/40 border border-emerald-800/50 rounded-2xl p-4">
-              <div className="text-center text-sm font-bold text-emerald-400 mb-4 pb-3 border-b border-emerald-800/50">Open Job Market</div>
-              <ul className="space-y-3">
+              <div className="text-center text-xs sm:text-sm font-bold text-emerald-400 mb-4 pb-3 border-b border-emerald-800/50">Open Job Market</div>
+              <ul className="space-y-2.5">
                 {[
                   "No lead selling — fairer prices",
                   "Connect directly with nearby tradespeople",
                   "Message only — no spam calls",
                   "Uber-style for urgent jobs, Airbnb-style for flexible work",
                 ].map((text, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="text-emerald-400 flex-shrink-0 mt-0.5">✓</span>
-                    <span className="text-slate-100 text-sm font-medium leading-snug">{text}</span>
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="text-emerald-400 flex-shrink-0 mt-0.5 text-xs">✓</span>
+                    <span className="text-slate-100 text-[11px] sm:text-sm font-medium leading-snug">{text}</span>
                   </li>
                 ))}
               </ul>

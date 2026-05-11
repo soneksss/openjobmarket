@@ -305,7 +305,7 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
       ],
     },
     {
-      title: "Homeowner",
+      title: "People looking for trades",
       icon: Home,
       description: "Notifications for posted jobs and tasks",
       roleCheck: (roles) => roles.is_homeowner,

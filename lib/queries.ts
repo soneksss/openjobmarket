@@ -69,6 +69,7 @@ export function getHomeownerJobs(profileId: string, userId: string) {
           )
           .eq('homeowner_id', profileId)
           .order('created_at', { ascending: false })
+          .limit(200)
         return data ?? []
       } catch (err) {
         console.error('[queries] getHomeownerJobs failed:', err)

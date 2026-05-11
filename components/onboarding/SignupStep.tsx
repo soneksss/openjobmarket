@@ -21,10 +21,10 @@ export function SignupStep({ role, onSignup, onBack }: SignupStepProps) {
   const [selectedLanguage, setSelectedLanguage] = useState<"en" | "pt-BR">("en")
 
   const roleLabels = {
-    homeowner: "Homeowner",
+    homeowner: "Find a tradesperson",
     jobseeker: "Professional / Jobseeker",
     employer: "Employer / Company",
-    contractor: "Trade / Contractor"
+    contractor: "Find jobs as a tradesperson"
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

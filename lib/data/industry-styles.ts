@@ -94,3 +94,89 @@ export function getIndustryPinSvg(title: string | null | undefined, color: strin
 export function getIndustryStyle(title: string): IndustryStyle {
   return STYLES[title] ?? FALLBACK
 }
+
+// Maps raw Google Maps / CSV category names → internal TRADE_INDUSTRIES style keys.
+// Used so seeded trade markers and profile pages show the correct industry icon.
+const SEEDED_CATEGORY_MAP: Record<string, string> = {
+  // Plumbing
+  "Plumber":                        "Plumbing & Heating",
+  "Gas engineer":                   "Plumbing & Heating",
+  "Drainage service":               "Plumbing & Heating",
+  // Electrical
+  "Electrician":                    "Electrical",
+  "Electrical installation service":"Electrical",
+  "Lighting contractor":            "Electrical",
+  "Solar energy company":           "Electrical",
+  "Utility contractor":             "Electrical",
+  // Construction
+  "Construction company":           "Construction & Renovation",
+  "Home builder":                   "Construction & Renovation",
+  "Building firm":                  "Construction & Renovation",
+  "Custom home builder":            "Construction & Renovation",
+  "Boat builders":                  "Construction & Renovation",
+  "Real estate developer":          "Construction & Renovation",
+  "Building consultant":            "Construction & Renovation",
+  "Building restoration service":   "Construction & Renovation",
+  "Bricklayer":                     "Construction & Renovation",
+  "General contractor":             "Construction & Renovation",
+  "Contractor":                     "Construction & Renovation",
+  // Plastering
+  "Plasterer":                      "Plastering & Rendering",
+  "Ceiling supplier":               "Plastering & Rendering",
+  // Painting
+  "Painter":                        "Painting & Decorating",
+  "Painting":                       "Painting & Decorating",
+  "Interior Decorator":             "Painting & Decorating",
+  // Roofing
+  "Roofing contractor":             "Roofing",
+  // Carpentry
+  "Carpenter":                      "Carpentry & Joinery",
+  "Joiner":                         "Carpentry & Joinery",
+  "Kitchen remodeler":              "Carpentry & Joinery",
+  "Bathroom remodeler":             "Carpentry & Joinery",
+  "Garage builder":                 "Carpentry & Joinery",
+  "Deck builder":                   "Carpentry & Joinery",
+  "Shed builder":                   "Carpentry & Joinery",
+  // Landscaping
+  "Landscaper":                     "Gardening & Landscaping",
+  "Gardener":                       "Gardening & Landscaping",
+  "Landscape designer":             "Gardening & Landscaping",
+  "Garden":                         "Gardening & Landscaping",
+  // Cleaning
+  "Cleaning service":               "Cleaning",
+  "House cleaning service":         "Cleaning",
+  "Cleaners":                       "Cleaning",
+  "Dry cleaner":                    "Cleaning",
+  "Laundry":                        "Cleaning",
+  "Carpet cleaning service":        "Cleaning",
+  // Handyman
+  "Handyman/Handywoman/Handyperson":"Handyman / Small Jobs",
+  "Property maintenance":           "Handyman / Small Jobs",
+  // Waste
+  "Waste management service":       "Waste Removal",
+  "Garbage collection service":     "Waste Removal",
+  "House clearance service":        "Waste Removal",
+  "Junk removal service":           "Waste Removal",
+  "Moving and storage service":     "Waste Removal",
+  "Mover":                          "Waste Removal",
+  "Garbage dump":                   "Waste Removal",
+  // Fencing
+  "Fence contractor":               "Fencing & Gates",
+  // HVAC
+  "Air conditioning service":       "Air Conditioning & Ventilation",
+  // Flooring
+  "Paving contractor":              "Flooring & Tiling",
+  // Pest control, sports (fallback)
+  "Pest control service":           "Not sure / Other",
+  "Sports club":                    "Not sure / Other",
+}
+
+/**
+ * Normalises a raw CSV / Google Maps category string into one of the internal
+ * TRADE_INDUSTRIES style keys so the correct icon and colour are applied.
+ */
+export function normaliseCategory(raw: string | null | undefined): string {
+  if (!raw) return "Not sure / Other"
+  if (STYLES[raw]) return raw                      // already a valid style key
+  return SEEDED_CATEGORY_MAP[raw] ?? "Not sure / Other"
+}

@@ -70,7 +70,7 @@ const categories: Category[] = [
   },
   {
     id: "homeowner",
-    title: "Homeowners",
+    title: "People looking for trades",
     icon: <Home className="w-8 h-8 md:w-10 md:h-10" />,
     shortSummary: "Find trusted tradespeople nearby — maybe even your neighbor!",
     fullDescription: [

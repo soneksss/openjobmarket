@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { getLocaleFromPathname } from "./i18n/config";
+import { rateLimit } from "./rate-limit";
 
 // Locales configuration
 const locales = ['en', 'pt-BR'] as const
@@ -62,8 +63,44 @@ function detectBrowserLocale(req: NextRequest): Locale {
 const CANONICAL_HOST = "www.openjobmarket.com"
 const NON_CANONICAL_HOSTS = ["openjobmarket.com", "openjobmarket.vercel.app"]
 
+function getIp(req: NextRequest): string {
+  return (
+    req.headers.get("x-forwarded-for")?.split(",")[0].trim() ??
+    req.headers.get("x-real-ip") ??
+    "unknown"
+  )
+}
+
+function applyRateLimit(
+  req: NextRequest,
+  bucket: string,
+  limit: number,
+  windowMs: number
+): NextResponse | null {
+  const ip = getIp(req)
+  const allowed = rateLimit(`${bucket}:${ip}`, limit, windowMs)
+  if (allowed) return null
+  return new NextResponse("Too Many Requests", {
+    status: 429,
+    headers: { "Retry-After": String(Math.ceil(windowMs / 1000)), "Content-Type": "text/plain" },
+  })
+}
+
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
+
+  // ── Rate limiting for POST API routes ──────────────────────────────────────
+  if (req.method === "POST") {
+    if (pathname === "/api/messages") {
+      return applyRateLimit(req, "messages", 20, 60_000) ?? NextResponse.next()
+    }
+    if (pathname === "/api/jobs") {
+      return applyRateLimit(req, "jobs-create", 5, 300_000) ?? NextResponse.next()
+    }
+    if (/^\/api\/jobs\/[^/]+\/dispatch-(urgent|flexible)$/.test(pathname)) {
+      return applyRateLimit(req, "jobs-dispatch", 3, 60_000) ?? NextResponse.next()
+    }
+  }
 
   // Canonical host redirect (SEO: consolidate all traffic to www.openjobmarket.com)
   const host = req.headers.get("host") || req.nextUrl.hostname

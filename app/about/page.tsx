@@ -169,7 +169,7 @@ export default async function AboutPage() {
             <div className="bg-gradient-to-r from-blue-700/80 to-blue-800/80 px-4 py-3 flex items-center gap-2">
               <Home className="h-5 w-5 text-blue-100 flex-shrink-0" />
               <div>
-                <p className="text-base font-bold text-white leading-none">For Homeowners</p>
+                <p className="text-base font-bold text-white leading-none">Find a Tradesperson</p>
                 <p className="text-blue-200 text-sm mt-0.5">Find the right person, fast and locally.</p>
               </div>
             </div>
@@ -187,7 +187,7 @@ export default async function AboutPage() {
             <div className="bg-gradient-to-r from-orange-600/80 to-orange-700/80 px-4 py-3 flex items-center gap-2">
               <Wrench className="h-5 w-5 text-orange-100 flex-shrink-0" />
               <div>
-                <p className="text-base font-bold text-white leading-none">For Tradespeople</p>
+                <p className="text-base font-bold text-white leading-none">Find Jobs</p>
                 <p className="text-orange-200 text-sm mt-0.5">More local work without paying for leads.</p>
               </div>
             </div>

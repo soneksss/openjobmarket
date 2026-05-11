@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic'
 
-import { createAdminClient, createClient } from "@/lib/server"
+import { createClient } from "@/lib/server"
 import TradespeopleFindMap from "@/components/tradespeople-find-map"
 
 const DEFAULT_COORDS: [number, number] = [51.5074, -0.1278] // London
@@ -53,19 +53,10 @@ export default async function FindPage({
     }
   }
 
-  const admin = createAdminClient()
-  const { data: traders } = await admin.rpc("search_traders", {
-    p_lat: coords[0],
-    p_lon: coords[1],
-    p_radius_miles: 10,
-    p_search: industry ?? null,
-    p_limit: 60,
-  })
-
   return (
     <div className="fixed inset-0 bg-slate-900">
       <TradespeopleFindMap
-        initialTraders={(traders ?? []) as any[]}
+        initialTraders={[]}
         initialCoords={coords}
         initialPostcode={postcode}
         initialIndustry={industry}

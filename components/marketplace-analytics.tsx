@@ -214,14 +214,14 @@ export function MarketplaceAnalytics() {
                   <XAxis dataKey="date" tick={{ fill: "#52525b", fontSize: 9 }} interval={4} />
                   <YAxis tick={{ fill: "#52525b", fontSize: 9 }} allowDecimals={false} width={20} />
                   <Tooltip contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: 6, fontSize: 11 }} />
-                  <Area type="monotone" dataKey="homeowners" stroke="#3b82f6" fill="url(#gradHo)" strokeWidth={1.5} dot={false} name="Homeowners" />
+                  <Area type="monotone" dataKey="homeowners" stroke="#3b82f6" fill="url(#gradHo)" strokeWidth={1.5} dot={false} name="People looking for trades" />
                   <Area type="monotone" dataKey="tradespeople" stroke="#8b5cf6" fill="url(#gradTp)" strokeWidth={1.5} dot={false} name="Tradespeople" />
                 </AreaChart>
               </ResponsiveContainer>
             )}
             <div className="flex gap-4 mt-1">
               <span className="flex items-center gap-1.5 text-[10px] text-zinc-400">
-                <span className="w-3 h-px bg-blue-500 inline-block" /> Homeowners
+                <span className="w-3 h-px bg-blue-500 inline-block" /> People looking for trades
               </span>
               <span className="flex items-center gap-1.5 text-[10px] text-zinc-400">
                 <span className="w-3 h-px bg-purple-500 inline-block" /> Tradespeople
@@ -238,7 +238,7 @@ export function MarketplaceAnalytics() {
         <div>
           <S icon={Activity} title="Marketplace Health" color="text-blue-400" />
           <div className="grid grid-cols-4 gap-1.5">
-            <K title="Homeowners" value={health.totalHomeowners.toLocaleString()} icon={Users} accent="blue"
+            <K title="People looking for trades" value={health.totalHomeowners.toLocaleString()} icon={Users} accent="blue"
               trend="up" trendLabel={`+${health.homeownersLast7d}w`} />
             <K title="Tradespeople" value={health.tradespeopleTotal.toLocaleString()} icon={Hammer} accent="purple"
               trend="up" trendLabel={`+${health.tradespeopleRegisteredLast7d}w`} />

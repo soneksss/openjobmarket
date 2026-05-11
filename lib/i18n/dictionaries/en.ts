@@ -447,8 +447,8 @@ export const en = {
     // Useful Info categories
     forJobseekers: 'For Jobseekers',
     forEmployers: 'For Employers',
-    forTradespeople: 'For Tradespeople',
-    forHomeowners: 'For Homeowners',
+    forTradespeople: 'Find Jobs',
+    forHomeowners: 'Find a Tradesperson',
     // Descriptions
     findingJobsTips: 'Finding jobs & career tips',
     hiringLaw: 'Hiring & employment law',

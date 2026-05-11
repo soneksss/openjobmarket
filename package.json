@@ -5,7 +5,7 @@
   "scripts": {
     "build": "next build",
     "analyze": "ANALYZE=true next build",
-    "dev": "NODE_OPTIONS=--max-old-space-size=4096 next dev --port 3005",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next dev --port 3005",
     "lint": "next lint",
     "start": "next start",
     "build:mobile": "CAPACITOR_BUILD=true next build",
@@ -119,6 +119,7 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.5.0",
     "baseline-browser-mapping": "^2.9.19",
+    "cross-env": "^10.1.0",
     "eslint": "^9.38.0",
     "eslint-config-next": "^16.0.3",
     "postcss": "^8.5.10",

@@ -46,6 +46,7 @@ export default async function HomeownerJobsPage({
     .select("id, title, location, is_active, created_at, applications_count, views_count, status, completion_status, expires_at, urgency_type")
     .eq("homeowner_id", hp.id)
     .order("created_at", { ascending: false })
+    .limit(200)
 
   const allJobs = jobs || []
 

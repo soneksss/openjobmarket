@@ -1,6 +1,66 @@
-import { createClient, createAdminWriteClient } from "@/lib/server"
+import { createClient, createAdminClient, createAdminWriteClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
+
+// ── GET /api/jobs — viewport-based map loading ──────────────────────────────
+const MAX_SPAN = 2.0  // ~220 km — refuse absurdly large viewports
+const MAP_LIMIT = 200
+
+export async function GET(req: NextRequest) {
+  const sp    = req.nextUrl.searchParams
+  const north = parseFloat(sp.get("north") ?? "")
+  const south = parseFloat(sp.get("south") ?? "")
+  const east  = parseFloat(sp.get("east")  ?? "")
+  const west  = parseFloat(sp.get("west")  ?? "")
+
+  if ([north, south, east, west].some(isNaN) || south >= north || west >= east)
+    return NextResponse.json([], { status: 400 })
+  if (north - south > MAX_SPAN || east - west > MAX_SPAN)
+    return NextResponse.json([], { status: 400 })
+
+  const industry = sp.get("industry") || null
+  const budget   = sp.get("budget")   || null
+  const urgency  = sp.get("urgency")  || null
+
+  const admin = createAdminClient()
+
+  let q = admin
+    .from("jobs")
+    .select(
+      "id, title, short_description, location, latitude, longitude, " +
+      "latitude_approx, longitude_approx, location_type, " +
+      "budget_min, budget_max, urgency_type, job_photo_url, industry, category, " +
+      "created_at, " +
+      "homeowner_profiles!homeowner_id(first_name, last_name, profile_photo_url, user_id)"
+    )
+    .eq("status", "POSTED")
+    .eq("is_active", true)
+    .eq("is_tradespeople_job", true)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+    // match approx coords if available, otherwise exact coords
+    .or(
+      `and(latitude_approx.gte.${south},latitude_approx.lte.${north},longitude_approx.gte.${west},longitude_approx.lte.${east}),` +
+      `and(latitude_approx.is.null,latitude.gte.${south},latitude.lte.${north},longitude.gte.${west},longitude.lte.${east})`
+    )
+    .order("created_at", { ascending: false })
+    .limit(MAP_LIMIT)
+
+  if (industry) {
+    const kw = industry.split(/[\s&,/]+/).find((w: string) => w.length > 3) || industry
+    q = (q as any).or(`industry.ilike.%${kw}%,industry.is.null`)
+  }
+  if (urgency) q = (q as any).eq("urgency_type", urgency)
+  if (budget === "0-500")      q = (q as any).lte("budget_max", 500)
+  else if (budget === "500-1k") q = (q as any).gte("budget_min", 500).lte("budget_max", 1000)
+  else if (budget === "1k-5k")  q = (q as any).gte("budget_min", 1000).lte("budget_max", 5000)
+  else if (budget === "5k+")    q = (q as any).gte("budget_min", 5000)
+
+  const { data } = await q
+
+  return NextResponse.json(data ?? [], {
+    headers: { "Cache-Control": "public, s-maxage=20, stale-while-revalidate=40" },
+  })
+}
 
 /**
  * POST /api/jobs

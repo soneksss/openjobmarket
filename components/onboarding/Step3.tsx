@@ -1,10 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { Home, UserCircle, Briefcase, HardHat } from "lucide-react"
-import { OptionButton } from "./OptionButton"
-import { createClient } from "@/lib/client"
 
 interface Step3Props {
   userType: "individual" | "business"
@@ -12,16 +8,7 @@ interface Step3Props {
   onBack: () => void
 }
 
-export function Step3({ userType, onSelect, onBack }: Step3Props) {
-  const [vacancyEnabled, setVacancyEnabled] = useState(true)
-
-  useEffect(() => {
-    const supabase = createClient()
-    supabase.rpc("get_public_admin_settings").then(({ data }) => {
-      if (data) setVacancyEnabled(data.vacancies_jobseekers_enabled ?? true)
-    })
-  }, [])
-
+export function Step3({ onSelect, onBack }: Step3Props) {
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -30,54 +17,55 @@ export function Step3({ userType, onSelect, onBack }: Step3Props) {
       className="w-full max-w-2xl mx-auto"
     >
       <div className="text-center mb-8">
+        <p className="text-sm font-semibold text-blue-500 uppercase tracking-widest mb-2">
+          Step 1 of 2
+        </p>
         <h2 className="text-3xl font-bold text-gray-900 mb-3">
-          {userType === "individual"
-            ? "What best describes you?"
-            : "What type of business?"}
+          Create Your Account
         </h2>
-        <p className="text-gray-600 text-lg">
-          {userType === "individual"
-            ? "Choose the option that fits you best"
-            : "Select your business category"}
+        <p className="text-gray-500 text-base">
+          How will you use the platform?
         </p>
       </div>
 
       <div className="space-y-4">
-        {userType === "individual" ? (
-          <>
-            <OptionButton
-              icon={Home}
-              title="Homeowner"
-              subtitle="I need help with tasks around my home"
-              onClick={() => onSelect("homeowner")}
-            />
+        <motion.button
+          onClick={() => onSelect("homeowner")}
+          className="w-full p-6 rounded-xl border-2 border-gray-200 bg-white hover:border-blue-400 hover:shadow-lg transition-all duration-200 text-left group"
+          whileHover={{ y: -2, scale: 1.01 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">🏠</div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-700 transition-colors">
+                Hire Tradespeople
+              </h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Post jobs and hire trusted local professionals
+              </p>
+            </div>
+          </div>
+        </motion.button>
 
-            {vacancyEnabled && (
-              <OptionButton
-                icon={UserCircle}
-                title="Jobseeker / Professional"
-                subtitle="I'm looking for work opportunities"
-                onClick={() => onSelect("jobseeker")}
-              />
-            )}
-          </>
-        ) : (
-          <>
-            <OptionButton
-              icon={Briefcase}
-              title="Employer / Company"
-              subtitle="I want to hire employees or professionals"
-              onClick={() => onSelect("employer")}
-            />
-
-            <OptionButton
-              icon={HardHat}
-              title="Trade / Contractor"
-              subtitle="I'm a tradesperson or contractor business"
-              onClick={() => onSelect("contractor")}
-            />
-          </>
-        )}
+        <motion.button
+          onClick={() => onSelect("contractor")}
+          className="w-full p-6 rounded-xl border-2 border-gray-200 bg-white hover:border-orange-400 hover:shadow-lg transition-all duration-200 text-left group"
+          whileHover={{ y: -2, scale: 1.01 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">👷</div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 group-hover:text-orange-600 transition-colors">
+                Find Trade Jobs
+              </h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Discover local jobs and grow your trade business
+              </p>
+            </div>
+          </div>
+        </motion.button>
       </div>
 
       <div className="mt-6 text-center">

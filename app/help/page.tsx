@@ -27,7 +27,7 @@ const FAQ_CATEGORIES = [
     ],
   },
   {
-    category: "For Tradespeople",
+    category: "Find Jobs",
     questions: [
       {
         q: "How do I find jobs near me?",
@@ -52,7 +52,7 @@ const FAQ_CATEGORIES = [
     ],
   },
   {
-    category: "For Homeowners",
+    category: "Find a Tradesperson",
     questions: [
       {
         q: "How do I post a trade job?",
