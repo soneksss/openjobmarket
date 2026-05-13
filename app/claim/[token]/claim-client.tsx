@@ -60,8 +60,9 @@ export default function ClaimClient({
   }
 
   const handleSignUp = () => {
-    const returnUrl = `/claim/${token}`
-    router.push(`/auth/sign-up?returnUrl=${encodeURIComponent(returnUrl)}`)
+    const params = new URLSearchParams({ accountType: "company", claimToken: token })
+    if (trade.company_name) params.set("companyName", trade.company_name)
+    router.push(`/auth/sign-up?${params.toString()}`)
   }
 
   return (
@@ -142,7 +143,7 @@ export default function ClaimClient({
               onClick={handleSignUp}
               className="w-full flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold rounded-xl transition-colors"
             >
-              Create a free account
+              Create account &amp; claim
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

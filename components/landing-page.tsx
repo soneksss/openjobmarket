@@ -766,7 +766,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
             {/* Dynamic Visual CTA - Changes based on active tab */}
             {activeTab === "jobs" ? (
               /* ── TRADESPEOPLE: image-backed postcode section ── */
-              <div className="mb-6 -mt-10 md:mt-4 relative z-10">
+              <div className="mb-6 mt-3 md:mt-4 relative z-10">
                 <div className="relative w-full h-44 md:h-52 rounded-2xl overflow-hidden border border-slate-700/50 shadow-xl">
                   <img
                     src="/live_map.jpg"
@@ -817,6 +817,9 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
             ) : (
               /* ── HOMEOWNERS: image-backed postcode section ── */
               <div className="mb-6 -mt-10 md:mt-0 relative z-10">
+                <p className="hidden md:block text-center text-white font-bold text-3xl mb-4">
+                  Find trusted tradespeople near you
+                </p>
                 <div className="relative w-full h-52 md:h-72 rounded-2xl overflow-hidden border border-slate-700/50 shadow-xl">
                   <img
                     src="/live_map_trade.jpg"
@@ -836,9 +839,6 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   </div>
                   {/* Postcode form — vertically centered */}
                   <div className="absolute top-1/2 -translate-y-1/2 left-4 right-4 md:left-8 md:right-8">
-                    <p className="hidden md:block text-center text-white font-semibold text-lg mb-3 drop-shadow">
-                      Find trusted tradespeople near you
-                    </p>
                     <form
                       onSubmit={handlePostcodeSubmit}
                       className={`flex items-center gap-2 bg-white rounded-full px-4 py-2.5 md:py-3 w-full max-w-sm md:max-w-lg mx-auto shadow-2xl shadow-black/40 transition-all ${postcodeError ? "ring-2 ring-red-400" : ""}`}

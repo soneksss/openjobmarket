@@ -6,7 +6,7 @@ import { createClient } from "@/lib/client"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { useState } from "react"
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/context"
@@ -22,6 +22,7 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
 
   // Locale-aware sign-up URL
   const isOnBrRoute = pathname?.startsWith('/br')
@@ -117,9 +118,11 @@ export default function LoginForm() {
           return
         }
 
-        // Admins go to admin dashboard; all other users land on the home page
+        const returnUrl = searchParams?.get("returnUrl")
         if (userData.user_type === "admin") {
           router.push("/admin/dashboard")
+        } else if (returnUrl) {
+          router.push(returnUrl)
         } else {
           router.push(isOnBrRoute ? "/br" : "/")
         }

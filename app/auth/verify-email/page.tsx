@@ -81,21 +81,31 @@ export default function VerifyEmailPage() {
 
         setRedirectLabel("Almost there…")
 
-        // Retry user type fetch a couple of times (profile creation can be async)
-        let userType: string | null = null
-        for (let attempt = 0; attempt < 3; attempt++) {
-          const { data: userData } = await supabase
-            .from("users")
-            .select("user_type")
-            .eq("id", verifyData.user.id)
-            .single()
-          if (userData?.user_type) { userType = userData.user_type; break }
-          await new Promise((r) => setTimeout(r, 600))
-        }
+        const claimToken = searchParams?.get("claimToken")
 
-        setRedirectLabel("Taking you to your dashboard…")
-        const dest = userType ? (dashboardMap[userType] ?? "/dashboard") : "/"
-        setTimeout(() => { router.refresh(); router.push(dest) }, 800)
+        if (claimToken) {
+          // Claim flow: atomically claim the business and go to company dashboard
+          setRedirectLabel("Claiming your business…")
+          await supabase.rpc("claim_seeded_business", { p_token: claimToken })
+          setRedirectLabel("Taking you to your dashboard…")
+          setTimeout(() => { router.refresh(); router.push("/dashboard/company") }, 800)
+        } else {
+          // Retry user type fetch a couple of times (profile creation can be async)
+          let userType: string | null = null
+          for (let attempt = 0; attempt < 3; attempt++) {
+            const { data: userData } = await supabase
+              .from("users")
+              .select("user_type")
+              .eq("id", verifyData.user.id)
+              .single()
+            if (userData?.user_type) { userType = userData.user_type; break }
+            await new Promise((r) => setTimeout(r, 600))
+          }
+
+          setRedirectLabel("Taking you to your dashboard…")
+          const dest = userType ? (dashboardMap[userType] ?? "/dashboard") : "/"
+          setTimeout(() => { router.refresh(); router.push(dest) }, 800)
+        }
       }
     } catch (err: any) {
       setError(err.message || "An error occurred during verification")

@@ -163,6 +163,8 @@ export const TRADE_INDUSTRIES: readonly TradeIndustry[] = [
       "Carpet & Upholstery Cleaning",
       "Pressure Washing",
       "Property Maintenance",
+      "Chimney Sweep",
+      "Gutter Cleaning",
     ],
   },
   {
@@ -179,15 +181,29 @@ export const TRADE_INDUSTRIES: readonly TradeIndustry[] = [
     ],
   },
   {
-    title: "Waste Removal",
-    icon: "🚛",
-    category: "General Handyman",
+    title: "Moving & Transport",
+    icon: "🚚",
+    category: "Transport",
     services: [
       "Man & Van",
+      "Furniture Removal",
+      "House Moves",
+      "Office Relocation",
+      "Moving Services",
+      "Piano Moving",
+      "Courier",
+    ],
+  },
+  {
+    title: "Waste Removal",
+    icon: "🚛",
+    category: "Waste",
+    services: [
       "House Clearance",
       "Junk Removal",
       "Garden Waste Removal",
-      "Furniture Removal",
+      "Skip Hire",
+      "Rubbish Removal",
     ],
   },
   {

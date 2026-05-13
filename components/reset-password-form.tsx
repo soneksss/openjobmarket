@@ -28,17 +28,41 @@ export default function ResetPasswordForm({ code, accessToken, refreshToken }: R
   const router = useRouter()
   const pathname = usePathname()
 
-  // PKCE flow: exchange the code for a session on mount
+  // PKCE flow: exchange the code for a session.
+  // Supabase may auto-exchange the URL code during client init (detectSessionInUrl).
+  // We listen for the resulting auth event AND also try a manual exchange as a fallback.
   useEffect(() => {
     if (!code) return
     const supabase = createClient()
-    supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-      if (error) {
-        setError("This reset link has expired or is invalid. Please request a new one.")
-      } else {
-        setSessionReady(true)
-      }
+    let resolved = false
+
+    const finish = (ok: boolean) => {
+      if (resolved) return
+      resolved = true
+      if (ok) setSessionReady(true)
+      else setError("This reset link has expired or is invalid. Please request a new one.")
+    }
+
+    // Catch the PASSWORD_RECOVERY event fired by Supabase's auto-exchange
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) finish(true)
     })
+
+    // Also try manual exchange — covers the case where auto-exchange didn't fire
+    supabase.auth.exchangeCodeForSession(code).then(({ error: exchErr }) => {
+      if (!exchErr) {
+        finish(true)
+      } else {
+        // Exchange failed; check whether auto-exchange already established a session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          finish(!!session)
+        })
+      }
+    }).catch(() => {
+      supabase.auth.getSession().then(({ data: { session } }) => finish(!!session))
+    })
+
+    return () => subscription.unsubscribe()
   }, [code])
 
   // Detect if user is on BR route

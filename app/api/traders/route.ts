@@ -35,19 +35,28 @@ export async function GET(req: NextRequest) {
     .gte("longitude", west).lte("longitude", east)
     .limit(LIMIT)
 
-  if (industry) cq = cq.or(`industry.ilike.%${industry}%,company_name.ilike.%${industry}%`)
+  if (industry) {
+    // Match primary industry, secondary industries array, or company name
+    const term = industry.replace(/"/g, "")
+    cq = cq.or(`industry.ilike.%${term}%,industries.cs.{"${term}"},company_name.ilike.%${term}%`)
+  }
   if (language) cq = (cq as any).contains("spoken_languages", [language])
 
   // ── Seeded trades ─────────────────────────────────────────────────────────
   let sq = admin
     .from("seeded_trades")
-    .select("id, company_name, trade_category, lat, lng, phone, address, postcode, claim_token")
+    .select("id, company_name, trade_category, normalised_categories, lat, lng, phone, address, postcode, claim_token")
     .eq("claimed", false)
     .gte("lat", south).lte("lat", north)
     .gte("lng", west).lte("lng", east)
     .limit(LIMIT)
 
-  if (industry) sq = (sq as any).contains("normalised_categories", [industry])
+  // normalised_categories (array of all matching trade types) takes priority;
+  // trade_category.ilike covers records that pre-date the normalised_categories column
+  if (industry) {
+    const term = industry.replace(/"/g, "")
+    sq = sq.or(`normalised_categories.cs.{"${term}"},trade_category.ilike.%${term}%`)
+  }
 
   const [{ data: companies }, { data: seeded }] = await Promise.all([cq, sq])
 
@@ -75,6 +84,7 @@ export async function GET(req: NextRequest) {
       profile_type:     "seeded" as const,
       name:             s.company_name,
       industry:         (s.trade_category ?? null) as string | null,
+      normalised_categories: (s.normalised_categories ?? null) as string[] | null,
       location:         ((s.address ?? s.postcode) ?? null) as string | null,
       latitude:         s.lat  as number | null,
       longitude:        s.lng  as number | null,

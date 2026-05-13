@@ -82,16 +82,24 @@ export default function MultiStepSignup() {
     if (updates.email !== undefined) setEmailAlreadyExists(false)
   }
 
-  // Read URL parameters from Quick Check modal and pre-populate form
+  // Read URL parameters to pre-populate form
   useEffect(() => {
     const accountTypeParam = searchParams?.get('accountType')
-    const sourceParam = searchParams?.get('source')
+    const sourceParam      = searchParams?.get('source')
+    const claimToken       = searchParams?.get('claimToken')
+    const companyNameParam = searchParams?.get('companyName')
 
-    if (sourceParam === 'quickcheck' && accountTypeParam) {
-      console.log('[SIGNUP] Pre-populating from Quick Check:', { accountTypeParam })
+    if (claimToken) {
+      // Claim flow: auto-set company account, pre-fill name, skip to step 2
+      setSignupData(prev => ({
+        ...prev,
+        accountType: 'company',
+        ...(companyNameParam ? { companyName: companyNameParam } : {}),
+      }))
+      setCurrentStep(2)
+    } else if (sourceParam === 'quickcheck' && accountTypeParam) {
       const accountType = accountTypeParam as 'individual' | 'company'
       setSignupData(prev => ({ ...prev, accountType }))
-      // Skip to step 2 (profile info) since account type is already selected
       setCurrentStep(2)
     }
   }, [searchParams])
@@ -332,9 +340,15 @@ export default function MultiStepSignup() {
       localStorage.setItem('signup_email', signupData.email)
 
       if (!authData.user.email_confirmed_at) {
-        const verifyEmailUrl = isOnBrRoute
-          ? `/auth/verify-email?locale=pt-BR&email=${encodeURIComponent(signupData.email)}`
-          : `/auth/verify-email?email=${encodeURIComponent(signupData.email)}`
+        const claimToken = searchParams?.get('claimToken')
+        let verifyEmailUrl: string
+        if (claimToken) {
+          verifyEmailUrl = `/auth/verify-email?email=${encodeURIComponent(signupData.email)}&claimToken=${encodeURIComponent(claimToken)}`
+        } else if (isOnBrRoute) {
+          verifyEmailUrl = `/auth/verify-email?locale=pt-BR&email=${encodeURIComponent(signupData.email)}`
+        } else {
+          verifyEmailUrl = `/auth/verify-email?email=${encodeURIComponent(signupData.email)}`
+        }
         router.push(verifyEmailUrl)
       } else {
         router.push(dashboardUrl)

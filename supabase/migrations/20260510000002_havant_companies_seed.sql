@@ -7,7 +7,7 @@
 --   Electrician / solar / EV charging              → Electrical & Electronic Engineering
 --   Gas engineer / plumber / heating               → Plumbing & Heating
 --   Landscaper / gardener                          → Gardening & Landscaping
---   Mover / courier / transport                    → Transportation & Delivery
+--   Mover / courier / man and van                  → Moving & Transport
 -- ============================================================
 
 INSERT INTO public.seeded_trades
@@ -291,11 +291,11 @@ VALUES
   'csv_import'
 ),
 
--- ── Transportation & Delivery ──────────────────────────────
+-- ── Moving & Transport ─────────────────────────────────────
 
 (
   'Joey The Van Man Removals',
-  'Transportation & Delivery',
+  'Moving & Transport',
   '228 Victoria Rd, Emsworth',
   'PO10 7LY',
   50.8518063, -0.9513122,
@@ -306,7 +306,7 @@ VALUES
 ),
 (
   'TMR South Coast Group Ltd',
-  'Transportation & Delivery',
+  'Construction & Renovation',
   'Walton Rd, Drayton, Portsmouth',
   'PO6 1UJ',
   50.8366805, -1.0487724,
