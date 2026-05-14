@@ -274,7 +274,7 @@ export default function CookiesPage() {
               Se você tiver dúvidas sobre nosso uso de cookies ou esta Política de Cookies, entre em contato conosco:
             </p>
             <p className="mt-2">
-              E-mail: info@openjobmarket.com<br />
+              Use nosso <a href="/br/contact" className="text-blue-600 hover:text-blue-700 underline">formulário de contato</a>.<br />
               Endereço: OpenJobMarket, Londres, Reino Unido
             </p>
           </section>

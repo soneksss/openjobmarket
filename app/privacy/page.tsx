@@ -147,7 +147,7 @@ export default function PrivacyPage() {
                 <li><strong className="text-slate-200">Right to Object:</strong> Object to processing based on legitimate interests</li>
                 <li><strong className="text-slate-200">Right to Withdraw Consent:</strong> Withdraw consent for processing at any time</li>
               </ul>
-              <p className="mt-2">To exercise these rights, contact us at <a href="mailto:info@openjobmarket.com" className="text-emerald-400 hover:text-emerald-300">info@openjobmarket.com</a></p>
+              <p className="mt-2">To exercise these rights, use our <a href="/contact" className="text-emerald-400 hover:text-emerald-300">contact form</a>.</p>
             </section>
 
             <section>
@@ -192,7 +192,7 @@ export default function PrivacyPage() {
               <p>For privacy-related questions or to exercise your rights:</p>
               <p className="mt-2 text-slate-400">
                 <strong className="text-slate-200">Data Protection Officer</strong><br />
-                Email: <a href="mailto:info@openjobmarket.com" className="text-emerald-400 hover:text-emerald-300">info@openjobmarket.com</a><br />
+                Use our <a href="/contact" className="text-emerald-400 hover:text-emerald-300">contact form</a>.<br />
                 Address: OpenJobMarket, London, United Kingdom
               </p>
             </section>

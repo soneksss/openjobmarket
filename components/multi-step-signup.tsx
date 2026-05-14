@@ -88,15 +88,21 @@ export default function MultiStepSignup() {
     const sourceParam      = searchParams?.get('source')
     const claimToken       = searchParams?.get('claimToken')
     const companyNameParam = searchParams?.get('companyName')
+    const emailParam       = searchParams?.get('email')
+    const postcodeParam    = searchParams?.get('postcode')
 
     if (claimToken) {
-      // Claim flow: auto-set company account, pre-fill name, skip to step 2
+      // Claim flow: auto-set company account, pre-fill all known fields, skip to step 2
+      const postcode = postcodeParam ? postcodeParam.toUpperCase() : ""
       setSignupData(prev => ({
         ...prev,
         accountType: 'company',
         ...(companyNameParam ? { companyName: companyNameParam } : {}),
+        ...(emailParam       ? { email: emailParam }             : {}),
+        ...(postcode         ? { postcode }                      : {}),
       }))
       setCurrentStep(2)
+      if (postcode) geocodePostcode(postcode)
     } else if (sourceParam === 'quickcheck' && accountTypeParam) {
       const accountType = accountTypeParam as 'individual' | 'company'
       setSignupData(prev => ({ ...prev, accountType }))

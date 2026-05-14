@@ -177,7 +177,7 @@ export default function CookiesPage() {
               <h2 className="text-base font-bold text-white mb-2">10. Contact Us</h2>
               <p>If you have questions about our use of cookies or this Cookie Policy:</p>
               <p className="mt-2 text-slate-400">
-                Email: <a href="mailto:info@openjobmarket.com" className="text-emerald-400 hover:text-emerald-300">info@openjobmarket.com</a><br />
+                Use our <a href="/contact" className="text-emerald-400 hover:text-emerald-300">contact form</a>.<br />
                 Address: OpenJobMarket, London, United Kingdom
               </p>
             </section>

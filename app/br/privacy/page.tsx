@@ -195,7 +195,7 @@ export default function PrivacyPage() {
             </ul>
 
             <p className="mt-4">
-              Para exercer esses direitos, entre em contato conosco pelo e-mail info@openjobmarket.com
+              Para exercer esses direitos, use nosso <a href="/br/contact" className="text-blue-600 hover:text-blue-700 underline">formulário de contato</a>.
             </p>
           </section>
 
@@ -261,7 +261,7 @@ export default function PrivacyPage() {
             </p>
             <p className="mt-2">
               <strong>Encarregado de Proteção de Dados</strong><br />
-              E-mail: info@openjobmarket.com<br />
+              Use nosso <a href="/br/contact" className="text-blue-600 hover:text-blue-700 underline">formulário de contato</a>.<br />
               Endereço: OpenJobMarket, Londres, Reino Unido
             </p>
           </section>

@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
-import { Building2, MapPin, Phone, Mail, CheckCircle, AlertCircle, ArrowRight, LogIn } from "lucide-react"
+import { Building2, MapPin, Phone, Mail, CheckCircle, AlertCircle, ArrowRight } from "lucide-react"
 
 type Trade = {
   id: string
@@ -54,14 +54,11 @@ export default function ClaimClient({
     }
   }
 
-  const handleSignIn = () => {
-    const returnUrl = `/claim/${token}`
-    router.push(`/auth/login?returnUrl=${encodeURIComponent(returnUrl)}`)
-  }
-
-  const handleSignUp = () => {
+  const handleRegister = () => {
     const params = new URLSearchParams({ accountType: "company", claimToken: token })
     if (trade.company_name) params.set("companyName", trade.company_name)
+    if (trade.email)        params.set("email", trade.email)
+    if (trade.postcode)     params.set("postcode", trade.postcode)
     router.push(`/auth/sign-up?${params.toString()}`)
   }
 
@@ -129,21 +126,11 @@ export default function ClaimClient({
         {/* Action */}
         {!user ? (
           <div className="space-y-3">
-            <p className="text-center text-slate-400 text-sm mb-4">
-              Sign in or create an account to claim this listing
-            </p>
             <button
-              onClick={handleSignIn}
+              onClick={handleRegister}
               className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-emerald-500/20"
             >
-              <LogIn className="w-4 h-4" />
-              Sign in to claim
-            </button>
-            <button
-              onClick={handleSignUp}
-              className="w-full flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold rounded-xl transition-colors"
-            >
-              Create account &amp; claim
+              Register / verify email
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>

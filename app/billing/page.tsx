@@ -172,15 +172,11 @@ export default function BillingPage() {
         {/* Support */}
         <div className="p-4 bg-slate-800 rounded-xl border border-slate-700/50 text-sm text-slate-400">
           <span className="font-medium text-slate-300">Need help with billing? </span>
-          Contact us at{" "}
-          <a href="mailto:info@openjobmarket.com" className="text-emerald-400 hover:text-emerald-300">
-            info@openjobmarket.com
-          </a>
-          {" "}or visit our{" "}
+          Visit our{" "}
           <Link href="/contact" className="text-emerald-400 hover:text-emerald-300">
             contact page
           </Link>
-          .
+          {" "}and we'll get back to you as soon as possible.
         </div>
       </div>
     </div>

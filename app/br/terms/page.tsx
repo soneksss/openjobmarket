@@ -214,7 +214,7 @@ export default function TermsPage() {
               Para perguntas sobre estes Termos, entre em contato conosco em:
             </p>
             <p className="mt-2">
-              Email: info@openjobmarket.com<br />
+              Use nosso <a href="/br/contact" className="text-blue-600 hover:text-blue-700 underline">formulário de contato</a>.<br />
               Endereço: OpenJobMarket, Londres, Reino Unido
             </p>
           </section>

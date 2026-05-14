@@ -192,13 +192,6 @@ export default function HelpPage() {
               <MessageCircle className="h-4 w-4" />
               Contact Support
             </Link>
-            <a
-              href="mailto:info@openjobmarket.com"
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white text-sm font-medium transition-colors"
-            >
-              <Mail className="h-4 w-4" />
-              info@openjobmarket.com
-            </a>
           </div>
         </div>
       </div>

@@ -144,7 +144,12 @@ function loadSavedFilters(postcode: string | undefined, fallbackIndustry: string
   if (typeof window === "undefined") return { ...DEFAULT_FILTERS, industry: fallbackIndustry ?? null }
   try {
     const raw = sessionStorage.getItem(filterStorageKey(postcode))
-    if (raw) return { ...DEFAULT_FILTERS, ...JSON.parse(raw) }
+    if (raw) {
+      const saved = { ...DEFAULT_FILTERS, ...JSON.parse(raw) }
+      // URL-supplied industry (from card click) always wins over saved session filters
+      if (fallbackIndustry) { saved.industry = fallbackIndustry; saved.subcategories = [] }
+      return saved
+    }
   } catch {}
   return { ...DEFAULT_FILTERS, industry: fallbackIndustry ?? null }
 }

@@ -105,7 +105,7 @@ export default function TermsPage() {
 
             <section>
               <h2 className="text-base font-bold text-white mb-2">12. Contact Information</h2>
-              <p>Email: <a href="mailto:info@openjobmarket.com" className="text-emerald-400 hover:text-emerald-300">info@openjobmarket.com</a><br />Address: OpenJobMarket, London, United Kingdom</p>
+              <p>Use our <a href="/contact" className="text-emerald-400 hover:text-emerald-300">contact form</a>.<br />Address: OpenJobMarket, London, United Kingdom</p>
             </section>
 
             <div className="mt-6 p-4 bg-emerald-900/20 border border-emerald-700/40 rounded-lg text-sm text-emerald-300">
