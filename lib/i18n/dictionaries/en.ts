@@ -208,10 +208,10 @@ export const en = {
     // Step 1
     whoAreYou: 'Who are you signing up as?',
     chooseAccountType: 'Choose the account type that best describes you',
-    individual: 'Homeowner',
+    individual: 'I need a tradesperson',
     individualDesc: 'Post jobs and find trusted local tradespeople',
-    company: 'Tradesperson / Business',
-    business: 'Tradesperson',
+    company: 'I am a tradesperson',
+    business: 'I am a tradesperson',
     companyDesc: 'Find local jobs, get hired, grow your trade',
     selected: 'Selected',
     orContinueWith: 'or continue with',

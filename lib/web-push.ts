@@ -29,6 +29,7 @@ export interface PushPayload {
   url?:               string
   tag?:               string
   requireInteraction?: boolean
+  actions?:           { action: string; title: string }[]
 }
 
 /**

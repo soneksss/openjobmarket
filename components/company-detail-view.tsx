@@ -69,6 +69,7 @@ interface CompanyProfile {
   spoken_languages?: string[]
   service_24_7?: boolean
   services?: string[]
+  custom_services?: string[]
   price_list?: string
   average_rating?: number
   reviews_count?: number
@@ -389,12 +390,15 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             </div>
           )}
 
-          {company.services && company.services.length > 0 && (
+          {((company.services && company.services.length > 0) || (company.custom_services && company.custom_services.length > 0)) && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Services</p>
               <div className="flex flex-wrap gap-1">
-                {company.services.map((s, i) => (
+                {company.services?.map((s, i) => (
                   <span key={i} className="text-xs bg-slate-800 text-slate-200 border border-slate-700 px-2 py-0.5 rounded-md">{s}</span>
+                ))}
+                {company.custom_services?.map((s, i) => (
+                  <span key={`c${i}`} className="text-xs bg-slate-800/60 text-slate-300 border border-slate-700/60 border-dashed px-2 py-0.5 rounded-md">{s}</span>
                 ))}
               </div>
             </div>
@@ -763,14 +767,17 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             )}
 
             {/* Services */}
-            {company.services && company.services.length > 0 && (
+            {((company.services && company.services.length > 0) || (company.custom_services && company.custom_services.length > 0)) && (
               <section className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 flex items-center gap-1.5">
                   <Briefcase className="h-3.5 w-3.5" />Services
                 </h2>
                 <div className="flex flex-wrap gap-2">
-                  {company.services.map((s) => (
+                  {company.services?.map((s) => (
                     <span key={s} className="text-xs bg-slate-700 text-slate-200 border border-slate-600/80 px-2.5 py-1 rounded-lg">{s}</span>
+                  ))}
+                  {company.custom_services?.map((s) => (
+                    <span key={s} className="text-xs bg-slate-700/60 text-slate-300 border border-slate-600/50 border-dashed px-2.5 py-1 rounded-lg">{s}</span>
                   ))}
                 </div>
               </section>

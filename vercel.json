@@ -15,6 +15,14 @@
     {
       "path": "/api/cron/cleanup-push-tokens",
       "schedule": "0 3 * * 0"
+    },
+    {
+      "path": "/api/cron/expire-availability",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/daily-availability-prompt",
+      "schedule": "0 9 * * *"
     }
   ]
 }

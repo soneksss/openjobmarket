@@ -102,6 +102,7 @@ interface CompanyProfile {
   logo_url?: string
   profile_visible?: boolean
   open_for_business?: boolean
+  availability_expires_at?: string | null
   is_hiring?: boolean
   trade_job_notifications?: boolean
   trade_job_notifications_distance?: number
@@ -229,8 +230,17 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [profileVisible, setProfileVisible] = useState(profile.profile_visible ?? true)
   const [updatingVisibility, setUpdatingVisibility] = useState(false)
   const [openForBusiness, setOpenForBusiness] = useState(profile.open_for_business ?? false)
+  const [availabilityExpiresAt, setAvailabilityExpiresAt] = useState<string | null>(profile.availability_expires_at ?? null)
   const [hiring, setHiring] = useState(profile.is_hiring ?? false)
   const [updatingBusinessStatus, setUpdatingBusinessStatus] = useState(false)
+
+  const formatExpiry = (expiresAt: string): string => {
+    const diff = new Date(expiresAt).getTime() - Date.now()
+    if (diff <= 0) return "Expired"
+    const h = Math.floor(diff / 3_600_000)
+    const m = Math.floor((diff % 3_600_000) / 60_000)
+    return h > 0 ? `Expires in ${h}h ${m}m` : `Expires in ${m}m`
+  }
   const [updatingHiringStatus, setUpdatingHiringStatus] = useState(false)
   // Instant Job Alerts — master derived from both checkboxes
   const [urgentJobAlerts,   setUrgentJobAlerts]   = useState(profile.trade_job_notifications    ?? true)
@@ -972,6 +982,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
       const now = new Date().toISOString()
       const expiresAt = status ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
+      setAvailabilityExpiresAt(expiresAt)
       const { error } = await supabase
         .from("company_profiles")
         .update({
@@ -1242,6 +1253,29 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
           {/* Toggles */}
           <div className="mt-4 space-y-2">
+            {/* Available / Busy */}
+            <div className={`rounded-xl px-3 py-2.5 border ${openForBusiness ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-700/50 border-slate-600/50'}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${openForBusiness ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-slate-500'}`} />
+                  <div>
+                    <p className="text-sm font-medium">{openForBusiness ? 'Available' : 'Busy'}</p>
+                    <p className="text-[10px] text-slate-400">
+                      {openForBusiness
+                        ? (availabilityExpiresAt ? formatExpiry(availabilityExpiresAt) : 'Active for 24 hours')
+                        : 'Not accepting new jobs'}
+                    </p>
+                  </div>
+                </div>
+                <Switch checked={openForBusiness} onCheckedChange={handleBusinessStatusToggle} disabled={updatingBusinessStatus} className="data-[state=checked]:bg-emerald-500" />
+              </div>
+              {openForBusiness && (
+                <p className="mt-2 text-[10px] text-emerald-400/70 flex items-center gap-1">
+                  <Clock className="w-3 h-3 flex-shrink-0" />
+                  Turns off after 24 h — we'll ask if you're still available
+                </p>
+              )}
+            </div>
             <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-slate-600/50">
               <div className="flex items-center gap-2">
                 {profileVisible ? <Eye className="h-4 w-4 text-emerald-400" /> : <EyeOff className="h-4 w-4 text-slate-500" />}
@@ -1257,8 +1291,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                 <div className="flex items-center gap-2">
                   <Zap className={`h-4 w-4 ${instantJobAlerts ? 'text-purple-400' : 'text-slate-500'}`} />
                   <div>
-                    <p className="text-sm font-medium">{instantJobAlerts ? 'AVAILABLE' : 'BUSY'}</p>
-                    <p className="text-[10px] text-slate-400">{instantJobAlerts ? 'Instant job notifications On' : 'Instant notifications Off'}</p>
+                    <p className="text-sm font-medium">{instantJobAlerts ? 'Instant Alerts On' : 'Instant Alerts Off'}</p>
+                    <p className="text-[10px] text-slate-400">{instantJobAlerts ? 'Notified when jobs are posted nearby' : 'Job notifications paused'}</p>
                   </div>
                 </div>
                 <Switch checked={instantJobAlerts} onCheckedChange={handleInstantAlertsToggle} disabled={updatingInstantAlerts} className="data-[state=checked]:bg-purple-500" />
@@ -1495,6 +1529,29 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
                 {/* Toggles Section - Desktop - Mobile Style */}
                 <div className="hidden lg:block space-y-2 pt-3 mt-3 border-t border-slate-700">
+                  {/* Available / Busy */}
+                  <div className={`rounded-xl px-3 py-2.5 border ${openForBusiness ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-700/50 border-slate-600/50'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${openForBusiness ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-slate-500'}`} />
+                        <div>
+                          <p className="text-sm font-medium text-white">{openForBusiness ? 'Available' : 'Busy'}</p>
+                          <p className="text-[10px] text-slate-400">
+                            {openForBusiness
+                              ? (availabilityExpiresAt ? formatExpiry(availabilityExpiresAt) : 'Active for 24 hours')
+                              : 'Not accepting new jobs'}
+                          </p>
+                        </div>
+                      </div>
+                      <Switch checked={openForBusiness} onCheckedChange={handleBusinessStatusToggle} disabled={updatingBusinessStatus} className="data-[state=checked]:bg-emerald-500" />
+                    </div>
+                    {openForBusiness && (
+                      <p className="mt-2 text-[10px] text-emerald-400/70 flex items-center gap-1">
+                        <Clock className="w-3 h-3 flex-shrink-0" />
+                        Turns off after 24 h — we'll ask if you're still available
+                      </p>
+                    )}
+                  </div>
                   {/* Profile Visibility Toggle */}
                   <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-slate-600/50">
                     <div className="flex items-center gap-2">

@@ -32,14 +32,9 @@ export async function GET(request: NextRequest) {
   try {
     const admin = createAdminClient()
 
-    // Traders whose availability expired and haven't confirmed recently
+    // Traders whose availability expired and haven't been prompted in 12h
     const { data: traders, error } = await admin
-      .from("company_profiles")
-      .select("user_id, latitude, longitude")
-      .eq("open_for_business", false)
-      .not("availability_expires_at", "is", null)
-      .lt("availability_expires_at", new Date().toISOString())
-      .or(`last_availability_confirmed_at.is.null,last_availability_confirmed_at.lt.${new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString()}`)
+      .rpc("get_traders_for_availability_prompt") as { data: { user_id: string; company_id: string; latitude: number | null; longitude: number | null }[] | null; error: any }
 
     if (error) {
       console.error("[CRON daily-availability-prompt]", error.message)
@@ -82,10 +77,15 @@ export async function GET(request: NextRequest) {
           { action: "confirm", title: "✔ Yes" },
           { action: "decline", title: "✖ Not today" },
         ],
-      } as any)
+      })
 
       sent += result.sent
       staleTokens.push(...result.expired)
+
+      // Record that we prompted this trader so we don't spam them
+      if (result.sent > 0) {
+        await admin.rpc("mark_availability_prompt_sent", { p_company_id: trader.company_id })
+      }
     }
 
     // Clean up expired push tokens

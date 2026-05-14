@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Upload, ArrowLeft, Building2, MapPin, Eye, EyeOff, Trash2, ShieldCheck, FileText, Calendar } from "lucide-react"
+import { Upload, ArrowLeft, Building2, MapPin, Eye, EyeOff, Trash2, ShieldCheck, FileText, Calendar, Plus, X } from "lucide-react"
 import { createClient } from "@/lib/client"
 import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
@@ -52,6 +52,7 @@ interface CompanyProfile {
   description: string
   industry: string
   services?: string[]
+  custom_services?: string[]
   website_url?: string
   phone_number?: string
   location: string
@@ -95,6 +96,8 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       : profile.industry ? [profile.industry] : []
   )
   const [services, setServices] = useState<string[]>(profile.services || [])
+  const [customServices, setCustomServices] = useState<string[]>(profile.custom_services || [])
+  const [customServiceInput, setCustomServiceInput] = useState("")
   const [websiteUrl, setWebsiteUrl] = useState(profile.website_url || "")
   const [phoneNumber, setPhoneNumber] = useState(profile.phone_number || "")
   const [contactEmail, setContactEmail] = useState((profile as any).contact_email || "")
@@ -398,6 +401,17 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
     )
   }
 
+  const addCustomService = () => {
+    const trimmed = customServiceInput.trim()
+    if (!trimmed || customServices.includes(trimmed)) return
+    setCustomServices(prev => [...prev, trimmed])
+    setCustomServiceInput("")
+  }
+
+  const removeCustomService = (service: string) => {
+    setCustomServices(prev => prev.filter(s => s !== service))
+  }
+
   const handleInsuranceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -437,6 +451,7 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         industries: selectedIndustries.filter(i => i).length > 0 ? selectedIndustries.filter(i => i) : null,
         industry: selectedIndustries.find(i => i) || null,
         services: services.length > 0 ? services : null,
+        custom_services: customServices.length > 0 ? customServices : null,
         website_url: websiteUrl || null,
         phone_number: phoneNumber || null,
         contact_email: contactEmail || null,
@@ -768,6 +783,42 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   <p className="text-xs text-slate-400">
                     {selectedIndustries.filter(i => i).length} industr{selectedIndustries.filter(i => i).length === 1 ? "y" : "ies"} · {services.length} specialt{services.length === 1 ? "y" : "ies"} selected
                   </p>
+                )}
+              </div>
+
+              {/* Additional (custom) services */}
+              <div className="space-y-2 pt-1">
+                <Label className="text-sm font-medium text-slate-200">Additional Services</Label>
+                <p className="text-xs text-slate-400">Add services specific to your business that aren't in the standard list. These are shown on your profile but not used in search filters.</p>
+                <div className="flex gap-2">
+                  <Input
+                    value={customServiceInput}
+                    onChange={e => setCustomServiceInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomService() } }}
+                    placeholder="e.g. Flat roof, Leadwork, Drone surveys…"
+                    className="h-9 text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomService}
+                    disabled={!customServiceInput.trim()}
+                    className="flex-shrink-0 flex items-center gap-1 px-3 h-9 rounded-md bg-slate-700 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed text-slate-200 text-sm font-medium transition-colors border border-slate-600"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add
+                  </button>
+                </div>
+                {customServices.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {customServices.map(s => (
+                      <span key={s} className="inline-flex items-center gap-1.5 text-xs bg-slate-700 border border-slate-600 text-slate-200 pl-2.5 pr-1.5 py-1 rounded-lg">
+                        {s}
+                        <button type="button" onClick={() => removeCustomService(s)} className="text-slate-400 hover:text-white transition-colors">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
 

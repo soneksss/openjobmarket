@@ -84,9 +84,23 @@ export default function VerifyEmailPage() {
         const claimToken = searchParams?.get("claimToken")
 
         if (claimToken) {
-          // Claim flow: atomically claim the business and go to company dashboard
           setRedirectLabel("Claiming your business…")
-          await supabase.rpc("claim_seeded_business", { p_token: claimToken })
+          const { error: claimErr } = await supabase.rpc("claim_seeded_business", { p_token: claimToken })
+          if (claimErr) {
+            const msg = claimErr.message ?? ""
+            if (msg.includes("not_authenticated")) {
+              setError("Session expired. Please refresh and try again.")
+            } else if (msg.includes("email_not_verified")) {
+              setError("Email verification required before claiming.")
+            } else if (msg.includes("email_not_authorized_to_claim")) {
+              setError("Your email does not match the business email on file.")
+            } else {
+              setError("Claim failed: " + (msg || "unknown error"))
+            }
+            setSuccess(false)
+            setLoading(false)
+            return
+          }
           setRedirectLabel("Taking you to your dashboard…")
           setTimeout(() => { router.refresh(); router.push("/dashboard/company") }, 800)
         } else {

@@ -210,10 +210,10 @@ export const ptBR: Partial<Dictionary> = {
     // Step 1
     whoAreYou: 'Como você está se cadastrando?',
     chooseAccountType: 'Escolha o tipo de conta que melhor te descreve',
-    individual: 'Pessoa Física',
+    individual: 'Preciso de um profissional',
     individualDesc: 'Publique Vagas/Tarefas ou Busque por Oportunidades',
-    company: 'Empresa / Negócio',
-    business: 'Profissional',
+    company: 'Sou um profissional',
+    business: 'Sou um profissional',
     companyDesc: 'Busque por Empregos, Publique Vagas, Publique Oportunidades',
     selected: 'Selecionado',
     orContinueWith: 'ou continuar com',

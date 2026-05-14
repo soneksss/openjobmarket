@@ -29,13 +29,12 @@ self.addEventListener('push', function (event) {
 self.addEventListener('notificationclick', function (event) {
   event.notification.close()
 
-  // "Not today" action — just dismiss, no navigation
-  if (event.action === 'decline') return
-
-  // "Yes" action — navigate to confirm-availability page
+  // Resolve target URL based on action
   const url = event.action === 'confirm'
     ? '/confirm-availability'
-    : (event.notification.data?.url || '/')
+    : event.action === 'decline'
+      ? '/decline-availability'
+      : (event.notification.data?.url || '/')
 
   event.waitUntil(
     clients

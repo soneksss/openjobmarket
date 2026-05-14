@@ -917,6 +917,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           <JobWizardModal
             guestMode={!user} initialPostcode={initialPostcode}
             companyProfile={homeownerProfile ?? null} userType="homeowner" redirectPath={findPageUrl}
+            initialIndustry={filters.industry ?? undefined}
+            initialService={filters.subcategories.length === 1 ? filters.subcategories[0] : undefined}
           />
         </div>
       )}
