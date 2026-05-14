@@ -54,6 +54,7 @@ export default function MultiStepSignup() {
   const [error, setError] = useState<string | null>(null)
   const [emailAlreadyExists, setEmailAlreadyExists] = useState(false)
   const [serviceInput, setServiceInput] = useState('')
+  const [emailLocked, setEmailLocked] = useState(false)
 
   const [signupData, setSignupData] = useState<SignupData>({
     accountType: null,
@@ -90,6 +91,7 @@ export default function MultiStepSignup() {
     const companyNameParam = searchParams?.get('companyName')
     const emailParam       = searchParams?.get('email')
     const postcodeParam    = searchParams?.get('postcode')
+    const lockEmailParam   = searchParams?.get('lock_email')
 
     if (claimToken) {
       // Claim flow: auto-set company account, pre-fill all known fields, skip to step 2
@@ -101,6 +103,7 @@ export default function MultiStepSignup() {
         ...(emailParam       ? { email: emailParam }             : {}),
         ...(postcode         ? { postcode }                      : {}),
       }))
+      if (lockEmailParam === 'true') setEmailLocked(true)
       setCurrentStep(2)
       if (postcode) geocodePostcode(postcode)
     } else if (sourceParam === 'quickcheck' && accountTypeParam) {
@@ -612,16 +615,20 @@ export default function MultiStepSignup() {
                   {/* Email & Postcode Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="email" className="text-sm font-medium text-slate-300">{t('signup.emailLabel')} *</Label>
+                      <Label htmlFor="email" className="text-sm font-medium text-slate-300">
+                        {t('signup.emailLabel')} *
+                        {emailLocked && <span className="ml-1.5 text-[10px] text-amber-400 font-normal">(locked)</span>}
+                      </Label>
                       <Input
                         id="email"
                         type="email"
                         value={signupData.email}
-                        onChange={(e) => updateSignupData({ email: e.target.value })}
+                        onChange={(e) => { if (!emailLocked) updateSignupData({ email: e.target.value }) }}
+                        readOnly={emailLocked}
                         placeholder="you@email.com"
                         autoComplete="email"
                         required
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                        className={`mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500 ${emailLocked ? 'opacity-75 cursor-not-allowed select-none' : ''}`}
                       />
                     </div>
                     <div>
@@ -714,16 +721,20 @@ export default function MultiStepSignup() {
                   {/* Email & Postcode Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="email" className="text-sm font-medium text-slate-300">{t('signup.emailLabel')} *</Label>
+                      <Label htmlFor="email" className="text-sm font-medium text-slate-300">
+                        {t('signup.emailLabel')} *
+                        {emailLocked && <span className="ml-1.5 text-[10px] text-amber-400 font-normal">(locked)</span>}
+                      </Label>
                       <Input
                         id="email"
                         type="email"
                         value={signupData.email}
-                        onChange={(e) => updateSignupData({ email: e.target.value })}
+                        onChange={(e) => { if (!emailLocked) updateSignupData({ email: e.target.value }) }}
+                        readOnly={emailLocked}
                         placeholder="you@company.com"
                         autoComplete="email"
                         required
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                        className={`mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500 ${emailLocked ? 'opacity-75 cursor-not-allowed select-none' : ''}`}
                       />
                     </div>
                     <div>

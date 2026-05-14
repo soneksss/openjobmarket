@@ -19,7 +19,7 @@ type Trade = {
   claim_token: string
 }
 
-type Phase = "idle" | "otp_sent" | "verifying" | "claiming"
+type Phase = "idle" | "claiming"
 
 export default function ClaimClient({
   trade,
@@ -33,63 +33,26 @@ export default function ClaimClient({
   const router   = useRouter()
   const supabase = createClient()
 
-  const [phase,   setPhase]   = useState<Phase>("idle")
-  const [otpCode, setOtpCode] = useState("")
-  const [error,   setError]   = useState<string | null>(null)
+  const [phase, setPhase] = useState<Phase>("idle")
+  const [error, setError] = useState<string | null>(null)
 
-  const tradeEmail  = trade.email?.toLowerCase() ?? null
-  const userEmail   = user?.email?.toLowerCase() ?? null
+  const tradeEmail   = trade.email?.toLowerCase() ?? null
+  const userEmail    = user?.email?.toLowerCase() ?? null
   const emailMatches = tradeEmail && userEmail && tradeEmail === userEmail
 
-  /* ── OTP flow (unauthenticated) ─────────────────────────────────────────── */
+  /* ── Redirect unauthenticated users to signup with locked email ─────────── */
 
-  const handleSendOtp = async () => {
+  const handleRegister = () => {
     if (!trade.email) return
-    setError(null)
-    setPhase("otp_sent")
-    try {
-      const { error: otpErr } = await supabase.auth.signInWithOtp({
-        email: trade.email,
-        options: { shouldCreateUser: true },
-      })
-      if (otpErr) throw otpErr
-    } catch (err: any) {
-      setError("Failed to send the verification email. Please try again.")
-      setPhase("idle")
-    }
-  }
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const code = otpCode.trim()
-    if (code.length !== 6) { setError("Please enter the 6-digit code from your email."); return }
-    setError(null)
-    setPhase("verifying")
-    try {
-      const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
-        email: trade.email!,
-        token: code,
-        type: "email",
-      })
-      if (verifyErr) throw verifyErr
-
-      // Ensure users table row exists (new accounts from OTP may need profile setup)
-      if (verifyData.user) {
-        await supabase.rpc("complete_user_profile_after_verification", {
-          p_user_id: verifyData.user.id,
-        }).catch(() => {})
-      }
-
-      await doClaim()
-    } catch (err: any) {
-      const msg: string = err?.message ?? ""
-      if (msg.includes("expired") || msg.includes("invalid") || msg.includes("otp")) {
-        setError("The code is invalid or has expired. Click 'Resend code' to get a new one.")
-      } else {
-        setError("Verification failed. Please try again.")
-      }
-      setPhase("otp_sent")
-    }
+    const params = new URLSearchParams({
+      email:       trade.email,
+      lock_email:  "true",
+      claimToken:  token,
+      accountType: "company",
+      ...(trade.company_name ? { companyName: trade.company_name } : {}),
+      ...(trade.postcode     ? { postcode:    trade.postcode }     : {}),
+    })
+    router.push(`/auth/sign-up?${params.toString()}`)
   }
 
   /* ── Claim RPC ───────────────────────────────────────────────────────────── */
@@ -122,8 +85,6 @@ export default function ClaimClient({
     await supabase.auth.signOut()
     router.refresh()
   }
-
-  const isBusy = phase === "verifying" || phase === "claiming"
 
   /* ── Render ──────────────────────────────────────────────────────────────── */
   return (
@@ -217,7 +178,7 @@ export default function ClaimClient({
                 </div>
                 <button
                   onClick={doClaim}
-                  disabled={isBusy}
+                  disabled={phase === "claiming"}
                   className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-500/25"
                 >
                   {phase === "claiming" ? (
@@ -260,70 +221,22 @@ export default function ClaimClient({
 
         {/* ── Unauthenticated ──────────────────────────────────────────────── */}
         {trade.email && !user && (
-          <>
-            {/* Step: send OTP */}
-            {phase === "idle" && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700 text-sm text-slate-400 leading-relaxed">
-                  We'll send a 6-digit verification code to the business email above.
-                  Only someone with access to <span className="text-slate-200 font-medium">{trade.email}</span> can claim this listing.
-                </div>
-                <button
-                  onClick={handleSendOtp}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-emerald-500/20"
-                >
-                  <Mail className="w-4 h-4" />
-                  Verify email to claim business
-                </button>
-              </div>
-            )}
-
-            {/* Step: enter OTP code */}
-            {(phase === "otp_sent" || phase === "verifying") && (
-              <div className="space-y-4">
-                <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700">
-                  <p className="text-sm text-slate-300 mb-1">
-                    Code sent to <span className="font-semibold text-white">{trade.email}</span>
-                  </p>
-                  <p className="text-xs text-slate-500">Check your inbox and enter the 6-digit code below.</p>
-                </div>
-
-                <form onSubmit={handleVerifyOtp} className="space-y-3">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]{6}"
-                    maxLength={6}
-                    value={otpCode}
-                    onChange={e => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                    placeholder="000000"
-                    autoFocus
-                    className="w-full h-14 text-center text-2xl font-mono tracking-[0.4em] bg-slate-800 border-2 border-slate-600 focus:border-emerald-500 text-white rounded-xl outline-none transition-colors placeholder:text-slate-600"
-                  />
-                  <button
-                    type="submit"
-                    disabled={otpCode.length !== 6 || isBusy}
-                    className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-colors shadow-lg shadow-emerald-500/20"
-                  >
-                    {isBusy ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" />{phase === "claiming" ? "Claiming…" : "Verifying…"}</>
-                    ) : (
-                      <><ShieldCheck className="w-4 h-4" />Verify &amp; claim</>
-                    )}
-                  </button>
-                </form>
-
-                <button
-                  type="button"
-                  onClick={() => { setOtpCode(""); setError(null); handleSendOtp() }}
-                  disabled={isBusy}
-                  className="w-full text-center text-sm text-slate-400 hover:text-slate-200 transition-colors disabled:opacity-40"
-                >
-                  Resend code
-                </button>
-              </div>
-            )}
-          </>
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700 text-sm text-slate-400 leading-relaxed">
+              To claim this listing, register with the business email above.
+              Your email will be verified to confirm you own this business.
+            </div>
+            <button
+              onClick={handleRegister}
+              className="w-full flex items-center justify-center gap-2 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-xl transition-colors shadow-lg shadow-emerald-500/20"
+            >
+              <Mail className="w-4 h-4" />
+              Register / verify email
+            </button>
+            <p className="text-center text-slate-500 text-xs">
+              Your email will be pre-filled and locked to <span className="text-slate-300">{trade.email}</span>
+            </p>
+          </div>
         )}
 
       </div>
