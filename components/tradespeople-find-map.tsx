@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg, normaliseCategory } from "@/lib/data/industry-styles"
-import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2 } from "lucide-react"
+import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2, Languages } from "lucide-react"
 import JobWizardModal from "@/components/job-wizard-modal"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
@@ -117,10 +117,16 @@ const RADIUS_OPTIONS = [
   { label: "5 mi", value: "5" }, { label: "10 mi", value: "10" },
   { label: "25 mi", value: "25" }, { label: "50 mi", value: "50" },
 ]
+// First 7 are shown by default; rest revealed by "More"
 const LANGUAGE_OPTIONS = [
-  "English","Spanish","French","German","Portuguese",
-  "Polish","Romanian","Italian","Russian","Arabic","Chinese","Hindi",
+  // default visible (7)
+  "English","Polish","Ukrainian","Romanian","Spanish","Portuguese","Arabic",
+  // revealed on "More" (19)
+  "French","German","Italian","Russian","Hindi","Urdu","Bengali",
+  "Punjabi","Gujarati","Turkish","Tagalog","Somali","Mandarin","Chinese","Cantonese",
+  "Czech","Slovak","Lithuanian","Latvian","Estonian","Bulgarian","Kurdish",
 ]
+const LANG_DEFAULT_VISIBLE = 7
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Trader = {
@@ -132,26 +138,24 @@ type Trader = {
   claim_token?: string | null
   phone_number?: string | null
   normalised_categories?: string[] | null
+  spoken_languages?: string[] | null
 }
 type SheetState = "collapsed" | "peek" | "expanded"
 type Filters = { industry: string | null; subcategories: string[]; radius: string; language: string; available: boolean; h24: boolean }
 const DEFAULT_FILTERS: Filters = { industry: null, subcategories: [], radius: "10", language: "", available: false, h24: false }
 
-function filterStorageKey(postcode: string | undefined) {
-  return `ojm_find_filters_${postcode ?? "default"}`
-}
-function loadSavedFilters(postcode: string | undefined, fallbackIndustry: string | undefined): Filters {
-  if (typeof window === "undefined") return { ...DEFAULT_FILTERS, industry: fallbackIndustry ?? null }
-  try {
-    const raw = sessionStorage.getItem(filterStorageKey(postcode))
-    if (raw) {
-      const saved = { ...DEFAULT_FILTERS, ...JSON.parse(raw) }
-      // URL-supplied industry (from card click) always wins over saved session filters
-      if (fallbackIndustry) { saved.industry = fallbackIndustry; saved.subcategories = [] }
-      return saved
-    }
-  } catch {}
-  return { ...DEFAULT_FILTERS, industry: fallbackIndustry ?? null }
+// Initialise filters from URL search params — same on server and client, zero hydration risk.
+function filtersFromSearchParams(sp: URLSearchParams, fallbackIndustry: string | undefined): Filters {
+  const industry = sp.get("industry") ?? fallbackIndustry ?? null
+  const subcats  = sp.get("subcats")
+  return {
+    industry,
+    subcategories: subcats ? subcats.split(",").filter(Boolean) : [],
+    radius:        sp.get("radius")    ?? "10",
+    language:      sp.get("lang")      ?? "",
+    available:     sp.get("available") === "true",
+    h24:           sp.get("h24")       === "true",
+  }
 }
 
 type Props = {
@@ -161,12 +165,13 @@ type Props = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function TradespeopleFindMap({ initialTraders, initialCoords, initialPostcode, initialIndustry }: Props) {
-  const router   = useRouter()
-  const supabase = createClient()
+  const router        = useRouter()
+  const searchParams  = useSearchParams()
+  const supabase      = createClient()
 
   const [traders,          setTraders]          = useState<Trader[]>(initialTraders)
-  const [filters,          setFilters]          = useState<Filters>(() => loadSavedFilters(initialPostcode, initialIndustry))
-  const [draftFilters,     setDraftFilters]     = useState<Filters>(() => loadSavedFilters(initialPostcode, initialIndustry))
+  const [filters,          setFilters]          = useState<Filters>(() => filtersFromSearchParams(searchParams, initialIndustry))
+  const [draftFilters,     setDraftFilters]     = useState<Filters>(() => filtersFromSearchParams(searchParams, initialIndustry))
   const [sheetState,       setSheetState]       = useState<SheetState>("peek")
   const [selectedTrader,   setSelectedTrader]   = useState<Trader | null>(null)
   const [profilePhotos,    setProfilePhotos]    = useState<{ id: string; photo_url: string }[]>([])
@@ -175,6 +180,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const [showJobWizard,    setShowJobWizard]    = useState(false)
   const [showFilters,      setShowFilters]      = useState(!!initialPostcode)
   const [showAllIndustries, setShowAllIndustries] = useState(false)
+  const [showAllLanguages,  setShowAllLanguages]  = useState(false)
   const [showSubcatPicker, setShowSubcatPicker] = useState(false)
   const [pickerIndustry,   setPickerIndustry]   = useState<string | null>(null)
   const [pickerSubcats,    setPickerSubcats]     = useState<string[]>([])
@@ -188,7 +194,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const touchStartY      = useRef<number | null>(null)
   const currentBoundsRef = useRef<BBox | null>(null)
   const fetchTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const filtersRef       = useRef(loadSavedFilters(initialPostcode, initialIndustry))
+  const filtersRef       = useRef(filtersFromSearchParams(searchParams, initialIndustry))
 
   useEffect(() => {
     setMounted(true)
@@ -265,23 +271,36 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     }, 600)
   }, [fetchByViewport])
 
+  const pushFilterParams = (f: Filters) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (f.industry) params.set("industry", f.industry); else params.delete("industry")
+    if (f.subcategories.length > 0) params.set("subcats", f.subcategories.join(",")); else params.delete("subcats")
+    if (f.radius !== "10") params.set("radius", f.radius); else params.delete("radius")
+    if (f.language) params.set("lang", f.language); else params.delete("lang")
+    if (f.available) params.set("available", "true"); else params.delete("available")
+    if (f.h24) params.set("h24", "true"); else params.delete("h24")
+    router.replace(`/find?${params.toString()}`, { scroll: false })
+  }
+
   const applyFilters = () => {
     setFilters(draftFilters); setShowFilters(false); setShowAllIndustries(false)
+    pushFilterParams(draftFilters)
     if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, draftFilters)
+    // Analytics-only — never blocks UI or affects hasActiveFilters
+    Promise.resolve(supabase.rpc("log_map_filter_event", {
+      p_radius_miles:      draftFilters.radius !== "10" ? parseInt(draftFilters.radius) : null,
+      p_category:          draftFilters.industry ?? null,
+      p_availability_only: draftFilters.available,
+    })).catch(() => {})
   }
   const clearFilters = () => {
     const r = { ...DEFAULT_FILTERS }
-    setDraftFilters(r); setFilters(r); setShowFilters(false); setShowAllIndustries(false)
+    setDraftFilters(r); setFilters(r); setShowFilters(false); setShowAllIndustries(false); setShowAllLanguages(false)
+    pushFilterParams(r)
     if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, r)
   }
+  // Derived from filters state which mirrors URL params — deterministic, SSR-safe
   const hasActiveFilters = filters.industry !== null || filters.subcategories.length > 0 || filters.radius !== "10" || filters.language !== "" || filters.available || filters.h24
-
-  // Persist filters to sessionStorage whenever they change
-  useEffect(() => {
-    try { sessionStorage.setItem(filterStorageKey(initialPostcode), JSON.stringify(filters)) } catch {}
-  }, [filters, initialPostcode])
-
-  // Filters are initialised synchronously from sessionStorage — no restore effect needed.
 
   const handleTouchStart = (e: React.TouchEvent) => { touchStartY.current = e.touches[0].clientY }
   const handleTouchEnd   = (e: React.TouchEvent) => {
@@ -381,6 +400,14 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           <div className="flex flex-wrap gap-1.5 mt-3">
             {selectedTrader.services.slice(0, 5).map(s => (
               <span key={s} className="px-2 py-0.5 bg-slate-800 border border-slate-700 rounded-full text-[10px] text-slate-300">{s}</span>
+            ))}
+          </div>
+        )}
+        {selectedTrader.profile_type !== 'seeded' && selectedTrader.spoken_languages && selectedTrader.spoken_languages.length > 0 && (
+          <div className="flex items-center gap-1.5 mt-2.5 flex-wrap">
+            <Languages className="w-3 h-3 text-slate-500 flex-shrink-0" />
+            {selectedTrader.spoken_languages.map(lang => (
+              <span key={lang} className="px-2 py-0.5 bg-indigo-500/10 border border-indigo-500/25 rounded-full text-[10px] text-indigo-300 font-medium">{lang}</span>
             ))}
           </div>
         )}
@@ -545,6 +572,15 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
                   : null}
                 {trader.service_24_7 && <span className="px-1.5 py-px bg-blue-500/15 border border-blue-500/30 rounded-full text-[10px] text-blue-400 font-semibold">24/7</span>}
               </div>
+              {trader.profile_type !== 'seeded' && trader.spoken_languages && trader.spoken_languages.length > 0 && (
+                <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                  <Languages className="w-2.5 h-2.5 text-slate-500 flex-shrink-0" />
+                  <span className="text-[10px] text-indigo-300/80">
+                    {trader.spoken_languages.slice(0, 3).join(", ")}
+                    {trader.spoken_languages.length > 3 && <span className="text-slate-500"> +{trader.spoken_languages.length - 3}</span>}
+                  </span>
+                </div>
+              )}
             </div>
             <div className="flex-shrink-0 flex gap-1">
               {trader.profile_type === 'seeded' ? (
@@ -660,7 +696,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           <div className="px-3 pt-2 pb-1">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Language</p>
             <div className="flex flex-wrap gap-1">
-              {["Any language", ...LANGUAGE_OPTIONS].map((lang, i) => {
+              {["Any language", ...LANGUAGE_OPTIONS.slice(0, showAllLanguages ? undefined : LANG_DEFAULT_VISIBLE)].map((lang, i) => {
                 const isAny  = i === 0
                 const active = isAny ? draftFilters.language === "" : draftFilters.language === lang
                 return (
@@ -670,6 +706,18 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
                   </button>
                 )
               })}
+              {!showAllLanguages && (
+                <button onClick={() => setShowAllLanguages(true)}
+                  className="px-2.5 py-1 rounded-full text-[10px] font-medium border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-500 transition-colors">
+                  +{LANGUAGE_OPTIONS.length - LANG_DEFAULT_VISIBLE} more
+                </button>
+              )}
+              {showAllLanguages && (
+                <button onClick={() => setShowAllLanguages(false)}
+                  className="px-2.5 py-1 rounded-full text-[10px] font-medium border border-dashed border-slate-600 text-slate-400 hover:text-white hover:border-slate-500 transition-colors">
+                  Show less
+                </button>
+              )}
             </div>
           </div>
           <div className="px-3 pt-2 pb-3">

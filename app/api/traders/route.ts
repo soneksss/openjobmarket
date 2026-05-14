@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
     .select(
       "id, company_name, industry, industries, latitude, longitude, " +
       "logo_url, average_rating, reviews_count, user_id, " +
-      "open_for_business, service_24_7, services, location, phone_number"
+      "open_for_business, service_24_7, services, location, phone_number, spoken_languages"
     )
     .gte("latitude", south).lte("latitude", north)
     .gte("longitude", west).lte("longitude", east)
@@ -77,6 +77,7 @@ export async function GET(req: NextRequest) {
       service_24_7:     (c.service_24_7 ?? false) as boolean,
       services:         (c.services ?? null) as string[] | null,
       phone_number:     (c.phone_number ?? null) as string | null,
+      spoken_languages: (c.spoken_languages ?? null) as string[] | null,
       claim_token:      null as null,
     })),
     ...(seeded ?? []).map(s => ({

@@ -1,16 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { processJobExpirations } from "@/lib/job-expiration"
+import { verifyCronRequest } from "@/lib/cron-auth"
 
-// This API route can be called by external cron services like Vercel Cron or GitHub Actions
 export async function GET(request: NextRequest) {
-  try {
-    // Verify the request is from an authorized source (optional)
-    const authHeader = request.headers.get("authorization")
-    const expectedToken = process.env.CRON_SECRET_TOKEN
+  const unauth = verifyCronRequest(request)
+  if (unauth) return unauth
 
-    if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+  try {
 
     console.log("[CRON] Starting job expiration process...")
 

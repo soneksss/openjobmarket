@@ -49,6 +49,7 @@ import {
   Shield,
   ChevronLeft,
   ChevronRight,
+  Bell,
 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import Link from "next/link"
@@ -64,6 +65,7 @@ const ProfessionalMap = dynamic(
   () => import("@/components/professional-map").then(m => m.ProfessionalMap),
   { ssr: false, loading: () => <div className="w-full h-full bg-slate-800 animate-pulse rounded-xl" /> }
 )
+const JobWizardModal = dynamic(() => import("@/components/job-wizard-modal"), { ssr: false })
 import {
   Dialog,
   DialogContent,
@@ -231,10 +233,10 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
         if (userType === "company") {
           const { data } = await supabase
             .from("company_profiles")
-            .select("open_for_business")
+            .select("trade_job_notifications")
             .eq("user_id", user.id)
             .maybeSingle()
-          if (data) setAvailableForWork(data.open_for_business ?? false)
+          if (data) setAvailableForWork(data.trade_job_notifications ?? true)
         } else {
           const { data } = await supabase
             .from("professional_profiles")
@@ -254,16 +256,12 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
     setAvailableForWork(newValue)
     try {
       if (userType === "company") {
-        const now = new Date().toISOString()
-        const expiresAt = newValue ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
         const { error } = await supabase
           .from("company_profiles")
           .update({
-            open_for_business: newValue,
             trade_job_notifications: newValue,
-            ...(newValue
-              ? { last_availability_confirmed_at: now, availability_expires_at: expiresAt }
-              : { availability_expires_at: null }),
+            flexible_job_notifications: newValue,
+            availability_last_updated_at: new Date().toISOString(),
           })
           .eq("user_id", user.id)
         if (error) setAvailableForWork(!newValue)
@@ -349,14 +347,9 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
 
   const handleCategoryClick = (category: string, industry?: string, service?: string) => {
     if (userType === "company") return
-    const industryParam = industry ?? category
-    if (heroPostcode.trim()) {
-      router.push(`/find?postcode=${encodeURIComponent(heroPostcode.trim())}&industry=${encodeURIComponent(industryParam)}`)
-    } else {
-      setPendingIndustry(industryParam)
-      setModalPostcode("")
-      setShowPostcodeModal(true)
-    }
+    setWizardIndustry(industry ?? category)
+    setWizardService(service)
+    setShowJobWizard(true)
   }
 
   const handleHelpItemClick = (searchTerm: string) => {
@@ -374,6 +367,9 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
   const [postcodeError, setPostcodeError] = useState(false)
   const [pendingIndustry, setPendingIndustry] = useState<string | null>(null)
   const [pendingMapRoute, setPendingMapRoute] = useState<"/find" | "/find-jobs">("/find")
+  const [showJobWizard,   setShowJobWizard]   = useState(false)
+  const [wizardIndustry,  setWizardIndustry]  = useState<string | undefined>(undefined)
+  const [wizardService,   setWizardService]   = useState<string | undefined>(undefined)
   const [showPostcodeModal, setShowPostcodeModal] = useState(false)
   const [modalPostcode, setModalPostcode] = useState("")
   const handlePostcodeSubmit = (e: React.FormEvent) => {
@@ -607,7 +603,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
         </div>
       </div>}
 
-      {/* Available/Busy toggle — tradespeople tab, signed-in business/tradespeople only */}
+      {/* Job Notifications toggle — tradespeople tab, signed-in business only */}
       {activeTab === "jobs" && isSignedIn && isTradesPerson && (
         <div className="flex justify-center py-3 border-b border-slate-700/30">
           <div className={`flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all duration-300 ${
@@ -615,26 +611,23 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               ? "border-emerald-500/40 bg-emerald-500/10 shadow-[0_0_18px_rgba(16,185,129,0.28)]"
               : "border-slate-600/40 bg-slate-800/50"
           }`}>
-            {/* Status dot + label */}
             <div className="flex items-center gap-2">
-              <Zap className={`h-4 w-4 flex-shrink-0 ${availableForWork ? "text-emerald-400" : "text-slate-500"}`} />
+              <Bell className={`h-4 w-4 flex-shrink-0 ${availableForWork ? "text-emerald-400" : "text-slate-500"}`} />
               <div>
                 <p className={`text-sm font-bold tracking-wide leading-tight ${availableForWork ? "text-white" : "text-slate-400"}`}>
-                  {availableForWork ? "AVAILABLE" : "BUSY"}
+                  {availableForWork ? "Job Notifications On" : "Job Notifications Off"}
                 </p>
                 <p className="text-[10px] text-slate-400 leading-tight">
-                  {availableForWork ? "Instant job notifications On" : "Instant notifications Off"}
+                  {availableForWork ? "You'll receive nearby job alerts" : "Job alerts paused"}
                 </p>
               </div>
             </div>
-            {/* Toggle switch */}
             <Switch
               checked={availableForWork}
               onCheckedChange={handleToggleAvailability}
               disabled={isTogglingAvailability}
               className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-600"
             />
-            {/* Info icon with popover */}
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -647,17 +640,17 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               <PopoverContent side="top" align="center" className="w-72 bg-slate-800 border-slate-700 text-white">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-purple-400" />
-                    <p className="text-sm font-semibold">Instant Job Alerts</p>
+                    <Bell className="h-4 w-4 text-emerald-400" />
+                    <p className="text-sm font-semibold">Job Notifications</p>
                   </div>
                   <p className="text-xs text-slate-300">
-                    <strong>Works like Uber.</strong> When a nearby job matching your skills is posted, you receive an instant notification to apply or skip.
+                    When a nearby job matching your trade is posted, you receive an instant push notification to accept or skip.
                   </p>
-                  <div className="text-xs border-t border-slate-700 pt-2 mt-2 bg-purple-500/10 p-2 rounded">
-                    <p className="font-medium text-purple-300">Be first to respond:</p>
-                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-purple-200">
-                      <li>Jobs matching your services</li>
-                      <li>Within 10 miles of you</li>
+                  <div className="text-xs border-t border-slate-700 pt-2 mt-2 bg-emerald-500/10 p-2 rounded">
+                    <p className="font-medium text-emerald-300">What triggers a notification:</p>
+                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-emerald-200">
+                      <li>Jobs matching your trade</li>
+                      <li>Within your set distance</li>
                       <li>Instant push notification</li>
                     </ul>
                   </div>
@@ -1789,6 +1782,21 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
 
       {/* Mobile Bottom Nav — only for logged-out users; logged-in users use global MobileBottomNav */}
       {!isSignedIn && <MobileBottomNavLanding isSignedIn={isSignedIn} userType={userType} onNavClick={handleNavClick} />}
+
+      {/* Job wizard — opened when homeowner taps a "What do you need help with?" card */}
+      {showJobWizard && (
+        <div className="fixed inset-0" style={{ zIndex: 60 }}>
+          <JobWizardModal
+            companyProfile={null}
+            userType="homeowner"
+            guestMode={!isSignedIn}
+            initialIndustry={wizardIndustry}
+            initialService={wizardService}
+            initialPostcode={heroPostcode.trim() || undefined}
+            onClose={() => setShowJobWizard(false)}
+          />
+        </div>
+      )}
 
       {/* Postcode modal — shown when user taps a category without a postcode entered */}
       <Dialog open={showPostcodeModal} onOpenChange={setShowPostcodeModal}>

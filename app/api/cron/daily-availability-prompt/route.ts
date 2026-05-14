@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/server"
 import { sendWebPushToUser } from "@/lib/web-push"
+import { verifyCronRequest } from "@/lib/cron-auth"
 
 // Rough bounding box for ~10 miles (0.145° ≈ 10 miles at UK latitudes)
 const NEARBY_DEGREES = 0.145
@@ -23,11 +24,8 @@ async function hasJobsNearby(admin: ReturnType<typeof createAdminClient>, lat: n
 }
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization")
-  const expectedToken = process.env.CRON_SECRET_TOKEN
-  if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const unauth = verifyCronRequest(request)
+  if (unauth) return unauth
 
   try {
     const admin = createAdminClient()

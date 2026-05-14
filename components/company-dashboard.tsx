@@ -38,8 +38,6 @@ import {
   Camera,
   Clock,
   AlertTriangle,
-  Store,
-  UserCheck,
   Globe,
   Star,
   Info,
@@ -72,7 +70,7 @@ import { useTranslation } from "@/lib/i18n/context"
 import { DashboardInbox } from "@/components/dashboard-inbox"
 import { JobConfirmationModal, type ConfirmedJobOffer } from "@/components/job-confirmation-modal"
 import { Progress } from "@/components/ui/progress"
-import { MessageCircle, Zap, Bell } from "lucide-react"
+import { MessageCircle, Bell } from "lucide-react"
 import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
 import { MarkJobCompleteButton } from "@/components/mark-job-complete-button"
 import { ReviewHomeownerButton } from "@/components/review-homeowner-button"
@@ -229,24 +227,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [profileVisible, setProfileVisible] = useState(profile.profile_visible ?? true)
   const [updatingVisibility, setUpdatingVisibility] = useState(false)
-  const [openForBusiness, setOpenForBusiness] = useState(profile.open_for_business ?? false)
-  const [availabilityExpiresAt, setAvailabilityExpiresAt] = useState<string | null>(profile.availability_expires_at ?? null)
   const [hiring, setHiring] = useState(profile.is_hiring ?? false)
-  const [updatingBusinessStatus, setUpdatingBusinessStatus] = useState(false)
-
-  const formatExpiry = (expiresAt: string): string => {
-    const diff = new Date(expiresAt).getTime() - Date.now()
-    if (diff <= 0) return "Expired"
-    const h = Math.floor(diff / 3_600_000)
-    const m = Math.floor((diff % 3_600_000) / 60_000)
-    return h > 0 ? `Expires in ${h}h ${m}m` : `Expires in ${m}m`
-  }
   const [updatingHiringStatus, setUpdatingHiringStatus] = useState(false)
-  // Instant Job Alerts — master derived from both checkboxes
-  const [urgentJobAlerts,   setUrgentJobAlerts]   = useState(profile.trade_job_notifications    ?? true)
-  const [flexibleJobAlerts, setFlexibleJobAlerts] = useState(profile.flexible_job_notifications ?? true)
-  // master is ON if at least one type is enabled
-  const instantJobAlerts = urgentJobAlerts || flexibleJobAlerts
+  // Single "Job Notifications" toggle — true if either alert type was previously enabled
+  const [jobAlertsEnabled, setJobAlertsEnabled] = useState(
+    (profile.trade_job_notifications ?? true) || (profile.flexible_job_notifications ?? true)
+  )
   const [tradeNotificationDistance, setTradeNotificationDistance] = useState<number>(
     profile.trade_job_notifications_distance ?? 10
   )
@@ -255,8 +241,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     profile.trade_job_notifications_distance ?? 10
   )
   const [updatingDistance, setUpdatingDistance] = useState(false)
-  const [updatingInstantAlerts, setUpdatingInstantAlerts] = useState(false)
-  const [updatingAlertType, setUpdatingAlertType] = useState(false)
+  const [updatingJobAlerts, setUpdatingJobAlerts] = useState(false)
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [isApplicationsExpanded, setIsApplicationsExpanded] = useState(false)
   const [myJobsTab, setMyJobsTab] = useState<"active" | "history">("active")
@@ -298,18 +283,25 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   // Combined for backward compat (mobile counter etc.)
   const activeJobApplications = useMemo(() => [...confirmedJobs, ...awaitingResponseJobs], [confirmedJobs, awaitingResponseJobs])
 
-  // Browse Jobs URL — includes profile coordinates so the map centres on the tradesperson's area
+  // Browse Jobs URL — sends tradesperson to the dedicated /find-jobs map
+  // (same destination as the "Jobs" bottom-nav button) centred on their area
   const browseJobsUrl = useMemo(() => {
-    const params = new URLSearchParams({ tab: 'jobs_tasks', autoSearch: 'true' })
+    const params = new URLSearchParams()
     if (profile.latitude != null && profile.longitude != null) {
       params.set('lat', String(profile.latitude))
       params.set('lng', String(profile.longitude))
     }
-    if (profile.location) {
-      params.set('location', profile.location)
+    if (profile.industry) {
+      params.set('industry', profile.industry)
     }
-    return `/?${params.toString()}`
-  }, [profile.latitude, profile.longitude, profile.location])
+    const qs = params.toString()
+    return qs ? `/find-jobs?${qs}` : '/find-jobs'
+  }, [profile.latitude, profile.longitude, profile.industry])
+
+  // Log dashboard open as activity event (drives freshness score)
+  useEffect(() => {
+    Promise.resolve(supabase.rpc("log_company_activity", { p_activity_type: "dashboard_open" })).catch(() => {})
+  }, [])
 
   // Fetch unread messages count
   useEffect(() => {
@@ -972,57 +964,30 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     }
   }
 
-  const handleBusinessStatusToggle = async (status: boolean) => {
-    // Update UI immediately
-    setOpenForBusiness(status)
-    setUpdatingBusinessStatus(true)
-
+  const handleJobAlertsToggle = async (enabled: boolean) => {
+    setJobAlertsEnabled(enabled)
+    setUpdatingJobAlerts(true)
     try {
       const supabase = createClient()
-
-      const now = new Date().toISOString()
-      const expiresAt = status ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
-      setAvailabilityExpiresAt(expiresAt)
       const { error } = await supabase
         .from("company_profiles")
         .update({
-          open_for_business: status,
-          ...(status
-            ? { last_availability_confirmed_at: now, availability_expires_at: expiresAt }
-            : { availability_expires_at: null }),
+          trade_job_notifications:     enabled,
+          flexible_job_notifications:  enabled,
         })
         .eq("id", profile.id)
 
       if (error) {
-        console.error("[v0] Error updating business status:", error.message)
-        if (error.message.includes("column") && error.message.includes("open_for_business")) {
-          console.log("[v0] Open for business feature not yet available - database migration needed")
-          // Column doesn't exist yet, but keep UI updated
-        } else {
-          toast({
-            title: "Update Failed",
-            description: `Error updating business status: ${error.message}`,
-            variant: "destructive",
-            duration: 5000,
-          })
-          // Revert on actual error
-          setOpenForBusiness(!status)
-        }
-        return
+        setJobAlertsEnabled(!enabled)
+        toast({ title: "Update Failed", description: error.message, variant: "destructive", duration: 5000 })
+      } else if (enabled) {
+        toast({ title: "Job Notifications On", description: `You'll be notified of jobs within ${tradeNotificationDistance} miles.`, duration: 3000 })
       }
-
-      console.log("[v0] Business status updated successfully:", status)
-    } catch (error) {
-      console.error("[v0] Error updating business status:", error)
-      toast({
-        title: "Update Failed",
-        description: "Error updating business status. Please try again.",
-        variant: "destructive",
-        duration: 5000,
-      })
-      setOpenForBusiness(!status) // Revert on error
+    } catch {
+      setJobAlertsEnabled(!enabled)
+      toast({ title: "Update Failed", description: "Please try again.", variant: "destructive", duration: 5000 })
     } finally {
-      setUpdatingBusinessStatus(false)
+      setUpdatingJobAlerts(false)
     }
   }
 
@@ -1073,78 +1038,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   }
 
   // Master toggle: turns both alert types on (restoring both) or off (disabling both)
-  const handleInstantAlertsToggle = async (status: boolean) => {
-    setUpdatingInstantAlerts(true)
-    // Turning ON restores both; turning OFF disables both
-    setUrgentJobAlerts(status)
-    setFlexibleJobAlerts(status)
-
-    try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from("company_profiles")
-        .update({
-          trade_job_notifications:          status,
-          flexible_job_notifications:        status,
-          trade_job_notifications_distance:  tradeNotificationDistance,
-        })
-        .eq("id", profile.id)
-
-      if (error) {
-        console.error("[v0] Error updating instant job alerts:", error.message)
-        setUrgentJobAlerts(!status)
-        setFlexibleJobAlerts(!status)
-        toast({ title: "Update Failed", description: error.message, variant: "destructive", duration: 5000 })
-        return
-      }
-
-      if (status) {
-        toast({ title: "Instant Job Alerts Enabled", description: `You'll receive alerts for urgent and flexible jobs within ${tradeNotificationDistance} miles.`, duration: 3000 })
-      }
-    } catch {
-      setUrgentJobAlerts(!status)
-      setFlexibleJobAlerts(!status)
-      toast({ title: "Update Failed", description: "Please try again.", variant: "destructive", duration: 5000 })
-    } finally {
-      setUpdatingInstantAlerts(false)
-    }
-  }
-
-  // Checkbox handler: saves one alert type; enforces at least-one-checked rule
-  const handleAlertTypeChange = async (type: 'urgent' | 'flexible', value: boolean) => {
-    const otherIsOn = type === 'urgent' ? flexibleJobAlerts : urgentJobAlerts
-
-    // Prevent unchecking the last active checkbox when master is logically ON
-    if (!value && !otherIsOn) {
-      toast({ title: "At least one alert type must be enabled", description: "To turn off all alerts, use the master switch.", variant: "destructive", duration: 3000 })
-      return
-    }
-
-    const field = type === 'urgent' ? 'trade_job_notifications' : 'flexible_job_notifications'
-    if (type === 'urgent')   setUrgentJobAlerts(value)
-    else                     setFlexibleJobAlerts(value)
-    setUpdatingAlertType(true)
-
-    try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from("company_profiles")
-        .update({ [field]: value })
-        .eq("id", profile.id)
-
-      if (error) {
-        if (type === 'urgent') setUrgentJobAlerts(!value)
-        else                   setFlexibleJobAlerts(!value)
-        toast({ title: "Update Failed", description: error.message, variant: "destructive", duration: 5000 })
-      }
-    } catch {
-      if (type === 'urgent') setUrgentJobAlerts(!value)
-      else                   setFlexibleJobAlerts(!value)
-      toast({ title: "Update Failed", description: "Please try again.", variant: "destructive", duration: 5000 })
-    } finally {
-      setUpdatingAlertType(false)
-    }
-  }
 
   // Slider: update live display on every tick; save to DB only on release
   const handleDistanceCommit = async (miles: number) => {
@@ -1253,29 +1146,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
           {/* Toggles */}
           <div className="mt-4 space-y-2">
-            {/* Available / Busy */}
-            <div className={`rounded-xl px-3 py-2.5 border ${openForBusiness ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-700/50 border-slate-600/50'}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${openForBusiness ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-slate-500'}`} />
-                  <div>
-                    <p className="text-sm font-medium">{openForBusiness ? 'Available' : 'Busy'}</p>
-                    <p className="text-[10px] text-slate-400">
-                      {openForBusiness
-                        ? (availabilityExpiresAt ? formatExpiry(availabilityExpiresAt) : 'Active for 24 hours')
-                        : 'Not accepting new jobs'}
-                    </p>
-                  </div>
-                </div>
-                <Switch checked={openForBusiness} onCheckedChange={handleBusinessStatusToggle} disabled={updatingBusinessStatus} className="data-[state=checked]:bg-emerald-500" />
-              </div>
-              {openForBusiness && (
-                <p className="mt-2 text-[10px] text-emerald-400/70 flex items-center gap-1">
-                  <Clock className="w-3 h-3 flex-shrink-0" />
-                  Turns off after 24 h — we'll ask if you're still available
-                </p>
-              )}
-            </div>
             <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-slate-600/50">
               <div className="flex items-center gap-2">
                 {profileVisible ? <Eye className="h-4 w-4 text-emerald-400" /> : <EyeOff className="h-4 w-4 text-slate-500" />}
@@ -1289,31 +1159,19 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             <div className="bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Zap className={`h-4 w-4 ${instantJobAlerts ? 'text-purple-400' : 'text-slate-500'}`} />
+                  <Bell className={`h-4 w-4 ${jobAlertsEnabled ? 'text-purple-400' : 'text-slate-500'}`} />
                   <div>
-                    <p className="text-sm font-medium">{instantJobAlerts ? 'Instant Alerts On' : 'Instant Alerts Off'}</p>
-                    <p className="text-[10px] text-slate-400">{instantJobAlerts ? 'Notified when jobs are posted nearby' : 'Job notifications paused'}</p>
+                    <p className="text-sm font-medium">{jobAlertsEnabled ? 'Job Notifications On' : 'Job Notifications Off'}</p>
+                    <p className="text-[10px] text-slate-400">{jobAlertsEnabled ? `Alerts within ${tradeNotificationDistance} miles` : 'Notifications paused'}</p>
                   </div>
                 </div>
-                <Switch checked={instantJobAlerts} onCheckedChange={handleInstantAlertsToggle} disabled={updatingInstantAlerts} className="data-[state=checked]:bg-purple-500" />
+                <Switch checked={jobAlertsEnabled} onCheckedChange={handleJobAlertsToggle} disabled={updatingJobAlerts} className="data-[state=checked]:bg-purple-500" />
               </div>
-              {instantJobAlerts && (
-                <div className="mt-2 pt-2 border-t border-purple-500/20 space-y-2">
-                  {/* Job type checkboxes */}
-                  <div className="flex gap-4">
-                    <label className={`flex items-center gap-1.5 cursor-pointer select-none ${updatingAlertType ? 'opacity-50 pointer-events-none' : ''}`}>
-                      <input type="checkbox" checked={urgentJobAlerts} onChange={e => handleAlertTypeChange('urgent', e.target.checked)} className="h-3 w-3 rounded accent-orange-500" />
-                      <span className="text-[10px] text-slate-300">🚨 Urgent jobs</span>
-                    </label>
-                    <label className={`flex items-center gap-1.5 cursor-pointer select-none ${updatingAlertType ? 'opacity-50 pointer-events-none' : ''}`}>
-                      <input type="checkbox" checked={flexibleJobAlerts} onChange={e => handleAlertTypeChange('flexible', e.target.checked)} className="h-3 w-3 rounded accent-blue-500" />
-                      <span className="text-[10px] text-slate-300">📋 Flexible jobs</span>
-                    </label>
-                  </div>
-                  {/* Distance slider */}
+              {jobAlertsEnabled && (
+                <div className="mt-2 pt-2 border-t border-purple-500/20">
                   <div className={`space-y-1 ${updatingDistance ? 'opacity-50 pointer-events-none' : ''}`}>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400">Job notification distance</span>
+                      <span className="text-[10px] text-slate-400">Notification distance</span>
                       <span className="text-[10px] font-semibold text-purple-300">{sliderValue} miles</span>
                     </div>
                     <input
@@ -1527,67 +1385,31 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   </div>
                 </div>
 
-                {/* Toggles Section - Desktop - Mobile Style */}
+                {/* Toggles Section - Desktop */}
                 <div className="hidden lg:block space-y-2 pt-3 mt-3 border-t border-slate-700">
-                  {/* Available / Busy */}
-                  <div className={`rounded-xl px-3 py-2.5 border ${openForBusiness ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-700/50 border-slate-600/50'}`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${openForBusiness ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-slate-500'}`} />
-                        <div>
-                          <p className="text-sm font-medium text-white">{openForBusiness ? 'Available' : 'Busy'}</p>
-                          <p className="text-[10px] text-slate-400">
-                            {openForBusiness
-                              ? (availabilityExpiresAt ? formatExpiry(availabilityExpiresAt) : 'Active for 24 hours')
-                              : 'Not accepting new jobs'}
-                          </p>
-                        </div>
-                      </div>
-                      <Switch checked={openForBusiness} onCheckedChange={handleBusinessStatusToggle} disabled={updatingBusinessStatus} className="data-[state=checked]:bg-emerald-500" />
-                    </div>
-                    {openForBusiness && (
-                      <p className="mt-2 text-[10px] text-emerald-400/70 flex items-center gap-1">
-                        <Clock className="w-3 h-3 flex-shrink-0" />
-                        Turns off after 24 h — we'll ask if you're still available
-                      </p>
-                    )}
-                  </div>
-                  {/* Profile Visibility Toggle */}
+                  {/* Profile Visibility */}
                   <div className="flex items-center justify-between bg-slate-700/50 rounded-xl px-3 py-2.5 border border-slate-600/50">
                     <div className="flex items-center gap-2">
-                      {profileVisible ? (
-                        <Eye className="h-4 w-4 text-emerald-400" />
-                      ) : (
-                        <EyeOff className="h-4 w-4 text-slate-500" />
-                      )}
+                      {profileVisible ? <Eye className="h-4 w-4 text-emerald-400" /> : <EyeOff className="h-4 w-4 text-slate-500" />}
                       <div>
-                        <p className="text-sm font-medium text-white">
-                          {profileVisible ? 'Visible' : 'Hidden'}
-                        </p>
-                        <p className="text-[10px] text-slate-400">
-                          {profileVisible ? 'On map & search' : 'Not visible'}
-                        </p>
+                        <p className="text-sm font-medium text-white">{profileVisible ? 'Visible' : 'Hidden'}</p>
+                        <p className="text-[10px] text-slate-400">{profileVisible ? 'On map & search' : 'Not visible'}</p>
                       </div>
                     </div>
-                    <Switch
-                      checked={profileVisible}
-                      onCheckedChange={handleVisibilityToggle}
-                      disabled={updatingVisibility}
-                      className="data-[state=checked]:bg-emerald-500"
-                    />
+                    <Switch checked={profileVisible} onCheckedChange={handleVisibilityToggle} disabled={updatingVisibility} className="data-[state=checked]:bg-emerald-500" />
                   </div>
 
-                  {/* Instant Job Alerts Toggle */}
+                  {/* Job Notifications */}
                   <div className="bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Zap className={`h-4 w-4 ${instantJobAlerts ? 'text-purple-400' : 'text-slate-500'}`} />
+                        <Bell className={`h-4 w-4 ${jobAlertsEnabled ? 'text-purple-400' : 'text-slate-500'}`} />
                         <div>
                           <p className="text-sm font-medium text-white">
-                            {instantJobAlerts ? 'Instant Alerts On' : 'Alerts Off'}
+                            {jobAlertsEnabled ? 'Job Notifications On' : 'Job Notifications Off'}
                           </p>
                           <p className="text-[10px] text-slate-400">
-                            Uber-style job notifications
+                            {jobAlertsEnabled ? `Alerts within ${tradeNotificationDistance} miles` : 'Notifications paused'}
                           </p>
                         </div>
                         <Popover>
@@ -1599,60 +1421,30 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                           <PopoverContent side="top" className="w-72 bg-slate-800 border-slate-700 text-white">
                             <div className="space-y-2">
                               <div className="flex items-center gap-2">
-                                <Zap className="h-4 w-4 text-purple-400" />
-                                <p className="text-sm font-semibold">Instant Job Alerts</p>
+                                <Bell className="h-4 w-4 text-purple-400" />
+                                <p className="text-sm font-semibold">Job Notifications</p>
                               </div>
                               <p className="text-xs text-slate-300">
-                                <strong>Works like Uber.</strong> When a nearby job matching your skills is posted, you receive an instant notification to apply or skip.
+                                When a new job matching your trade is posted nearby, you receive an instant push notification to apply.
                               </p>
                               <div className="text-xs border-t border-slate-700 pt-2 mt-2 bg-purple-500/10 p-2 rounded">
-                                <p className="font-medium text-purple-300">Be first to respond:</p>
-                                <ul className="list-disc list-inside mt-1 space-y-0.5 text-purple-200">
-                                  <li>Jobs matching your services</li>
-                                  <li>Within {tradeNotificationDistance} miles of you</li>
-                                  <li>Instant push notification</li>
+                                <ul className="space-y-0.5 text-purple-200">
+                                  <li>• Jobs matching your industry</li>
+                                  <li>• Within {tradeNotificationDistance} miles of you</li>
+                                  <li>• Instant push notification</li>
                                 </ul>
                               </div>
                             </div>
                           </PopoverContent>
                         </Popover>
                       </div>
-                      <Switch
-                        checked={instantJobAlerts}
-                        onCheckedChange={handleInstantAlertsToggle}
-                        disabled={updatingInstantAlerts}
-                        className="data-[state=checked]:bg-purple-500"
-                      />
+                      <Switch checked={jobAlertsEnabled} onCheckedChange={handleJobAlertsToggle} disabled={updatingJobAlerts} className="data-[state=checked]:bg-purple-500" />
                     </div>
-
-                    {/* Job-type checkboxes + distance — inside the frame, visible only when master is ON */}
-                    {instantJobAlerts && (
-                      <div className="mt-2 pt-2 border-t border-purple-500/20 space-y-2">
-                        {/* Job type checkboxes */}
-                        <div className="flex gap-4">
-                          <label className={`flex items-center gap-1.5 cursor-pointer select-none ${updatingAlertType ? 'opacity-50 pointer-events-none' : ''}`}>
-                            <input
-                              type="checkbox"
-                              checked={urgentJobAlerts}
-                              onChange={e => handleAlertTypeChange('urgent', e.target.checked)}
-                              className="h-3 w-3 rounded accent-orange-500"
-                            />
-                            <span className="text-[10px] text-slate-300">🚨 Urgent jobs</span>
-                          </label>
-                          <label className={`flex items-center gap-1.5 cursor-pointer select-none ${updatingAlertType ? 'opacity-50 pointer-events-none' : ''}`}>
-                            <input
-                              type="checkbox"
-                              checked={flexibleJobAlerts}
-                              onChange={e => handleAlertTypeChange('flexible', e.target.checked)}
-                              className="h-3 w-3 rounded accent-blue-500"
-                            />
-                            <span className="text-[10px] text-slate-300">📋 Flexible jobs</span>
-                          </label>
-                        </div>
-                        {/* Distance slider */}
+                    {jobAlertsEnabled && (
+                      <div className="mt-2 pt-2 border-t border-purple-500/20">
                         <div className={`space-y-1 ${updatingDistance ? 'opacity-50 pointer-events-none' : ''}`}>
                           <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-slate-400">Job notification distance</span>
+                            <span className="text-[10px] text-slate-400">Notification distance</span>
                             <span className="text-[10px] font-semibold text-purple-300">{sliderValue} miles</span>
                           </div>
                           <input

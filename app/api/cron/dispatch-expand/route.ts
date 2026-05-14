@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/server"
 import { notifyOne } from "@/lib/dispatch-notify"
 import { NextRequest, NextResponse } from "next/server"
+import { verifyCronRequest } from "@/lib/cron-auth"
 
 /**
  * GET /api/cron/dispatch-expand
@@ -22,13 +23,8 @@ import { NextRequest, NextResponse } from "next/server"
  */
 
 export async function GET(request: NextRequest) {
-  const secret = process.env.CRON_SECRET
-  if (secret) {
-    const authHeader = request.headers.get("authorization")
-    if (authHeader !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-  }
+  const unauth = verifyCronRequest(request)
+  if (unauth) return unauth
 
   const admin = createAdminClient()
   const now = new Date()

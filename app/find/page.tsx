@@ -8,7 +8,7 @@ const DEFAULT_COORDS: [number, number] = [51.5074, -0.1278] // London
 export default async function FindPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postcode?: string; lat?: string; lng?: string; industry?: string }>
+  searchParams: Promise<{ postcode?: string; lat?: string; lng?: string; industry?: string; radius?: string; subcats?: string; lang?: string; available?: string; h24?: string }>
 }) {
   const { postcode, lat, lng, industry } = await searchParams
 

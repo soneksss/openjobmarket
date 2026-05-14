@@ -1,12 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/server"
+import { verifyCronRequest } from "@/lib/cron-auth"
 
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization")
-  const expectedToken = process.env.CRON_SECRET_TOKEN
-  if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const unauth = verifyCronRequest(request)
+  if (unauth) return unauth
 
   try {
     const admin = createAdminClient()

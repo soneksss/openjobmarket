@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/server"
 import { type NextRequest, NextResponse } from "next/server"
+import { verifyCronRequest } from "@/lib/cron-auth"
 
 /**
  * GET/POST /api/cron/extend-urgent-jobs
@@ -11,11 +12,8 @@ import { type NextRequest, NextResponse } from "next/server"
  * Also notifies the homeowner that the job has been kept visible.
  */
 export async function GET(request: NextRequest) {
-  const authHeader = request.headers.get("authorization")
-  const expectedToken = process.env.CRON_SECRET_TOKEN
-  if (expectedToken && authHeader !== `Bearer ${expectedToken}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
+  const unauth = verifyCronRequest(request)
+  if (unauth) return unauth
 
   try {
     const admin = createAdminClient()

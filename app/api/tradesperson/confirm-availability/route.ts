@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
         open_for_business: true,
         last_availability_confirmed_at: now,
         availability_expires_at: expiresAt,
+        availability_last_updated_at: now,
       })
       .eq("user_id", user.id)
 
