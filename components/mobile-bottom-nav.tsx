@@ -10,6 +10,31 @@ import dynamic from "next/dynamic"
 
 const JobWizardModal = dynamic(() => import("@/components/job-wizard-modal"), { ssr: false })
 
+// Debounced sound — prevents double-play when multiple badge components fire simultaneously
+function playGlobalMsgSound() {
+  try {
+    const w = window as any
+    if (w.__lastMsgSound && Date.now() - w.__lastMsgSound < 800) return
+    w.__lastMsgSound = Date.now()
+    const Ctx = window.AudioContext || w.webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const tone = (freq: number, start: number, dur: number, vol = 0.25) => {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.connect(g); g.connect(ctx.destination)
+      o.frequency.value = freq
+      g.gain.setValueAtTime(0, ctx.currentTime + start)
+      g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+      o.start(ctx.currentTime + start)
+      o.stop(ctx.currentTime + start + dur)
+    }
+    tone(880, 0, 0.1, 0.28)
+    tone(1100, 0.09, 0.14, 0.22)
+  } catch { /* browser audio policy */ }
+}
+
 interface MobileBottomNavProps {
   user?: { id: string; user_metadata?: any } | null
   userType?: string | null
@@ -73,6 +98,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     }
 
     fetchMessages()
+    const intervalId = setInterval(fetchMessages, 10_000)
 
     // Re-fetch when tab regains focus (catches reads done on /messages page)
     const onFocus = () => fetchMessages()
@@ -83,13 +109,19 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     // Realtime: increment immediately on INSERT (no async lag), re-query on UPDATE
     const channel = supabase
       .channel(`mobile-nav-messages-${userId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, (payload) => {
+        // Only count if this message is truly for us (belt-and-suspenders for filter reliability)
+        if ((payload.new as any)?.recipient_id !== userId) return
         setUnreadMessages(prev => prev + 1)
+        // Play sound only when not already on the conversation page (which handles its own sounds)
+        const isOnConversation = /\/messages\/[^/]+/.test(window.location.pathname)
+        if (!isOnConversation) playGlobalMsgSound()
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, fetchMessages)
       .subscribe()
 
     return () => {
+      clearInterval(intervalId)
       window.removeEventListener("focus", onFocus)
       document.removeEventListener("visibilitychange", onVisible)
       supabase.removeChannel(channel)

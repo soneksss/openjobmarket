@@ -6,6 +6,31 @@ import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 
+// Debounced sound — shares the same window flag as mobile-bottom-nav to avoid double-play
+function playGlobalMsgSound() {
+  try {
+    const w = window as any
+    if (w.__lastMsgSound && Date.now() - w.__lastMsgSound < 800) return
+    w.__lastMsgSound = Date.now()
+    const Ctx = window.AudioContext || w.webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const tone = (freq: number, start: number, dur: number, vol = 0.25) => {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.connect(g); g.connect(ctx.destination)
+      o.frequency.value = freq
+      g.gain.setValueAtTime(0, ctx.currentTime + start)
+      g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+      o.start(ctx.currentTime + start)
+      o.stop(ctx.currentTime + start + dur)
+    }
+    tone(880, 0, 0.1, 0.28)
+    tone(1100, 0.09, 0.14, 0.22)
+  } catch { /* browser audio policy */ }
+}
+
 interface MessageIconProps {
   user: any
   iconClassName?: string
@@ -51,8 +76,11 @@ export function MessageIcon({ user, iconClassName }: MessageIconProps) {
     // Realtime: increment immediately on INSERT (no async lag), re-query on UPDATE
     const channel = supabase
       .channel(`msg-badge-${uid}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${uid}` }, () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${uid}` }, (payload) => {
+        if ((payload.new as any)?.recipient_id !== uid) return
         setUnreadCount(prev => prev + 1)
+        const isOnConversation = /\/messages\/[^/]+/.test(window.location.pathname)
+        if (!isOnConversation) playGlobalMsgSound()
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `recipient_id=eq.${uid}` }, fetchCount)
       .subscribe()

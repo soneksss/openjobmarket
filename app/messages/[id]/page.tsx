@@ -266,6 +266,7 @@ export default function ConversationPage() {
   const [otherUserLastSeen, setOtherUserLastSeen] = useState<string | null>(null)
   const [conversationSubject, setConversationSubject] = useState<string | null>(null)
   const [otherUserProfileId, setOtherUserProfileId] = useState<string | null>(null)
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | null>(null)
 
   // Photo attachment state
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -305,6 +306,24 @@ export default function ConversationPage() {
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [jobContext?.id])
+
+  // Real-time: update other user's green dot when their last_seen_at changes
+  useEffect(() => {
+    if (!otherUserId) return
+    const channel = supabase
+      .channel(`presence-other-${otherUserId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users',
+        filter: `id=eq.${otherUserId}`,
+      }, (payload) => {
+        const ls = (payload.new as any)?.last_seen_at
+        if (ls) setOtherUserLastSeen(ls)
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [otherUserId])
 
   // Keep userIdRef in sync so the realtime callback always has the current user ID
   useEffect(() => { userIdRef.current = user?.id ?? null }, [user])
@@ -366,6 +385,11 @@ export default function ConversationPage() {
     return () => { supabase.removeChannel(channel) }
   }, [actualConvId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Check push notification permission for tradespeople so we can show an opt-in banner
+  useEffect(() => {
+    if (typeof Notification !== 'undefined') setNotifPermission(Notification.permission)
+  }, [])
+
   // Auto-resize textarea as content grows (WhatsApp-style)
   useEffect(() => {
     const el = textareaRef.current
@@ -386,6 +410,30 @@ export default function ConversationPage() {
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobContext, messages, senderRole])
+
+  const requestPushPermission = async () => {
+    if (typeof Notification === 'undefined') return
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+    try {
+      const permission = await Notification.requestPermission()
+      setNotifPermission(permission)
+      if (permission !== 'granted') return
+      const VAPID_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!VAPID_KEY) return
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+      await navigator.serviceWorker.ready
+      let sub = await reg.pushManager.getSubscription()
+      if (!sub) {
+        // Convert VAPID base64url key to Uint8Array
+        const b64 = VAPID_KEY.replace(/-/g, '+').replace(/_/g, '/')
+        const padded = b64 + '='.repeat((4 - b64.length % 4) % 4)
+        const raw = atob(padded)
+        const key = new Uint8Array(raw.length).map((_, i) => raw.charCodeAt(i))
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })
+      }
+      await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub }) })
+    } catch { /* non-critical */ }
+  }
 
   const fetchConversation = async () => {
     updatePresence() // best-effort, fire-and-forget
@@ -1116,6 +1164,25 @@ export default function ConversationPage() {
             </div>
           )}
         </div>
+
+        {/* Push notification opt-in banner for tradespeople */}
+        {senderRole === 'company' && notifPermission !== null && notifPermission !== 'granted' && (
+          <div className="bg-amber-500/10 border-x border-amber-500/20 px-4 py-2 flex items-center justify-between gap-3 flex-shrink-0">
+            <p className="text-xs text-amber-300 leading-tight">
+              {notifPermission === 'denied'
+                ? 'Notifications blocked. Enable them in your browser settings to receive message alerts.'
+                : 'Enable notifications to get alerts when you receive messages.'}
+            </p>
+            {notifPermission !== 'denied' && (
+              <button
+                onClick={requestPushPermission}
+                className="text-xs font-semibold text-amber-400 hover:text-amber-300 transition-colors whitespace-nowrap flex-shrink-0 underline underline-offset-2"
+              >
+                Enable
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Messages Area */}
         <div className="bg-slate-800/60 border-x border-slate-700/50 flex-1 overflow-y-auto p-4 space-y-3 min-h-0">

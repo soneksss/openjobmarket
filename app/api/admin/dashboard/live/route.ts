@@ -92,12 +92,18 @@ export async function GET() {
 
     // ── Status bar ──────────────────────────────────────────────────────────
 
-    const activeUrgent    = liveJobs.filter((j: any) => ["searching", "expanding"].includes(j.dispatch_state))
-    const waitingResponse = liveJobs.filter((j: any) => j.dispatch_state === "searching" && j.dispatch_started_at)
-    const expanding       = liveJobs.filter((j: any) => j.dispatch_state === "expanding")
+    // A job is truly active if it hasn't passed its dispatch expiry
+    // (expired jobs may still have dispatch_state="searching" when the cron is stale)
+    const nowIso = now.toISOString()
+    const isStillActive = (j: any) =>
+      !j.dispatch_expires_at || j.dispatch_expires_at > nowIso
+
+    const activeUrgent    = liveJobs.filter((j: any) => ["searching", "expanding"].includes(j.dispatch_state) && isStillActive(j))
+    const waitingResponse = liveJobs.filter((j: any) => j.dispatch_state === "searching" && j.dispatch_started_at && isStillActive(j))
+    const expanding       = liveJobs.filter((j: any) => j.dispatch_state === "expanding" && isStillActive(j))
     const noMatchJobs     = liveJobs.filter((j: any) =>
       j.dispatch_state === "expired" ||
-      (j.status === "POSTED" && j.dispatch_expires_at && j.dispatch_expires_at < now.toISOString())
+      (j.status === "POSTED" && j.dispatch_expires_at && j.dispatch_expires_at < nowIso)
     )
 
     // Last dispatch activity (proxy for cron health)
@@ -124,8 +130,12 @@ export async function GET() {
         ? Math.round((now.getTime() - new Date(job.dispatch_started_at).getTime()) / 60_000)
         : null
 
-      // Urgent job with no response > 5 min
-      if (job.dispatch_state === "searching" && !hasResponse && startedMins !== null && startedMins >= 5) {
+      // Skip jobs that have already passed their dispatch expiry — they are not actively live.
+      // (The cron may not have updated dispatch_state to "expired" yet, so we guard here.)
+      const alreadyExpired = job.dispatch_expires_at && job.dispatch_expires_at <= nowIso
+
+      // Urgent job with no response > 5 min (and not yet expired)
+      if (job.dispatch_state === "searching" && !hasResponse && startedMins !== null && startedMins >= 5 && !alreadyExpired) {
         attentionAlerts.push({
           type: "no_response",
           severity: startedMins >= 20 ? "critical" : "warning",
@@ -141,7 +151,8 @@ export async function GET() {
       if (
         job.dispatch_state === "searching" &&
         (job.dispatch_radius_miles ?? 3) <= 3 &&
-        startedMins !== null && startedMins >= 10 && startedMins < 16
+        startedMins !== null && startedMins >= 10 && startedMins < 16 &&
+        !alreadyExpired
       ) {
         attentionAlerts.push({
           type: "near_expansion",
@@ -169,6 +180,16 @@ export async function GET() {
           })
         }
       }
+    }
+
+    // Cron health alert — if the dispatch cron is very stale, surface it as an alert
+    if (lastCronMins !== null && lastCronMins > 30) {
+      attentionAlerts.push({
+        type: "no_response",  // reuse Clock icon
+        severity: lastCronMins > 120 ? "critical" : "warning",
+        message: `Dispatch cron stalled — last run ${lastCronMins}m ago. Jobs may not be expiring or expanding.`,
+        age: lastCronMins,
+      })
     }
 
     // High-cancel homeowners today
@@ -308,7 +329,7 @@ export async function GET() {
         onlineTradespeople: onlineTps.length,
         pushTokens: pushCount,
         lastCronMins,
-        systemOk: lastCronMins === null || lastCronMins < 120,
+        systemOk: lastCronMins === null || lastCronMins < 30,
       },
       attentionAlerts: attentionAlerts.slice(0, 12),
       dispatchStream,
