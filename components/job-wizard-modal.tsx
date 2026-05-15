@@ -820,9 +820,28 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       }
 
       // ── Authenticated user flow ───────────────────────────────────────────────
-      // Use the already-loaded profile to get user ID — no auth network call needed.
-      // RLS on the jobs table will enforce auth on the actual INSERT.
-      const userId: string | undefined = companyProfile?.user_id
+      // companyProfile may be null when the wizard is opened from the landing page
+      // without a pre-loaded profile (e.g. clicking a service card). In that case
+      // fetch the session user and their profile on the fly.
+      let resolvedProfile = companyProfile
+      if (!resolvedProfile) {
+        const { data: { user: sessionUser } } = await supabase.auth.getUser()
+        if (!sessionUser) {
+          clearTimeout(timeoutId)
+          setErr("Please sign in to post a job.")
+          setLoading(false)
+          return
+        }
+        const table = userType === "homeowner" ? "homeowner_profiles" : "company_profiles"
+        const { data: fetchedProfile } = await supabase
+          .from(table)
+          .select("id, user_id, latitude, longitude, location")
+          .eq("user_id", sessionUser.id)
+          .maybeSingle()
+        resolvedProfile = fetchedProfile ?? { user_id: sessionUser.id, id: null, latitude: null, longitude: null, location: null }
+      }
+
+      const userId: string | undefined = resolvedProfile?.user_id
       if (!userId) {
         clearTimeout(timeoutId)
         setErr("Authentication required.")
@@ -947,8 +966,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       // ─────────────────────────────────────────────────────────────────
 
       const payload: any = {
-        company_id: userType === "company" ? companyProfile.id : null,
-        homeowner_id: userType === "homeowner" ? companyProfile.id : null,
+        company_id: userType === "company" ? resolvedProfile?.id ?? null : null,
+        homeowner_id: userType === "homeowner" ? resolvedProfile?.id ?? null : null,
         title: formData.postingType === "tradespeople"
           ? (formData.service && formData.service !== "Not sure / Other"
               ? formData.service
@@ -965,8 +984,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         address_full: formData.locationAddressType === 'exact' ? (formData.fullAddress || null) : null,
         postcode: extractPostcode(formData.fullAddress),
         location_type: formData.locationAddressType,
-        latitude: formData.locationCoords?.lat ?? companyProfile?.latitude ?? null,
-        longitude: formData.locationCoords?.lon ?? companyProfile?.longitude ?? null,
+        latitude: formData.locationCoords?.lat ?? resolvedProfile?.latitude ?? null,
+        longitude: formData.locationCoords?.lon ?? resolvedProfile?.longitude ?? null,
         work_location: "onsite",
         description: fullDescription,
         short_description: formData.shortDescription,
