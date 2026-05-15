@@ -833,9 +833,12 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           return
         }
         const table = userType === "homeowner" ? "homeowner_profiles" : "company_profiles"
+        const nameFields = userType === "homeowner"
+          ? "id, user_id, latitude, longitude, location, first_name, last_name"
+          : "id, user_id, latitude, longitude, location, company_name"
         const { data: fetchedProfile } = await supabase
           .from(table)
-          .select("id, user_id, latitude, longitude, location")
+          .select(nameFields)
           .eq("user_id", sessionUser.id)
           .maybeSingle()
         resolvedProfile = fetchedProfile ?? { user_id: sessionUser.id, id: null, latitude: null, longitude: null, location: null }
@@ -1066,9 +1069,10 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       // ── Everything below is fire-and-forget. ─────────────────
       // The job exists in the DB. Redirect immediately; never block on these.
       if (formData.postingType === "tradespeople" && formData.locationCoords) {
+        const posterProfile = resolvedProfile as any
         const posterName = userType === "homeowner"
-          ? `${companyProfile.first_name || ""} ${companyProfile.last_name || ""}`.trim() || "A homeowner"
-          : companyProfile.company_name || "A company"
+          ? `${posterProfile?.first_name || ""} ${posterProfile?.last_name || ""}`.trim() || "A homeowner"
+          : posterProfile?.company_name || "A company"
 
         // Bell notifications go to ALL trade jobs (flexible + urgent)
         // Skills array includes service, industry, and profession for broad matching
