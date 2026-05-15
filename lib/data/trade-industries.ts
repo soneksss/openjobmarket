@@ -140,7 +140,7 @@ export const TRADE_INDUSTRIES: readonly TradeIndustry[] = [
   },
   {
     title: "Flooring & Tiling",
-    icon: "🪟",
+    icon: "🔲",
     category: "Flooring",
     services: [
       "Flooring Specialist",
@@ -215,6 +215,22 @@ export const TRADE_INDUSTRIES: readonly TradeIndustry[] = [
       "Gate Installation",
       "Fence Repair",
       "Fencing",
+    ],
+  },
+  {
+    title: "Windows & Glazing",
+    icon: "🪟",
+    category: "Windows",
+    services: [
+      "Window Installer",
+      "Window Fitter",
+      "Window Repair",
+      "Double Glazing",
+      "UPVC Windows",
+      "Sash Window Specialist",
+      "Secondary Glazing",
+      "Glazier",
+      "Conservatory Installation",
     ],
   },
   {

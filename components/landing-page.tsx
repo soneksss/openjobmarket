@@ -98,47 +98,36 @@ interface LandingPageProps {
   profileServices?: string[]
 }
 
-// Problem-based help items — industry/service values match TRADE_INDUSTRIES exactly
+// Problem-based help items — real photos from /public/Jobs/
 const helpItems = [
-  // Plumbing & Heating
-  { label: "Fix a leak",         icon: Droplets,        category: "Plumbing",          industry: "Plumbing & Heating",      service: "Plumber",                 iconBg: "bg-blue-500/20",    iconColor: "text-blue-400",    border: "hover:border-blue-500/40",    shadow: "group-hover:shadow-blue-500/10"    },
-  { label: "Boiler repair",      icon: Flame,           category: "Plumbing",          industry: "Plumbing & Heating",      service: "Boiler Repair",           iconBg: "bg-blue-500/20",    iconColor: "text-blue-400",    border: "hover:border-blue-500/40",    shadow: "group-hover:shadow-blue-500/10"    },
-  // Electrical
-  { label: "Electrician",        icon: Zap,             category: "Electrical",        industry: "Electrical",              service: "Electrician",             iconBg: "bg-yellow-500/20",  iconColor: "text-yellow-400",  border: "hover:border-yellow-500/40",  shadow: "group-hover:shadow-yellow-500/10"  },
-  { label: "EV charger",         icon: BatteryCharging, category: "Electrical",        industry: "Electrical",              service: "EV Charger Installation", iconBg: "bg-yellow-500/20",  iconColor: "text-yellow-400",  border: "hover:border-yellow-500/40",  shadow: "group-hover:shadow-yellow-500/10"  },
-  // Construction & Renovation
-  { label: "Extension",          icon: Building2,       category: "Construction",      industry: "Construction & Renovation", service: "Extension Specialist",  iconBg: "bg-stone-500/20",   iconColor: "text-stone-400",   border: "hover:border-stone-500/40",   shadow: "group-hover:shadow-stone-500/10"   },
-  { label: "Bricklaying",        icon: Layers,          category: "Construction",      industry: "Construction & Renovation", service: "Bricklayer",            iconBg: "bg-stone-500/20",   iconColor: "text-stone-400",   border: "hover:border-stone-500/40",   shadow: "group-hover:shadow-stone-500/10"   },
-  // Plastering & Rendering
-  { label: "Plastering",         icon: Paintbrush,      category: "Plastering",        industry: "Plastering & Rendering",  service: "Plasterer",               iconBg: "bg-amber-500/20",   iconColor: "text-amber-400",   border: "hover:border-amber-500/40",   shadow: "group-hover:shadow-amber-500/10"   },
-  { label: "Rendering",          icon: LayoutGrid,      category: "Plastering",        industry: "Plastering & Rendering",  service: "Rendering Specialist",    iconBg: "bg-amber-500/20",   iconColor: "text-amber-400",   border: "hover:border-amber-500/40",   shadow: "group-hover:shadow-amber-500/10"   },
-  // Painting & Decorating
-  { label: "Painting",           icon: PaintBucket,     category: "Painting & Decorating", industry: "Painting & Decorating", service: "Painter & Decorator",  iconBg: "bg-pink-500/20",    iconColor: "text-pink-400",    border: "hover:border-pink-500/40",    shadow: "group-hover:shadow-pink-500/10"    },
-  { label: "Wallpapering",       icon: LayoutGrid,      category: "Painting & Decorating", industry: "Painting & Decorating", service: "Wallpapering",         iconBg: "bg-pink-500/20",    iconColor: "text-pink-400",    border: "hover:border-pink-500/40",    shadow: "group-hover:shadow-pink-500/10"    },
-  // Roofing
-  { label: "Roof repair",        icon: HardHat,         category: "Roofing",           industry: "Roofing",                 service: "Roof Repair",             iconBg: "bg-cyan-500/20",    iconColor: "text-cyan-400",    border: "hover:border-cyan-500/40",    shadow: "group-hover:shadow-cyan-500/10"    },
-  { label: "Guttering",          icon: Home,            category: "Roofing",           industry: "Roofing",                 service: "Guttering",               iconBg: "bg-cyan-500/20",    iconColor: "text-cyan-400",    border: "hover:border-cyan-500/40",    shadow: "group-hover:shadow-cyan-500/10"    },
-  // Carpentry & Joinery
-  { label: "Carpentry",          icon: Hammer,          category: "Carpentry",         industry: "Carpentry & Joinery",     service: "Carpenter",               iconBg: "bg-orange-500/20",  iconColor: "text-orange-400",  border: "hover:border-orange-500/40",  shadow: "group-hover:shadow-orange-500/10"  },
-  { label: "Kitchen fitting",    icon: UtensilsCrossed, category: "Carpentry",         industry: "Carpentry & Joinery",     service: "Kitchen Fitter",          iconBg: "bg-orange-500/20",  iconColor: "text-orange-400",  border: "hover:border-orange-500/40",  shadow: "group-hover:shadow-orange-500/10"  },
-  // Gardening & Landscaping
-  { label: "Gardening",          icon: Leaf,            category: "Gardening",         industry: "Gardening & Landscaping", service: "Gardener",                iconBg: "bg-green-500/20",   iconColor: "text-green-400",   border: "hover:border-green-500/40",   shadow: "group-hover:shadow-green-500/10"   },
-  { label: "Landscaping",        icon: TreePine,        category: "Gardening",         industry: "Gardening & Landscaping", service: "Landscaper",              iconBg: "bg-green-500/20",   iconColor: "text-green-400",   border: "hover:border-green-500/40",   shadow: "group-hover:shadow-green-500/10"   },
-  // Flooring & Tiling
-  { label: "Tiling",             icon: Grid3x3,         category: "Flooring",          industry: "Flooring & Tiling",       service: "Tiler",                   iconBg: "bg-teal-500/20",    iconColor: "text-teal-400",    border: "hover:border-teal-500/40",    shadow: "group-hover:shadow-teal-500/10"    },
-  { label: "Flooring",           icon: Layers,          category: "Flooring",          industry: "Flooring & Tiling",       service: "Flooring Specialist",     iconBg: "bg-teal-500/20",    iconColor: "text-teal-400",    border: "hover:border-teal-500/40",    shadow: "group-hover:shadow-teal-500/10"    },
-  // Cleaning
-  { label: "Cleaning",           icon: Sparkles,        category: "Cleaning",          industry: "Cleaning",                service: "Domestic Cleaner",        iconBg: "bg-violet-500/20",  iconColor: "text-violet-400",  border: "hover:border-violet-500/40",  shadow: "group-hover:shadow-violet-500/10"  },
-  { label: "End of tenancy",     icon: Key,             category: "Cleaning",          industry: "Cleaning",                service: "End of Tenancy Cleaner",  iconBg: "bg-violet-500/20",  iconColor: "text-violet-400",  border: "hover:border-violet-500/40",  shadow: "group-hover:shadow-violet-500/10"  },
-  // Handyman / Small Jobs
-  { label: "Handyman",           icon: Wrench,          category: "General Handyman",  industry: "Handyman / Small Jobs",   service: "Handyman",                iconBg: "bg-slate-500/25",   iconColor: "text-slate-300",   border: "hover:border-slate-400/40",   shadow: "group-hover:shadow-slate-500/10"   },
-  { label: "Furniture assembly", icon: Package,         category: "General Handyman",  industry: "Handyman / Small Jobs",   service: "Furniture Assembly",      iconBg: "bg-slate-500/25",   iconColor: "text-slate-300",   border: "hover:border-slate-400/40",   shadow: "group-hover:shadow-slate-500/10"   },
-  // Waste Removal
-  { label: "House clearance",    icon: Trash2,          category: "General Handyman",  industry: "Waste Removal",           service: "House Clearance",         iconBg: "bg-red-500/15",     iconColor: "text-red-400",     border: "hover:border-red-500/40",     shadow: "group-hover:shadow-red-500/10"     },
-  { label: "Man & Van",          icon: Truck,           category: "General Handyman",  industry: "Waste Removal",           service: "Man & Van",               iconBg: "bg-red-500/15",     iconColor: "text-red-400",     border: "hover:border-red-500/40",     shadow: "group-hover:shadow-red-500/10"     },
-  // Fencing & Gates
-  { label: "Fencing",            icon: Shield,          category: "Carpentry",         industry: "Fencing & Gates",         service: "Fence Installer",         iconBg: "bg-emerald-500/20", iconColor: "text-emerald-400", border: "hover:border-emerald-500/40", shadow: "group-hover:shadow-emerald-500/10" },
-  { label: "Gate installation",  icon: DoorOpen,        category: "Carpentry",         industry: "Fencing & Gates",         service: "Gate Installation",       iconBg: "bg-emerald-500/20", iconColor: "text-emerald-400", border: "hover:border-emerald-500/40", shadow: "group-hover:shadow-emerald-500/10" },
+  { label: "Fix a leak",         img: "/Jobs/Fix_leak.png",           category: "Plumbing",             industry: "Plumbing & Heating",        service: "Plumber"                },
+  { label: "Boiler repair",      img: "/Jobs/Boiler_repair.png",      category: "Plumbing",             industry: "Plumbing & Heating",        service: "Boiler Repair"           },
+  { label: "Electrician",        img: "/Jobs/Electrician.png",        category: "Electrical",           industry: "Electrical",                service: "Electrician"             },
+  { label: "EV charger",         img: "/Jobs/EV_charger.png",         category: "Electrical",           industry: "Electrical",                service: "EV Charger Installation" },
+  { label: "Extension",          img: "/Jobs/Extension.png",          category: "Construction",         industry: "Construction & Renovation", service: "Extension Specialist"    },
+  { label: "Bricklaying",        img: "/Jobs/Bricklayer.png",         category: "Construction",         industry: "Construction & Renovation", service: "Bricklayer"              },
+  { label: "Plastering",         img: "/Jobs/Plastering.png",         category: "Plastering",           industry: "Plastering & Rendering",    service: "Plasterer"               },
+  { label: "Rendering",          img: "/Jobs/Rendering.png",          category: "Plastering",           industry: "Plastering & Rendering",    service: "Rendering Specialist"    },
+  { label: "Painting",           img: "/Jobs/Painting.png",           category: "Painting & Decorating", industry: "Painting & Decorating",   service: "Painter & Decorator"     },
+  { label: "Wallpapering",       img: "/Jobs/Wallpapering.png",       category: "Painting & Decorating", industry: "Painting & Decorating",   service: "Wallpapering"            },
+  { label: "Roof repair",        img: "/Jobs/Roof_repair.png",        category: "Roofing",              industry: "Roofing",                   service: "Roof Repair"             },
+  { label: "Guttering",          img: "/Jobs/Guttering.png",          category: "Roofing",              industry: "Roofing",                   service: "Guttering"               },
+  { label: "Carpentry",          img: "/Jobs/Carpentry.png",          category: "Carpentry",            industry: "Carpentry & Joinery",       service: "Carpenter"               },
+  { label: "Kitchen fitting",    img: "/Jobs/Kitchen_fitter.png",     category: "Carpentry",            industry: "Carpentry & Joinery",       service: "Kitchen Fitter"          },
+  { label: "Gardening",          img: "/Jobs/Gardening.png",          category: "Gardening",            industry: "Gardening & Landscaping",   service: "Gardener"                },
+  { label: "Landscaping",        img: "/Jobs/Landscaping.png",        category: "Gardening",            industry: "Gardening & Landscaping",   service: "Landscaper"              },
+  { label: "Tiling",             img: "/Jobs/Tiling.png",             category: "Flooring",             industry: "Flooring & Tiling",         service: "Tiler"                   },
+  { label: "Flooring",           img: "/Jobs/Flooring.png",           category: "Flooring",             industry: "Flooring & Tiling",         service: "Flooring Specialist"     },
+  { label: "Cleaning",           img: "/Jobs/Cleaning.png",           category: "Cleaning",             industry: "Cleaning",                  service: "Domestic Cleaner"        },
+  { label: "Handyman",           img: "/Jobs/Handyman.jpg",           category: "General Handyman",     industry: "Handyman / Small Jobs",     service: "Handyman"                },
+  { label: "Furniture assembly", img: "/Jobs/Furniture_assembly.png", category: "General Handyman",     industry: "Handyman / Small Jobs",     service: "Furniture Assembly"      },
+  { label: "House clearance",    img: "/Jobs/House_clearence.png",    category: "General Handyman",     industry: "Waste Removal",             service: "House Clearance"         },
+  { label: "Man & Van",          img: "/Jobs/Man_van.png",            category: "General Handyman",     industry: "Waste Removal",             service: "Man & Van"               },
+  { label: "Fencing",            img: "/Jobs/Fencing.png",            category: "Carpentry",            industry: "Fencing & Gates",           service: "Fence Installer"         },
+  { label: "Gate installation",  img: "/Jobs/Gate.png",               category: "Carpentry",            industry: "Fencing & Gates",           service: "Gate Installation"       },
+  { label: "Driveway",           img: "/Jobs/Driveway.png",           category: "Gardening",            industry: "Gardening & Landscaping",   service: "Patio & Paving Specialist" },
+  { label: "Air conditioning",   img: "/Jobs/Airconditioning.png",    category: "HVAC",                 industry: "Air Conditioning & Ventilation", service: "Air Conditioning Installation" },
+  { label: "Tree surgeon",       img: "/Jobs/Tree_surgeon.png",       category: "Gardening",            industry: "Gardening & Landscaping",   service: "Tree Surgeon"            },
 ]
 
 // Build searchable list: subcategories + industry titles
@@ -190,9 +179,10 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false)
   const [feedbackError, setFeedbackError] = useState<string | null>(null)
 
+  const [showAllJobs, setShowAllJobs] = useState(false)
   const categoryScrollRef = useRef<HTMLDivElement>(null)
   const scrollCategories = (dir: "left" | "right") => {
-    categoryScrollRef.current?.scrollBy({ left: dir === "left" ? -260 : 260, behavior: "smooth" })
+    categoryScrollRef.current?.scrollBy({ left: dir === "left" ? -280 : 280, behavior: "smooth" })
   }
 
   // Map Picker state
@@ -697,30 +687,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     <span className="text-orange-400 block" style={{ fontSize: '32px', lineHeight: '1.15' }}>Get real local jobs.</span>
                     <span className="text-white block" style={{ fontSize: '32px', lineHeight: '1.15' }}>No lead fees.</span>
                   </>
-                ) : (
-                  <div className="relative w-[calc(100%+2rem)] md:hidden overflow-hidden h-[220px] -mx-4 bg-slate-900">
-                    {/* LCP image — explicit <img> so browser can preload and optimise it */}
-                    <img
-                      src="/Tradespeople.jpg"
-                      alt=""
-                      aria-hidden="true"
-                      fetchPriority="high"
-                      loading="eager"
-                      decoding="async"
-                      className="absolute inset-0 w-full h-full object-cover object-top md:object-contain md:object-center"
-                    />
-                    {/* Top gradient — keeps feedback icons readable */}
-                    <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent" />
-                    {/* Bottom fade — blends into page bg (#0f172a) */}
-                    <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-b from-transparent to-[#0f172a]" />
-                    {/* Text anchored to the bottom of the photo, just above the search bar overlap */}
-                    <div className="absolute inset-x-0 bottom-11 md:bottom-4 px-4">
-                      <p className="font-black text-white drop-shadow-lg text-[15px] md:text-[28px]" style={{ lineHeight: '1.15' }}>
-                        Nearby tradespeople respond in minutes<br /><span className="text-emerald-400">Check who is available today</span>
-                      </p>
-                    </div>
-                  </div>
-                )}
+                ) : null}
               </h1>
 
               {/* Like/Dislike Icons - Absolute positioned */}
@@ -809,8 +776,8 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               </div>
             ) : (
               /* ── HOMEOWNERS: image-backed postcode section ── */
-              <div className="mb-6 -mt-10 md:mt-0 relative z-10">
-                <p className="hidden md:block text-center text-white font-bold text-3xl mb-4">
+              <div className="mb-6 relative z-10">
+                <p className="text-center text-white font-bold text-xl md:text-3xl mb-4">
                   Find trusted tradespeople near you
                 </p>
                 <div className="relative w-full h-52 md:h-72 rounded-2xl overflow-hidden border border-slate-700/50 shadow-xl">
@@ -990,35 +957,38 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   What do you need help with?
                 </h2>
 
-                {/* Category horizontal scroll */}
+                {/* 2-row horizontal scroll — arrows + photo cards */}
                 <div className="relative mb-6">
                   {/* Left arrow */}
                   <button
                     onClick={() => scrollCategories("left")}
-                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-slate-700/90 border border-slate-600/60 text-slate-300 hover:text-white hover:bg-slate-600 transition-colors shadow-md"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-slate-800/90 border border-slate-700/60 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors shadow-md"
                     aria-label="Scroll left"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
 
-                  {/* Scroll container */}
+                  {/* 2-row grid that flows into columns and scrolls horizontally */}
                   <div
                     ref={categoryScrollRef}
-                    className="flex gap-2 overflow-x-auto px-9 pb-1"
+                    className="grid grid-rows-2 grid-flow-col gap-2 overflow-x-auto px-9 pb-1"
                     style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
                   >
                     {helpItems.map((item) => (
                       <button
                         key={item.label}
                         onClick={() => handleCategoryClick(item.category, item.industry, item.service)}
-                        className={`group flex-shrink-0 flex flex-col items-center gap-1.5 py-3 px-2.5 w-20 rounded-xl bg-slate-800/70 border border-slate-700/50 ${item.border} hover:bg-slate-800 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-200 shadow-sm hover:shadow-md ${item.shadow}`}
+                        className="group relative rounded-2xl overflow-hidden border border-slate-700/40 hover:border-emerald-500/50 transition-all duration-200 hover:scale-[1.03] active:scale-100 shadow-md hover:shadow-xl focus:outline-none w-[28vw] h-[28vw] md:w-36 md:h-36 flex-shrink-0"
                       >
-                        <div className={`w-8 h-8 rounded-lg ${item.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-                          <item.icon className={`h-4 w-4 ${item.iconColor}`} />
-                        </div>
-                        <span className="text-[10px] font-semibold text-slate-300 group-hover:text-white transition-colors leading-tight text-center w-full">
+                        <img
+                          src={item.img}
+                          alt={item.label}
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        <p className="absolute bottom-2 left-0 right-0 text-center text-white text-[10px] md:text-xs font-semibold px-1.5 leading-tight drop-shadow-lg">
                           {item.label}
-                        </span>
+                        </p>
                       </button>
                     ))}
                   </div>
@@ -1026,7 +996,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   {/* Right arrow */}
                   <button
                     onClick={() => scrollCategories("right")}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-slate-700/90 border border-slate-600/60 text-slate-300 hover:text-white hover:bg-slate-600 transition-colors shadow-md"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-7 h-7 flex items-center justify-center rounded-full bg-slate-800/90 border border-slate-700/60 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors shadow-md"
                     aria-label="Scroll right"
                   >
                     <ChevronRight className="w-4 h-4" />
