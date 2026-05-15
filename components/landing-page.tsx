@@ -181,8 +181,21 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
 
   const [showAllJobs, setShowAllJobs] = useState(false)
   const categoryScrollRef = useRef<HTMLDivElement>(null)
+  // Track the *intended* scroll target independently of the animated scrollLeft.
+  // scrollBy() reads scrollLeft mid-animation and produces wrong results on rapid
+  // clicks. scrollTo(target) always aims at the right position regardless of where
+  // the smooth-scroll animation currently is.
+  const categoryScrollTarget = useRef(0)
   const scrollCategories = (dir: "left" | "right") => {
-    categoryScrollRef.current?.scrollBy({ left: dir === "left" ? -280 : 280, behavior: "smooth" })
+    const el = categoryScrollRef.current
+    if (!el) return
+    const step = 300 // ≈ 2 card columns (144px card + 8px gap = 152px × 2)
+    const maxScroll = el.scrollWidth - el.clientWidth
+    categoryScrollTarget.current = Math.max(
+      0,
+      Math.min(categoryScrollTarget.current + (dir === "right" ? step : -step), maxScroll)
+    )
+    el.scrollTo({ left: categoryScrollTarget.current, behavior: "smooth" })
   }
 
   // Map Picker state
@@ -973,6 +986,10 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     ref={categoryScrollRef}
                     className="grid grid-rows-2 grid-flow-col gap-2 overflow-x-auto px-9 pb-1"
                     style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                    onScroll={(e) => {
+                      // Keep target in sync after manual swipe/trackpad scroll
+                      categoryScrollTarget.current = (e.currentTarget as HTMLDivElement).scrollLeft
+                    }}
                   >
                     {helpItems.map((item) => (
                       <button
@@ -1258,7 +1275,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                       <span className="w-6 h-6 rounded-full bg-emerald-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
                         {item.step}
                       </span>
-                      <p className="text-lg font-bold text-white leading-tight truncate" dangerouslySetInnerHTML={{ __html: item.label }} />
+                      <p className="text-sm md:text-lg font-bold text-white leading-tight" dangerouslySetInnerHTML={{ __html: item.label }} />
                     </div>
                     {/* Screenshot */}
                     <div className="rounded-xl overflow-hidden border border-slate-700/50 shadow-lg bg-slate-950">
