@@ -36,7 +36,7 @@ export function MessageIcon({ user, iconClassName }: MessageIconProps) {
     }
 
     fetchCount()
-    intervalId = setInterval(fetchCount, 30_000)
+    intervalId = setInterval(fetchCount, 10_000)
 
     // Re-fetch when user returns to tab (after reading messages in another tab or from /messages page)
     const onFocus = () => fetchCount()
@@ -48,10 +48,12 @@ export function MessageIcon({ user, iconClassName }: MessageIconProps) {
     const onSent = () => fetchCount()
     window.addEventListener("message-sent", onSent)
 
-    // Realtime: new incoming message OR mark-as-read update
+    // Realtime: increment immediately on INSERT (no async lag), re-query on UPDATE
     const channel = supabase
       .channel(`msg-badge-${uid}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${uid}` }, fetchCount)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${uid}` }, () => {
+        setUnreadCount(prev => prev + 1)
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `recipient_id=eq.${uid}` }, fetchCount)
       .subscribe()
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -32,6 +32,7 @@ export default function FloatingMessageModal({
   const [sending, setSending] = useState(false)
   const [minimized, setMinimized] = useState(false)
   const [messageSent, setMessageSent] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   // Dragging state
   const [position, setPosition] = useState({ x: 0, y: 0 })
@@ -128,6 +129,14 @@ export default function FloatingMessageModal({
       }
     }
   }, [isDragging, dragStart.x, dragStart.y])
+
+  // Auto-resize textarea as content grows
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+  }, [message])
 
   // Debug: Log when modal opens
   useEffect(() => {
@@ -236,12 +245,13 @@ export default function FloatingMessageModal({
           {/* Input */}
           <div className="p-3 border-t bg-white">
             <Textarea
+              ref={textareaRef}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={`Type your message to ${recipientName}...`}
-              rows={2}
-              className="mb-2 resize-none"
+              className="mb-2 resize-none min-h-[60px] max-h-[160px] overflow-y-auto"
+              style={{ height: '60px' }}
               disabled={sending || messageSent}
             />
             <Button

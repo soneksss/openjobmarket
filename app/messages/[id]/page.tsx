@@ -14,6 +14,35 @@ import { StatusDot } from "@/components/status-dot"
 import { updatePresence } from "@/lib/presence"
 import ReviewSubmissionModal from "@/components/review-submission-modal"
 
+// WhatsApp-style chat sounds via Web Audio API — no external files needed
+function playMsgSound(type: "send" | "receive") {
+  try {
+    const Ctx = window.AudioContext || (window as any).webkitAudioContext
+    if (!Ctx) return
+    const ctx = new Ctx()
+    const tone = (freq: number, start: number, dur: number, vol = 0.25, wave: OscillatorType = "sine") => {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.connect(g); g.connect(ctx.destination)
+      o.type = wave; o.frequency.value = freq
+      g.gain.setValueAtTime(0, ctx.currentTime + start)
+      g.gain.linearRampToValueAtTime(vol, ctx.currentTime + start + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+      o.start(ctx.currentTime + start)
+      o.stop(ctx.currentTime + start + dur)
+    }
+    if (type === "send") {
+      // Short upward pop (like WhatsApp send)
+      tone(700, 0,    0.06, 0.2)
+      tone(950, 0.05, 0.09, 0.18)
+    } else {
+      // Soft double-chime (like WhatsApp receive)
+      tone(880,  0,    0.1, 0.28)
+      tone(1100, 0.09, 0.14, 0.22)
+    }
+  } catch { /* browser audio policy — silently ignore */ }
+}
+
 interface Message {
   id: string
   content: string
@@ -239,6 +268,7 @@ export default function ConversationPage() {
   const [otherUserProfileId, setOtherUserProfileId] = useState<string | null>(null)
 
   // Photo attachment state
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [photoFiles, setPhotoFiles] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -293,9 +323,20 @@ export default function ConversationPage() {
           table: 'messages',
           filter: `conversation_id=eq.${actualConvId}`,
         },
-        (payload) => {
-          const msg = payload.new as Message
+        async (payload) => {
+          const msgId = (payload.new as any)?.id
           const currentUserId = userIdRef.current
+          if (!msgId) return
+
+          // Re-fetch the full row so that array columns like photo_urls are
+          // properly typed (Supabase realtime payload may omit or mis-type text[])
+          const { data: fullMsg } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('id', msgId)
+            .maybeSingle()
+
+          const msg = (fullMsg ?? payload.new) as Message
 
           setMessages(prev => {
             // Skip if this exact message ID is already in state
@@ -313,8 +354,9 @@ export default function ConversationPage() {
               return [...prev, msg]
             }
 
-            // Message from the other person — mark as read immediately
+            // Message from the other person — mark as read and play sound
             supabase.from('messages').update({ is_read: true }).eq('id', msg.id).then(() => {})
+            playMsgSound("receive")
             return [...prev, msg]
           })
         }
@@ -324,10 +366,18 @@ export default function ConversationPage() {
     return () => { supabase.removeChannel(channel) }
   }, [actualConvId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Prefill message on first open when navigated from a job context
+  // Auto-resize textarea as content grows (WhatsApp-style)
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  }, [newMessage])
+
+  // Prefill message on first open — tradespeople only, never homeowners
   useEffect(() => {
     if (prefillApplied.current) return
-    if (!jobContext || messages.length > 0 || !jobParam) return
+    if (!jobContext || messages.length > 0 || !jobParam || !senderRole || senderRole === 'homeowner') return
     prefillApplied.current = true
     setNewMessage(
       jobContext.urgency_type !== 'flexible'
@@ -335,7 +385,7 @@ export default function ConversationPage() {
         : "Hi, I can help with this job."
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jobContext, messages])
+  }, [jobContext, messages, senderRole])
 
   const fetchConversation = async () => {
     updatePresence() // best-effort, fire-and-forget
@@ -783,6 +833,7 @@ export default function ConversationPage() {
       }
 
       setMessages(prev => [...prev, tempMessage])
+      playMsgSound("send")
       setNewMessage("")
       photoPreviews.forEach(u => URL.revokeObjectURL(u))
       setPhotoFiles([])
@@ -1000,69 +1051,67 @@ export default function ConversationPage() {
           {/* Job Context Header */}
           {jobContext && (
             <div className="mt-2 px-3 py-2 bg-slate-800/70 rounded-xl border border-slate-700/50">
-              <div className="flex items-center justify-between gap-2 min-w-0">
-                {/* Left: icon + title + meta row */}
-                <div className="flex items-center gap-2 min-w-0">
-                  <Briefcase className="h-3.5 w-3.5 text-slate-400 flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm text-white truncate leading-snug">{jobContext.title}</p>
-                    <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-0.5 flex-wrap leading-none">
-                      {jobContext.location && (
-                        <>
-                          <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
-                          <span className="truncate max-w-[90px]">
-                            {jobContext.location.split(',')[1]?.trim() || jobContext.location.split(',')[0]?.trim()}
-                          </span>
-                          <span className="text-slate-600">·</span>
-                        </>
-                      )}
-                      {jobContext.created_at && (
-                        <span>{new Date(jobContext.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
-                      )}
-                      {jobContext.urgency_type === 'flexible' && jobContext.max_responses && (
-                        <>
-                          <span className="text-slate-600">·</span>
-                          {senderRole === 'homeowner' ? (
-                            <span className="text-emerald-400">{responseCount}/{jobContext.max_responses} responded</span>
-                          ) : senderRole === 'contractor' ? (
-                            <span className={responseCount >= jobContext.max_responses ? 'text-red-400' : 'text-amber-400'}>
-                              {Math.max(0, jobContext.max_responses - responseCount)} spots left
-                            </span>
-                          ) : null}
-                        </>
-                      )}
-                    </div>
-                  </div>
+              {/* Row 1: icon + full title + status badge */}
+              <div className="flex items-start justify-between gap-2 min-w-0">
+                <div className="flex items-start gap-1.5 min-w-0 flex-1">
+                  <Briefcase className="h-3.5 w-3.5 text-slate-400 flex-shrink-0 mt-0.5" />
+                  <p className="font-semibold text-sm text-white break-words leading-snug">{jobContext.title}</p>
                 </div>
-                {/* Right: badge + action */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  {getJobStatusBadge()}
-                  {jobContext.is_tradespeople_job && senderRole === 'homeowner' && jobContext.status !== 'COMPLETED' && (
-                    jobContext.status === 'CONFIRMED' ? (
-                      <Button
-                        size="sm"
-                        onClick={() => updateJobStatus('completed')}
-                        disabled={updatingJobStatus}
-                        className="h-6 px-2 text-[10px] bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 font-medium"
-                        variant="outline"
-                      >
-                        <CheckCircle className="h-2.5 w-2.5 mr-1" />
-                        {updatingJobStatus ? '…' : 'Done'}
-                      </Button>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={() => updateJobStatus('CONFIRMED')}
-                        disabled={updatingJobStatus}
-                        className="h-6 px-2 text-[10px] bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 font-medium"
-                        variant="outline"
-                      >
-                        <CheckCircle className="h-2.5 w-2.5 mr-1" />
-                        {updatingJobStatus ? '…' : 'Confirm'}
-                      </Button>
-                    )
+                <div className="flex-shrink-0">{getJobStatusBadge()}</div>
+              </div>
+              {/* Row 2: meta info + action button */}
+              <div className="flex items-center justify-between gap-2 mt-1 pl-5">
+                <div className="flex items-center gap-1 text-[10px] text-slate-500 flex-wrap leading-none">
+                  {jobContext.location && (
+                    <>
+                      <MapPin className="h-2.5 w-2.5 flex-shrink-0" />
+                      <span className="truncate max-w-[90px]">
+                        {jobContext.location.split(',')[1]?.trim() || jobContext.location.split(',')[0]?.trim()}
+                      </span>
+                      <span className="text-slate-600">·</span>
+                    </>
+                  )}
+                  {jobContext.created_at && (
+                    <span>{new Date(jobContext.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                  )}
+                  {jobContext.urgency_type === 'flexible' && jobContext.max_responses && (
+                    <>
+                      <span className="text-slate-600">·</span>
+                      {senderRole === 'homeowner' ? (
+                        <span className="text-emerald-400">{responseCount}/{jobContext.max_responses} responded</span>
+                      ) : senderRole === 'contractor' ? (
+                        <span className={responseCount >= jobContext.max_responses ? 'text-red-400' : 'text-amber-400'}>
+                          {Math.max(0, jobContext.max_responses - responseCount)} spots left
+                        </span>
+                      ) : null}
+                    </>
                   )}
                 </div>
+                {jobContext.is_tradespeople_job && senderRole === 'homeowner' && jobContext.status !== 'COMPLETED' && (
+                  jobContext.status === 'CONFIRMED' ? (
+                    <Button
+                      size="sm"
+                      onClick={() => updateJobStatus('completed')}
+                      disabled={updatingJobStatus}
+                      className="h-7 px-2.5 text-[11px] bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 font-medium flex-shrink-0"
+                      variant="outline"
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {updatingJobStatus ? '…' : 'Mark as completed'}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() => updateJobStatus('CONFIRMED')}
+                      disabled={updatingJobStatus}
+                      className="h-7 px-2.5 text-[11px] bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 font-medium flex-shrink-0"
+                      variant="outline"
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {updatingJobStatus ? '…' : 'Confirm'}
+                    </Button>
+                  )
+                )}
               </div>
             </div>
           )}
@@ -1247,11 +1296,13 @@ export default function ConversationPage() {
               <PoundSterling className="h-4 w-4" />
             </Button>
             <Textarea
+              ref={textareaRef}
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
-              className="resize-none bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:border-emerald-500 min-h-[44px] py-2.5"
+              className="resize-none bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:border-emerald-500 min-h-[44px] max-h-[120px] py-2.5 overflow-y-auto"
               rows={1}
+              style={{ height: '44px' }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault()

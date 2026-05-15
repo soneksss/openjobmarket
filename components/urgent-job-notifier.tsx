@@ -798,7 +798,13 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
           <AcceptedToast
             key={acceptedAlert.id}
             alert={acceptedAlert}
-            onDismiss={() => setAcceptedAlert(null)}
+            onDismiss={() => {
+              // Mark as read so it doesn't reappear on the next navigation/mount
+              if (!acceptedAlert.id.startsWith("job_")) {
+                supabase.from("notifications").update({ is_read: true }).eq("id", acceptedAlert.id).then(() => {})
+              }
+              setAcceptedAlert(null)
+            }}
           />
         </div>
       )}

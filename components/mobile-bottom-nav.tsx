@@ -80,10 +80,12 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     window.addEventListener("focus", onFocus)
     document.addEventListener("visibilitychange", onVisible)
 
-    // Realtime: INSERT (new message) + UPDATE (mark-as-read)
+    // Realtime: increment immediately on INSERT (no async lag), re-query on UPDATE
     const channel = supabase
-      .channel("mobile-nav-messages")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, fetchMessages)
+      .channel(`mobile-nav-messages-${userId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, () => {
+        setUnreadMessages(prev => prev + 1)
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: `recipient_id=eq.${userId}` }, fetchMessages)
       .subscribe()
 
