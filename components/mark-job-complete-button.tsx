@@ -27,6 +27,7 @@ export function MarkJobCompleteButton({ jobId, jobTitle, redirectAfter = "/dashb
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         if (body.error === "already_completed") {
+          router.refresh()
           router.push(redirectAfter)
           return
         }
@@ -34,6 +35,7 @@ export function MarkJobCompleteButton({ jobId, jobTitle, redirectAfter = "/dashb
         setConfirmed(false)
         return
       }
+      router.refresh()
       router.push(redirectAfter)
     } finally {
       setLoading(false)

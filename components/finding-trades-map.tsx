@@ -173,6 +173,9 @@ export default function FindingTradesMap({
         dots.push(m)
       })
       ambientMarkersRef.current = dots
+
+      // Recalculate tile layout after container reaches final size
+      setTimeout(() => { mapRef.current?.invalidateSize() }, 200)
     }
 
     if (window.L) { init() }

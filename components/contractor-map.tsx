@@ -179,6 +179,10 @@ export default function ContractorMap({
 
       // Add contractors to map
       updateMarkers()
+
+      // Recalculate tile layout after the container reaches its final size
+      // (needed when map is inside a dialog/tab with CSS transitions)
+      setTimeout(() => { mapInstanceRef.current?.invalidateSize() }, 200)
     }
 
     return () => {

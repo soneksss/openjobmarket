@@ -66,6 +66,8 @@ export default function ManualTradeMap({
         iconSize: [36, 36], iconAnchor: [18, 36], className: "",
       })
       L.marker([lat, lon], { icon: jobIcon }).addTo(map).bindPopup("<b>Your job location</b>")
+
+      setTimeout(() => { mapRef.current?.invalidateSize() }, 200)
     }
 
     if (window.L) { init() } else {

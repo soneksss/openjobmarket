@@ -81,8 +81,6 @@ export async function POST(
     }
 
     revalidateTag(`jobs-user-${user.id}`)
-    // Notify tradesperson — fire and forget (pass conversationId so the link goes directly to the chat)
-    notifyTradespersonSelected(jobId, company_id, job as any, conversationId, admin).catch(console.error)
 
     return NextResponse.json({ success: true, conversationId })
 
@@ -92,49 +90,3 @@ export async function POST(
   }
 }
 
-function formatBudgetStr(min: number | null, max: number | null, period: string | null): string | null {
-  if (!min && !max) return null
-  const p = period === "hourly" ? "/hr" : period === "daily" ? "/day" : period === "weekly" ? "/wk" : ""
-  if (min && max && min !== max) return `£${min}–£${max}${p}`
-  if (min && max && min === max) return `£${min}${p}`
-  if (min) return `£${min}+${p}`
-  return `Up to £${max}${p}`
-}
-
-async function notifyTradespersonSelected(
-  jobId: string,
-  companyId: string,
-  job: { title: string; budget_min?: number | null; budget_max?: number | null; budget_period?: string | null; location?: string | null },
-  conversationId: string | null,
-  admin: ReturnType<typeof createAdminClient>
-) {
-  const [{ data: cp }, { data: appData }] = await Promise.all([
-    admin.from("company_profiles").select("user_id").eq("id", companyId).maybeSingle(),
-    admin.from("job_applications").select("id").eq("job_id", jobId).eq("company_id", companyId).maybeSingle(),
-  ])
-
-  if (!cp?.user_id) return
-
-  const budget  = formatBudgetStr(job.budget_min ?? null, job.budget_max ?? null, job.budget_period ?? null)
-  const jobUrl  = `/jobs/${jobId}`
-  const msgUrl  = conversationId ? `/messages/${conversationId}` : `/messages`
-
-  await admin.from("notifications").insert({
-    user_id:    cp.user_id,
-    type:       "job_accepted",
-    title:      job.title,
-    message:    "Review details and arrange a visit",
-    link_url:   jobUrl,
-    action_url: jobUrl,
-    is_read:    false,
-    data: {
-      job_id:          jobId,
-      job_title:       job.title,
-      budget:          budget,
-      location:        job.location ?? null,
-      conversation_id: conversationId,
-      message_url:     msgUrl,
-      application_id:  appData?.id ?? null,
-    },
-  })
-}

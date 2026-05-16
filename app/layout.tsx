@@ -140,9 +140,15 @@ export default async function RootLayout({
         <link rel="preconnect" href="https://unpkg.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://tile.openstreetmap.org" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
-        {/* Leaflet CSS is loaded on-demand by each map component via document.createElement("link")
-            with a window.__leafletCssLoaded guard — loading it globally here would preload it on
-            every page (including non-map pages) and trigger browser unused-preload warnings. */}
+        {/* Leaflet CSS — loaded globally so it is guaranteed to be applied before any map
+            component initialises. rel="stylesheet" is NOT a preload and does not trigger the
+            "preloaded but not used" warning; that warning only comes from rel="preload". */}
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossOrigin="anonymous"
+        />
         {/* Organization schema */}
         <script
           type="application/ld+json"

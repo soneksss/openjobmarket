@@ -15,7 +15,7 @@ import {
 import {
   Search, X, ChevronLeft, ChevronRight, Star, AlertTriangle,
   Ban, ShieldOff, Loader2, MoreHorizontal,
-  Users, Building2, Eye, RefreshCw, Copy, Wifi, WifiOff,
+  Users, Building2, Eye, RefreshCw, Copy, Wifi, WifiOff, Trash2, UserMinus,
 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -138,9 +138,10 @@ function Badge({ label, color }: { label: string; color: string }) {
 
 // ── Row action menu ───────────────────────────────────────────────────────────
 
-function RowMenu({ id, name, isBanned, onView, onBan, onUnban }: {
+function RowMenu({ id, name, isBanned, onView, onBan, onUnban, onDelete, onStripCompany }: {
   id: string; name: string; isBanned: boolean
-  onView: () => void; onBan: () => void; onUnban: () => void
+  onView: () => void; onBan: () => void; onUnban: () => void; onDelete: () => void
+  onStripCompany?: () => void
 }) {
   const { toast } = useToast()
   return (
@@ -155,7 +156,7 @@ function RowMenu({ id, name, isBanned, onView, onBan, onUnban }: {
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="bg-zinc-900 border border-zinc-700 text-zinc-100 w-44 z-50 shadow-xl"
+        className="bg-zinc-900 border border-zinc-700 text-zinc-100 w-48 z-50 shadow-xl"
         onClick={e => e.stopPropagation()}
       >
         <DropdownMenuItem onClick={onView} className="cursor-pointer text-zinc-200 focus:bg-zinc-800">
@@ -174,6 +175,18 @@ function RowMenu({ id, name, isBanned, onView, onBan, onUnban }: {
             <Ban className="w-3.5 h-3.5 mr-2" /> Ban user
           </DropdownMenuItem>
         )}
+        {onStripCompany && (
+          <>
+            <DropdownMenuSeparator className="bg-zinc-700" />
+            <DropdownMenuItem onClick={onStripCompany} className="cursor-pointer text-amber-400 focus:bg-amber-950/30">
+              <UserMinus className="w-3.5 h-3.5 mr-2" /> Remove company profile
+            </DropdownMenuItem>
+          </>
+        )}
+        <DropdownMenuSeparator className="bg-zinc-700" />
+        <DropdownMenuItem onClick={onDelete} className="cursor-pointer text-red-500 focus:bg-red-950/40">
+          <Trash2 className="w-3.5 h-3.5 mr-2" /> Delete user
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -237,6 +250,12 @@ export function AdminUserManagement() {
   const [banReason, setBanReason]   = useState("")
   const [banDuration, setBanDur]    = useState("permanent")
   const [banning, setBanning]       = useState(false)
+  const [deleteDialog, setDeleteDialog] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+  const [deleting, setDeleting]         = useState(false)
+  const [stripDialog, setStripDialog]   = useState(false)
+  const [stripTarget, setStripTarget]   = useState<{ id: string; name: string } | null>(null)
+  const [stripping, setStripping]       = useState(false)
 
   const { toast } = useToast()
   const supabase = createBrowserClient(
@@ -312,6 +331,45 @@ export function AdminUserManagement() {
     } catch {
       toast({ title: "Error", description: "Failed to unban user.", variant: "destructive" })
     }
+  }
+
+  const openDeleteDialog = (id: string, name: string) => {
+    setDeleteTarget({ id, name }); setDeleteDialog(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/users/${deleteTarget.id}`, { method: "DELETE" })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "Delete failed")
+      const unclaimed = json.unclaimedTrades > 0 ? " Seeded trade unclaimed." : ""
+      toast({ title: "User deleted", description: `${deleteTarget.name} has been permanently deleted.${unclaimed}` })
+      setDeleteDialog(false); setDeleteTarget(null); setDrawer(false)
+      await Promise.all([loadHomeowners(), loadTradespeople()])
+    } catch (err: any) {
+      toast({ title: "Delete failed", description: err.message ?? "Something went wrong.", variant: "destructive" })
+    } finally { setDeleting(false) }
+  }
+
+  const openStripDialog = (id: string, name: string) => {
+    setStripTarget({ id, name }); setStripDialog(true)
+  }
+
+  const confirmStrip = async () => {
+    if (!stripTarget) return
+    setStripping(true)
+    try {
+      const res = await fetch(`/api/admin/users/${stripTarget.id}/company-profile`, { method: "DELETE" })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "Strip failed")
+      toast({ title: "Company profile removed", description: `${stripTarget.name} is now homeowner-only. Seeded trade unclaimed.` })
+      setStripDialog(false); setStripTarget(null); setDrawer(false)
+      await Promise.all([loadHomeowners(), loadTradespeople()])
+    } catch (err: any) {
+      toast({ title: "Failed", description: err.message ?? "Something went wrong.", variant: "destructive" })
+    } finally { setStripping(false) }
   }
 
   const pages = (total: number) => Math.max(1, Math.ceil(total / 25))
@@ -484,6 +542,7 @@ export function AdminUserManagement() {
                       onView={() => { setSelected(h); setDrawer(true) }}
                       onBan={() => openBanDialog(h.id, h.full_name ?? h.email)}
                       onUnban={() => handleUnban(h.id, h.full_name ?? h.email)}
+                      onDelete={() => openDeleteDialog(h.id, h.full_name ?? h.email ?? h.id)}
                     />
                   </td>
                 </tr>
@@ -563,6 +622,8 @@ export function AdminUserManagement() {
                         onView={() => { setSelected(tp); setDrawer(true) }}
                         onBan={() => openBanDialog(tp.user_id, displayName)}
                         onUnban={() => handleUnban(tp.user_id, displayName)}
+                        onDelete={() => openDeleteDialog(tp.user_id, displayName ?? tp.email ?? tp.user_id)}
+                        onStripCompany={() => openStripDialog(tp.user_id, displayName ?? tp.email ?? tp.user_id)}
                       />
                     </td>
                   </tr>
@@ -584,12 +645,14 @@ export function AdminUserManagement() {
 
       {/* ── Detail drawer ──────────────────────────────────────────────────── */}
       <Sheet open={drawerOpen} onOpenChange={setDrawer}>
-        <SheetContent className="bg-zinc-950 border-l border-zinc-800 text-zinc-100 sm:max-w-[480px] overflow-y-auto p-0">
+        <SheetContent aria-describedby={undefined} className="bg-zinc-950 border-l border-zinc-800 text-zinc-100 sm:max-w-[480px] overflow-y-auto p-0">
           {selectedUser && (
             <DrawerContent
               user={selectedUser} tab={tab}
               onBan={(id, name) => { setDrawer(false); openBanDialog(id, name) }}
               onUnban={handleUnban}
+              onDelete={(id, name) => { setDrawer(false); openDeleteDialog(id, name) }}
+              onStripCompany={(id, name) => { setDrawer(false); openStripDialog(id, name) }}
             />
           )}
         </SheetContent>
@@ -644,6 +707,59 @@ export function AdminUserManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Delete dialog ──────────────────────────────────────────────── */}
+      <Dialog open={deleteDialog} onOpenChange={v => { if (!v) { setDeleteDialog(false); setDeleteTarget(null) } }}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle className="text-red-500 flex items-center gap-2">
+              <Trash2 className="w-4 h-4" /> Delete User Permanently
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              This will permanently delete{" "}
+              <span className="text-zinc-200 font-medium">{deleteTarget?.name}</span>{" "}
+              and all their data, including profiles, messages, jobs, and push tokens. Any claimed seeded business will be unclaimed. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialog(false)} disabled={deleting}
+              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 bg-transparent">
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Trash2 className="w-4 h-4 mr-1" />}
+              {deleting ? "Deleting…" : "Delete Permanently"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Strip company profile dialog ────────────────────────────────── */}
+      <Dialog open={stripDialog} onOpenChange={v => { if (!v) { setStripDialog(false); setStripTarget(null) } }}>
+        <DialogContent className="bg-zinc-950 border-zinc-800 text-zinc-100">
+          <DialogHeader>
+            <DialogTitle className="text-amber-400 flex items-center gap-2">
+              <UserMinus className="w-4 h-4" /> Remove Company Profile
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400">
+              This will remove the company profile for{" "}
+              <span className="text-zinc-200 font-medium">{stripTarget?.name}</span>{" "}
+              and unclaim any seeded business. Their homeowner account and auth login remain intact.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setStripDialog(false)} disabled={stripping}
+              className="border-zinc-700 text-zinc-300 hover:bg-zinc-800 bg-transparent">
+              Cancel
+            </Button>
+            <Button onClick={confirmStrip} disabled={stripping}
+              className="bg-amber-600 hover:bg-amber-500 text-white">
+              {stripping ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <UserMinus className="w-4 h-4 mr-1" />}
+              {stripping ? "Removing…" : "Remove Company Profile"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -680,11 +796,13 @@ function Pagination({ page, total, onChange }: { page: number; total: number; on
 
 // ── Drawer detail panel ───────────────────────────────────────────────────────
 
-function DrawerContent({ user, tab, onBan, onUnban }: {
+function DrawerContent({ user, tab, onBan, onUnban, onDelete, onStripCompany }: {
   user: Homeowner | Tradesperson
   tab: "homeowners" | "tradespeople"
   onBan: (id: string, name: string) => void
   onUnban: (id: string, name: string) => Promise<void>
+  onDelete: (id: string, name: string) => void
+  onStripCompany?: (id: string, name: string) => void
 }) {
   const isHo   = tab === "homeowners"
   const ho     = user as Homeowner
@@ -819,6 +937,16 @@ function DrawerContent({ user, tab, onBan, onUnban }: {
               <Ban className="w-4 h-4 mr-2" /> Ban User
             </Button>
           )}
+          {!isHo && onStripCompany && (
+            <Button variant="outline" onClick={() => onStripCompany(id, name ?? id)}
+              className="border-amber-800/50 text-amber-400 hover:bg-amber-950/40 bg-transparent">
+              <UserMinus className="w-4 h-4 mr-2" /> Remove Company Profile
+            </Button>
+          )}
+          <Button variant="outline" onClick={() => onDelete(id, name ?? id)}
+            className="border-red-900/60 text-red-600 hover:bg-red-950/40 hover:text-red-500 bg-transparent">
+            <Trash2 className="w-4 h-4 mr-2" /> Delete User Permanently
+          </Button>
         </div>
       </div>
     </>

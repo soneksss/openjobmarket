@@ -1107,6 +1107,13 @@ export default function ConversationPage() {
                 </div>
                 <div className="flex-shrink-0">{getJobStatusBadge()}</div>
               </div>
+              {/* Selected banner — shown to tradesperson when they're confirmed for this job */}
+              {senderRole === 'company' && jobContext.status === 'CONFIRMED' && (
+                <div className="flex items-center gap-1 mt-1 pl-5">
+                  <CheckCircle className="h-2.5 w-2.5 text-emerald-400 flex-shrink-0" />
+                  <span className="text-[10px] font-semibold text-emerald-400">You're selected for this job</span>
+                </div>
+              )}
               {/* Row 2: meta info + action button */}
               <div className="flex items-center justify-between gap-2 mt-1 pl-5">
                 <div className="flex items-center gap-1 text-[10px] text-slate-500 flex-wrap leading-none">
