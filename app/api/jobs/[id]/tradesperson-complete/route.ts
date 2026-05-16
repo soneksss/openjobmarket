@@ -57,14 +57,27 @@ export async function POST(
       return NextResponse.json({ error: "Job cannot be marked as completed in current status" }, { status: 422 })
     }
 
-    // Mark job as completed
+    // The DB state machine always allows ACTIVE → COMPLETED.
+    // CONFIRMED → COMPLETED was added later and may not be applied everywhere.
+    // Use a two-step transition so this works under either version of the state machine.
+    if (job.status === "CONFIRMED") {
+      const { error: activeErr } = await admin
+        .from("jobs")
+        .update({ status: "ACTIVE" })
+        .eq("id", jobId)
+      if (activeErr) {
+        console.error("[TRADESPERSON-COMPLETE] CONFIRMED→ACTIVE error:", activeErr.message)
+        return NextResponse.json({ error: activeErr.message }, { status: 422 })
+      }
+    }
+
     const { error: updateError } = await admin
       .from("jobs")
       .update({ status: "COMPLETED", completed_at: new Date().toISOString() })
       .eq("id", jobId)
 
     if (updateError) {
-      console.error("[TRADESPERSON-COMPLETE] Update error:", updateError.message)
+      console.error("[TRADESPERSON-COMPLETE] ACTIVE→COMPLETED error:", updateError.message)
       return NextResponse.json({ error: updateError.message }, { status: 422 })
     }
 
