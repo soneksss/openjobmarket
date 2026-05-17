@@ -91,11 +91,14 @@ export async function POST(
       const jobLon = (job as any)?.longitude as number | null | undefined
       const jobCategory = ((job as any)?.category || (job as any)?.title || "").toLowerCase()
 
+      // Use urgent_notifications_enabled + expiry — the canonical source of truth.
+      // Legacy open_for_business + trade_job_notifications intentionally NOT used here.
+      const now = new Date().toISOString()
       const { data: allCandidates } = await admin
         .from("company_profiles")
         .select("id, industry, services, latitude, longitude")
-        .eq("open_for_business", true)
-        .eq("trade_job_notifications", true)
+        .eq("urgent_notifications_enabled", true)
+        .gt("urgent_notifications_expires_at", now)
         .limit(200)
 
       if (allCandidates && allCandidates.length > 0) {

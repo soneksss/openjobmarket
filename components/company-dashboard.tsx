@@ -41,6 +41,7 @@ import {
   Globe,
   Star,
   Info,
+  Zap,
   X,
   ChevronDown,
   ChevronRight,
@@ -105,6 +106,9 @@ interface CompanyProfile {
   trade_job_notifications?: boolean
   trade_job_notifications_distance?: number
   flexible_job_notifications?: boolean
+  urgent_notifications_enabled?: boolean
+  urgent_notifications_expires_at?: string | null
+  flexible_notifications_enabled?: boolean
 }
 
 interface Job {
@@ -229,10 +233,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [updatingVisibility, setUpdatingVisibility] = useState(false)
   const [hiring, setHiring] = useState(profile.is_hiring ?? false)
   const [updatingHiringStatus, setUpdatingHiringStatus] = useState(false)
-  // Single "Job Notifications" toggle — true if either alert type was previously enabled
-  const [jobAlertsEnabled, setJobAlertsEnabled] = useState(
-    (profile.trade_job_notifications ?? true) || (profile.flexible_job_notifications ?? true)
-  )
+  // Urgent jobs: available for 24h active window
+  const [urgentEnabled, setUrgentEnabled] = useState(profile.urgent_notifications_enabled ?? false)
+  const [updatingUrgent, setUpdatingUrgent] = useState(false)
+  // Flexible jobs: always-optional notifications
+  const [flexibleEnabled, setFlexibleEnabled] = useState(profile.flexible_notifications_enabled ?? true)
+  const [updatingFlexible, setUpdatingFlexible] = useState(false)
   const [tradeNotificationDistance, setTradeNotificationDistance] = useState<number>(
     profile.trade_job_notifications_distance ?? 10
   )
@@ -241,7 +247,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     profile.trade_job_notifications_distance ?? 10
   )
   const [updatingDistance, setUpdatingDistance] = useState(false)
-  const [updatingJobAlerts, setUpdatingJobAlerts] = useState(false)
   const [showReviewsModal, setShowReviewsModal] = useState(false)
   const [isApplicationsExpanded, setIsApplicationsExpanded] = useState(false)
   const [myJobsTab, setMyJobsTab] = useState<"active" | "history">("active")
@@ -964,30 +969,59 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     }
   }
 
-  const handleJobAlertsToggle = async (enabled: boolean) => {
-    setJobAlertsEnabled(enabled)
-    setUpdatingJobAlerts(true)
+  const handleUrgentToggle = async (enabled: boolean) => {
+    setUrgentEnabled(enabled)
+    setUpdatingUrgent(true)
+    const expiresAt = enabled ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
     try {
       const supabase = createClient()
       const { error } = await supabase
         .from("company_profiles")
         .update({
-          trade_job_notifications:     enabled,
-          flexible_job_notifications:  enabled,
+          urgent_notifications_enabled:    enabled,
+          urgent_notifications_expires_at: expiresAt,
+          open_for_business:               enabled,
+          availability_expires_at:         expiresAt,
         })
         .eq("id", profile.id)
 
       if (error) {
-        setJobAlertsEnabled(!enabled)
+        setUrgentEnabled(!enabled)
         toast({ title: "Update Failed", description: error.message, variant: "destructive", duration: 5000 })
       } else if (enabled) {
-        toast({ title: "Job Notifications On", description: `You'll be notified of jobs within ${tradeNotificationDistance} miles.`, duration: 3000 })
+        toast({ title: "Available for urgent jobs", description: "You'll receive urgent job alerts for the next 24 hours.", duration: 3000 })
       }
     } catch {
-      setJobAlertsEnabled(!enabled)
+      setUrgentEnabled(!enabled)
       toast({ title: "Update Failed", description: "Please try again.", variant: "destructive", duration: 5000 })
     } finally {
-      setUpdatingJobAlerts(false)
+      setUpdatingUrgent(false)
+    }
+  }
+
+  const handleFlexibleToggle = async (enabled: boolean) => {
+    setFlexibleEnabled(enabled)
+    setUpdatingFlexible(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from("company_profiles")
+        .update({
+          flexible_notifications_enabled: enabled,
+          trade_job_notifications:        enabled,
+          flexible_job_notifications:     enabled,
+        })
+        .eq("id", profile.id)
+
+      if (error) {
+        setFlexibleEnabled(!enabled)
+        toast({ title: "Update Failed", description: error.message, variant: "destructive", duration: 5000 })
+      }
+    } catch {
+      setFlexibleEnabled(!enabled)
+      toast({ title: "Update Failed", description: "Please try again.", variant: "destructive", duration: 5000 })
+    } finally {
+      setUpdatingFlexible(false)
     }
   }
 
@@ -1156,36 +1190,58 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               </div>
               <Switch checked={profileVisible} onCheckedChange={handleVisibilityToggle} disabled={updatingVisibility} className="data-[state=checked]:bg-emerald-500" />
             </div>
-            <div className="bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
+            {/* Job Notifications — unified card */}
+            <div className="bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30 space-y-2.5">
+              {/* Flexible toggle */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Bell className={`h-4 w-4 ${jobAlertsEnabled ? 'text-purple-400' : 'text-slate-500'}`} />
+                  <Bell className={`h-4 w-4 ${flexibleEnabled ? 'text-purple-400' : 'text-slate-500'}`} />
                   <div>
-                    <p className="text-sm font-medium">{jobAlertsEnabled ? 'Job Notifications On' : 'Job Notifications Off'}</p>
-                    <p className="text-[10px] text-slate-400">{jobAlertsEnabled ? `Alerts within ${tradeNotificationDistance} miles` : 'Notifications paused'}</p>
+                    <p className="text-sm font-medium">{flexibleEnabled ? 'Job alerts on' : 'Job alerts off'}</p>
+                    <p className="text-[10px] text-slate-400">Flexible job notifications</p>
                   </div>
                 </div>
-                <Switch checked={jobAlertsEnabled} onCheckedChange={handleJobAlertsToggle} disabled={updatingJobAlerts} className="data-[state=checked]:bg-purple-500" />
+                <Switch checked={flexibleEnabled} onCheckedChange={handleFlexibleToggle} disabled={updatingFlexible} className="data-[state=checked]:bg-purple-500" />
               </div>
-              {jobAlertsEnabled && (
-                <div className="mt-2 pt-2 border-t border-purple-500/20">
-                  <div className={`space-y-1 ${updatingDistance ? 'opacity-50 pointer-events-none' : ''}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400">Notification distance</span>
-                      <span className="text-[10px] font-semibold text-purple-300">{sliderValue} miles</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={20}
-                      step={1}
-                      value={sliderValue}
-                      onChange={e => setSliderValue(Number(e.target.value))}
-                      onMouseUp={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
-                      onTouchEnd={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
-                      className="w-full h-1.5 rounded-full accent-purple-500 cursor-pointer"
-                    />
+
+              {/* Distance slider — applies to both flexible and urgent */}
+              <div className={`space-y-1 ${updatingDistance ? 'opacity-50 pointer-events-none' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-slate-400">Notification distance (flexible &amp; urgent)</span>
+                  <span className="text-[10px] font-semibold text-purple-300">{sliderValue} miles</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={20}
+                  step={1}
+                  value={sliderValue}
+                  onChange={e => setSliderValue(Number(e.target.value))}
+                  onMouseUp={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
+                  onTouchEnd={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
+                  className="w-full h-1.5 rounded-full accent-purple-500 cursor-pointer"
+                />
+              </div>
+
+              <div className="border-t border-slate-600/50" />
+
+              {/* Urgent toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className={`h-4 w-4 ${urgentEnabled ? 'text-amber-400' : 'text-slate-500'}`} />
+                  <div>
+                    <p className="text-sm font-medium">{urgentEnabled ? 'Available for urgent jobs' : 'Urgent jobs off'}</p>
+                    <p className="text-[10px] text-slate-400">Turn on when ready to work now</p>
                   </div>
+                </div>
+                <Switch checked={urgentEnabled} onCheckedChange={handleUrgentToggle} disabled={updatingUrgent} className="data-[state=checked]:bg-amber-500" />
+              </div>
+              {urgentEnabled && (
+                <div className="flex items-start gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-2">
+                  <Clock className="h-3 w-3 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-amber-300 leading-snug">
+                    Auto-expires after 24 hours. You'll get a push notification to re-confirm — so homeowners always know who's genuinely available right now.
+                  </p>
                 </div>
               )}
             </div>
@@ -1399,66 +1455,58 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     <Switch checked={profileVisible} onCheckedChange={handleVisibilityToggle} disabled={updatingVisibility} className="data-[state=checked]:bg-emerald-500" />
                   </div>
 
-                  {/* Job Notifications */}
-                  <div className="bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30">
+                  {/* Job Notifications — unified card */}
+                  <div className="bg-slate-700/50 rounded-xl px-3 py-2.5 border border-purple-500/30 space-y-2.5">
+                    {/* Flexible toggle */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Bell className={`h-4 w-4 ${jobAlertsEnabled ? 'text-purple-400' : 'text-slate-500'}`} />
+                        <Bell className={`h-4 w-4 ${flexibleEnabled ? 'text-purple-400' : 'text-slate-500'}`} />
                         <div>
-                          <p className="text-sm font-medium text-white">
-                            {jobAlertsEnabled ? 'Job Notifications On' : 'Job Notifications Off'}
-                          </p>
-                          <p className="text-[10px] text-slate-400">
-                            {jobAlertsEnabled ? `Alerts within ${tradeNotificationDistance} miles` : 'Notifications paused'}
-                          </p>
+                          <p className="text-sm font-medium text-white">{flexibleEnabled ? 'Job alerts on' : 'Job alerts off'}</p>
+                          <p className="text-[10px] text-slate-400">Flexible job notifications</p>
                         </div>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button className="ml-1 text-slate-500 hover:text-slate-300 transition-colors">
-                              <Info className="h-3.5 w-3.5" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent side="top" className="w-72 bg-slate-800 border-slate-700 text-white">
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Bell className="h-4 w-4 text-purple-400" />
-                                <p className="text-sm font-semibold">Job Notifications</p>
-                              </div>
-                              <p className="text-xs text-slate-300">
-                                When a new job matching your trade is posted nearby, you receive an instant push notification to apply.
-                              </p>
-                              <div className="text-xs border-t border-slate-700 pt-2 mt-2 bg-purple-500/10 p-2 rounded">
-                                <ul className="space-y-0.5 text-purple-200">
-                                  <li>• Jobs matching your industry</li>
-                                  <li>• Within {tradeNotificationDistance} miles of you</li>
-                                  <li>• Instant push notification</li>
-                                </ul>
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
                       </div>
-                      <Switch checked={jobAlertsEnabled} onCheckedChange={handleJobAlertsToggle} disabled={updatingJobAlerts} className="data-[state=checked]:bg-purple-500" />
+                      <Switch checked={flexibleEnabled} onCheckedChange={handleFlexibleToggle} disabled={updatingFlexible} className="data-[state=checked]:bg-purple-500" />
                     </div>
-                    {jobAlertsEnabled && (
-                      <div className="mt-2 pt-2 border-t border-purple-500/20">
-                        <div className={`space-y-1 ${updatingDistance ? 'opacity-50 pointer-events-none' : ''}`}>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-slate-400">Notification distance</span>
-                            <span className="text-[10px] font-semibold text-purple-300">{sliderValue} miles</span>
-                          </div>
-                          <input
-                            type="range"
-                            min={1}
-                            max={20}
-                            step={1}
-                            value={sliderValue}
-                            onChange={e => setSliderValue(Number(e.target.value))}
-                            onMouseUp={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
-                            onTouchEnd={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
-                            className="w-full h-1.5 rounded-full accent-purple-500 cursor-pointer"
-                          />
+
+                    {/* Distance slider — applies to both flexible and urgent */}
+                    <div className={`space-y-1 ${updatingDistance ? 'opacity-50 pointer-events-none' : ''}`}>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400">Notification distance (flexible &amp; urgent)</span>
+                        <span className="text-[10px] font-semibold text-purple-300">{sliderValue} miles</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={20}
+                        step={1}
+                        value={sliderValue}
+                        onChange={e => setSliderValue(Number(e.target.value))}
+                        onMouseUp={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
+                        onTouchEnd={e => handleDistanceCommit(Number((e.target as HTMLInputElement).value))}
+                        className="w-full h-1.5 rounded-full accent-purple-500 cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="border-t border-slate-600/50" />
+
+                    {/* Urgent toggle */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Zap className={`h-4 w-4 ${urgentEnabled ? 'text-amber-400' : 'text-slate-500'}`} />
+                        <div>
+                          <p className="text-sm font-medium text-white">{urgentEnabled ? 'Available for urgent jobs' : 'Urgent jobs off'}</p>
+                          <p className="text-[10px] text-slate-400">Turn on when ready to work now</p>
                         </div>
+                      </div>
+                      <Switch checked={urgentEnabled} onCheckedChange={handleUrgentToggle} disabled={updatingUrgent} className="data-[state=checked]:bg-amber-500" />
+                    </div>
+                    {urgentEnabled && (
+                      <div className="flex items-start gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-2">
+                        <Clock className="h-3 w-3 text-amber-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-[10px] text-amber-300 leading-snug">
+                          Auto-expires after 24 hours. You'll get a push notification to re-confirm — so homeowners always know who's genuinely available right now.
+                        </p>
                       </div>
                     )}
                   </div>

@@ -102,7 +102,7 @@ function FreeAccessPage() {
               "No lead fees",
               "No commission on jobs",
               "Tradespeople keep 100% of the job value",
-              "Optional low monthly subscription may apply later",
+              "Always free to use",
             ].map((item) => (
               <div key={item} className="flex items-center gap-3">
                 <div className="w-5 h-5 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center flex-shrink-0">
@@ -114,17 +114,6 @@ function FreeAccessPage() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Future pricing notice */}
-      <Card className="bg-slate-800/30 border-slate-700/30 rounded-2xl">
-        <CardContent className="pt-4 pb-4">
-          <p className="text-xs text-slate-400 leading-relaxed">
-            <span className="text-slate-300 font-medium">Future pricing: </span>
-            A small subscription (around £10/month) may be introduced in the future, but only
-            after the platform brings consistent work to tradespeople.
-          </p>
-        </CardContent>
-      </Card>
 
       {/* CTAs */}
       <div className="flex flex-col sm:flex-row gap-3">

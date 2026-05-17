@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
         last_availability_confirmed_at: now,
         availability_expires_at: expiresAt,
         availability_last_updated_at: now,
+        urgent_notifications_enabled: true,
+        urgent_notifications_expires_at: expiresAt,
       })
       .eq("user_id", user.id)
 

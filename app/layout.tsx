@@ -14,6 +14,7 @@ import { cookies } from "next/headers"
 import { type Locale } from "@/lib/i18n/config"
 import CapacitorInitWrapper from "@/components/capacitor-init-wrapper"
 import { TradesLocationSync } from "@/components/trades-location-sync"
+import { IOSInstallBanner } from "@/components/ios-install-banner"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.openjobmarket.com"),
@@ -133,6 +134,13 @@ export default async function RootLayout({
     <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased dark`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        {/* PWA manifest */}
+        <link rel="manifest" href="/manifest.json" />
+        {/* iOS PWA meta tags — enables "Add to Home Screen" full-screen mode */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="OpenJobMarket" />
+        <link rel="apple-touch-icon" href="/Favicon/apple-touch-icon.png" />
         {/* Preconnect to Supabase (profile images, storage) */}
         <link rel="preconnect" href="https://mklxzrvhanlndkyeteog.supabase.co" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://mklxzrvhanlndkyeteog.supabase.co" />
@@ -187,7 +195,7 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className="font-sans min-h-screen flex flex-col bg-slate-900"
+        className="font-sans min-h-screen flex flex-col bg-slate-900 pb-safe"
         suppressHydrationWarning
       >
         {/* Thin top progress bar on every navigation — industry standard (GitHub / Vercel style) */}
@@ -217,6 +225,8 @@ export default async function RootLayout({
         <CapacitorInitWrapper />
         {/* Silently sync tradesperson lat/lng on every page load (web) */}
         <TradesLocationSync />
+        {/* iOS Safari "Add to Home Screen" install prompt */}
+        <IOSInstallBanner />
       </body>
     </html>
   )

@@ -124,7 +124,7 @@ export default async function AboutPage() {
                 {[
                   "Instant map discovery of local tradespeople",
                   "Direct messaging — no spam calls",
-                  "No lead selling — fairer pricing",
+                  "No lead selling — completely free",
                   "Fast responses for urgent jobs",
                 ].map((p) => (
                   <li key={p} className="flex items-start gap-2 text-sm text-slate-300">
@@ -198,7 +198,7 @@ export default async function AboutPage() {
                 </li>
               ))}
             </ul>
-            <p className="px-4 pb-4 text-xs text-slate-400">Tradespeople pay a small subscription — no lead buying required.</p>
+            <p className="px-4 pb-4 text-xs text-emerald-400 font-semibold">Completely free for tradespeople.</p>
           </div>
         </section>
 

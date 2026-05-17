@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import { CheckCircle2 } from "lucide-react"
 
 interface Props {
@@ -14,7 +13,6 @@ export function MarkJobCompleteButton({ jobId, jobTitle, redirectAfter = "/dashb
   const [loading, setLoading] = useState(false)
   const [confirmed, setConfirmed] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const router = useRouter()
 
   async function handleClick() {
     if (!confirmed) {
@@ -30,16 +28,14 @@ export function MarkJobCompleteButton({ jobId, jobTitle, redirectAfter = "/dashb
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         if (body.error === "already_completed") {
-          router.refresh()
-          router.push(redirectAfter)
+          window.location.href = redirectAfter
           return
         }
         setConfirmed(false)
         setErrorMsg(body.error ?? "Failed to mark complete. Please try again.")
         return
       }
-      router.refresh()
-      router.push(redirectAfter)
+      window.location.href = redirectAfter
     } catch {
       setConfirmed(false)
       setErrorMsg("Network error. Please try again.")

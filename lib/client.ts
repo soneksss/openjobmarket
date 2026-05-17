@@ -22,10 +22,16 @@ export function createClient() {
     }
   )
 
-  // Clear corrupt sessions — stale refresh token triggers this event
+  // Clear corrupt sessions — stale refresh token triggers this event.
+  // Sign out then redirect to login so the user gets a clean session
+  // rather than a broken authenticated state.
   _client.auth.onAuthStateChange((event) => {
     if (event === 'TOKEN_REFRESH_FAILED') {
-      _client!.auth.signOut().catch(() => {})
+      _client!.auth.signOut().catch(() => {}).finally(() => {
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
+          window.location.href = '/auth/login?reason=session_expired'
+        }
+      })
     }
   })
 

@@ -181,21 +181,41 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
 
   const [showAllJobs, setShowAllJobs] = useState(false)
   const categoryScrollRef = useRef<HTMLDivElement>(null)
-  // Track the *intended* scroll target independently of the animated scrollLeft.
-  // scrollBy() reads scrollLeft mid-animation and produces wrong results on rapid
-  // clicks. scrollTo(target) always aims at the right position regardless of where
-  // the smooth-scroll animation currently is.
   const categoryScrollTarget = useRef(0)
   const scrollCategories = (dir: "left" | "right") => {
     const el = categoryScrollRef.current
     if (!el) return
-    const step = 300 // ≈ 2 card columns (144px card + 8px gap = 152px × 2)
+    // Scroll one full visible page per click — feels instant on desktop
+    const step = el.clientWidth
     const maxScroll = el.scrollWidth - el.clientWidth
     categoryScrollTarget.current = Math.max(
       0,
       Math.min(categoryScrollTarget.current + (dir === "right" ? step : -step), maxScroll)
     )
     el.scrollTo({ left: categoryScrollTarget.current, behavior: "smooth" })
+  }
+
+  // Mouse-drag scroll for desktop
+  const catDragRef = useRef({ dragging: false, startX: 0, startScroll: 0 })
+  const onCatMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = categoryScrollRef.current
+    if (!el) return
+    catDragRef.current = { dragging: true, startX: e.clientX, startScroll: el.scrollLeft }
+    el.style.cursor = "grabbing"
+    el.style.userSelect = "none"
+  }
+  const onCatMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!catDragRef.current.dragging) return
+    const el = categoryScrollRef.current
+    if (!el) return
+    const dx = e.clientX - catDragRef.current.startX
+    el.scrollLeft = catDragRef.current.startScroll - dx
+    categoryScrollTarget.current = el.scrollLeft
+  }
+  const onCatMouseUp = () => {
+    catDragRef.current.dragging = false
+    const el = categoryScrollRef.current
+    if (el) { el.style.cursor = "grab"; el.style.userSelect = "" }
   }
 
   // Map Picker state
@@ -216,9 +236,9 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
   const languageInputRef = useRef<HTMLInputElement>(null)
   const [jobType, setJobType] = useState<"trade_jobs" | "vacancies">("trade_jobs")
 
-  // Availability toggle for tradespeople (business = company in simple mode; also legacy professional/contractor)
+  // Urgent availability toggle for tradespeople (mirrors dashboard urgent toggle)
   const isTradesPerson = userType === "company" || userType === "professional" || userType === "contractor"
-  const [availableForWork, setAvailableForWork] = useState(true)
+  const [urgentEnabled, setUrgentEnabled] = useState(false)
   const [isTogglingAvailability, setIsTogglingAvailability] = useState(false)
 
   // User profile location — initialised from server prop (no async race condition)
@@ -228,55 +248,48 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
     longitude: number
   } | null>(serverProfileLocation ?? null)
 
-  // Fetch availability for tradespeople
+  // Fetch urgent availability state for tradespeople
   useEffect(() => {
-    if (!isSignedIn || !user?.id || !isTradesPerson) return
-    const fetchAvailability = async () => {
+    if (!isSignedIn || !user?.id || userType !== "company") return
+    const fetchUrgent = async () => {
       try {
-        if (userType === "company") {
-          const { data } = await supabase
-            .from("company_profiles")
-            .select("trade_job_notifications")
-            .eq("user_id", user.id)
-            .maybeSingle()
-          if (data) setAvailableForWork(data.trade_job_notifications ?? true)
-        } else {
-          const { data } = await supabase
-            .from("professional_profiles")
-            .select("available_for_work")
-            .eq("user_id", user.id)
-            .maybeSingle()
-          if (data) setAvailableForWork(data.available_for_work ?? true)
+        const { data } = await supabase
+          .from("company_profiles")
+          .select("urgent_notifications_enabled, urgent_notifications_expires_at")
+          .eq("user_id", user.id)
+          .maybeSingle()
+        if (data) {
+          const stillActive =
+            data.urgent_notifications_enabled &&
+            data.urgent_notifications_expires_at &&
+            new Date(data.urgent_notifications_expires_at) > new Date()
+          setUrgentEnabled(stillActive ?? false)
         }
       } catch {}
     }
-    fetchAvailability()
-  }, [isSignedIn, user?.id, isTradesPerson, userType, supabase])
+    fetchUrgent()
+  }, [isSignedIn, user?.id, userType, supabase])
 
   const handleToggleAvailability = async (newValue: boolean) => {
-    if (!user?.id || isTogglingAvailability) return
+    if (!user?.id || isTogglingAvailability || userType !== "company") return
     setIsTogglingAvailability(true)
-    setAvailableForWork(newValue)
+    setUrgentEnabled(newValue)
     try {
-      if (userType === "company") {
-        const { error } = await supabase
-          .from("company_profiles")
-          .update({
-            trade_job_notifications: newValue,
-            flexible_job_notifications: newValue,
-            availability_last_updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", user.id)
-        if (error) setAvailableForWork(!newValue)
-      } else {
-        const { error } = await supabase
-          .from("professional_profiles")
-          .update({ available_for_work: newValue })
-          .eq("user_id", user.id)
-        if (error) setAvailableForWork(!newValue)
-      }
+      const expiresAt = newValue
+        ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+        : null
+      const { error } = await supabase
+        .from("company_profiles")
+        .update({
+          urgent_notifications_enabled: newValue,
+          urgent_notifications_expires_at: expiresAt,
+          open_for_business: newValue,
+          availability_expires_at: expiresAt,
+        })
+        .eq("user_id", user.id)
+      if (error) setUrgentEnabled(!newValue)
     } catch {
-      setAvailableForWork(!newValue)
+      setUrgentEnabled(!newValue)
     }
     setIsTogglingAvailability(false)
   }
@@ -606,30 +619,25 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
         </div>
       </div>}
 
-      {/* Job Notifications toggle — tradespeople tab, signed-in business only */}
-      {activeTab === "jobs" && isSignedIn && isTradesPerson && (
-        <div className="flex justify-center py-3 border-b border-slate-700/30">
-          <div className={`flex items-center gap-3 px-5 py-2.5 rounded-full border transition-all duration-300 ${
-            availableForWork
-              ? "border-emerald-500/40 bg-emerald-500/10 shadow-[0_0_18px_rgba(16,185,129,0.28)]"
+      {/* Urgent availability toggle — jobs tab, signed-in tradesperson only */}
+      {activeTab === "jobs" && isSignedIn && userType === "company" && (
+        <div className="flex justify-center py-1.5 border-b border-slate-700/30">
+          <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all duration-300 ${
+            urgentEnabled
+              ? "border-amber-500/40 bg-amber-500/10 shadow-[0_0_12px_rgba(245,158,11,0.2)]"
               : "border-slate-600/40 bg-slate-800/50"
           }`}>
-            <div className="flex items-center gap-2">
-              <Bell className={`h-4 w-4 flex-shrink-0 ${availableForWork ? "text-emerald-400" : "text-slate-500"}`} />
-              <div>
-                <p className={`text-sm font-bold tracking-wide leading-tight ${availableForWork ? "text-white" : "text-slate-400"}`}>
-                  {availableForWork ? "Job Notifications On" : "Job Notifications Off"}
-                </p>
-                <p className="text-[10px] text-slate-400 leading-tight">
-                  {availableForWork ? "You'll receive nearby job alerts" : "Job alerts paused"}
-                </p>
-              </div>
+            <div className="flex items-center gap-1.5">
+              <Zap className={`h-3 w-3 flex-shrink-0 ${urgentEnabled ? "text-amber-400" : "text-slate-500"}`} />
+              <p className={`text-xs font-semibold leading-tight ${urgentEnabled ? "text-white" : "text-slate-400"}`}>
+                {urgentEnabled ? "Available for urgent jobs" : "Urgent jobs off"}
+              </p>
             </div>
             <Switch
-              checked={availableForWork}
+              checked={urgentEnabled}
               onCheckedChange={handleToggleAvailability}
               disabled={isTogglingAvailability}
-              className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-600"
+              className="data-[state=checked]:bg-amber-500 data-[state=unchecked]:bg-slate-600 scale-75 origin-right"
             />
             <Popover>
               <PopoverTrigger asChild>
@@ -643,19 +651,15 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               <PopoverContent side="top" align="center" className="w-72 bg-slate-800 border-slate-700 text-white">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-emerald-400" />
-                    <p className="text-sm font-semibold">Job Notifications</p>
+                    <Zap className="h-4 w-4 text-amber-400" />
+                    <p className="text-sm font-semibold">Available for Urgent Jobs</p>
                   </div>
                   <p className="text-xs text-slate-300">
-                    When a nearby job matching your trade is posted, you receive an instant push notification to accept or skip.
+                    Turn this on when you're ready to work right now. Homeowners with urgent jobs will see you as available and can send you an instant request.
                   </p>
-                  <div className="text-xs border-t border-slate-700 pt-2 mt-2 bg-emerald-500/10 p-2 rounded">
-                    <p className="font-medium text-emerald-300">What triggers a notification:</p>
-                    <ul className="list-disc list-inside mt-1 space-y-0.5 text-emerald-200">
-                      <li>Jobs matching your trade</li>
-                      <li>Within your set distance</li>
-                      <li>Instant push notification</li>
-                    </ul>
+                  <div className="text-xs border-t border-slate-700 pt-2 mt-2 bg-amber-500/10 p-2 rounded">
+                    <p className="font-medium text-amber-300">Auto-expires after 24 hours</p>
+                    <p className="mt-1 text-amber-200">You'll receive a push notification to re-confirm when it expires.</p>
                   </div>
                 </div>
               </PopoverContent>
@@ -697,8 +701,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               <h1 className="font-bold text-center mb-4">
                 {activeTab === "jobs" ? (
                   <>
-                    <span className="text-orange-400 block" style={{ fontSize: '32px', lineHeight: '1.15' }}>Get real local jobs.</span>
-                    <span className="text-white block" style={{ fontSize: '32px', lineHeight: '1.15' }}>No lead fees.</span>
+                    <span className="text-orange-400 block" style={{ fontSize: '32px', lineHeight: '1.15' }}>Browse jobs</span>
                   </>
                 ) : null}
               </h1>
@@ -985,11 +988,11 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   <div
                     ref={categoryScrollRef}
                     className="grid grid-rows-2 grid-flow-col gap-2 overflow-x-auto px-9 pb-1"
-                    style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                    onScroll={(e) => {
-                      // Keep target in sync after manual swipe/trackpad scroll
-                      categoryScrollTarget.current = (e.currentTarget as HTMLDivElement).scrollLeft
-                    }}
+                    style={{ scrollbarWidth: "none", msOverflowStyle: "none", cursor: "grab" }}
+                    onMouseDown={onCatMouseDown}
+                    onMouseMove={onCatMouseMove}
+                    onMouseUp={onCatMouseUp}
+                    onMouseLeave={onCatMouseUp}
                   >
                     {helpItems.map((item) => (
                       <button
@@ -1346,15 +1349,15 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                 <div className="flex-1 min-w-0">
                   <div className="inline-flex items-center gap-2 bg-emerald-500/15 border border-emerald-500/30 rounded-full px-3 py-1 mb-3">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/60" />
-                    <span className="text-emerald-300 text-sm font-bold tracking-wide uppercase">No Subscription required for 6 Months</span>
+                    <span className="text-emerald-300 text-sm font-bold tracking-wide uppercase">Completely Free</span>
                   </div>
 
                   <p className="text-white font-bold leading-tight" style={{ fontSize: 20 }}>
-                    Then just <span className="text-emerald-400">£10<span className="text-base font-semibold">/month</span></span> — no lead fees
+                    No lead fees. No subscription. <span className="text-emerald-400">100% free</span> for tradespeople.
                   </p>
 
                   <div className="flex items-center gap-3 mt-2.5 flex-wrap">
-                    {["Cancel anytime", "No contracts", "No hidden fees"].map((item) => (
+                    {["No contracts", "No hidden fees", "Keep 100% of earnings"].map((item) => (
                       <span key={item} className="flex items-center gap-1 text-xs text-slate-400">
                         <CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" />
                         {item}

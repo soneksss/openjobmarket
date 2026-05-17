@@ -17,10 +17,12 @@ export async function POST(request: NextRequest) {
     const { error } = await admin
       .from("company_profiles")
       .update({
-        open_for_business:           false,
-        availability_expires_at:     null,
-        last_availability_prompt_at: new Date().toISOString(),
-        availability_last_updated_at: new Date().toISOString(),
+        open_for_business:               false,
+        availability_expires_at:         null,
+        last_availability_prompt_at:     new Date().toISOString(),
+        availability_last_updated_at:    new Date().toISOString(),
+        urgent_notifications_enabled:    false,
+        urgent_notifications_expires_at: null,
       })
       .eq("user_id", user.id)
 
