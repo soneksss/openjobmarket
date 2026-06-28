@@ -401,8 +401,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   }
 
   const distanceMi = (lat: number, lon: number) => {
-    const R = 3959, dLat = (lat - initialCoords[0]) * Math.PI/180, dLon = (lon - initialCoords[1]) * Math.PI/180
-    const a = Math.sin(dLat/2)**2 + Math.cos(initialCoords[0]*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)**2
+    const originLat = flyTarget?.lat ?? initialCoords[0]
+    const originLng = flyTarget?.lng ?? initialCoords[1]
+    const R = 3959, dLat = (lat - originLat) * Math.PI/180, dLon = (lon - originLng) * Math.PI/180
+    const a = Math.sin(dLat/2)**2 + Math.cos(originLat*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)**2
     return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1)
   }
 
