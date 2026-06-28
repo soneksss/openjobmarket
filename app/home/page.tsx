@@ -5,23 +5,19 @@ import { getHomePageBootstrap } from "@/lib/bootstrap"
 import Link from "next/link"
 import { generateSEO } from "@/lib/seo"
 import { HomeClientWrapper } from "@/components/home-client-wrapper"
-import { redirect } from "next/navigation"
 
-// Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
 
 export const metadata = generateSEO({
   title: 'Find Local Tradespeople & Post Jobs | Open Job Market',
   description: 'The fastest way to connect homeowners with local tradespeople. Post jobs in seconds, get fast replies from nearby trades. Free to post, no subscription required.',
-  path: '/',
+  path: '/home',
   locale: 'en',
 })
 
-export default async function HomePage() {
-  // createClient() has AbortSignal.timeout(3000) on every fetch — no separate withTimeout needed
+export default async function HomeMarketingPage() {
   const supabase = await createClient()
 
-  // Round-trip 1: auth
   let user: any = null
   try {
     const { data } = await supabase.auth.getUser()
@@ -30,10 +26,6 @@ export default async function HomePage() {
     // AbortError (timeout) or ECONNRESET — render as signed out
   }
 
-  // All visitors land on the live map — no postcode required
-  redirect("/find")
-
-  // Round-trip 2+: profile + adminSettings — served from cache, Supabase only on miss
   const bootstrap = await getHomePageBootstrap(user)
   const { adminSettings, featureFlags, userType, profileLocation, profileSkills, profileIndustry, profileServices } = bootstrap
   const isAdmin = userType === 'admin'
@@ -70,27 +62,16 @@ export default async function HomePage() {
         profileServices={profileServices}
       />
 
-      {/* Compact Footer - Hidden on mobile (links in Account dashboard) */}
       <footer className="hidden md:block py-3 bg-slate-900 border-t border-slate-800">
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <div className="flex gap-5 text-xs text-slate-500">
-              <Link href="/about" className="hover:text-slate-300 transition-colors">
-                About
-              </Link>
-              <Link href="/contact" className="hover:text-slate-300 transition-colors">
-                Contact
-              </Link>
-              <Link href="/terms" className="hover:text-slate-300 transition-colors">
-                Terms
-              </Link>
-              <Link href="/privacy" className="hover:text-slate-300 transition-colors">
-                Privacy
-              </Link>
+              <Link href="/about" className="hover:text-slate-300 transition-colors">About</Link>
+              <Link href="/contact" className="hover:text-slate-300 transition-colors">Contact</Link>
+              <Link href="/terms" className="hover:text-slate-300 transition-colors">Terms</Link>
+              <Link href="/privacy" className="hover:text-slate-300 transition-colors">Privacy</Link>
             </div>
-            <p className="text-xs text-slate-600">
-              © 2025 Open Job Market Ltd.
-            </p>
+            <p className="text-xs text-slate-600">© 2025 Open Job Market Ltd.</p>
           </div>
         </div>
       </footer>

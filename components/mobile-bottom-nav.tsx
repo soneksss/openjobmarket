@@ -9,6 +9,7 @@ import { useTranslation } from "@/lib/i18n/context"
 import dynamic from "next/dynamic"
 
 const JobWizardModal = dynamic(() => import("@/components/job-wizard-modal"), { ssr: false })
+const PostJobCategorySelector = dynamic(() => import("@/components/post-job-category-selector").then(m => ({ default: m.PostJobCategorySelector })), { ssr: false })
 
 // Debounced sound — prevents double-play when multiple badge components fire simultaneously
 function playGlobalMsgSound() {
@@ -77,6 +78,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   const [myJobsBadge, setMyJobsBadge] = useState(0)
   const [jobsSearchUrl, setJobsSearchUrl] = useState<string | null>(null)
   const [showWizard, setShowWizard] = useState(false)
+  const [showCategorySelector, setShowCategorySelector] = useState(false)
   const [homeownerProfile, setHomeownerProfile] = useState<any>(null)
 
   // Notification types homeowners receive about their jobs
@@ -282,7 +284,19 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     }
   }, [userId, userType])
 
-  if (!user) return null
+  // ── Guest nav (not logged in) ──────────────────────────────────────────────
+  // Only show on map pages — landing-page.tsx renders its own MobileBottomNavLanding on marketing pages
+  if (!user) {
+    if (!pathname?.startsWith("/find")) return null
+    const guestItems: NavItem[] = [
+      { key: "home",     icon: Home,          label: "Home",     href: `${base}/home`,       isActive: false },
+      { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/auth/login`, isActive: false },
+      { key: "post",     icon: Plus,          label: "Post Job", href: `${base}/auth/login`, isActive: false, isCenter: true },
+      { key: "myjobs",   icon: Briefcase,     label: "My Jobs",  href: `${base}/auth/login`, isActive: false },
+      { key: "login",    icon: User,          label: "Log In",   href: `${base}/auth/login`, isActive: !!pathname?.includes("/auth/login") },
+    ]
+    return <BottomNav items={guestItems} unreadMessages={0} unreadNotifications={0} />
+  }
 
   const getDashboardUrl = () => {
     if (userType === "company") return `${base}/dashboard/company`
@@ -295,16 +309,20 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
 
   // ── Homeowner nav ──────────────────────────────────────────────────────────
   if (isHomeowner) {
+    const isOnMap = !!pathname?.startsWith("/find")
     const items = [
-      { key: "search",   icon: Home,          label: "Search",   href: `${base}/`,                         isActive: pathname === "/" || pathname === "/br" },
+      { key: "find",     icon: Home,          label: "Find",     href: `${base}/find`,                     isActive: isOnMap },
       { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/messages`,                  isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
-      { key: "post",     icon: Plus,          label: "Post",     href: "#",                                 isActive: false, isCenter: true, onClick: () => setShowWizard(true) },
+      { key: "post",     icon: Plus,          label: "Post Job", href: "#",                                 isActive: false, isCenter: true, onClick: () => setShowCategorySelector(true) },
       { key: "myjobs",   icon: Briefcase,     label: "My Jobs",  href: `${base}/dashboard/homeowner/jobs`, isActive: !!pathname?.includes("/dashboard/homeowner/jobs"), badge: unreadJobNotifs },
       { key: "account",  icon: User,          label: "Account",  href: `${base}/dashboard/homeowner`,      isActive: !!pathname?.includes("/dashboard/homeowner") && !pathname?.includes("/jobs") },
     ]
     return (
       <>
         <BottomNav items={items} unreadMessages={unreadMessages} unreadNotifications={unreadNotifications} />
+        {showCategorySelector && (
+          <PostJobCategorySelector onClose={() => setShowCategorySelector(false)} />
+        )}
         {showWizard && (
           <div className="fixed inset-0" style={{ zIndex: 60 }}>
             <JobWizardModal
@@ -323,10 +341,11 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   if (isTradesperson) {
     const defaultJobsUrl = "/find-jobs"
     const jobsUrl = `${base}${(jobsSearchUrl || defaultJobsUrl)}`
+    const isOnJobsMap = !!pathname?.startsWith("/find-jobs") || !!pathname?.startsWith("/find")
     const items = [
       { key: "home",          icon: Home,          label: "Home",          href: `${base}/`,              isActive: pathname === "/" || pathname === "/br" },
       { key: "messages",      icon: MessageCircle, label: "Messages",      href: `${base}/messages`,      isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
-      { key: "jobs",          icon: Map,           label: "Jobs",          href: jobsUrl,                 isActive: false, isCenter: true, centerColor: "bg-orange-500 shadow-orange-500/30 hover:bg-orange-600" },
+      { key: "jobs",          icon: Map,           label: "Jobs",          href: jobsUrl,                 isActive: isOnJobsMap, isCenter: true, centerColor: "bg-orange-500 shadow-orange-500/30 hover:bg-orange-600" },
       { key: "myjobs",        icon: Briefcase,     label: "My Jobs",       href: `${base}/dashboard/company/my-jobs`, isActive: !!pathname?.includes("/dashboard/company/my-jobs"), badge: myJobsBadge },
       { key: "account",       icon: User,          label: "Account",       href: getDashboardUrl(),       isActive: !!pathname?.includes("/dashboard") && !pathname?.includes("/saved") },
     ]
@@ -392,7 +411,7 @@ function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavI
               key={item.key}
               href={item.href}
               className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] px-2 rounded-lg transition-colors relative ${
-                item.isActive ? "text-emerald-400" : "text-emerald-600 hover:text-emerald-400"
+                item.isActive ? "text-emerald-400" : "text-slate-400 hover:text-emerald-400"
               }`}
             >
               <div className="relative">

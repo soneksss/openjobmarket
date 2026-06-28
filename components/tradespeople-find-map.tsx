@@ -1,19 +1,20 @@
 "use client"
 
 import { useState, useEffect, useCallback, useRef } from "react"
+import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
+import { helpItems } from "@/lib/data/help-items"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg, normaliseCategory } from "@/lib/data/industry-styles"
-import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2, Languages } from "lucide-react"
+import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2, Languages, Briefcase, Users, Home, LocateFixed, Loader2 } from "lucide-react"
 import JobWizardModal from "@/components/job-wizard-modal"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
 const MapContainer = dynamic(() => import("react-leaflet").then(m => m.MapContainer), { ssr: false })
 const TileLayer    = dynamic(() => import("react-leaflet").then(m => m.TileLayer),    { ssr: false })
 const Marker       = dynamic(() => import("react-leaflet").then(m => m.Marker),       { ssr: false })
-const Popup        = dynamic(() => import("react-leaflet").then(m => m.Popup),        { ssr: false })
 const ZoomControl  = dynamic(() => import("react-leaflet").then(m => m.ZoomControl),  { ssr: false })
 
 // Invalidates map size after mount and on container resize
@@ -51,6 +52,33 @@ const MapViewUpdater = dynamic(
           map.flyTo(center, map.getZoom(), { animate: true, duration: 0.6 })
         }
       }, [map, center])
+      return null
+    }
+    return Comp
+  }),
+  { ssr: false }
+)
+
+// Smoothly flies the map to a target point covering ~10-mile radius (zoom 11)
+const MapFlyTo = dynamic(
+  () => Promise.all([import("react-leaflet"), import("react")]).then(([lm, rm]) => {
+    const { useMap } = lm
+    const { useEffect, useRef } = rm
+    function Comp({ target }: { target: { lat: number; lng: number } | null }) {
+      const map = useMap()
+      const prev = useRef<{ lat: number; lng: number } | null>(null)
+      useEffect(() => {
+        if (!target) return
+        if (prev.current?.lat === target.lat && prev.current?.lng === target.lng) return
+        prev.current = target
+        // flyToBounds gives a 10-mile radius view regardless of screen size
+        const R = 0.145 // ~10 miles in degrees latitude
+        const RL = R / Math.cos(target.lat * Math.PI / 180)
+        ;(map as any).flyToBounds(
+          [[target.lat - R, target.lng - RL], [target.lat + R, target.lng + RL]],
+          { animate: true, duration: 1.5, padding: [20, 20] }
+        )
+      }, [map, target])
       return null
     }
     return Comp
@@ -178,6 +206,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const [loadingProfile,   setLoadingProfile]   = useState(false)
   const [lightboxIndex,    setLightboxIndex]    = useState<number | null>(null)
   const [showJobWizard,    setShowJobWizard]    = useState(false)
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false)
+  const [wizardIndustry,   setWizardIndustry]   = useState<string | undefined>(undefined)
+  const [wizardService,    setWizardService]    = useState<string | undefined>(undefined)
   const [showFilters,      setShowFilters]      = useState(!!initialPostcode)
   const [showAllIndustries, setShowAllIndustries] = useState(false)
   const [showAllLanguages,  setShowAllLanguages]  = useState(false)
@@ -190,11 +221,38 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const [user,             setUser]             = useState<any>(null)
   const [homeownerProfile, setHomeownerProfile] = useState<any>(null)
   const [isDesktop,        setIsDesktop]        = useState(false)
+  const [postcodeInput,    setPostcodeInput]    = useState(initialPostcode ?? "")
+  const [postcodeEditing,  setPostcodeEditing]  = useState(false)
+  const [geocoding,        setGeocoding]        = useState(false)
+  const [locating,         setLocating]         = useState(false)
+  const [flyTarget,        setFlyTarget]        = useState<{ lat: number; lng: number } | null>(null)
+  const [locationLabel,    setLocationLabel]    = useState(initialPostcode ?? "")
 
   const touchStartY      = useRef<number | null>(null)
   const currentBoundsRef = useRef<BBox | null>(null)
   const fetchTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const filtersRef       = useRef(filtersFromSearchParams(searchParams, initialIndustry))
+  const postcodeRef      = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    // Auto-geolocate on first load when the server fell back to the London default
+    // (no postcode/lat-lng in URL and no saved profile location).
+    // Browser geolocation is unavailable server-side, so this is the only place to do it.
+    const LONDON_LAT = 51.5074, LONDON_LNG = -0.1278
+    const isDefaultLondon =
+      Math.abs(initialCoords[0] - LONDON_LAT) < 0.001 &&
+      Math.abs(initialCoords[1] - LONDON_LNG) < 0.001
+    if (isDefaultLondon && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          setFlyTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+          setLocationLabel("My location")
+        },
+        () => { /* permission denied or unavailable — stay on London */ },
+        { enableHighAccuracy: false, timeout: 8000 }
+      )
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setMounted(true)
@@ -211,7 +269,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     // Push zoom controls below the floating header
     const style = document.createElement("style")
     style.id = "find-map-zoom-offset"
-    style.textContent = `#find-map-container .leaflet-top { margin-top: 60px; }`
+    const isLg = window.matchMedia("(min-width: 1024px)").matches
+    style.textContent = `#find-map-container .leaflet-top { margin-top: ${isLg ? "160px" : "110px"}; }`
     if (!document.getElementById("find-map-zoom-offset")) document.head.appendChild(style)
     return () => {
       document.getElementById("find-map-zoom-offset")?.remove()
@@ -242,7 +301,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         north: bounds.north.toFixed(6), south: bounds.south.toFixed(6),
         east:  bounds.east.toFixed(6),  west:  bounds.west.toFixed(6),
       })
-      if (f.industry) params.set("industry", f.industry)
+      // Replace " & " with "_AND_" to avoid %26 in the URL — Turbopack's dev
+      // server misroutes requests containing percent-encoded ampersands (returns 404).
+      if (f.industry) params.set("industry", f.industry.replace(/ & /g, "_AND_"))
       if (f.language) params.set("language", f.language)
       const res = await fetch(`/api/traders?${params}`)
       if (!res.ok) return
@@ -286,12 +347,6 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     setFilters(draftFilters); setShowFilters(false); setShowAllIndustries(false)
     pushFilterParams(draftFilters)
     if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, draftFilters)
-    // Analytics-only — never blocks UI or affects hasActiveFilters
-    Promise.resolve(supabase.rpc("log_map_filter_event", {
-      p_radius_miles:      draftFilters.radius !== "10" ? parseInt(draftFilters.radius) : null,
-      p_category:          draftFilters.industry ?? null,
-      p_availability_only: draftFilters.available,
-    })).catch(() => {})
   }
   const clearFilters = () => {
     const r = { ...DEFAULT_FILTERS }
@@ -301,6 +356,39 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   }
   // Derived from filters state which mirrors URL params — deterministic, SSR-safe
   const hasActiveFilters = filters.industry !== null || filters.subcategories.length > 0 || filters.radius !== "10" || filters.language !== "" || filters.available || filters.h24
+
+  const handleGeocode = async () => {
+    const q = postcodeInput.trim()
+    if (!q) return
+    setGeocoding(true)
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=gb`,
+        { headers: { "User-Agent": "OpenJobMarket/1.0" } }
+      )
+      const data = await res.json()
+      if (data?.[0]) {
+        setFlyTarget({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+        setLocationLabel(q.toUpperCase())
+        setPostcodeEditing(false)
+      }
+    } catch { /* silently ignore geocode failures */ }
+    finally { setGeocoding(false) }
+  }
+
+  const handleMyLocation = () => {
+    if (!navigator.geolocation) return
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setFlyTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setLocationLabel("My location")
+        setLocating(false)
+      },
+      () => setLocating(false),
+      { enableHighAccuracy: false, timeout: 8000 }
+    )
+  }
 
   const handleTouchStart = (e: React.TouchEvent) => { touchStartY.current = e.touches[0].clientY }
   const handleTouchEnd   = (e: React.TouchEvent) => {
@@ -321,12 +409,13 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const tradersWithCoords = traders.filter(t => t.latitude && t.longitude)
   const findPageUrl = `/find${initialPostcode ? `?postcode=${encodeURIComponent(initialPostcode)}` : ""}`
 
-  // Mobile bottom sheet dimensions
-  const HEADER = "52px"
+  // Mobile bottom sheet dimensions (bottom: 56px = bottom nav height h-14)
+  // Desktop HEADER = 44px layout header + 96px map overlay ≈ 140px
+  const HEADER = isDesktop ? "140px" : "96px"
   const mobileSheetStyle: React.CSSProperties =
-    sheetState === "expanded" ? { top: HEADER, bottom: 0, left: 0, right: 0 } :
-    sheetState === "peek"     ? { bottom: 0, left: 0, right: 0, height: "48vh" } :
-                                { bottom: 0, left: 0, right: 0, height: "160px" }
+    sheetState === "expanded" ? { top: HEADER, bottom: "56px", left: 0, right: 0 } :
+    sheetState === "peek"     ? { bottom: "56px", left: 0, right: 0, height: "48vh" } :
+                                { bottom: "56px", left: 0, right: 0, height: "160px" }
 
   /* ── Shared panel content ────────────────────────────────────────────────── */
   const profilePanel = selectedTrader && (
@@ -462,7 +551,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     <>
       {/* Post a Job */}
       <div className="flex-shrink-0 flex justify-center pt-2 pb-2 px-3">
-        <button onClick={() => setShowJobWizard(true)}
+        <button onClick={() => setShowCategoryPicker(true)}
           className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-500/30 transition-colors">
           + Post a Job
         </button>
@@ -609,17 +698,17 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
   /* ── Filter panel content (shared) ───────────────────────────────────────── */
   const filterPanel = showFilters && (
-    <div className="fixed inset-0" style={{ zIndex: 50 }}>
+    <div className="fixed inset-0" style={{ zIndex: 80 }}>
       <div className="absolute inset-0 backdrop-blur-sm" style={{ background: "rgba(2,6,23,0.65)" }}
         onClick={() => setShowFilters(false)} />
       <div className="absolute rounded-3xl shadow-2xl border border-slate-700/60 flex flex-col overflow-hidden"
         style={{
-          top: HEADER, bottom: "max(env(safe-area-inset-bottom,0px),10px)",
+          top: HEADER, bottom: isDesktop ? "max(env(safe-area-inset-bottom,0px),10px)" : "72px",
           left: isDesktop ? "50%" : "12px",
           right: isDesktop ? "auto" : "12px",
           transform: isDesktop ? "translateX(-50%)" : undefined,
           width: isDesktop ? "420px" : undefined,
-          backgroundColor: "#0f172a", zIndex: 51,
+          backgroundColor: "#0f172a", zIndex: 81,
         }}>
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <span className="text-sm font-bold text-white">Filters</span>
@@ -754,7 +843,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     const allSvcs  = tradeInd ? [...tradeInd.services] : []
     const allChecked = pickerSubcats.length === allSvcs.length
     return (
-      <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 55 }}>
+      <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 90 }}>
         <div className="absolute inset-0 bg-black/60" onClick={() => setShowSubcatPicker(false)} />
         <div className="relative bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl flex flex-col overflow-hidden mx-4"
           style={{ width: 300, maxHeight: "72vh" }}>
@@ -838,48 +927,93 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               <ZoomControl position="topright" />
               <MapSizeHandler />
               <MapViewUpdater center={initialCoords} />
+              <MapFlyTo target={flyTarget} />
               <ViewportLoader onBoundsChange={onBoundsChange} />
               {leafletL && tradersWithCoords.map(trader => (
                 <Marker key={trader.id}
                   position={[trader.latitude!, trader.longitude!]}
                   icon={createTraderIcon(leafletL, selectedTrader?.id === trader.id, trader.industry, trader.open_for_business === false, trader.profile_type === 'seeded') as any}
-                  eventHandlers={{ click: () => setSelectedTrader(p => p?.id === trader.id ? null : trader) }}>
-                  <Popup>
-                    <b className="text-base font-bold text-yellow-500">{trader.name}</b>
-                    {trader.profile_type === 'seeded' && <div className="text-[10px] text-gray-400 mt-0.5">Local business</div>}
-                    {(trader.normalised_categories && trader.normalised_categories.length > 1)
-                      ? <div className="mt-1 text-[11px] font-semibold text-amber-600 leading-snug">{trader.normalised_categories.join(" · ")}</div>
-                      : trader.industry && <div className="text-sm font-semibold text-amber-600 mt-0.5">{trader.industry}</div>
-                    }
-                    {trader.rating > 0 && <div className="text-xs text-amber-500 mt-0.5">★ {trader.rating.toFixed(1)}</div>}
-                  </Popup>
-                </Marker>
+                  eventHandlers={{ click: () => setSelectedTrader(p => p?.id === trader.id ? null : trader) }} />
+
               ))}
             </MapContainer>
           </div>
         )}
 
         {/* Header — absolute within the map area, overlays only the map column */}
-        <div className="absolute top-0 left-0 right-0 flex items-center lg:justify-center gap-2 px-3 py-2"
-          style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top,0px),8px)" }}>
-          <button onClick={() => router.back()}
-            className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white shadow-md">
-            <ArrowLeft className="w-3.5 h-3.5" />
-          </button>
-          <div className="flex-1 min-w-0 lg:flex-none lg:w-72 flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1.5 shadow-md">
-            <MapPin className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-            <span className="text-xs text-white font-medium truncate">{initialPostcode || "Nearby tradespeople"}</span>
-            <span className="ml-auto text-[10px] flex-shrink-0">
-              {loading ? <span className="text-emerald-400">Searching…</span> : <span className="text-slate-400">{traders.length} found</span>}
-            </span>
+        <div className="absolute top-0 left-0 right-0 flex flex-col gap-1.5 px-3 py-2"
+          style={{ zIndex: 20, paddingTop: isDesktop ? "52px" : "max(env(safe-area-inset-top,0px),8px)" }}>
+          {/* Tab switcher */}
+          <div className="flex self-center bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500 text-white shadow-sm">
+              <Users className="w-3 h-3" />
+              Tradespeople
+            </button>
+            <button
+              onClick={() => router.push(`/find-jobs?lat=${initialCoords[0]}&lng=${initialCoords[1]}`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
+              <Briefcase className="w-3 h-3" />
+              Trade Jobs
+            </button>
           </div>
+          {/* Search row */}
+          <div className="flex items-center lg:justify-center gap-2">
+          <button onClick={() => router.push("/home")}
+            className="flex-shrink-0 hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 transition-colors">
+            <Home className="w-3.5 h-3.5" />
+            <span>Home</span>
+          </button>
+          {postcodeEditing ? (
+            <form onSubmit={e => { e.preventDefault(); handleGeocode() }}
+              className="flex-1 lg:flex-none lg:w-72 flex items-center gap-1 bg-slate-800 border border-emerald-500/60 rounded-full px-2.5 py-1 shadow-md">
+              <MapPin className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+              <input ref={postcodeRef} value={postcodeInput}
+                onChange={e => setPostcodeInput(e.target.value)}
+                placeholder="Enter postcode…" autoFocus autoComplete="off"
+                className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 outline-none min-w-0" />
+              <button type="submit" disabled={geocoding}
+                className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
+                {geocoding
+                  ? <Loader2 className="w-2.5 h-2.5 text-white animate-spin" />
+                  : <Search className="w-2.5 h-2.5 text-white" />}
+              </button>
+              <button type="button" onClick={() => setPostcodeEditing(false)}
+                className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 ml-0.5">
+                <X className="w-2.5 h-2.5 text-slate-400" />
+              </button>
+            </form>
+          ) : (
+            <div className="flex-1 lg:flex-none lg:w-72 flex items-center gap-1.5">
+              <button
+                onClick={() => { setPostcodeInput(locationLabel || initialPostcode || ""); setPostcodeEditing(true) }}
+                className="flex-1 flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1.5 shadow-md hover:border-slate-500 transition-colors text-left min-w-0">
+                <MapPin className="w-3 h-3 text-emerald-400 flex-shrink-0" />
+                <span className="text-xs text-white font-medium truncate">
+                  {locationLabel || initialPostcode || "Enter postcode"}
+                </span>
+                <span className="ml-auto text-[10px] flex-shrink-0">
+                  {loading
+                    ? <span className="text-emerald-400">Searching…</span>
+                    : <span className="text-slate-400">{traders.length} found</span>}
+                </span>
+              </button>
+              <button onClick={handleMyLocation} disabled={locating}
+                title="Go to my location"
+                className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-emerald-400 transition-colors text-slate-400">
+                {locating
+                  ? <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                  : <LocateFixed className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          )}
           {/* Filter button — mobile always, desktop next to postcode bar */}
           <button onClick={() => { setDraftFilters(filters); setShowFilters(true) }}
             className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center shadow-md relative transition-colors ${hasActiveFilters ? "bg-emerald-500 border-emerald-400 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
             <SlidersHorizontal className="w-3.5 h-3.5" />
             {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-slate-950" />}
           </button>
-        </div>
+          </div>{/* end search row */}
+        </div>{/* end header */}
       </div>
 
       {/* ── RIGHT: Desktop sidebar ──────────────────────────────────────────── */}
@@ -965,10 +1099,71 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           <JobWizardModal
             guestMode={!user} initialPostcode={initialPostcode}
             companyProfile={homeownerProfile ?? null} userType="homeowner" redirectPath={findPageUrl}
-            initialIndustry={filters.industry ?? undefined}
-            initialService={filters.subcategories.length === 1 ? filters.subcategories[0] : undefined}
+            initialIndustry={wizardIndustry}
+            initialService={wizardService}
+            onClose={() => { setShowJobWizard(false); setWizardIndustry(undefined); setWizardService(undefined) }}
           />
         </div>
+      )}
+
+      {/* ── Category picker — rendered via portal so it escapes the map's stacking context ── */}
+      {showCategoryPicker && mounted && createPortal(
+        <div className="fixed inset-0 flex flex-col bg-slate-950" style={{ zIndex: 9999 }}>
+          {/* Header */}
+          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800/80"
+            style={{ paddingTop: "max(env(safe-area-inset-top,0px),12px)" }}>
+            <div>
+              <p className="text-base font-bold text-white">Post a Job</p>
+              <p className="text-xs text-slate-400 mt-0.5">What do you need help with?</p>
+            </div>
+            <button onClick={() => setShowCategoryPicker(false)}
+              className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          {/* Scrollable photo grid */}
+          <div className="flex-1 overflow-y-auto px-3 py-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+              {helpItems.map(item => (
+                <button key={item.label}
+                  onClick={() => {
+                    setWizardIndustry(item.industry)
+                    setWizardService(item.service)
+                    setShowCategoryPicker(false)
+                    setShowJobWizard(true)
+                  }}
+                  className="group relative rounded-xl overflow-hidden border border-slate-700/40 hover:border-emerald-500/60 active:scale-95 transition-all duration-150 shadow-md aspect-square focus:outline-none">
+                  <img src={item.img} alt={item.label}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <p className="absolute bottom-1.5 left-0 right-0 text-center text-white text-[10px] sm:text-xs font-semibold px-1 leading-tight drop-shadow-lg">
+                    {item.label}
+                  </p>
+                </button>
+              ))}
+              {/* Not sure / Other */}
+              <button
+                onClick={() => {
+                  setWizardIndustry("Not sure / Other")
+                  setWizardService("")
+                  setShowCategoryPicker(false)
+                  setShowJobWizard(true)
+                }}
+                className="group relative rounded-xl overflow-hidden border border-slate-600/60 hover:border-emerald-500/60 active:scale-95 transition-all duration-150 shadow-md aspect-square focus:outline-none bg-slate-800">
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-700/60 to-slate-900/80" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-2">
+                  <span className="text-2xl sm:text-3xl font-bold text-slate-400 group-hover:text-slate-200 transition-colors leading-none">?</span>
+                  <p className="text-center text-white text-[10px] sm:text-xs font-semibold leading-tight">
+                    Not sure / Other
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
+          {/* Bottom safe area spacer */}
+          <div className="flex-shrink-0" style={{ height: "max(env(safe-area-inset-bottom,0px),8px)" }} />
+        </div>,
+        document.body
       )}
     </div>
   )

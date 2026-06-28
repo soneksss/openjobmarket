@@ -36,9 +36,9 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const isAdminRoute = pathname?.startsWith("/admin")
-  const isHomePage = pathname === "/" || pathname === "/br"
+  const isHomePage = pathname === "/" || pathname === "/br" || pathname === "/home"
   const isDashboardPage = pathname?.startsWith("/dashboard")
-  const isJobPostingPage = pathname?.includes("/jobs/new") || pathname?.includes("/post-job") || pathname?.startsWith("/find")
+  const isJobPostingPage = pathname?.includes("/jobs/new") || pathname?.includes("/post-job")
 
   // Check query parameter first (highest priority), then server locale, then pathname
   const localeParam = searchParams?.get('locale')
@@ -113,7 +113,10 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
     <I18nProvider initialLocale={locale}>
       <LanguageRegionProvider initialState={getInitialLanguageRegionState()}>
         <NavigationLoader />
-        <Header user={user} userType={(userType as "company" | "professional" | undefined) || undefined} isAdmin={isAdmin} dark={true} />
+        {/* On map pages: hide on mobile (map is full-screen), sticky z-[100] on desktop so it sits above the fixed map */}
+        <div className={isJobPostingPage || pathname?.startsWith("/find") ? "hidden md:block md:sticky md:top-0 md:z-[100]" : undefined}>
+          <Header user={user} userType={(userType as "company" | "professional" | undefined) || undefined} isAdmin={isAdmin} dark={true} />
+        </div>
         {/* Sticky bar shown when user has minimised an active trade search */}
         <ActiveSearchBar userType={userType} userId={user?.id} />
         {/* Live urgent job alert for company (tradesperson) users */}
@@ -132,7 +135,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
         {userType === "homeowner" && user?.id && (
           <HomeownerJobNotifier userId={user.id} />
         )}
-        <main className={`flex-1 ${user ? 'pb-24 md:pb-0' : ''}`}><PageTransition>{children}</PageTransition></main>
+        <main className={`flex-1 ${!isJobPostingPage ? 'pb-24 md:pb-0' : ''}`}><PageTransition>{children}</PageTransition></main>
         {/* Hide footer completely on homepage and dashboard pages */}
         {!isHomePage && !isDashboardPage && (
           <Footer />

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
-import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search } from "lucide-react"
+import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, Home } from "lucide-react"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
 const MapContainer = dynamic(() => import("react-leaflet").then(m => m.MapContainer), { ssr: false })
@@ -205,7 +205,8 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     import("leaflet").then(mod => setLeafletL(mod.default ?? mod))
     const style = document.createElement("style")
     style.id = "find-jobs-zoom-offset"
-    style.textContent = `#find-jobs-map .leaflet-top { margin-top: 60px; }`
+    const isLg = window.matchMedia("(min-width: 1024px)").matches
+    style.textContent = `#find-jobs-map .leaflet-top { margin-top: ${isLg ? "160px" : "110px"}; }`
     if (!document.getElementById("find-jobs-zoom-offset")) document.head.appendChild(style)
     return () => { document.getElementById("find-jobs-zoom-offset")?.remove() }
   }, [])
@@ -299,12 +300,13 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     return null
   }
   const jobsWithCoords = jobs.filter(j => jobMarkerCoords(j) !== null)
-  const HEADER = "52px"
+  // Desktop HEADER = 44px layout header + 96px map overlay ≈ 140px
+  const HEADER = isDesktop ? "140px" : "96px"
 
   const mobileSheetStyle: React.CSSProperties =
-    sheetState === "expanded" ? { top: HEADER, bottom: 0, left: 0, right: 0 } :
-    sheetState === "peek"     ? { bottom: 0, left: 0, right: 0, height: "48vh" } :
-                                { bottom: 0, left: 0, right: 0, height: "160px" }
+    sheetState === "expanded" ? { top: HEADER, bottom: "56px", left: 0, right: 0 } :
+    sheetState === "peek"     ? { bottom: "56px", left: 0, right: 0, height: "48vh" } :
+                                { bottom: "56px", left: 0, right: 0, height: "160px" }
 
   const jobPhotos = selectedJob?.job_photo_url ? [{ id: selectedJob.id, photo_url: selectedJob.job_photo_url }] : []
 
@@ -435,15 +437,15 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
 
   /* ── Filter panel ─────────────────────────────────────────────────────── */
   const filterPanel = showFilters && (
-    <div className="fixed inset-0" style={{ zIndex: 50 }}>
+    <div className="fixed inset-0" style={{ zIndex: 80 }}>
       <div className="absolute inset-0 backdrop-blur-sm" style={{ background: "rgba(2,6,23,0.65)" }} onClick={() => setShowFilters(false)} />
       <div className="absolute rounded-3xl shadow-2xl border border-slate-700/60 flex flex-col overflow-hidden"
         style={{
-          top: HEADER, bottom: "max(env(safe-area-inset-bottom,0px),10px)",
+          top: HEADER, bottom: isDesktop ? "max(env(safe-area-inset-bottom,0px),10px)" : "72px",
           left: isDesktop ? "50%" : "12px", right: isDesktop ? "auto" : "12px",
           transform: isDesktop ? "translateX(-50%)" : undefined,
           width: isDesktop ? "420px" : undefined,
-          backgroundColor: "#0f172a", zIndex: 51,
+          backgroundColor: "#0f172a", zIndex: 81,
         }}>
         <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <span className="text-sm font-bold text-white">Filters</span>
@@ -555,11 +557,27 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
         )}
 
         {/* Header — absolute within map column, centered on desktop */}
-        <div className="absolute top-0 left-0 right-0 flex items-center lg:justify-center gap-2 px-3 py-2"
-          style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top,0px),8px)" }}>
-          <button onClick={() => router.back()}
-            className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-white shadow-md">
-            <ArrowLeft className="w-3.5 h-3.5" />
+        <div className="absolute top-0 left-0 right-0 flex flex-col gap-1.5 px-3 py-2"
+          style={{ zIndex: 20, paddingTop: isDesktop ? "52px" : "max(env(safe-area-inset-top,0px),8px)" }}>
+          {/* Tab switcher */}
+          <div className="flex self-center bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
+            <button
+              onClick={() => router.push(`/find?lat=${coords[0]}&lng=${coords[1]}`)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
+              <Users className="w-3 h-3" />
+              Tradespeople
+            </button>
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-500 text-white shadow-sm">
+              <Briefcase className="w-3 h-3" />
+              Trade Jobs
+            </button>
+          </div>
+          {/* Search row */}
+          <div className="flex items-center lg:justify-center gap-2">
+          <button onClick={() => router.push("/home")}
+            className="flex-shrink-0 hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 transition-colors">
+            <Home className="w-3.5 h-3.5" />
+            <span>Home</span>
           </button>
           {editingLocation ? (
             <form onSubmit={e => { e.preventDefault(); geocodePostcode(postcodeInput) }}
@@ -592,7 +610,8 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             <SlidersHorizontal className="w-3.5 h-3.5" />
             {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-slate-950" />}
           </button>
-        </div>
+          </div>{/* end search row */}
+        </div>{/* end header */}
       </div>
 
       {/* ── RIGHT: Desktop sidebar ──────────────────────────────────────────── */}

@@ -18,7 +18,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json([], { status: 400 })
   }
 
-  const industry = sp.get("industry") || null
+  // Decode _AND_ placeholder (client sends it to avoid %26 which confuses Turbopack routing)
+  const industry = (sp.get("industry") || null)?.replace(/_AND_/g, " & ") ?? null
   const language = sp.get("language") || null
 
   const admin = createAdminClient()
