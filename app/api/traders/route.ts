@@ -34,6 +34,7 @@ export async function GET(req: NextRequest) {
     )
     .gte("latitude", south).lte("latitude", north)
     .gte("longitude", west).lte("longitude", east)
+    .or("profile_visible.is.null,profile_visible.eq.true")
     .limit(LIMIT)
 
   if (industry) {

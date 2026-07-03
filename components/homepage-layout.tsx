@@ -30,8 +30,8 @@ interface HomepageLayoutProps {
 }
 
 export function HomepageLayout({ version, ...props }: HomepageLayoutProps) {
-  if (version === 'v2') {
-    return <LayoutV2 {...(props as any)} />
+  if (version === 'v1') {
+    return <LayoutV1 {...(props as any)} />
   }
-  return <LayoutV1 {...(props as any)} />
+  return <LayoutV2 {...(props as any)} />
 }

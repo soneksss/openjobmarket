@@ -39,7 +39,7 @@ export default function SeededDetailView({ trade }: { trade: SeededTrade }) {
 
   const handleBack = () => {
     if (window.history.length > 1) router.back()
-    else router.push("/find")
+    else router.push("/find-trades")
   }
 
   return (

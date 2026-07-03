@@ -285,9 +285,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   }, [userId, userType])
 
   // ── Guest nav (not logged in) ──────────────────────────────────────────────
-  // Only show on map pages — landing-page.tsx renders its own MobileBottomNavLanding on marketing pages
   if (!user) {
-    if (!pathname?.startsWith("/find")) return null
     const guestItems: NavItem[] = [
       { key: "home",     icon: Home,          label: "Home",     href: `${base}/home`,       isActive: false },
       { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/auth/login`, isActive: false },
@@ -311,7 +309,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   if (isHomeowner) {
     const isOnMap = !!pathname?.startsWith("/find")
     const items = [
-      { key: "find",     icon: Home,          label: "Find",     href: `${base}/find`,                     isActive: isOnMap },
+      { key: "home",     icon: Home,          label: "Home",     href: `${base}/home`,                     isActive: pathname?.startsWith("/home") },
       { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/messages`,                  isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
       { key: "post",     icon: Plus,          label: "Post Job", href: "#",                                 isActive: false, isCenter: true, onClick: () => setShowCategorySelector(true) },
       { key: "myjobs",   icon: Briefcase,     label: "My Jobs",  href: `${base}/dashboard/homeowner/jobs`, isActive: !!pathname?.includes("/dashboard/homeowner/jobs"), badge: unreadJobNotifs },
@@ -343,7 +341,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     const jobsUrl = `${base}${(jobsSearchUrl || defaultJobsUrl)}`
     const isOnJobsMap = !!pathname?.startsWith("/find-jobs") || !!pathname?.startsWith("/find")
     const items = [
-      { key: "home",          icon: Home,          label: "Home",          href: `${base}/`,              isActive: pathname === "/" || pathname === "/br" },
+      { key: "home",          icon: Home,          label: "Home",          href: `${base}/home`,          isActive: pathname?.startsWith("/home") },
       { key: "messages",      icon: MessageCircle, label: "Messages",      href: `${base}/messages`,      isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
       { key: "jobs",          icon: Map,           label: "Jobs",          href: jobsUrl,                 isActive: isOnJobsMap, isCenter: true, centerColor: "bg-orange-500 shadow-orange-500/30 hover:bg-orange-600" },
       { key: "myjobs",        icon: Briefcase,     label: "My Jobs",       href: `${base}/dashboard/company/my-jobs`, isActive: !!pathname?.includes("/dashboard/company/my-jobs"), badge: myJobsBadge },
@@ -354,7 +352,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
 
   // ── Fallback (unknown role) ────────────────────────────────────────────────
   const fallbackItems = [
-    { key: "search",   icon: Home,          label: "Search",   href: `${base}/`,         isActive: pathname === "/" || pathname === "/br" },
+    { key: "home",     icon: Home,          label: "Home",     href: `${base}/home`,     isActive: pathname?.startsWith("/home") },
     { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/messages`, isActive: !!pathname?.includes("/messages"), badge: unreadMessages },
     { key: "account",  icon: User,          label: "Account",  href: getDashboardUrl(),  isActive: !!pathname?.includes("/dashboard") },
   ]

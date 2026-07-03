@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
-import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, Home } from "lucide-react"
+import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, LocateFixed, Loader2 } from "lucide-react"
+import { MapSearchBar } from "@/components/map-search-bar"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
 const MapContainer = dynamic(() => import("react-leaflet").then(m => m.MapContainer), { ssr: false })
@@ -68,6 +70,26 @@ const ViewportLoader = dynamic(
       }
       useEffect(() => { emit() }, [])
       useMapEvents({ moveend: emit, zoomend: emit })
+      return null
+    }
+    return Comp
+  }),
+  { ssr: false }
+)
+
+// Starts the map zoomed out to UK level then smoothly flies in to the target location
+const ZoomInOnLoad = dynamic(
+  () => Promise.all([import("react-leaflet"), import("react")]).then(([lm, rm]) => {
+    const { useMap } = lm
+    const { useEffect } = rm
+    function Comp({ target }: { target: [number, number] }) {
+      const map = useMap()
+      useEffect(() => {
+        const t = setTimeout(() => {
+          map.flyTo(target, 12, { animate: true, duration: 2.2, easeLinearity: 0.15 })
+        }, 350)
+        return () => clearTimeout(t)
+      }, []) // eslint-disable-line react-hooks/exhaustive-deps
       return null
     }
     return Comp
@@ -151,6 +173,8 @@ type Props = {
   initialCoords: [number, number]
   initialPostcode?: string
   initialIndustry?: string
+  animateZoom?: boolean
+  coordsAreDefault?: boolean
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -173,7 +197,7 @@ function timeAgo(iso: string) {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry }: Props) {
+export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, animateZoom, coordsAreDefault }: Props) {
   const router = useRouter()
 
   const [jobs,            setJobs]            = useState<Job[]>(initialJobs)
@@ -188,12 +212,11 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   const [lightboxIndex,   setLightboxIndex]   = useState<number | null>(null)
   const [coords,          setCoords]          = useState<[number, number]>(initialCoords)
   const [locationLabel,   setLocationLabel]   = useState(initialPostcode || "Nearby")
-  const [editingLocation, setEditingLocation] = useState(false)
   const [postcodeInput,   setPostcodeInput]   = useState("")
   const [geocoding,       setGeocoding]       = useState(false)
+  const [locating,        setLocating]        = useState(false)
 
   const touchStartY      = useRef<number | null>(null)
-  const postcodeRef      = useRef<HTMLInputElement>(null)
   const currentBoundsRef = useRef<BBox | null>(null)
   const fetchTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const filtersRef       = useRef<Filters>(loadSavedFilters(initialIndustry))
@@ -210,6 +233,20 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     if (!document.getElementById("find-jobs-zoom-offset")) document.head.appendChild(style)
     return () => { document.getElementById("find-jobs-zoom-offset")?.remove() }
   }, [])
+
+  // Auto-request geolocation on first load when no explicit location was supplied
+  useEffect(() => {
+    if (!coordsAreDefault) return
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setCoords([pos.coords.latitude, pos.coords.longitude])
+        setLocationLabel("My location")
+      },
+      () => { /* denied or unavailable — stay on London default */ },
+      { timeout: 10000, maximumAge: 300000, enableHighAccuracy: false }
+    )
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)")
@@ -247,28 +284,45 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     fetchByViewport(b, filtersRef.current)
   }, [fetchByViewport])
 
-  const geocodePostcode = async (postcode: string) => {
-    if (!postcode.trim()) return
-    setGeocoding(true)
-    try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(postcode.trim())}&limit=1&countrycodes=gb`, { headers: { "User-Agent": "OpenJobMarket/1.0" } })
-      const data = await res.json()
-      if (data?.[0]) {
-        const newCoords: [number, number] = [parseFloat(data[0].lat), parseFloat(data[0].lon)]
-        setCoords(newCoords)
-        setLocationLabel(postcode.trim().toUpperCase())
-        setEditingLocation(false)
-        // MapViewUpdater flies to new coords → moveend fires → ViewportLoader fetches
-      }
-    } finally { setGeocoding(false) }
-  }
-
-  const applyFilters = () => {
+  const applyFilters = async () => {
+    let didGeocode = false
+    const q = postcodeInput.trim()
+    if (q) {
+      setGeocoding(true)
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=gb`,
+          { headers: { "User-Agent": "OpenJobMarket/1.0" } }
+        )
+        const data = await res.json()
+        if (data?.[0]) {
+          setCoords([parseFloat(data[0].lat), parseFloat(data[0].lon)])
+          setLocationLabel(q.toUpperCase())
+          didGeocode = true
+        }
+      } catch { }
+      finally { setGeocoding(false) }
+    }
     setFilters(draftFilters)
     filtersRef.current = draftFilters
+    sessionStorage.setItem(JOBS_FILTERS_KEY, JSON.stringify(draftFilters))
     setShowFilters(false)
-    fetchByViewport(currentBoundsRef.current, draftFilters)
+    if (!didGeocode && currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, draftFilters)
   }
+
+  const handleMyLocation = useCallback(() => {
+    if (!navigator.geolocation) return
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setCoords([pos.coords.latitude, pos.coords.longitude])
+        setLocationLabel("My location")
+        setLocating(false)
+      },
+      () => setLocating(false),
+      { timeout: 20000, maximumAge: 300000, enableHighAccuracy: false }
+    )
+  }, [])
   const clearFilters = () => {
     const r = { ...DEFAULT_FILTERS }
     setDraftFilters(r); setFilters(r); filtersRef.current = r; setShowFilters(false)
@@ -441,7 +495,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
       <div className="absolute inset-0 backdrop-blur-sm" style={{ background: "rgba(2,6,23,0.65)" }} onClick={() => setShowFilters(false)} />
       <div className="absolute rounded-3xl shadow-2xl border border-slate-700/60 flex flex-col overflow-hidden"
         style={{
-          top: HEADER, bottom: isDesktop ? "max(env(safe-area-inset-bottom,0px),10px)" : "72px",
+          top: HEADER, bottom: isDesktop ? "max(env(safe-area-inset-bottom,0px),10px)" : "calc(3.5rem + max(env(safe-area-inset-bottom,0px),8px))",
           left: isDesktop ? "50%" : "12px", right: isDesktop ? "auto" : "12px",
           transform: isDesktop ? "translateX(-50%)" : undefined,
           width: isDesktop ? "420px" : undefined,
@@ -457,6 +511,25 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
+          <div className="px-3 pt-3 pb-2">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Location</p>
+            <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 focus-within:border-indigo-500/60 transition-colors">
+              <MapPin className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+              <input
+                value={postcodeInput}
+                onChange={e => setPostcodeInput(e.target.value)}
+                placeholder="Postcode or town…"
+                autoComplete="off"
+                className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none min-w-0"
+              />
+              {postcodeInput.trim() && (
+                <button onClick={() => setPostcodeInput("")} className="flex-shrink-0 text-slate-500 hover:text-white transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="mx-3 border-t border-slate-800/80 mb-1" />
           <div className="px-3 pt-3 pb-1">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Trade / Industry</p>
             {[{ title: "All trades" } as const, ...TRADE_INDUSTRIES].map((ind, i) => {
@@ -501,8 +574,9 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
           </div>
         </div>
         <div className="flex-shrink-0 px-3 py-3 border-t border-slate-800">
-          <button onClick={applyFilters} className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white font-bold rounded-2xl text-sm transition-colors shadow-lg shadow-indigo-500/30">
-            Show results
+          <button onClick={applyFilters} disabled={geocoding}
+            className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-400 disabled:opacity-70 text-white font-bold rounded-2xl text-sm transition-colors shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2">
+            {geocoding ? <><Loader2 className="w-4 h-4 animate-spin" /> Locating…</> : "Search"}
           </button>
         </div>
       </div>
@@ -519,7 +593,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
         {/* Map */}
         {mounted && (
           <div id="find-jobs-map" className="absolute inset-0" style={{ zIndex: 0 }}>
-            <MapContainer center={coords} zoom={11} style={{ height: "100%", width: "100%" }} zoomControl={false}>
+            <MapContainer center={coords} zoom={animateZoom ? 5 : 11} style={{ height: "100%", width: "100%" }} zoomControl={false}>
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -528,6 +602,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               <MapSizeHandler />
               <MapViewUpdater center={coords} />
               <ViewportLoader onBoundsChange={onBoundsChange} />
+              {animateZoom && <ZoomInOnLoad target={coords} />}
               {leafletL && jobsWithCoords.map(job => {
                 const pos = jobMarkerCoords(job)!
                 const isApprox = job.location_type === 'approx' || (job.latitude_approx !== null && job.latitude_approx !== job.latitude)
@@ -556,6 +631,14 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
           </div>
         )}
 
+        {/* Home button — desktop only, top-left corner of map */}
+        <Link href="/home"
+          className="absolute left-3 hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/95 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 hover:border-slate-500 transition-colors"
+          style={{ zIndex: 200, top: "60px" }}>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Home
+        </Link>
+
         {/* Header — absolute within map column, centered on desktop */}
         <div className="absolute top-0 left-0 right-0 flex flex-col gap-1.5 px-3 py-2"
           style={{ zIndex: 20, paddingTop: isDesktop ? "52px" : "max(env(safe-area-inset-top,0px),8px)" }}>
@@ -573,43 +656,21 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             </button>
           </div>
           {/* Search row */}
-          <div className="flex items-center lg:justify-center gap-2">
-          <button onClick={() => router.push("/home")}
-            className="flex-shrink-0 hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 transition-colors">
-            <Home className="w-3.5 h-3.5" />
-            <span>Home</span>
-          </button>
-          {editingLocation ? (
-            <form onSubmit={e => { e.preventDefault(); geocodePostcode(postcodeInput) }}
-              className="flex-1 lg:flex-none lg:w-72 flex gap-1.5 items-center">
-              <input ref={postcodeRef} value={postcodeInput} onChange={e => setPostcodeInput(e.target.value)}
-                placeholder="Enter postcode…" autoFocus
-                className="flex-1 bg-slate-700 text-white text-xs rounded-full px-3 py-1.5 outline-none border border-indigo-500 min-w-0" />
-              <button type="submit" disabled={geocoding}
-                className="w-7 h-7 rounded-full bg-indigo-500 flex items-center justify-center flex-shrink-0">
-                {geocoding ? <span className="w-3 h-3 border border-white/40 border-t-white rounded-full animate-spin" /> : <Search className="w-3 h-3 text-white" />}
-              </button>
-              <button type="button" onClick={() => setEditingLocation(false)}
-                className="w-7 h-7 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0">
-                <X className="w-3 h-3 text-slate-300" />
-              </button>
-            </form>
-          ) : (
-            <div onClick={() => { setPostcodeInput(locationLabel !== "Nearby" ? locationLabel : ""); setEditingLocation(true); setTimeout(() => postcodeRef.current?.select(), 50) }}
-              className="flex-1 min-w-0 lg:flex-none lg:w-72 flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1.5 shadow-md cursor-pointer hover:border-indigo-500/50 transition-colors">
-              <MapPin className="w-3 h-3 text-indigo-400 flex-shrink-0" />
-              <span className="text-xs text-white font-medium truncate">{locationLabel}</span>
-              <span className="ml-auto text-[10px] flex-shrink-0">
-                {loading ? <span className="text-indigo-400">Searching…</span> : <span className="text-slate-400">{jobs.length} jobs</span>}
-              </span>
-            </div>
-          )}
-          {/* Filter button — always visible next to location bar */}
-          <button onClick={() => { setDraftFilters(filters); setShowFilters(true) }}
-            className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center shadow-md relative transition-colors ${hasActiveFilters ? "bg-indigo-500 border-indigo-400 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-slate-950" />}
-          </button>
+          <div className="flex items-center gap-2 lg:w-80 lg:self-center">
+            <MapSearchBar
+              loading={loading}
+              label={filters.industry ?? null}
+              count={jobs.length}
+              countSuffix="jobs"
+              accentColor="orange"
+              onClick={() => { setDraftFilters(filters); setPostcodeInput(""); setShowFilters(true) }}
+            />
+            <button onClick={handleMyLocation} disabled={locating} title="My location"
+              className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800/95 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-orange-400 transition-colors text-slate-400">
+              {locating
+                ? <Loader2 className="w-3 h-3 animate-spin text-orange-400" />
+                : <LocateFixed className="w-3 h-3" />}
+            </button>
           </div>{/* end search row */}
         </div>{/* end header */}
       </div>

@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { createPortal } from "react-dom"
 import dynamic from "next/dynamic"
+import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { helpItems } from "@/lib/data/help-items"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg, normaliseCategory } from "@/lib/data/industry-styles"
 import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2, Languages, Briefcase, Users, Home, LocateFixed, Loader2 } from "lucide-react"
+import { MapSearchBar } from "@/components/map-search-bar"
 import JobWizardModal from "@/components/job-wizard-modal"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
@@ -189,10 +191,11 @@ function filtersFromSearchParams(sp: URLSearchParams, fallbackIndustry: string |
 type Props = {
   initialTraders: Trader[]; initialCoords: [number, number]
   initialPostcode?: string; initialIndustry?: string
+  coordsAreDefault?: boolean
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export default function TradespeopleFindMap({ initialTraders, initialCoords, initialPostcode, initialIndustry }: Props) {
+export default function TradespeopleFindMap({ initialTraders, initialCoords, initialPostcode, initialIndustry, coordsAreDefault }: Props) {
   const router        = useRouter()
   const searchParams  = useSearchParams()
   const supabase      = createClient()
@@ -235,23 +238,28 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const postcodeRef      = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Auto-geolocate on first load when the server fell back to the London default
+    // Auto-geolocate when the server fell back to the default location
     // (no postcode/lat-lng in URL and no saved profile location).
     // Browser geolocation is unavailable server-side, so this is the only place to do it.
-    const LONDON_LAT = 51.5074, LONDON_LNG = -0.1278
-    const isDefaultLondon =
-      Math.abs(initialCoords[0] - LONDON_LAT) < 0.001 &&
-      Math.abs(initialCoords[1] - LONDON_LNG) < 0.001
-    if (isDefaultLondon && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          setFlyTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-          setLocationLabel("My location")
-        },
-        () => { /* permission denied or unavailable — stay on London */ },
-        { enableHighAccuracy: false, timeout: 8000 }
-      )
+    if (!coordsAreDefault || !navigator.geolocation) return
+
+    // Allow cached position (up to 5 min old) so it's fast; 20 s timeout gives
+    // enough headroom for the native permission dialog to appear and be tapped.
+    const opts: PositionOptions = { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 }
+
+    const onSuccess = (pos: GeolocationPosition) => {
+      setFlyTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+      setLocationLabel("My location")
     }
+
+    navigator.geolocation.getCurrentPosition(onSuccess, () => {
+      // First attempt failed (timeout or unavailable) — retry once after a short
+      // pause. On some mobile platforms the first call fails immediately after
+      // the user grants permission before the OS has recorded the grant.
+      setTimeout(() => {
+        navigator.geolocation.getCurrentPosition(onSuccess, () => {}, opts)
+      }, 1500)
+    }, opts)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -343,10 +351,30 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     router.replace(`/find?${params.toString()}`, { scroll: false })
   }
 
-  const applyFilters = () => {
+  const applyFilters = async () => {
+    let didGeocode = false
+    const q = postcodeInput.trim()
+    const currentLoc = (locationLabel || initialPostcode || "").toUpperCase()
+    if (q && q.toUpperCase() !== currentLoc) {
+      setGeocoding(true)
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=gb`,
+          { headers: { "User-Agent": "OpenJobMarket/1.0" } }
+        )
+        const data = await res.json()
+        if (data?.[0]) {
+          setFlyTarget({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+          setLocationLabel(q.toUpperCase())
+          didGeocode = true
+        }
+      } catch { }
+      finally { setGeocoding(false) }
+    }
     setFilters(draftFilters); setShowFilters(false); setShowAllIndustries(false)
     pushFilterParams(draftFilters)
-    if (currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, draftFilters)
+    // Skip manual fetch when geocoding — flyToBounds triggers onBoundsChange which fetches
+    if (!didGeocode && currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, draftFilters)
   }
   const clearFilters = () => {
     const r = { ...DEFAULT_FILTERS }
@@ -413,7 +441,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
   // Mobile bottom sheet dimensions (bottom: 56px = bottom nav height h-14)
   // Desktop HEADER = 44px layout header + 96px map overlay ≈ 140px
-  const HEADER = isDesktop ? "140px" : "96px"
+  // Mobile HEADER = safe-area-top + tab row (~28px) + gap (4px) + search row (~28px) + bottom padding (6px)
+  const HEADER = isDesktop ? "140px" : "calc(max(env(safe-area-inset-top,0px),6px) + 66px)"
   const mobileSheetStyle: React.CSSProperties =
     sheetState === "expanded" ? { top: HEADER, bottom: "56px", left: 0, right: 0 } :
     sheetState === "peek"     ? { bottom: "56px", left: 0, right: 0, height: "48vh" } :
@@ -555,7 +584,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       <div className="flex-shrink-0 flex justify-center pt-2 pb-2 px-3">
         <button onClick={() => setShowCategoryPicker(true)}
           className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-500/30 transition-colors">
-          + Post a Job
+          Need multiple quotes?
         </button>
       </div>
       {/* Title row — hidden on desktop (shown in sidebar header instead) */}
@@ -705,7 +734,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         onClick={() => setShowFilters(false)} />
       <div className="absolute rounded-3xl shadow-2xl border border-slate-700/60 flex flex-col overflow-hidden"
         style={{
-          top: HEADER, bottom: isDesktop ? "max(env(safe-area-inset-bottom,0px),10px)" : "72px",
+          top: HEADER, bottom: isDesktop ? "max(env(safe-area-inset-bottom,0px),10px)" : "calc(3.5rem + max(env(safe-area-inset-bottom,0px),8px))",
           left: isDesktop ? "50%" : "12px",
           right: isDesktop ? "auto" : "12px",
           transform: isDesktop ? "translateX(-50%)" : undefined,
@@ -722,7 +751,27 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <div className="px-3 pt-3 pb-1">
+          {/* Postcode / location */}
+          <div className="px-3 pt-3 pb-2">
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Location</p>
+            <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 focus-within:border-emerald-500/60 transition-colors">
+              <MapPin className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+              <input
+                value={postcodeInput}
+                onChange={e => setPostcodeInput(e.target.value)}
+                placeholder="Postcode or town…"
+                autoComplete="off"
+                className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none min-w-0"
+              />
+              {postcodeInput.trim() && (
+                <button onClick={() => setPostcodeInput("")} className="flex-shrink-0 text-slate-500 hover:text-white transition-colors">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="mx-3 border-t border-slate-800/80 mb-1" />
+          <div className="px-3 pt-2 pb-1">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Trade / Industry</p>
             {(() => {
               const allItems = [{ title: "All trades" } as const, ...TRADE_INDUSTRIES]
@@ -831,8 +880,11 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           </div>
         </div>
         <div className="flex-shrink-0 px-3 py-3 border-t border-slate-800">
-          <button onClick={applyFilters} className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-2xl text-sm transition-colors shadow-lg shadow-emerald-500/30">
-            Show results
+          <button onClick={applyFilters} disabled={geocoding}
+            className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-70 text-white font-bold rounded-2xl text-sm transition-colors shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2">
+            {geocoding
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Locating…</>
+              : "Search"}
           </button>
         </div>
       </div>
@@ -942,79 +994,48 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           </div>
         )}
 
+        {/* Home button — desktop only, top-left corner of map */}
+        <Link href="/home"
+          className="absolute left-3 hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/95 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 hover:border-slate-500 transition-colors"
+          style={{ zIndex: 200, top: "60px" }}>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Home
+        </Link>
+
         {/* Header — absolute within the map area, overlays only the map column */}
-        <div className="absolute top-0 left-0 right-0 flex flex-col gap-1.5 px-3 py-2"
-          style={{ zIndex: 20, paddingTop: isDesktop ? "52px" : "max(env(safe-area-inset-top,0px),8px)" }}>
+        <div className="absolute top-0 left-0 right-0 flex flex-col gap-1 px-3 pb-1.5"
+          style={{ zIndex: 20, paddingTop: isDesktop ? "52px" : "max(env(safe-area-inset-top,0px),6px)" }}>
           {/* Tab switcher */}
           <div className="flex self-center bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-500 text-white shadow-sm">
+            <button className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white shadow-sm">
               <Users className="w-3 h-3" />
               Tradespeople
             </button>
             <button
               onClick={() => router.push(`/find-jobs?lat=${initialCoords[0]}&lng=${initialCoords[1]}`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
+              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
               <Briefcase className="w-3 h-3" />
               Trade Jobs
             </button>
           </div>
-          {/* Search row */}
-          <div className="flex items-center lg:justify-center gap-2">
-          <button onClick={() => router.push("/home")}
-            className="flex-shrink-0 hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 transition-colors">
-            <Home className="w-3.5 h-3.5" />
-            <span>Home</span>
-          </button>
-          {postcodeEditing ? (
-            <form onSubmit={e => { e.preventDefault(); handleGeocode() }}
-              className="flex-1 lg:flex-none lg:w-72 flex items-center gap-1 bg-slate-800 border border-emerald-500/60 rounded-full px-2.5 py-1 shadow-md">
-              <MapPin className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-              <input ref={postcodeRef} value={postcodeInput}
-                onChange={e => setPostcodeInput(e.target.value)}
-                placeholder="Enter postcode…" autoFocus autoComplete="off"
-                className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 outline-none min-w-0" />
-              <button type="submit" disabled={geocoding}
-                className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center flex-shrink-0">
-                {geocoding
-                  ? <Loader2 className="w-2.5 h-2.5 text-white animate-spin" />
-                  : <Search className="w-2.5 h-2.5 text-white" />}
-              </button>
-              <button type="button" onClick={() => setPostcodeEditing(false)}
-                className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center flex-shrink-0 ml-0.5">
-                <X className="w-2.5 h-2.5 text-slate-400" />
-              </button>
-            </form>
-          ) : (
-            <div className="flex-1 lg:flex-none lg:w-72 flex items-center gap-1.5">
-              <button
-                onClick={() => { setPostcodeInput(locationLabel || initialPostcode || ""); setPostcodeEditing(true) }}
-                className="flex-1 flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-full px-2.5 py-1.5 shadow-md hover:border-slate-500 transition-colors text-left min-w-0">
-                <MapPin className="w-3 h-3 text-emerald-400 flex-shrink-0" />
-                <span className="text-xs text-white font-medium truncate">
-                  {locationLabel || initialPostcode || "Enter postcode"}
-                </span>
-                <span className="ml-auto text-[10px] flex-shrink-0">
-                  {loading
-                    ? <span className="text-emerald-400">Searching…</span>
-                    : <span className="text-slate-400">{traders.length} found</span>}
-                </span>
-              </button>
-              <button onClick={handleMyLocation} disabled={locating}
-                title="Go to my location"
-                className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-emerald-400 transition-colors text-slate-400">
-                {locating
-                  ? <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-                  : <LocateFixed className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          )}
-          {/* Filter button — mobile always, desktop next to postcode bar */}
-          <button onClick={() => { setDraftFilters(filters); setShowFilters(true) }}
-            className={`flex-shrink-0 w-8 h-8 rounded-full border flex items-center justify-center shadow-md relative transition-colors ${hasActiveFilters ? "bg-emerald-500 border-emerald-400 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-slate-950" />}
-          </button>
-          </div>{/* end search row */}
+          {/* Search bar — single tap opens Filters modal */}
+          <div className="flex items-center gap-2 lg:w-80 lg:self-center">
+            <MapSearchBar
+              loading={loading}
+              label={filters.subcategories?.[0] ?? filters.industry ?? null}
+              extraCount={Math.max(0, (filters.subcategories?.length ?? 0) - 1)}
+              count={traders.length}
+              countSuffix="nearby"
+              accentColor="emerald"
+              onClick={() => { setDraftFilters(filters); setPostcodeInput(""); setShowFilters(true) }}
+            />
+            <button onClick={handleMyLocation} disabled={locating} title="My location"
+              className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800/95 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-emerald-400 transition-colors text-slate-400">
+              {locating
+                ? <Loader2 className="w-3 h-3 animate-spin text-emerald-400" />
+                : <LocateFixed className="w-3 h-3" />}
+            </button>
+          </div>{/* end search bar row */}
         </div>{/* end header */}
       </div>
 

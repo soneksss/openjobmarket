@@ -123,6 +123,8 @@ export default function LoginForm() {
           router.push("/admin/dashboard")
         } else if (returnUrl) {
           router.push(returnUrl)
+        } else if (userData.user_type === "company") {
+          router.push("/find-jobs")
         } else {
           router.push(isOnBrRoute ? "/br" : "/")
         }

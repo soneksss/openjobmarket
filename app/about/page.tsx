@@ -43,7 +43,7 @@ export default async function AboutPage() {
                 <Link href="/post-job" className="inline-flex items-center px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm transition-colors">
                   Post a Job
                 </Link>
-                <Link href="/find" className="inline-flex items-center px-5 py-2.5 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-semibold text-sm transition-colors">
+                <Link href="/find-trades" className="inline-flex items-center px-5 py-2.5 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-semibold text-sm transition-colors">
                   Find Tradespeople
                 </Link>
               </>
@@ -169,7 +169,7 @@ export default async function AboutPage() {
             {isSignedIn ? (
               <>
                 <Link href="/post-job" className="inline-flex items-center px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-white font-semibold text-sm transition-colors">Post a Job</Link>
-                <Link href="/find" className="inline-flex items-center px-5 py-2.5 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-semibold text-sm transition-colors">Find Tradespeople</Link>
+                <Link href="/find-trades" className="inline-flex items-center px-5 py-2.5 rounded-xl border border-slate-600 hover:border-slate-400 text-slate-300 hover:text-white font-semibold text-sm transition-colors">Find Tradespeople</Link>
               </>
             ) : (
               <>

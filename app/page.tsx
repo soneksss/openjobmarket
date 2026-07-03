@@ -18,6 +18,10 @@ export const metadata = generateSEO({
 })
 
 export default async function HomePage() {
+  // / is the default entry point — redirect to the live map so users see
+  // value immediately. The marketing/info page lives at /home.
+  redirect("/find-trades")
+
   // createClient() has AbortSignal.timeout(3000) on every fetch — no separate withTimeout needed
   const supabase = await createClient()
 
@@ -29,9 +33,6 @@ export default async function HomePage() {
   } catch {
     // AbortError (timeout) or ECONNRESET — render as signed out
   }
-
-  // All visitors land on the live map — no postcode required
-  redirect("/find")
 
   // Round-trip 2+: profile + adminSettings — served from cache, Supabase only on miss
   const bootstrap = await getHomePageBootstrap(user)

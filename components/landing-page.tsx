@@ -1815,11 +1815,11 @@ function MobileBottomNavLanding({
 
   const navItems = [
     {
-      key: "search",
+      key: "home",
       icon: Home,
-      label: "Search",
-      href: "/",
-      isActive: pathname === "/" || pathname === "/br",
+      label: "Home",
+      href: "/home",
+      isActive: pathname === "/" || pathname === "/br" || pathname?.startsWith("/home"),
     },
     {
       key: "messages",

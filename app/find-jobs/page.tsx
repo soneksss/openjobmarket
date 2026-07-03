@@ -12,9 +12,11 @@ export default async function FindJobsPage({
   const { postcode, lat, lng, industry } = await searchParams
 
   let coords: [number, number] = DEFAULT_COORDS
+  let coordsAreDefault = true
 
   if (lat && lng) {
     coords = [parseFloat(lat), parseFloat(lng)]
+    coordsAreDefault = false
   } else if (postcode) {
     try {
       const geo = await fetch(
@@ -24,6 +26,7 @@ export default async function FindJobsPage({
       const geoData = await geo.json()
       if (geoData?.[0]) {
         coords = [parseFloat(geoData[0].lat), parseFloat(geoData[0].lon)]
+        coordsAreDefault = false
       }
     } catch {
       // fall back to London
@@ -37,6 +40,8 @@ export default async function FindJobsPage({
         initialCoords={coords}
         initialPostcode={postcode}
         initialIndustry={industry}
+        animateZoom={!!(lat && lng)}
+        coordsAreDefault={coordsAreDefault}
       />
     </div>
   )

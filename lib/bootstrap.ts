@@ -46,7 +46,7 @@ export type Permissions = null   // e.g. { canPostJobs: boolean; isAdmin: boolea
 
 const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
   vacanciesJobseekersEnabled: true,
-  layoutVersion: 'v1',
+  layoutVersion: 'v2',
   ui: { urgentJobsBanner: true, promotionsBanner: false },
   minAppVersion: '1.0.0',
   forceUpdate: false,
@@ -89,7 +89,7 @@ export const getAdminSettings = unstable_cache(
       return {
         adminSettings: {
           vacanciesJobseekersEnabled: d.vacancies_jobseekers_enabled ?? true,
-          layoutVersion:              (d.layout_version === 'v2' ? 'v2' : 'v1'),
+          layoutVersion:              (d.layout_version === 'v1' ? 'v1' : 'v2'),
           ui: {
             urgentJobsBanner: d.ui_urgent_jobs_banner ?? true,
             promotionsBanner: d.ui_promotions_banner  ?? false,

@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { createClient } from "@/lib/server"
 import TradespeopleFindMap from "@/components/tradespeople-find-map"
 
-const DEFAULT_COORDS: [number, number] = [51.5074, -0.1278] // London
+const DEFAULT_COORDS: [number, number] = [50.8058, -1.0872] // Portsmouth
 
 export default async function FindPage({
   searchParams,
@@ -49,9 +49,11 @@ export default async function FindPage({
         }
       }
     } catch {
-      // fall back to London
+      // fall back to Portsmouth default
     }
   }
+
+  const coordsAreDefault = coords === DEFAULT_COORDS
 
   return (
     <div className="fixed inset-0 bg-slate-900">
@@ -60,6 +62,7 @@ export default async function FindPage({
         initialCoords={coords}
         initialPostcode={postcode}
         initialIndustry={industry}
+        coordsAreDefault={coordsAreDefault}
       />
     </div>
   )

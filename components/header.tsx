@@ -267,7 +267,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
   // ─── Logo click handler (shared) ─────────────────────────────────────────
   const handleLogoClick = () => {
     if (isModal && onModalClose) { onModalClose(); return }
-    const targetUrl = getLocalePath("/")
+    const targetUrl = getLocalePath("/home")
     if (pathname === targetUrl) return
     router.push(targetUrl)
   }
@@ -275,7 +275,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
   const logoEl = (
     <div
       onClick={handleLogoClick}
-      className="flex items-center gap-2 cursor-pointer hover:opacity-90 hover:scale-[1.03] transition-all duration-200"
+      className="flex items-center gap-1.5 cursor-pointer hover:opacity-90 hover:scale-[1.03] transition-all duration-200"
     >
       <div className="rounded-xl overflow-hidden flex-shrink-0">
         <Image
@@ -283,11 +283,11 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
           alt="Open Job Market"
           width={40}
           height={40}
-          className="h-9 w-9 block"
+          className="h-7 w-7 sm:h-9 sm:w-9 block"
           priority
         />
       </div>
-      <span className={`font-semibold text-sm sm:text-base leading-tight ${dark ? "text-white" : "text-slate-900"}`}>
+      <span className={`hidden sm:inline font-semibold text-sm sm:text-base leading-tight ${dark ? "text-white" : "text-slate-900"}`}>
         Open Job Market
       </span>
     </div>
@@ -345,25 +345,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
             </div>
 
             <nav className="hidden md:flex items-center space-x-2">
-              {/* Back to Search — shown on any page that isn't the home/search page */}
-              {pathname !== getLocalePath("/") && (
-                <Link href={getLocalePath("/")}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`flex items-center gap-1.5 bg-transparent ${
-                      dark
-                        ? "text-slate-300 hover:text-white hover:bg-white/10"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-                    }`}
-                  >
-                    <Home className="h-4 w-4" />
-                    Back to Search
-                  </Button>
-                </Link>
-              )}
-
-              <Link href={getLocalePath("/about")}>
+<Link href={getLocalePath("/about")}>
                 <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
                   {t('header.about')}
                 </Button>
@@ -673,12 +655,22 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                 </div>
                 </>
               ) : (
-                <div className="flex items-center space-x-1 sm:space-x-2">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Link href={getLocalePath("/for-tradespeople")}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-auto text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 bg-transparent border-orange-600/60 text-orange-400 hover:bg-orange-500/10 hover:border-orange-500 hover:text-orange-300"
+                    >
+                      <span className="sm:hidden">Trades</span>
+                      <span className="hidden sm:inline">For Tradespeople</span>
+                    </Button>
+                  </Link>
                   <Link href={loginUrl} className="hidden sm:block">
                     <Button
                       variant="outline"
                       size="sm"
-                      className={`text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2 bg-transparent ${dark ? "border-slate-600 text-slate-200 hover:bg-white/10 hover:text-white" : ""}`}
+                      className={`text-xs px-2.5 py-1.5 bg-transparent ${dark ? "border-slate-600 text-slate-200 hover:bg-white/10 hover:text-white" : ""}`}
                     >
                       {t('header.signIn')}
                     </Button>
@@ -686,7 +678,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                   <Link href={signUpUrl}>
                     <Button
                       size="sm"
-                      className="text-xs sm:text-sm px-2 sm:px-3 py-1 sm:py-2"
+                      className="h-auto text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5"
                     >
                       {t('header.signUp')}
                     </Button>
