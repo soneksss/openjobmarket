@@ -27,23 +27,23 @@ export function MapSearchBar({
   return (
     <button
       onClick={onClick}
-      className={`flex-1 flex items-center bg-slate-800/95 border border-slate-700 rounded-full shadow-md hover:border-slate-500 ${activeBorder} transition-colors overflow-hidden min-w-0`}>
+      className={`flex-1 flex items-center bg-slate-800/95 border border-slate-600 rounded-full shadow-lg hover:border-slate-400 hover:bg-slate-700/95 ${activeBorder} transition-colors overflow-hidden min-w-0`}>
       {/* LEFT — icon + label */}
-      <div className="flex items-center gap-2 flex-1 px-3 py-1.5 min-w-0">
-        <Search className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+      <div className="flex items-center gap-2 flex-1 px-3.5 py-2.5 min-w-0">
+        <Search className="w-4 h-4 text-slate-300 flex-shrink-0" />
         {loading
-          ? <span className="text-xs text-slate-400 truncate">Searching…</span>
+          ? <span className="text-xs text-slate-300 truncate">Searching…</span>
           : label
             ? <span className="flex-1 text-xs text-white font-medium truncate">
                 {label}
                 {extraCount > 0 && <span className={`ml-1 font-semibold ${plusColor}`}>+{extraCount}</span>}
               </span>
-            : <span className="flex-1 text-xs text-slate-400 truncate">Search trade or postcode…</span>}
+            : <span className="flex-1 text-xs text-slate-300 truncate">Search trade or postcode…</span>}
       </div>
       {/* Divider */}
-      <div className="w-px h-4 bg-slate-700 flex-shrink-0" />
+      <div className="w-px h-5 bg-slate-600 flex-shrink-0" />
       {/* RIGHT — count */}
-      <div className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-slate-300 whitespace-nowrap">
+      <div className="flex-shrink-0 px-3.5 py-2.5 text-xs font-medium text-slate-200 whitespace-nowrap">
         {loading ? "…" : `${count} ${countSuffix}`}
       </div>
     </button>

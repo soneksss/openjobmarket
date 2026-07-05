@@ -308,6 +308,28 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     Promise.resolve(supabase.rpc("log_company_activity", { p_activity_type: "dashboard_open" })).catch(() => {})
   }, [])
 
+  // Client-side expiry guard: the expire-availability cron only runs once daily at 09:00.
+  // If the trader loads the dashboard after their 24h window has passed but before the
+  // next cron run, the toggle would incorrectly appear ON. Fix it immediately on mount.
+  useEffect(() => {
+    const expiresAt = profile.urgent_notifications_expires_at
+    if (!expiresAt || !urgentEnabled) return
+    if (new Date(expiresAt) < new Date()) {
+      setUrgentEnabled(false)
+      supabase
+        .from("company_profiles")
+        .update({
+          urgent_notifications_enabled:    false,
+          urgent_notifications_expires_at: null,
+          open_for_business:               false,
+          availability_expires_at:         null,
+        })
+        .eq("id", profile.id)
+        .then(() => {})
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // Fetch unread messages count
   useEffect(() => {
     const fetchCounts = async () => {

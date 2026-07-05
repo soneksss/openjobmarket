@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
+import { sendWebPushToUser } from "@/lib/web-push"
 
 // Safe empty response — never triggers a 500 in the frontend poll
 const EMPTY_OK = { success: true, responses: [], alertedTrades: [], notifiedCount: 0, searchRadius: null, jobState: null, applicationCount: 0 }
@@ -357,6 +358,9 @@ async function notifyHomeownerOfApplication(jobId: string, applicantUserId: stri
 
   if (!homeownerUserId) return
 
+  // Guard: don't notify the poster about their own job application
+  if (homeownerUserId === applicantUserId) return
+
   // 3. Get the tradesperson's display name (company account)
   let applicantName = "A tradesperson"
   const { data: cp } = await admin
@@ -400,6 +404,27 @@ async function notifyHomeownerOfApplication(jobId: string, applicantUserId: stri
   if (error) {
     console.error("[URGENT-RESPONSES] Failed to insert homeowner notification:", error.message)
   } else {
-    console.log("[URGENT-RESPONSES] Homeowner notified:", homeownerUserId)
+    console.log("[URGENT-RESPONSES] Homeowner in-app notified:", homeownerUserId)
+  }
+
+  // 6. Send web push so the homeowner hears a sound with phone in pocket
+  const { data: tokenRows } = await admin
+    .from("user_push_tokens")
+    .select("token")
+    .eq("user_id", homeownerUserId)
+
+  if (tokenRows?.length) {
+    const tokens = tokenRows.map((r: any) => r.token)
+    const { expired } = await sendWebPushToUser(tokens, {
+      title:              `${applicantName} applied to your job`,
+      body:               `Tap to review and confirm them for "${job.title}"`,
+      url:                `/dashboard/homeowner/jobs/${jobId}`,
+      tag:                `job-application-${jobId}`,
+      requireInteraction: true,
+    })
+    if (expired.length) {
+      await admin.from("user_push_tokens").delete().in("token", expired)
+    }
+    console.log("[URGENT-RESPONSES] Push sent to homeowner:", homeownerUserId)
   }
 }

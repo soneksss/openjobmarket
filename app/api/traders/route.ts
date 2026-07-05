@@ -62,27 +62,33 @@ export async function GET(req: NextRequest) {
 
   const [{ data: companies }, { data: seeded }] = await Promise.all([cq, sq])
 
-  const traders = [
-    ...(companies ?? []).map(c => ({
-      id:               c.id,
-      profile_type:     "company" as const,
-      name:             c.company_name,
-      industry:         (c.industries?.[0] ?? c.industry) as string | null,
-      location:         (c.location ?? null) as string | null,
-      latitude:         c.latitude  as number | null,
-      longitude:        c.longitude as number | null,
-      logo_url:         (c.logo_url ?? null) as string | null,
-      rating:           (c.average_rating ?? 0) as number,
-      reviews_count:    (c.reviews_count  ?? 0) as number,
-      user_id:          c.user_id as string,
-      open_for_business: c.open_for_business as boolean | null,
-      service_24_7:     (c.service_24_7 ?? false) as boolean,
-      services:         (c.services ?? null) as string[] | null,
-      phone_number:     (c.phone_number ?? null) as string | null,
-      spoken_languages: (c.spoken_languages ?? null) as string[] | null,
-      claim_token:      null as null,
-    })),
-    ...(seeded ?? []).map(s => ({
+  const companyRows = (companies ?? []).map(c => ({
+    id:               c.id,
+    profile_type:     "company" as const,
+    name:             c.company_name,
+    industry:         (c.industries?.[0] ?? c.industry) as string | null,
+    location:         (c.location ?? null) as string | null,
+    latitude:         c.latitude  as number | null,
+    longitude:        c.longitude as number | null,
+    logo_url:         (c.logo_url ?? null) as string | null,
+    rating:           (c.average_rating ?? 0) as number,
+    reviews_count:    (c.reviews_count  ?? 0) as number,
+    user_id:          c.user_id as string,
+    open_for_business: c.open_for_business as boolean | null,
+    service_24_7:     (c.service_24_7 ?? false) as boolean,
+    services:         (c.services ?? null) as string[] | null,
+    phone_number:     (c.phone_number ?? null) as string | null,
+    spoken_languages: (c.spoken_languages ?? null) as string[] | null,
+    claim_token:      null as null,
+  }))
+
+  // Names already covered by a real company profile — seeded rows with the same
+  // name are duplicates and should be suppressed.
+  const companyNames = new Set(companyRows.map(c => c.name?.trim().toLowerCase()).filter(Boolean))
+
+  const seededRows = (seeded ?? [])
+    .filter(s => !companyNames.has(s.company_name?.trim().toLowerCase()))
+    .map(s => ({
       id:               s.id,
       profile_type:     "seeded" as const,
       name:             s.company_name,
@@ -100,8 +106,15 @@ export async function GET(req: NextRequest) {
       services:         null as null,
       phone_number:     (s.phone ?? null) as string | null,
       claim_token:      s.claim_token as string,
-    })),
-  ]
+    }))
+
+  // Also deduplicate within each source by id (guard against DB-level dupes)
+  const seen = new Set<string>()
+  const traders = [...companyRows, ...seededRows].filter(t => {
+    if (seen.has(t.id)) return false
+    seen.add(t.id)
+    return true
+  })
 
   return NextResponse.json(traders, {
     headers: {

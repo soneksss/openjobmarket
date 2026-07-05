@@ -289,11 +289,18 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     const guestItems: NavItem[] = [
       { key: "home",     icon: Home,          label: "Home",     href: `${base}/home`,       isActive: false },
       { key: "messages", icon: MessageCircle, label: "Messages", href: `${base}/auth/login`, isActive: false },
-      { key: "post",     icon: Plus,          label: "Post Job", href: `${base}/auth/login`, isActive: false, isCenter: true },
+      { key: "post",     icon: Plus,          label: "Post Job", href: "#",                  isActive: false, isCenter: true, onClick: () => setShowCategorySelector(true) },
       { key: "myjobs",   icon: Briefcase,     label: "My Jobs",  href: `${base}/auth/login`, isActive: false },
       { key: "login",    icon: User,          label: "Log In",   href: `${base}/auth/login`, isActive: !!pathname?.includes("/auth/login") },
     ]
-    return <BottomNav items={guestItems} unreadMessages={0} unreadNotifications={0} />
+    return (
+      <>
+        <BottomNav items={guestItems} unreadMessages={0} unreadNotifications={0} />
+        {showCategorySelector && (
+          <PostJobCategorySelector onClose={() => setShowCategorySelector(false)} />
+        )}
+      </>
+    )
   }
 
   const getDashboardUrl = () => {

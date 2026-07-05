@@ -30,7 +30,7 @@ export async function POST(
     // ── 1. Fetch job details (title, location, coordinates) ──────────────────
     const { data: job } = await admin
       .from("jobs")
-      .select("title, location, category, dispatch_state, status, expires_at, is_active, latitude, longitude, budget_min, budget_max, budget_period")
+      .select("title, location, category, dispatch_state, status, expires_at, is_active, latitude, longitude, budget_min, budget_max, budget_period, company_id")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -94,12 +94,16 @@ export async function POST(
       // Use urgent_notifications_enabled + expiry — the canonical source of truth.
       // Legacy open_for_business + trade_job_notifications intentionally NOT used here.
       const now = new Date().toISOString()
-      const { data: allCandidates } = await admin
+      const posterCompanyId = (job as any)?.company_id as string | null | undefined
+      let fallbackQuery = admin
         .from("company_profiles")
         .select("id, industry, services, latitude, longitude")
         .eq("urgent_notifications_enabled", true)
         .gt("urgent_notifications_expires_at", now)
-        .limit(200)
+      if (posterCompanyId) {
+        fallbackQuery = fallbackQuery.neq("id", posterCompanyId)
+      }
+      const { data: allCandidates } = await fallbackQuery.limit(200)
 
       if (allCandidates && allCandidates.length > 0) {
         // 1. Skill filter first — only matching tradespeople
@@ -143,6 +147,13 @@ export async function POST(
           console.log(`[DISPATCH-URGENT] Skill filter returned 0 — keeping all ${profileIds.length} RPC results`)
         }
       }
+    }
+
+    // Exclude the job poster from dispatch (trade job: company_id = poster's profile)
+    const posterCompanyId = (job as any)?.company_id as string | null | undefined
+    if (posterCompanyId && profileIds.includes(posterCompanyId)) {
+      profileIds = profileIds.filter(id => id !== posterCompanyId)
+      console.log(`[DISPATCH-URGENT] Excluded poster ${posterCompanyId} from candidates`)
     }
 
     if (profileIds.length === 0) {

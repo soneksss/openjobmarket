@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/daily-availability-prompt",
       "schedule": "5 9 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-availability-reminder",
+      "schedule": "0 8 * * 1"
     }
   ]
 }

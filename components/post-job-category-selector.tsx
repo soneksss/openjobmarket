@@ -3,37 +3,7 @@
 import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import Image from "next/image"
-
-const HELP_ITEMS = [
-  { label: "Fix a leak",         img: "/Jobs/Fix_leak.png",           industry: "Plumbing & Heating",             service: "Plumber"                        },
-  { label: "Boiler repair",      img: "/Jobs/Boiler_repair.png",      industry: "Plumbing & Heating",             service: "Boiler Repair"                   },
-  { label: "Electrician",        img: "/Jobs/Electrician.png",        industry: "Electrical",                     service: "Electrician"                     },
-  { label: "EV charger",         img: "/Jobs/EV_charger.png",         industry: "Electrical",                     service: "EV Charger Installation"         },
-  { label: "Extension",          img: "/Jobs/Extension.png",          industry: "Construction & Renovation",      service: "Extension Specialist"            },
-  { label: "Bricklaying",        img: "/Jobs/Bricklayer.png",         industry: "Construction & Renovation",      service: "Bricklayer"                      },
-  { label: "Plastering",         img: "/Jobs/Plastering.png",         industry: "Plastering & Rendering",         service: "Plasterer"                       },
-  { label: "Rendering",          img: "/Jobs/Rendering.png",          industry: "Plastering & Rendering",         service: "Rendering Specialist"            },
-  { label: "Painting",           img: "/Jobs/Painting.png",           industry: "Painting & Decorating",          service: "Painter & Decorator"             },
-  { label: "Wallpapering",       img: "/Jobs/Wallpapering.png",       industry: "Painting & Decorating",          service: "Wallpapering"                    },
-  { label: "Roof repair",        img: "/Jobs/Roof_repair.png",        industry: "Roofing",                        service: "Roof Repair"                     },
-  { label: "Guttering",          img: "/Jobs/Guttering.png",          industry: "Roofing",                        service: "Guttering"                       },
-  { label: "Carpentry",          img: "/Jobs/Carpentry.png",          industry: "Carpentry & Joinery",            service: "Carpenter"                       },
-  { label: "Kitchen fitting",    img: "/Jobs/Kitchen_fitter.png",     industry: "Carpentry & Joinery",            service: "Kitchen Fitter"                  },
-  { label: "Gardening",          img: "/Jobs/Gardening.png",          industry: "Gardening & Landscaping",        service: "Gardener"                        },
-  { label: "Landscaping",        img: "/Jobs/Landscaping.png",        industry: "Gardening & Landscaping",        service: "Landscaper"                      },
-  { label: "Tiling",             img: "/Jobs/Tiling.png",             industry: "Flooring & Tiling",              service: "Tiler"                           },
-  { label: "Flooring",           img: "/Jobs/Flooring.png",           industry: "Flooring & Tiling",              service: "Flooring Specialist"             },
-  { label: "Cleaning",           img: "/Jobs/Cleaning.png",           industry: "Cleaning",                       service: "Domestic Cleaner"                },
-  { label: "Handyman",           img: "/Jobs/Handyman.jpg",           industry: "Handyman / Small Jobs",          service: "Handyman"                        },
-  { label: "Furniture assembly", img: "/Jobs/Furniture_assembly.png", industry: "Handyman / Small Jobs",          service: "Furniture Assembly"              },
-  { label: "House clearance",    img: "/Jobs/House_clearence.png",    industry: "Waste Removal",                  service: "House Clearance"                 },
-  { label: "Man & Van",          img: "/Jobs/Man_van.png",            industry: "Waste Removal",                  service: "Man & Van"                       },
-  { label: "Fencing",            img: "/Jobs/Fencing.png",            industry: "Fencing & Gates",                service: "Fence Installer"                 },
-  { label: "Gate installation",  img: "/Jobs/Gate.png",               industry: "Fencing & Gates",                service: "Gate Installation"               },
-  { label: "Driveway",           img: "/Jobs/Driveway.png",           industry: "Gardening & Landscaping",        service: "Patio & Paving Specialist"       },
-  { label: "Air conditioning",   img: "/Jobs/Airconditioning.png",    industry: "Air Conditioning & Ventilation", service: "Air Conditioning Installation"   },
-  { label: "Tree surgeon",       img: "/Jobs/Tree_surgeon.png",       industry: "Gardening & Landscaping",        service: "Tree Surgeon"                    },
-]
+import { helpItems } from "@/lib/data/help-items"
 
 interface PostJobCategorySelectorProps {
   onClose: () => void
@@ -66,7 +36,7 @@ export function PostJobCategorySelector({ onClose }: PostJobCategorySelectorProp
       {/* Grid */}
       <div className="flex-1 overflow-y-auto px-3 py-3">
         <div className="grid grid-cols-3 gap-2.5 pb-20">
-          {HELP_ITEMS.map((item) => (
+          {helpItems.map((item) => (
             <button
               key={item.label}
               onClick={() => handleSelect(item.industry, item.service)}

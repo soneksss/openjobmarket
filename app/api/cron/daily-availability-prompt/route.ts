@@ -27,6 +27,15 @@ export async function GET(request: NextRequest) {
   const unauth = verifyCronRequest(request)
   if (unauth) return unauth
 
+  // Only send availability prompts between 08:00 and 11:00 UTC (9–12 UK time).
+  // This prevents accidental night-time pushes if the cron is ever triggered
+  // manually or the schedule configuration changes.
+  const utcHour = new Date().getUTCHours()
+  if (utcHour < 8 || utcHour >= 11) {
+    console.log(`[CRON daily-availability-prompt] Skipped — outside allowed window (UTC hour: ${utcHour})`)
+    return NextResponse.json({ success: true, skipped: true, reason: "outside-hours" })
+  }
+
   try {
     const admin = createAdminClient()
 

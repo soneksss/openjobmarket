@@ -492,6 +492,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   const [snap, setSnap]         = useState<Snap>("half")
   const [translateY, setTY]     = useState(9999)   // off-screen until layout
   const [isDragging, setIsDrag] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
 
   const getSnapTY = useCallback((s: Snap): number => {
     const h = sheetMaxHRef.current
@@ -509,11 +510,14 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   }, [getSnapTY])
 
   useLayoutEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024)
+    checkDesktop()
     const h = window.innerHeight * FULL_VIS
     sheetMaxHRef.current = h
     const y = h * (1 - HALF_VIS)
     setTY(y)
     const onResize = () => {
+      checkDesktop()
       const nh = window.innerHeight * FULL_VIS
       sheetMaxHRef.current = nh
       snapTo(snapRef.current)
@@ -949,7 +953,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       </div>
 
       {/* ── Full-screen map — z-0 keeps it below the sheet (z-[60]) ── */}
-      <div className="absolute inset-0 z-0" style={{ top: `calc(${HEADER_H}px + env(safe-area-inset-top, 0px))` }}>
+      <div className="absolute inset-0 z-0" style={{ top: `calc(${HEADER_H}px + env(safe-area-inset-top, 0px))`, right: isDesktop ? "380px" : 0 }}>
         <FindingTradesMap
           lat={lat}
           lon={lon}
@@ -977,11 +981,18 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
         />
       </div>
 
-      {/* ── Draggable bottom sheet ───────────────────────────────── */}
+      {/* ── Trade list — right sidebar on desktop, draggable bottom sheet on mobile ── */}
       <div
         ref={sheetRef}
-        className="absolute left-0 right-0 bottom-0 z-[60] flex flex-col rounded-t-[20px] overflow-hidden"
-        style={{
+        className={isDesktop
+          ? "absolute right-0 bottom-0 z-[60] flex flex-col overflow-hidden border-l border-slate-700/60"
+          : "absolute left-0 right-0 bottom-0 z-[60] flex flex-col rounded-t-[20px] overflow-hidden"
+        }
+        style={isDesktop ? {
+          top: `calc(${HEADER_H}px + env(safe-area-inset-top, 0px))`,
+          width: "380px",
+          background: "#0f172a",
+        } : {
           height: sheetMaxHRef.current ? `${sheetMaxHRef.current}px` : "88dvh",
           transform: `translateY(${translateY}px)`,
           transition: isDragging ? "none" : "transform 0.38s cubic-bezier(0.32,0.72,0,1)",
@@ -992,16 +1003,18 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
       >
         {/* ── Sheet handle + compact status ────────────────────── */}
         <div
-          className="flex-shrink-0 select-none touch-none cursor-grab active:cursor-grabbing"
-          onPointerDown={handleDragStart}
-          onPointerMove={handleDragMove}
-          onPointerUp={handleDragEnd}
-          onPointerCancel={handleDragEnd}
+          className={`flex-shrink-0 select-none${isDesktop ? "" : " touch-none cursor-grab active:cursor-grabbing"}`}
+          onPointerDown={isDesktop ? undefined : handleDragStart}
+          onPointerMove={isDesktop ? undefined : handleDragMove}
+          onPointerUp={isDesktop ? undefined : handleDragEnd}
+          onPointerCancel={isDesktop ? undefined : handleDragEnd}
         >
-          {/* Drag pill */}
-          <div className="flex justify-center pt-3 pb-2.5">
-            <div className="w-10 h-1 rounded-full bg-slate-700" />
-          </div>
+          {/* Drag pill — mobile only */}
+          {!isDesktop && (
+            <div className="flex justify-center pt-3 pb-2.5">
+              <div className="w-10 h-1 rounded-full bg-slate-700" />
+            </div>
+          )}
 
           {/* Status badge + actions row */}
           <div className="flex items-center gap-2 px-4 pb-2.5">

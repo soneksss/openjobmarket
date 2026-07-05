@@ -33,7 +33,7 @@ export async function POST(
     // ── 1. Fetch job ────────────────────────────────────────────────────────
     const { data: job, error: jobErr } = await admin
       .from('jobs')
-      .select('id, title, location, latitude, longitude, industry, service, urgency_type, status, matching_status, is_active, expires_at')
+      .select('id, title, location, latitude, longitude, industry, service, urgency_type, status, matching_status, is_active, expires_at, company_id')
       .eq('id', jobId)
       .maybeSingle()
 
@@ -96,7 +96,14 @@ export async function POST(
 
     let dispatched = 0
 
+    const posterCompanyId = (job as any)?.company_id as string | null | undefined
+
     for (const company of companies as Array<{ company_id: string; user_id: string; company_name: string; distance_miles: number; language_score?: number }>) {
+      // Skip the job poster — they must not receive notifications about their own job
+      if (posterCompanyId && company.company_id === posterCompanyId) {
+        console.log(`[DISPATCH-FLEXIBLE] Skipping poster ${posterCompanyId}`)
+        continue
+      }
       try {
         // Dedup: mark as notified so no second dispatch arrives
         await admin

@@ -43,17 +43,28 @@ const MapViewUpdater = dynamic(
   () => Promise.all([import("react-leaflet"), import("react")]).then(([lm, rm]) => {
     const { useMap } = lm
     const { useEffect, useRef } = rm
-    function Comp({ center }: { center: [number, number] }) {
-      const map = useMap()
-      const prev = useRef(center)
+    function Comp({ center, forceSeq }: { center: [number, number]; forceSeq?: number }) {
+      const map      = useMap()
+      const prev     = useRef(center)
+      const prevSeq  = useRef(forceSeq ?? 0)
       useEffect(() => {
         const [pLat, pLon] = prev.current
-        const [lat, lon] = center
-        if (Math.abs(lat - pLat) > 0.001 || Math.abs(lon - pLon) > 0.001) {
-          prev.current = center
-          map.flyTo(center, map.getZoom(), { animate: true, duration: 0.6 })
+        const [lat, lon]   = center
+        // "forced" = locate-me button was pressed (seq bumped), always fly even if coords unchanged
+        const forced = forceSeq !== undefined && forceSeq !== prevSeq.current
+        if (forced || Math.abs(lat - pLat) > 0.001 || Math.abs(lon - pLon) > 0.001) {
+          prev.current    = center
+          prevSeq.current = forceSeq ?? 0
+          const TARGET_ZOOM = 13
+          // On mobile the bottom sheet covers ~216px; shift the projected centre
+          // south so the target appears above the panel (centred in visible area).
+          const mapH    = map.getSize().y
+          const panelPx = mapH < 800 ? 110 : 0
+          const pt       = map.project(center as any, TARGET_ZOOM)
+          const adjusted = map.unproject((pt as any).add([0, panelPx]) as any, TARGET_ZOOM)
+          map.flyTo(adjusted as any, TARGET_ZOOM, { animate: true, duration: 1.0 })
         }
-      }, [map, center])
+      }, [map, center, forceSeq])
       return null
     }
     return Comp
@@ -110,35 +121,54 @@ const ViewportLoader = dynamic(
   { ssr: false }
 )
 
-// ── Custom pin ─────────────────────────────────────────────────────────────────
-function createTraderIcon(L: any, isSelected: boolean, industryTitle?: string | null, isBusy?: boolean, isSeeded?: boolean) {
-  const size     = isSelected ? 44 : 36
-  const iconSize = Math.round(size * 0.50)
+// ── Custom van pin ─────────────────────────────────────────────────────────────
 
-  // Seeded trades: correct industry icon but dimmed grey (looks like a busy unregistered business).
-  // Use a dashed border so they are visually distinguishable from real-but-busy traders on close inspection.
-  if (isSeeded) {
-    const mappedTitle = normaliseCategory(industryTitle)
-    const color  = "#64748b"   // slate-500
-    const pinBg  = isSelected ? "#475569" : "#0f172a"
-    const iconClr = isSelected ? "#ffffff" : "#94a3b8"
-    const svg    = getIndustryPinSvg(mappedTitle, iconClr, iconSize)
-    return L.divIcon({
-      className: "",
-      html: `<div style="width:${size}px;height:${size}px;background:${pinBg};border:2px dashed ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,0.35),0 0 0 3px ${color}20">${svg}</div>`,
-      iconSize: [size, size], iconAnchor: [size/2, size/2], popupAnchor: [0, -(size/2+4)],
-    })
-  }
+// Cheap string hash → deterministic pseudo-random per trader ID.
+// Keeps the same delay/direction on every re-render so icons don't flicker.
+function hashStr(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) >>> 0
+  return h
+}
 
-  const baseColor = getIndustryPinColor(industryTitle)
-  const color     = isBusy ? "#64748b" : baseColor
-  const pinBg     = isSelected ? color : "#0f172a"
-  const iconClr   = isSelected ? "#ffffff" : color
-  const svg       = getIndustryPinSvg(industryTitle, iconClr, iconSize)
+function createTraderIcon(L: any, isSelected: boolean, industryTitle?: string | null, isBusy?: boolean, isSeeded?: boolean, traderId?: string) {
+  const isGrey = isBusy || isSeeded
+  const vanW   = isSelected ? 56 : 45        // 20% smaller than before
+  const vanH   = Math.round(vanW * 0.5)      // 2:1 aspect ratio matches the PNG
+  const iconSz = 12
+
+  const mappedTitle = isSeeded ? normaliseCategory(industryTitle) : industryTitle
+  const iconClr     = isGrey ? "#94a3b8" : "#ffffff"
+  const svg         = getIndustryPinSvg(mappedTitle, iconClr, iconSz)
+
+  const vanSrc      = isGrey ? "/Van1.png" : "/Van2.png"
+  const badgeBg     = isGrey ? "rgba(15,23,42,0.82)" : "rgba(21,128,61,0.88)"
+  const badgeBorder = isGrey ? "rgba(100,116,139,0.55)" : "rgba(134,239,172,0.5)"
+  const glow        = isSelected
+    ? `filter:drop-shadow(0 0 6px ${isGrey ? "#64748b" : "#22c55e"});`
+    : ""
+
+  // Per-van stagger: negative delay = jump into the animation mid-cycle,
+  // so all vans are already spinning (no cold-start sync).
+  // ~1 in 3 vans gets reverse direction (anti-clockwise, like Uber idle).
+  // CSS transform animations run on the GPU compositor — zero JS/layout cost.
+  const h         = hashStr(traderId ?? Math.random().toString())
+  const DELAYS    = [0, -1.5, -3, -5, -2, -4, -6.5, -7, -8.5, -9]
+  const delay     = DELAYS[h % DELAYS.length]
+  const direction = h % 3 === 0 ? "reverse" : "normal"
+  const anim      = `vanIdle 10s ease-in-out ${delay}s infinite ${direction}`
+
+  const html = `<div style="position:relative;width:${vanW}px;height:${vanH}px;animation:${anim};transform-origin:center center;will-change:transform;${glow}">` +
+    `<img src="${vanSrc}" style="width:${vanW}px;height:${vanH}px;object-fit:contain;display:block;" />` +
+    `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${iconSz+4}px;height:${iconSz+4}px;background:${badgeBg};border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid ${badgeBorder};">${svg}</div>` +
+    `</div>`
+
   return L.divIcon({
     className: "",
-    html: `<div style="width:${size}px;height:${size}px;background:${pinBg};border:2.5px solid ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.4),0 0 0 4px ${color}30">${svg}</div>`,
-    iconSize: [size, size], iconAnchor: [size/2, size/2], popupAnchor: [0, -(size/2+4)],
+    html,
+    iconSize:    [vanW, vanH],
+    iconAnchor:  [vanW / 2, vanH / 2],
+    popupAnchor: [0, -(vanH / 2 + 4)],
   })
 }
 
@@ -229,6 +259,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const [geocoding,        setGeocoding]        = useState(false)
   const [locating,         setLocating]         = useState(false)
   const [flyTarget,        setFlyTarget]        = useState<{ lat: number; lng: number } | null>(null)
+  const [coords,           setCoords]           = useState<[number, number]>(initialCoords)
+  const [locateSeq,        setLocateSeq]        = useState(0)
   const [locationLabel,    setLocationLabel]    = useState(initialPostcode ?? "")
 
   const touchStartY      = useRef<number | null>(null)
@@ -248,6 +280,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     const opts: PositionOptions = { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 }
 
     const onSuccess = (pos: GeolocationPosition) => {
+      setCoords([pos.coords.latitude, pos.coords.longitude])
       setFlyTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude })
       setLocationLabel("My location")
     }
@@ -280,8 +313,27 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     const isLg = window.matchMedia("(min-width: 1024px)").matches
     style.textContent = `#find-map-container .leaflet-top { margin-top: ${isLg ? "160px" : "110px"}; }`
     if (!document.getElementById("find-map-zoom-offset")) document.head.appendChild(style)
+    // Van idle-sway animation
+    if (!document.getElementById("van-pin-anim")) {
+      const vanAnim = document.createElement("style")
+      vanAnim.id = "van-pin-anim"
+      vanAnim.textContent = [
+        "@keyframes vanIdle {",
+        "  0%   { transform: rotate(0deg); }",
+        "  8%   { transform: rotate(90deg); }",
+        "  28%  { transform: rotate(90deg); }",
+        "  36%  { transform: rotate(180deg); }",
+        "  56%  { transform: rotate(180deg); }",
+        "  64%  { transform: rotate(240deg); }",
+        "  84%  { transform: rotate(240deg); }",
+        "  100% { transform: rotate(360deg); }",
+        "}",
+      ].join("")
+      document.head.appendChild(vanAnim)
+    }
     return () => {
       document.getElementById("find-map-zoom-offset")?.remove()
+      document.getElementById("van-pin-anim")?.remove()
       mq.removeEventListener("change", onMqChange)
     }
   }, [])
@@ -316,7 +368,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       const res = await fetch(`/api/traders?${params}`)
       if (!res.ok) return
       let results: Trader[] = await res.json()
-      if (f.available) results = results.filter(t => t.open_for_business === true)
+      if (f.available) results = results.filter(t => t.open_for_business === true && t.profile_type !== "seeded")
       if (f.h24)       results = results.filter(t => t.service_24_7 === true)
       if (f.subcategories.length > 0) {
         const subs = new Set(f.subcategories.map(s => s.toLowerCase()))
@@ -348,7 +400,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     if (f.language) params.set("lang", f.language); else params.delete("lang")
     if (f.available) params.set("available", "true"); else params.delete("available")
     if (f.h24) params.set("h24", "true"); else params.delete("h24")
-    router.replace(`/find?${params.toString()}`, { scroll: false })
+    router.replace(`/find-trades?${params.toString()}`, { scroll: false })
   }
 
   const applyFilters = async () => {
@@ -364,7 +416,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         )
         const data = await res.json()
         if (data?.[0]) {
-          setFlyTarget({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+          const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon)
+          setCoords([lat, lon])
+          setFlyTarget({ lat, lng: lon })
           setLocationLabel(q.toUpperCase())
           didGeocode = true
         }
@@ -396,7 +450,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       )
       const data = await res.json()
       if (data?.[0]) {
-        setFlyTarget({ lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) })
+        const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon)
+        setCoords([lat, lon])
+        setFlyTarget({ lat, lng: lon })
         setLocationLabel(q.toUpperCase())
         setPostcodeEditing(false)
       }
@@ -409,7 +465,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     setLocating(true)
     navigator.geolocation.getCurrentPosition(
       pos => {
+        setCoords([pos.coords.latitude, pos.coords.longitude])
         setFlyTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        setLocateSeq(n => n + 1)   // always force fly, even if coords unchanged
         setLocationLabel("My location")
         setLocating(false)
       },
@@ -429,15 +487,15 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   }
 
   const distanceMi = (lat: number, lon: number) => {
-    const originLat = flyTarget?.lat ?? initialCoords[0]
-    const originLng = flyTarget?.lng ?? initialCoords[1]
+    const originLat = coords[0]
+    const originLng = coords[1]
     const R = 3959, dLat = (lat - originLat) * Math.PI/180, dLon = (lon - originLng) * Math.PI/180
     const a = Math.sin(dLat/2)**2 + Math.cos(originLat*Math.PI/180)*Math.cos(lat*Math.PI/180)*Math.sin(dLon/2)**2
     return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1)
   }
 
   const tradersWithCoords = traders.filter(t => t.latitude && t.longitude)
-  const findPageUrl = `/find${initialPostcode ? `?postcode=${encodeURIComponent(initialPostcode)}` : ""}`
+  const findPageUrl = `/find-trades${initialPostcode ? `?postcode=${encodeURIComponent(initialPostcode)}` : ""}`
 
   // Mobile bottom sheet dimensions (bottom: 56px = bottom nav height h-14)
   // Desktop HEADER = 44px layout header + 96px map overlay ≈ 140px
@@ -451,6 +509,16 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   /* ── Shared panel content ────────────────────────────────────────────────── */
   const profilePanel = selectedTrader && (
     <div className="flex-1 min-h-0 overflow-y-auto">
+      {/* Back button — desktop only, clearly visible above the profile */}
+      {isDesktop && (
+        <button
+          onClick={() => setSelectedTrader(null)}
+          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors border-b border-slate-800/60"
+        >
+          <ArrowLeft className="w-4 h-4 flex-shrink-0" />
+          All tradespeople
+        </button>
+      )}
       {/* Photo strip — hidden for seeded trades */}
       {selectedTrader.profile_type !== 'seeded' && <div className="flex gap-2 overflow-x-auto px-3 pb-3 pt-1" style={{ scrollbarWidth: "none" }}>
         {loadingProfile ? (
@@ -583,8 +651,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       {/* Post a Job */}
       <div className="flex-shrink-0 flex justify-center pt-2 pb-2 px-3">
         <button onClick={() => setShowCategoryPicker(true)}
-          className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-emerald-500/30 transition-colors">
-          Need multiple quotes?
+          className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/30 transition-colors">
+          <span className="text-[16.8px]">Get Multiple Quotes</span>
         </button>
       </div>
       {/* Title row — hidden on desktop (shown in sidebar header instead) */}
@@ -972,7 +1040,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         {/* Map */}
         {mounted && (
           <div id="find-map-container" className="absolute inset-0" style={{ zIndex: 0 }}>
-            <MapContainer center={initialCoords} zoom={11}
+            <MapContainer center={initialCoords} zoom={13}
               style={{ height: "100%", width: "100%" }} zoomControl={false}>
               <TileLayer
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -980,13 +1048,12 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               />
               <ZoomControl position="topright" />
               <MapSizeHandler />
-              <MapViewUpdater center={initialCoords} />
-              <MapFlyTo target={flyTarget} />
+              <MapViewUpdater center={coords} forceSeq={locateSeq} />
               <ViewportLoader onBoundsChange={onBoundsChange} />
               {leafletL && tradersWithCoords.map(trader => (
                 <Marker key={trader.id}
                   position={[trader.latitude!, trader.longitude!]}
-                  icon={createTraderIcon(leafletL, selectedTrader?.id === trader.id, trader.industry, trader.open_for_business === false, trader.profile_type === 'seeded') as any}
+                  icon={createTraderIcon(leafletL, selectedTrader?.id === trader.id, trader.industry, trader.open_for_business === false, trader.profile_type === 'seeded', trader.id) as any}
                   eventHandlers={{ click: () => setSelectedTrader(p => p?.id === trader.id ? null : trader) }} />
 
               ))}
@@ -1012,14 +1079,14 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               Tradespeople
             </button>
             <button
-              onClick={() => router.push(`/find-jobs?lat=${initialCoords[0]}&lng=${initialCoords[1]}`)}
+              onClick={() => router.push(`/find-jobs?lat=${coords[0]}&lng=${coords[1]}`)}
               className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
               <Briefcase className="w-3 h-3" />
               Trade Jobs
             </button>
           </div>
           {/* Search bar — single tap opens Filters modal */}
-          <div className="flex items-center gap-2 lg:w-80 lg:self-center">
+          <div className="flex items-center gap-2 self-center w-[264px] lg:w-80">
             <MapSearchBar
               loading={loading}
               label={filters.subcategories?.[0] ?? filters.industry ?? null}
@@ -1029,14 +1096,31 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               accentColor="emerald"
               onClick={() => { setDraftFilters(filters); setPostcodeInput(""); setShowFilters(true) }}
             />
-            <button onClick={handleMyLocation} disabled={locating} title="My location"
-              className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800/95 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-emerald-400 transition-colors text-slate-400">
-              {locating
-                ? <Loader2 className="w-3 h-3 animate-spin text-emerald-400" />
-                : <LocateFixed className="w-3 h-3" />}
-            </button>
+            {isDesktop && (
+              <button onClick={handleMyLocation} disabled={locating} title="My location"
+                className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800/95 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-emerald-400 transition-colors text-slate-400">
+                {locating
+                  ? <Loader2 className="w-3 h-3 animate-spin text-emerald-400" />
+                  : <LocateFixed className="w-3 h-3" />}
+              </button>
+            )}
           </div>{/* end search bar row */}
         </div>{/* end header */}
+
+        {/* Locate button — mobile only, sits below Leaflet's +/- zoom controls */}
+        {!isDesktop && (
+          <button
+            onClick={handleMyLocation}
+            disabled={locating}
+            title="My location"
+            className="absolute w-8 h-8 rounded-lg bg-slate-800/95 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-emerald-400 transition-colors text-slate-400"
+            style={{ zIndex: 500, top: "190px", right: "10px" }}
+          >
+            {locating
+              ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+              : <LocateFixed className="w-4 h-4" />}
+          </button>
+        )}
       </div>
 
       {/* ── RIGHT: Desktop sidebar ──────────────────────────────────────────── */}

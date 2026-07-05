@@ -9,12 +9,22 @@ export async function GET(request: NextRequest) {
   try {
     const admin = createAdminClient()
 
-    // 1. Expire legacy open_for_business field
+    const now = new Date().toISOString()
+
+    // 1. Expire open_for_business and urgent_notifications_enabled together.
+    //    Clearing both fields here avoids relying on the RPC alone — if the RPC
+    //    fails, urgent_notifications_enabled would stay true while open_for_business
+    //    was already false, causing a split-brain mismatch.
     const { data, error } = await admin
       .from("company_profiles")
-      .update({ open_for_business: false })
+      .update({
+        open_for_business:               false,
+        availability_expires_at:         null,
+        urgent_notifications_enabled:    false,
+        urgent_notifications_expires_at: null,
+      })
       .eq("open_for_business", true)
-      .lt("availability_expires_at", new Date().toISOString())
+      .lt("availability_expires_at", now)
       .select("user_id")
 
     if (error) {

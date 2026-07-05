@@ -39,6 +39,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "recipient_id and content (or photos) are required" }, { status: 400 })
     }
 
+    if (user.id === recipient_id) {
+      return NextResponse.json({ error: "You cannot message yourself" }, { status: 400 })
+    }
+
     // ── Photo validation ──────────────────────────────────────────────────────
     if (hasPhotos) {
       if (photo_urls!.length > 3) {

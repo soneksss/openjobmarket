@@ -177,22 +177,26 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
             {/* LEFT column */}
             <div>
               {/* Headline */}
-              <h1 className="text-lg sm:text-3xl xl:text-5xl font-bold text-white leading-[1.2] mb-3">
-                <span className="text-emerald-400">Open Job Market</span> helps people find nearby
-                tradespeople quickly —{" "}
-                <span className="text-slate-300">without lead selling, spam calls or waiting days for replies.</span>
+              <h1 className="text-lg sm:text-3xl xl:text-5xl font-bold text-white leading-[1.2] mb-1">
+                <span className="text-emerald-400">Open Job Market</span>
               </h1>
+              <p className="text-base sm:text-xl xl:text-2xl font-semibold text-slate-300 mb-3">
+                The Uber for Local Tradespeople
+              </p>
+              <p className="text-sm sm:text-base text-slate-300 mb-4 leading-relaxed">
+                Find trusted local tradespeople in minutes — without lead selling, spam calls or waiting days for quotes.
+              </p>
 
               {/* Sub-bullets */}
-              <ul className="mb-6 space-y-2 hidden sm:block">
+              <ul className="mb-6 space-y-2">
                 {[
-                  "Contact local tradespeople directly",
-                  "Fairer prices — no lead-selling middlemen",
-                  "Fast replies from verified trades",
-                  "Built for homeowners",
+                  "Message nearby tradespeople directly",
+                  "No lead-selling or unwanted sales calls",
+                  "Verified local professionals with real reviews",
+                  "Fast replies. Fair prices. Built for homeowners.",
                 ].map(point => (
                   <li key={point} className="flex items-center gap-2 text-slate-300 text-sm">
-                    <ArrowRight className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                    <span className="text-emerald-400 flex-shrink-0">✅</span>
                     {point}
                   </li>
                 ))}
@@ -402,6 +406,40 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
                 </Link>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Our Promise ─────────────────────────────────────────────────────── */}
+      <section id="sec-promise" data-fade
+        className={`py-10 border-t border-slate-800/60 ${fade("sec-promise")}`}>
+        <div className="container mx-auto px-4 max-w-2xl">
+          <div className="space-y-4 text-[15px] text-slate-300 leading-relaxed">
+            <p className="font-bold text-white text-lg">Open Job Market is free to use.</p>
+
+            <p>Our mission is to connect homeowners directly with trusted local tradespeople — without lead selling, hidden fees or unwanted sales calls.</p>
+
+            <p>Unlike many platforms, we don't charge tradespeople for every lead or make homeowners pay to post a job.</p>
+
+            <p>If, in the future, Open Job Market grows into a service that genuinely saves people time and money, we may introduce a small membership (around <strong className="text-white">£10/month</strong>) simply to help cover running costs and continue improving the platform.</p>
+
+            <p className="text-white font-medium">Only if the platform delivers real value.</p>
+
+            <p className="text-white font-semibold">That's our promise.</p>
+
+            <ul className="pt-1 space-y-2.5">
+              {[
+                "No lead selling",
+                "No hidden charges",
+                "No surprise subscriptions",
+                "Built for people, not investors",
+              ].map(item => (
+                <li key={item} className="flex items-center gap-3">
+                  <span className="text-emerald-400 font-bold flex-shrink-0">✔</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>

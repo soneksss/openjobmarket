@@ -7,7 +7,7 @@ import {
   ArrowLeft, Briefcase, MapPin, Eye,
   XCircle, CheckCircle2, ChevronRight,
   Star, Home, Users, Clock, Zap, Calendar,
-  MessageCircle,
+  MessageCircle, Truck,
 } from "lucide-react"
 import { DeleteJobInlineButton } from "@/components/delete-job-inline-button"
 import { MarkJobNotifsRead } from "@/components/mark-job-notifs-read"
@@ -43,7 +43,7 @@ export default async function HomeownerJobsPage({
 
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("id, title, location, is_active, created_at, applications_count, views_count, status, completion_status, expires_at, urgency_type")
+    .select("id, title, location, is_active, created_at, applications_count, views_count, status, completion_status, expires_at, urgency_type, confirmed_tradesperson_id")
     .eq("homeowner_id", hp.id)
     .order("created_at", { ascending: false })
     .limit(200)
@@ -347,6 +347,20 @@ export default async function HomeownerJobsPage({
                       View job
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Link>
+
+                    {/* Track button — only for confirmed jobs with a live search page */}
+                    {sc.label === "Confirmed" && job.confirmed_tradesperson_id && (
+                      <>
+                        <div className="w-px bg-slate-700/40" />
+                        <Link
+                          href={`/jobs/${job.id}/live`}
+                          className="flex-1 text-center text-xs font-semibold py-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors flex items-center justify-center gap-1.5"
+                        >
+                          <Truck className="h-3.5 w-3.5" />
+                          Track
+                        </Link>
+                      </>
+                    )}
 
                     {apps > 0 && (
                       <>

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import MapLocationPicker from "./map-location-picker"
 import { LocationInput } from "./location-input"
-import { X, ArrowLeft, ArrowRight, Eye, Briefcase, Hammer, Zap, Clock, Calendar, ChevronDown, User, Mail, Phone, Lock, Check } from "lucide-react"
+import { X, ArrowLeft, ArrowRight, Briefcase, Hammer, Zap, Clock, Calendar, ChevronDown, User, Mail, Phone, Lock, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
@@ -441,10 +441,11 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
   const [vacancyEnabled, setVacancyEnabled] = useState(true)
 
   useEffect(() => {
-    supabase.rpc("get_public_admin_settings").then(({ data }) => {
-      if (data) setVacancyEnabled(data.vacancies_jobseekers_enabled ?? true)
+    if (userType !== "company") return
+    supabase.rpc("get_public_admin_settings").then(({ data, error }) => {
+      if (!error && data) setVacancyEnabled(data.vacancies_jobseekers_enabled ?? true)
     })
-  }, [])
+  }, [userType])
 
   // 3-step flow for logged-in users; 4-step for guests (step 4 = account creation)
   const isHomeowner = userType === "homeowner"
@@ -457,6 +458,16 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
   const [showPreview, setShowPreview] = useState(false)
   const [locationChoice, setLocationChoice] = useState<"myLocation" | "differentLocation" | null>(null)
   const [isGeocodingPostcode, setIsGeocodingPostcode] = useState(false)
+  const [geoCenter, setGeoCenter] = useState<[number, number] | undefined>(undefined)
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => setGeoCenter([pos.coords.latitude, pos.coords.longitude]),
+        () => {} // silent fail — map falls back to country default
+      )
+    }
+  }, [])
 
   const geocodeProfileLocation = async (locationText: string) => {
     setIsGeocodingPostcode(true)
@@ -1508,9 +1519,6 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white">Location</h3>
-            <p className="text-sm text-slate-400">
-              <span className="text-red-400">*</span> You must select a location. This is mandatory.
-            </p>
 
             {/* Location Choice Radio Buttons */}
             {hasProfileLocation && (
@@ -1637,8 +1645,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                           address: formData.fullAddress
                         } : null}
                         onChange={handleMapLocationSelect}
-                        height="210px"
+                        height="360px"
                         placeholder={locationChoice === "myLocation" ? "Adjust pin if needed" : "Tap to set location"}
+                        defaultCenter={geoCenter}
                       />
                     </div>
                   </>
@@ -1668,54 +1677,6 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 </div>
               </div>
             )}
-
-            {/* Compact Job Summary */}
-            <div className="mt-4 rounded-xl border border-slate-700/60 bg-slate-800/60 overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-700/40">
-                <Eye className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
-                <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wide">Summary</span>
-              </div>
-              <div className="px-3 py-2.5 space-y-1.5 text-xs">
-                <div className="flex justify-between gap-2">
-                  <span className="text-slate-500">Job</span>
-                  <span className="font-medium text-white text-right truncate max-w-[60%]">
-                    {formData.postingType === "tradespeople"
-                      ? (formData.service && formData.service !== "Not sure / Other" ? formData.service : formData.industry) || formData.profession || "—"
-                      : formData.profession || "—"}
-                  </span>
-                </div>
-                {formData.postingType === "tradespeople" && formData.industry && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-slate-500">Category</span>
-                    <span className="font-medium text-white text-right truncate max-w-[60%]">{formData.industry}</span>
-                  </div>
-                )}
-                {formData.payMin && formData.payMax && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-slate-500">Budget</span>
-                    <span className="font-medium text-white">£{formData.payMin}–£{formData.payMax}</span>
-                  </div>
-                )}
-                {formData.shortDescription && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-slate-500">Details</span>
-                    <span className="font-medium text-white text-right truncate max-w-[60%]">{formData.shortDescription}</span>
-                  </div>
-                )}
-                <div className="flex justify-between gap-2">
-                  <span className="text-slate-500">Urgency</span>
-                  <span className={`font-medium ${formData.urgencyType === "asap" ? "text-red-400" : "text-blue-400"}`}>
-                    {formData.urgencyType === "asap" ? "ASAP" : formData.urgencyType === "today" ? "Today" : formData.urgencyType === "flexible" ? `Flexible · ${formData.flexibleDays}d` : "—"}
-                  </span>
-                </div>
-                {formData.jobPhotoUrl && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-slate-500">Photo</span>
-                    <span className="font-medium text-emerald-400">Attached</span>
-                  </div>
-                )}
-              </div>
-            </div>
 
           </div>
         )
@@ -1918,7 +1879,12 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   <button
                     type="button"
                     onClick={nextStep}
-                    className="flex items-center gap-2 px-7 py-2.5 bg-emerald-500 text-white rounded-xl hover:bg-emerald-400 active:bg-emerald-600 transition-all text-sm font-semibold shadow-lg shadow-emerald-500/25"
+                    disabled={currentStep === 3 && !formData.locationCoords}
+                    className={`flex items-center gap-2 px-7 py-2.5 rounded-xl transition-all text-sm font-semibold shadow-lg ${
+                      currentStep === 3 && !formData.locationCoords
+                        ? "bg-slate-700 text-slate-500 cursor-not-allowed shadow-none"
+                        : "bg-emerald-500 text-white hover:bg-emerald-400 active:bg-emerald-600 shadow-emerald-500/25"
+                    }`}
                   >
                     Continue
                     <ArrowRight className="w-4 h-4" />

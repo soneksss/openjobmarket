@@ -75,6 +75,8 @@ interface MapLocationPickerProps {
   placeholder?: string
   /** Show the address search bar inside the map card. Default: false */
   showSearch?: boolean
+  /** Override the default center (e.g. user's GPS location). Zooms to 13 when provided. */
+  defaultCenter?: [number, number]
 }
 
 export function MapLocationPicker({
@@ -83,14 +85,19 @@ export function MapLocationPicker({
   height = "400px",
   placeholder,
   showSearch = false,
+  defaultCenter: propDefaultCenter,
 }: MapLocationPickerProps) {
   const { state: languageRegionState } = useLanguageRegion()
-  const defaultCenter = getDefaultMapCenter(languageRegionState.country)
+  const countryCenter = getDefaultMapCenter(languageRegionState.country)
+  const defaultCenter = countryCenter
   const { t } = useTranslation()
 
+  const effectiveInitialCenter = propDefaultCenter ?? countryCenter
+  const effectiveInitialZoom = propDefaultCenter ? 13 : 6
+
   const [isClient, setIsClient] = useState(false)
-  const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter)
-  const [mapZoom, setMapZoom] = useState(6)
+  const [mapCenter, setMapCenter] = useState<[number, number]>(effectiveInitialCenter)
+  const [mapZoom, setMapZoom] = useState(effectiveInitialZoom)
   const [searchQuery, setSearchQuery] = useState("")
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -115,10 +122,12 @@ export function MapLocationPicker({
 
   useEffect(() => {
     if (!value) {
-      const newCenter = getDefaultMapCenter(languageRegionState.country)
+      const newCenter = propDefaultCenter ?? getDefaultMapCenter(languageRegionState.country)
+      const newZoom = propDefaultCenter ? 13 : 6
       setMapCenter(newCenter)
+      setMapZoom(newZoom)
     }
-  }, [languageRegionState.country, value])
+  }, [languageRegionState.country, value, propDefaultCenter?.[0], propDefaultCenter?.[1]])
 
   const searchLocations = async (query: string) => {
     if (query.length < 3) { setSuggestions([]); return }
@@ -182,8 +191,8 @@ export function MapLocationPicker({
 
   const resetLocation = () => {
     onChange(null)
-    setMapCenter(defaultCenter)
-    setMapZoom(6)
+    setMapCenter(propDefaultCenter ?? defaultCenter)
+    setMapZoom(propDefaultCenter ? 13 : 6)
     setSearchQuery("")
     setSuggestions([])
   }

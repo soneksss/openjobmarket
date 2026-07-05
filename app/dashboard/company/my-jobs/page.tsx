@@ -5,6 +5,7 @@ import Link from "next/link"
 import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
 import { MarkJobCompleteButton } from "@/components/mark-job-complete-button"
 import { ReviewHomeownerButton } from "@/components/review-homeowner-button"
+import { TrackingShareButton } from "@/components/tracking-share-button"
 
 export const dynamic = "force-dynamic"
 
@@ -206,6 +207,9 @@ export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
                       </Link>
                       {!isCompleted && (
                         <MarkJobCompleteButton jobId={job.id} jobTitle={job.title} />
+                      )}
+                      {!isCompleted && (
+                        <TrackingShareButton jobId={job.id} />
                       )}
                       {isCompleted && homeowner?.user_id && (
                         <ReviewHomeownerButton
