@@ -48,21 +48,30 @@ export default function ResetPasswordForm({ code, accessToken, refreshToken }: R
       if ((event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") && session) finish(true)
     })
 
+    // Fallback: if neither exchange nor auth event resolves within 12 s,
+    // show an error instead of leaving the spinner indefinitely.
+    const timeout = setTimeout(() => finish(false), 12000)
+
     // Also try manual exchange — covers the case where auto-exchange didn't fire
     supabase.auth.exchangeCodeForSession(code).then(({ error: exchErr }) => {
       if (!exchErr) {
         finish(true)
       } else {
         // Exchange failed; check whether auto-exchange already established a session
-        supabase.auth.getSession().then(({ data: { session } }) => {
-          finish(!!session)
-        })
+        supabase.auth.getSession()
+          .then(({ data: { session } }) => finish(!!session))
+          .catch(() => finish(false))
       }
     }).catch(() => {
-      supabase.auth.getSession().then(({ data: { session } }) => finish(!!session))
+      supabase.auth.getSession()
+        .then(({ data: { session } }) => finish(!!session))
+        .catch(() => finish(false))
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
   }, [code])
 
   // Detect if user is on BR route
@@ -134,11 +143,14 @@ export default function ResetPasswordForm({ code, accessToken, refreshToken }: R
       // Sign out the user after password reset
       await supabase.auth.signOut()
 
-      // Redirect to sign-in with success message
+      // Use a full-page navigation so the server always reads the freshly
+      // cleared auth cookie. router.push() can render the login server
+      // component before the cookie propagates, causing it to see the user
+      // as still logged in and redirect to the dashboard instead.
       const loginUrl = isOnBrRoute
         ? `/auth/login?locale=pt-BR&returnUrl=/br&message=password-reset-success`
         : '/auth/login?message=password-reset-success'
-      router.push(loginUrl)
+      window.location.href = loginUrl
     } catch (error: unknown) {
       console.log("[v0] Reset password error:", error)
       if (error instanceof Error) {

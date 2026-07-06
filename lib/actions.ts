@@ -25,9 +25,15 @@ export async function signUp(prevState: any, formData: FormData) {
     console.log("[v0] Starting signup process for:", email.toString())
     console.log("[v0] User type:", mappedUserType)
 
+    // Build the redirect URL from the request Host header — this is a server action
+    // so window is unavailable. NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL overrides for
+    // local dev tunnels (e.g. ngrok) where the Host doesn't match the public URL.
+    const headersList = await headers()
+    const host  = headersList.get("host") || "localhost:3000"
+    const proto = host.includes("localhost") ? "http" : "https"
     const redirectUrl =
       process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-      `${typeof window !== "undefined" ? window.location.origin : "https://your-app-domain.vercel.app"}/auth/callback`
+      `${proto}://${host}/auth/callback`
 
     const { data, error } = await supabase.auth.signUp({
       email: email.toString(),
@@ -161,7 +167,10 @@ export async function forgotPassword(prevState: any, formData: FormData) {
     const siteUrl = `${proto}://${host}`
 
     const { error } = await supabase.auth.resetPasswordForEmail(email.toString(), {
-      redirectTo: `${siteUrl}/auth/reset-password`,
+      // Route through the callback so the server exchanges the code once and stores
+      // the recovery session in a cookie. The callback detects type=recovery and
+      // redirects to /auth/reset-password without a code param.
+      redirectTo: `${siteUrl}/auth/callback?type=recovery`,
     })
 
     if (error) {

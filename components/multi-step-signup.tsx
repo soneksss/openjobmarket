@@ -328,11 +328,19 @@ export default function MultiStepSignup() {
 
       console.log("[SIGNUP] Company metadata:", { email: signupData.email, metadata })
 
+      // Include the claim token in the callback URL so the link-click path also
+      // processes the claim (without this, users who click the link instead of
+      // entering the OTP code land on the dashboard without the claim being linked).
+      const claimTokenParam = searchParams?.get('claimToken')
+      const callbackUrl = claimTokenParam
+        ? `${window.location.origin}/auth/callback?claimToken=${encodeURIComponent(claimTokenParam)}`
+        : `${window.location.origin}/auth/callback`
+
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email:    signupData.email.trim().toLowerCase(),
         password: signupData.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: callbackUrl,
           data: metadata,
         },
       })

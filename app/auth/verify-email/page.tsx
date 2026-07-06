@@ -30,6 +30,10 @@ export default function VerifyEmailPage() {
         if (data.session?.user?.email) setEmail(data.session.user.email)
       })
     }
+    // Surface a claim error that was redirected back from /auth/callback
+    if (searchParams?.get("claimError") === "1") {
+      setError("We couldn't link your business automatically. Please enter the code from your email to try again.")
+    }
   }, [searchParams])
 
   useEffect(() => {
@@ -132,7 +136,11 @@ export default function VerifyEmailPage() {
     setResendLoading(true)
     setError(null)
     try {
-      const { error: resendError } = await supabase.auth.resend({ type: "signup", email })
+      const { error: resendError } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      })
       if (resendError) { setError(resendError.message) } else { setResendCooldown(60) }
     } catch (err: any) {
       setError(err.message || "Failed to resend code")

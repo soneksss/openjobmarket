@@ -729,6 +729,25 @@ export default function ConversationPage() {
         // Continue with "Deleted User" as displayName
       }
 
+      // RLS on company_profiles blocks company-to-company reads, so the name
+      // can come back as 'Unknown User'. Fall back to the admin API endpoint
+      // which bypasses RLS and can always resolve the other participant's info.
+      if (displayName === 'Unknown User' || displayName === 'Deleted User') {
+        try {
+          const adminRes = await fetch(`/api/users/${determinedOtherId}/profile`, { credentials: 'include' })
+          if (adminRes.ok) {
+            const pd = await adminRes.json()
+            if (pd.name) displayName = pd.name
+            if (pd.avatar_url) photoUrl = pd.avatar_url
+            if (!otherUserType && pd.user_type) otherUserType = pd.user_type
+            if (!profileUrl && pd.profile_url) profileUrl = pd.profile_url
+            if (pd.profile_id) setOtherUserProfileId(pd.profile_id)
+          }
+        } catch (e) {
+          console.warn('[CONVERSATION] Admin profile fallback failed:', e)
+        }
+      }
+
       // Always set the other user, even if deleted
       setOtherUser({
         id: determinedOtherId,

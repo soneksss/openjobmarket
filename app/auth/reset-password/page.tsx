@@ -4,10 +4,10 @@ import ResetPasswordForm from "@/components/reset-password-form"
 export default async function ResetPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ code?: string; access_token?: string; refresh_token?: string; error?: string }>
+  searchParams: Promise<{ code?: string; access_token?: string; refresh_token?: string; error?: string; session_active?: string }>
 }) {
   const params = await searchParams
-  const { code, access_token, refresh_token, error } = params
+  const { code, access_token, refresh_token, error, session_active } = params
 
   // If there's an error in the URL, show it
   if (error) {
@@ -25,8 +25,9 @@ export default async function ResetPasswordPage({
     )
   }
 
-  // Need either a PKCE code OR legacy tokens
-  if (!code && (!access_token || !refresh_token)) {
+  // Need a PKCE code, legacy tokens, OR an active recovery session
+  // (session_active=1 is set by /auth/callback after it exchanges a recovery code)
+  if (!code && (!access_token || !refresh_token) && session_active !== "1") {
     redirect("/auth/forgot-password")
   }
 
