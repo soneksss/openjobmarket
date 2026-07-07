@@ -929,14 +929,31 @@ export default function ConversationPage() {
     }
 
     setSending(true)
+    const quoteContent = `Sent a quote for £${amount.toFixed(2)}`
+    const tempId = Date.now().toString()
     try {
+      // Optimistic: add temp message immediately so the sender sees it right away
+      const tempMessage: Message = {
+        id: tempId,
+        content: quoteContent,
+        created_at: new Date().toISOString(),
+        sender_id: user.id,
+        recipient_id: otherUserId!,
+        is_read: false,
+        conversation_id: actualConvId,
+        message_type: "quote",
+        metadata: { amount, currency: "GBP" },
+      }
+      setMessages(prev => [...prev, tempMessage])
+      playMsgSound("send")
+
       const res = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           recipient_id: otherUserId,
-          content: `Sent a quote for £${amount.toFixed(2)}`,
+          content: quoteContent,
           job_id: jobContext?.id ?? null,
           conversation_id: actualConvId,
           sender_role: senderRole,
@@ -946,13 +963,15 @@ export default function ConversationPage() {
       })
 
       if (!res.ok) {
+        // Roll back the optimistic message on failure
+        setMessages(prev => prev.filter(m => m.id !== tempId))
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error ?? `Failed to send quote (${res.status})`)
       }
 
       setQuoteAmount("")
       setShowQuoteInput(false)
-      setTimeout(() => fetchConversation(), 500)
+      // Realtime subscription replaces the temp message with the real DB row
     } catch (error) {
       console.error("[CONVERSATION] Error sending quote:", error)
       alert("Failed to send quote")

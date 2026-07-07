@@ -62,6 +62,7 @@ export default async function CompanyDashboardPage() {
       .from("job_status_view")
       .select("*")
       .eq("company_id", profile.id)
+      .not("status", "in", '("COMPLETED","CANCELLED")')
       .order("created_at", { ascending: false }),
 
     supabase

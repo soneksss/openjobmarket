@@ -22,11 +22,12 @@ export default async function CompanyJobsPage() {
     redirect("/onboarding")
   }
 
-  // Get all company jobs
+  // Get active company jobs (exclude completed/cancelled)
   const { data: jobs } = await supabase
     .from("job_status_view")
     .select("*")
     .eq("company_id", profile.id)
+    .not("status", "in", '("COMPLETED","CANCELLED")')
     .order("created_at", { ascending: false })
 
   // Get application counts for each job

@@ -170,6 +170,12 @@ export async function POST(request: NextRequest) {
       notifyTradespersonMessageReceived(recipient_id, user.id, job_id, admin).catch(console.error)
     }
 
+    // ── Company → anyone: in-app notification so the recipient's bell lights up ─
+    // Push tokens handle device alerts; this keeps the in-app notification count correct.
+    if (senderType === "company") {
+      notifyRecipientOfCompanyMessage(recipient_id, user.id, conversation_id ?? null, admin).catch(console.error)
+    }
+
     // ── Insert the message ────────────────────────────────────────────────────
     const { data: message, error: msgError } = await admin
       .from("messages")
@@ -277,6 +283,51 @@ async function sendMessagePush({
   }
 
   console.log(`[MESSAGES] Push sent to ${recipientId} — web=${webTokens.length} fcm=${fcmTokens.length}`)
+}
+
+// Notify any recipient when a company (tradesperson) sends them a message.
+// Keeps the in-app notification bell count correct for homeowner↔trade and
+// trade↔trade conversations. One unread notification per conversation thread —
+// avoids spam on repeated replies.
+async function notifyRecipientOfCompanyMessage(
+  recipientUserId: string,
+  senderUserId: string,
+  conversationId: string | null,
+  admin: ReturnType<typeof createAdminClient>
+) {
+  // Resolve sender's display name
+  let senderName = "A tradesperson"
+  const { data: cp } = await admin
+    .from("company_profiles")
+    .select("company_name")
+    .eq("user_id", senderUserId)
+    .maybeSingle()
+  if (cp?.company_name) senderName = cp.company_name
+
+  const messageUrl = conversationId ? `/messages/${conversationId}` : `/messages`
+
+  // De-dup: don't insert if there's already an unread notification for this thread
+  const { data: existing } = await admin
+    .from("notifications")
+    .select("id")
+    .eq("user_id", recipientUserId)
+    .eq("type", "new_message")
+    .eq("action_url", messageUrl)
+    .eq("is_read", false)
+    .limit(1)
+    .maybeSingle()
+
+  if (existing) return
+
+  await admin.from("notifications").insert({
+    user_id:    recipientUserId,
+    type:       "new_message",
+    title:      `${senderName} sent you a message`,
+    message:    `You have a new message from ${senderName}. Tap to reply.`,
+    link_url:   messageUrl,
+    action_url: messageUrl,
+    is_read:    false,
+  })
 }
 
 // Notify tradesperson when homeowner sends them a message — "Message now" deep link

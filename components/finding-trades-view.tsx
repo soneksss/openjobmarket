@@ -892,7 +892,12 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
   const respondedIds   = new Set(trades.map((t) => t.id))
   const viewingTrades  = alertedTrades.filter((a) => a.viewedAt && !respondedIds.has(a.id))
   const justAlerted    = alertedTrades.filter((a) => !a.viewedAt && !respondedIds.has(a.id))
-  const skeletonCount  = stopped ? 0 : Math.max(0, 3 + expandSlots - trades.length - alertedTrades.length)
+  // Use notifiedCount when available — shows one skeleton per dispatched trade
+  // that hasn't responded yet, rather than a fixed "3" placeholder
+  const skeletonCount = stopped ? 0 :
+    notifiedCount > 0
+      ? Math.max(0, notifiedCount - trades.length - alertedTrades.length)
+      : Math.max(0, 3 + expandSlots - trades.length - alertedTrades.length)
   const similar        = getSimilarTrades(job.title)
 
   return (

@@ -288,33 +288,37 @@ export default function FindingTradesMap({
 
       const isAcc = trade.status === "accepted"
       const isDec = trade.status === "declined"
-      const color = isAcc ? "#10b981" : isDec ? "#ef4444" : "#f59e0b"
-      const sz    = isAcc ? 34 : 26
 
-      const checkmark = isAcc
-        ? `<svg style="position:absolute;inset:0;margin:auto;width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`
-        : ""
+      let icon: any
+      if (isAcc) {
+        // Van marker for tradespeople who have responded/applied
+        const sz = 48
+        icon = L.divIcon({
+          html: `<div style="position:relative;width:${sz}px;height:${sz}px;">
+            <div style="position:absolute;inset:-10px;border-radius:50%;background:rgba(249,115,22,.18);animation:ftmTradePulse 2.2s ease-in-out infinite;"></div>
+            <div style="position:relative;width:${sz}px;height:${sz}px;border-radius:50%;background:linear-gradient(135deg,#f97316,#ea580c);border:3px solid #fff;box-shadow:0 4px 18px rgba(249,115,22,.45),0 0 0 0 rgba(249,115,22,.3);animation:ftmAcceptGlow 2s ease-in-out infinite;display:flex;align-items:center;justify-content:center;font-size:22px;line-height:1;">
+              🚐
+            </div>
+          </div>`,
+          iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2], className: "",
+        })
+      } else {
+        const color = isDec ? "#ef4444" : "#f59e0b"
+        const sz    = 26
+        const pulseAnim = !isDec ? "animation:ftmTradePulse 1.8s ease-in-out infinite;" : ""
+        icon = L.divIcon({
+          html: `<div style="position:relative;width:${sz}px;height:${sz}px;">
+            <div style="position:relative;width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:2.5px solid #fff;${pulseAnim}">
+            </div>
+          </div>`,
+          iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2], className: "",
+        })
+      }
 
-      const glowAnim  = isAcc ? "animation:ftmAcceptGlow 2s ease-in-out infinite;" : ""
-      const pulseAnim = !isAcc && !isDec ? "animation:ftmTradePulse 1.8s ease-in-out infinite;" : ""
-
-      const outerGlow = isAcc
-        ? `<div style="position:absolute;inset:-9px;border-radius:50%;background:rgba(16,185,129,.18);animation:ftmTradePulse 2.2s ease-in-out infinite;"></div>`
-        : ""
-
-      const icon = L.divIcon({
-        html: `<div style="position:relative;width:${sz}px;height:${sz}px;">
-          ${outerGlow}
-          <div style="position:relative;width:${sz}px;height:${sz}px;border-radius:50%;background:${color};border:${isAcc ? 3 : 2.5}px solid #fff;${glowAnim || pulseAnim}">
-            ${checkmark}
-          </div>
-        </div>`,
-        iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2], className: "",
-      })
-
-      const label = isAcc ? "Applied ✓" : isDec ? "Unavailable" : "Notified"
+      const popupColor = isAcc ? "#f97316" : isDec ? "#ef4444" : "#f59e0b"
+      const label      = isAcc ? "Applied ✓" : isDec ? "Unavailable" : "Notified"
       const m = L.marker([tLat, tLon], { icon }).addTo(map)
-        .bindPopup(`<b>${trade.name}</b><br/>${trade.distanceMiles.toFixed(1)} mi away<br/><span style="color:${color};font-weight:600">${label}</span>`)
+        .bindPopup(`<b>${trade.name}</b><br/>${trade.distanceMiles.toFixed(1)} mi away<br/><span style="color:${popupColor};font-weight:600">${label}</span>`)
       tradeMarkersRef.current.push(m)
     })
   }, [trades, lat, lon])

@@ -11,6 +11,7 @@ interface UrgentJobApplySectionProps {
   jobTitle?: string
   hasApplied: boolean
   applicationStatus?: string | null
+  jobStatus?: string | null
   homeownerUserId?: string
   homeownerName?: string
   hasReviewedHomeowner?: boolean
@@ -23,6 +24,7 @@ export function UrgentJobApplySection({
   jobTitle = "this job",
   hasApplied,
   applicationStatus,
+  jobStatus,
   homeownerUserId,
   homeownerName,
   hasReviewedHomeowner = false,
@@ -55,6 +57,8 @@ export function UrgentJobApplySection({
     router.back()
   }
 
+  const [jobFilled, setJobFilled] = useState(false)
+
   const handleApply = async () => {
     if (loading) return
     setLoading(true)
@@ -71,6 +75,11 @@ export function UrgentJobApplySection({
       // 409 = already applied — treat as success
       if (res.status === 409 && data?.error?.toLowerCase().includes("already")) {
         setApplied(true)
+        return
+      }
+      // 409 = job filled by another tradesperson
+      if (res.status === 409 && (data?.error?.toLowerCase().includes("filled") || data?.error?.toLowerCase().includes("assigned"))) {
+        setJobFilled(true)
         return
       }
       if (!res.ok) throw new Error(data?.error || "Failed to apply")
@@ -92,6 +101,18 @@ export function UrgentJobApplySection({
         <p className="text-xs text-slate-400 leading-relaxed">
           You&apos;ve been waiting 15+ minutes. You&apos;re still in the running — but you&apos;re free to take other jobs in the meantime.
         </p>
+      </div>
+    )
+  }
+
+  // ── Job filled — either detected at load time or after failed apply attempt ─
+  const isJobConfirmed = jobStatus === "CONFIRMED" || jobStatus === "ACTIVE" || jobStatus === "COMPLETED"
+  if (jobFilled || (isJobConfirmed && !applicationStatus)) {
+    return (
+      <div className="rounded-xl border border-slate-600/40 bg-slate-800/60 p-5 text-center space-y-2">
+        <XCircle className="h-7 w-7 text-slate-500 mx-auto" />
+        <p className="text-sm font-semibold text-slate-300">Job already filled</p>
+        <p className="text-xs text-slate-500">Sorry, this job has now been assigned to another tradesperson.</p>
       </div>
     )
   }

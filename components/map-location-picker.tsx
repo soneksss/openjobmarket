@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { MapPin, Search, RotateCcw, CheckCircle2 } from "lucide-react"
+import { MapPin, Search, RotateCcw, CheckCircle2, Crosshair } from "lucide-react"
 import dynamic from "next/dynamic"
 import { Input } from "@/components/ui/input"
 import { useLanguageRegion } from "@/contexts/language-region-context"
@@ -93,7 +93,8 @@ export function MapLocationPicker({
   const { t } = useTranslation()
 
   const effectiveInitialCenter = propDefaultCenter ?? countryCenter
-  const effectiveInitialZoom = propDefaultCenter ? 13 : 6
+  // Zoom 12 ≈ 10-mile radius; zoom 6 = whole-country fallback
+  const effectiveInitialZoom = propDefaultCenter ? 12 : 6
 
   const [isClient, setIsClient] = useState(false)
   const [mapCenter, setMapCenter] = useState<[number, number]>(effectiveInitialCenter)
@@ -123,7 +124,7 @@ export function MapLocationPicker({
   useEffect(() => {
     if (!value) {
       const newCenter = propDefaultCenter ?? getDefaultMapCenter(languageRegionState.country)
-      const newZoom = propDefaultCenter ? 13 : 6
+      const newZoom = propDefaultCenter ? 12 : 6
       setMapCenter(newCenter)
       setMapZoom(newZoom)
     }
@@ -192,10 +193,26 @@ export function MapLocationPicker({
   const resetLocation = () => {
     onChange(null)
     setMapCenter(propDefaultCenter ?? defaultCenter)
-    setMapZoom(propDefaultCenter ? 13 : 6)
+    setMapZoom(propDefaultCenter ? 12 : 6)
     setSearchQuery("")
     setSuggestions([])
   }
+
+  const handleMyLocation = useCallback(() => {
+    if (!navigator?.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude
+        const lng = pos.coords.longitude
+        setMapCenter([lat, lng])
+        setMapZoom(12)
+        const address = await reverseGeocode(lat, lng)
+        onChange({ latitude: lat, longitude: lng, address })
+      },
+      () => {},
+      { timeout: 10_000, maximumAge: 60_000 }
+    )
+  }, [reverseGeocode, onChange])
 
   if (!isClient) {
     return (
@@ -296,6 +313,16 @@ export function MapLocationPicker({
             </Marker>
           )}
         </MapContainer>
+
+        {/* My Location button */}
+        <button
+          type="button"
+          onClick={handleMyLocation}
+          className="absolute top-2.5 right-2.5 z-[1000] flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-700/60 text-[11px] font-semibold text-white shadow-lg backdrop-blur-sm hover:bg-slate-800/90 active:scale-95 transition-all"
+        >
+          <Crosshair className="h-3.5 w-3.5 text-emerald-400" />
+          My Location
+        </button>
 
         {/* Compact confirmation bar — shown at bottom of map when location is set */}
         {value && (

@@ -57,24 +57,13 @@ export async function POST(
       return NextResponse.json({ error: "Job cannot be marked as completed in current status" }, { status: 422 })
     }
 
-    // The DB state machine always allows ACTIVE → COMPLETED.
-    // CONFIRMED → COMPLETED was added later and may not be applied everywhere.
-    // Use a two-step transition so this works under either version of the state machine.
-    if (job.status === "CONFIRMED") {
-      const { error: activeErr } = await admin
-        .from("jobs")
-        .update({ status: "ACTIVE" })
-        .eq("id", jobId)
-      if (activeErr) {
-        console.error("[TRADESPERSON-COMPLETE] CONFIRMED→ACTIVE error:", activeErr.message)
-        return NextResponse.json({ error: activeErr.message }, { status: 422 })
-      }
-    }
-
+    // Single-step: CONFIRMED or ACTIVE → COMPLETED.
+    // migration 20260317000004 added CONFIRMED→COMPLETED as a valid transition.
     const { error: updateError } = await admin
       .from("jobs")
-      .update({ status: "COMPLETED", completed_at: new Date().toISOString() })
+      .update({ status: "COMPLETED", is_active: false, completed_at: new Date().toISOString() })
       .eq("id", jobId)
+      .in("status", ["CONFIRMED", "ACTIVE"])
 
     if (updateError) {
       console.error("[TRADESPERSON-COMPLETE] ACTIVE→COMPLETED error:", updateError.message)
@@ -104,6 +93,7 @@ export async function POST(
       })
     }
 
+    // Revalidate tradesperson's own cache (homeowner's already done above)
     revalidateTag(`jobs-user-${user.id}`)
 
     return NextResponse.json({ success: true })

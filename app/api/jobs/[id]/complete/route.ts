@@ -22,7 +22,7 @@ export async function POST(
     // Verify caller is the homeowner of this job
     const { data: job } = await admin
       .from("jobs")
-      .select("status, homeowner_id, homeowner_profiles!homeowner_id(user_id)")
+      .select("status, confirmed_tradesperson_id, homeowner_id, homeowner_profiles!homeowner_id(user_id)")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -38,7 +38,7 @@ export async function POST(
 
     const { error: updateError } = await admin
       .from("jobs")
-      .update({ status: "COMPLETED", matching_status: "closed" })
+      .update({ status: "COMPLETED", is_active: false, matching_status: "closed" })
       .eq("id", jobId)
 
     if (updateError) {
@@ -47,6 +47,17 @@ export async function POST(
     }
 
     revalidateTag(`jobs-user-${user.id}`)
+
+    // Revalidate the tradesperson's cache too so their dashboard shows completion
+    if ((job as any).confirmed_tradesperson_id) {
+      const { data: cp } = await admin
+        .from("company_profiles")
+        .select("user_id")
+        .eq("id", (job as any).confirmed_tradesperson_id)
+        .maybeSingle()
+      if (cp?.user_id) revalidateTag(`jobs-user-${cp.user_id}`)
+    }
+
     return NextResponse.json({ success: true })
 
   } catch (error) {

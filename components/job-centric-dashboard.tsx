@@ -415,29 +415,8 @@ export function JobCentricDashboard({ jobs, ownerId, ownerUserId, userType, stat
           is_read: false,
         })
 
-        // Send acceptance message via API so it gets conversation_id + chat_unlocked
-        try {
-          const convRes = await fetch("/api/conversations", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ with_user_id: professionalData.user_id, job_id: jobId }),
-          })
-          const convData = convRes.ok ? await convRes.json() : {}
-          await fetch("/api/messages", {
-            method:  "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              recipient_id:  professionalData.user_id,
-              content:       `🎉 Congratulations! Your application for "${jobTitle}"${budget ? ` (budget: ${budget})` : ''} has been accepted!\n\nPlease reply to discuss further details.`,
-              job_id:        jobId,
-              ...(convData.conversationId && { conversation_id: convData.conversationId }),
-            }),
-          })
-        } catch (msgErr) {
-          console.error("[JOB-CENTRIC] Error sending acceptance message:", msgErr)
-        }
+        // Acceptance notification is handled via the in-app notification above;
+        // no auto-message is sent here to avoid a duplicate push notification.
       }
 
       toast({

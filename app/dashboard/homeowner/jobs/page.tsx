@@ -348,12 +348,12 @@ export default async function HomeownerJobsPage({
                       <ChevronRight className="h-3.5 w-3.5" />
                     </Link>
 
-                    {/* Track button — only for confirmed jobs with a live search page */}
+                    {/* Track button — dedicated tracking screen for confirmed (hired) jobs */}
                     {sc.label === "Confirmed" && job.confirmed_tradesperson_id && (
                       <>
                         <div className="w-px bg-slate-700/40" />
                         <Link
-                          href={`/jobs/${job.id}/live`}
+                          href={`/jobs/${job.id}/track`}
                           className="flex-1 text-center text-xs font-semibold py-2.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition-colors flex items-center justify-center gap-1.5"
                         >
                           <Truck className="h-3.5 w-3.5" />

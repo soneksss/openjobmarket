@@ -73,16 +73,11 @@ export async function GET(
       // Non-fatal — state machine is best-effort
     }
 
-    // Fetch active applications from tradespeople — PENDING and ACCEPTED only
-    // ("waiting_optional" is NOT a valid application_status enum value — never use it here)
-    const { data: applications, error: appsError } = await adminClient
+    // ── Applications: two-step fetch to avoid PostgREST FK-join naming issues ──
+    // Step 1: raw application rows (PENDING = tradesperson applied, homeowner hasn't decided)
+    const { data: rawApps, error: appsError } = await adminClient
       .from("job_applications")
-      .select(`
-        id, status, applied_at, company_id, cover_letter,
-        company_profiles!company_id (
-          id, user_id, company_name, logo_url, location, latitude, longitude
-        )
-      `)
+      .select("id, status, applied_at, company_id, cover_letter")
       .eq("job_id", jobId)
       .not("company_id", "is", null)
       .in("status", ["PENDING"])
@@ -92,14 +87,28 @@ export async function GET(
       console.error("[URGENT-RESPONSES GET] job_applications query error:", appsError.message, appsError)
     }
 
-    // Notified count + alerted trades (dispatched but not yet responded)
+    // Step 2: fetch company profiles for applicants
+    const appCompanyIds = (rawApps ?? []).map((a: any) => a.company_id).filter(Boolean)
+    let appProfiles: Record<string, any> = {}
+    if (appCompanyIds.length > 0) {
+      const { data: cpRows, error: cpErr } = await adminClient
+        .from("company_profiles")
+        .select("id, user_id, company_name, logo_url, latitude, longitude")
+        .in("id", appCompanyIds)
+      if (cpErr) {
+        console.error("[URGENT-RESPONSES GET] company_profiles (apps) query error:", cpErr.message)
+      }
+      for (const cp of cpRows ?? []) appProfiles[cp.id] = cp
+    }
+
+    // ── Dispatch alerts: single query includes responded + viewed_at ──────────
     let notifiedCount = 0
     let alertedTrades: any[] = []
     try {
       const isFlexible = (job as any).urgency_type === "flexible"
 
       if (isFlexible) {
-        // Flexible jobs use job_notifications_sent (not urgent_job_dispatch_alerts)
+        // Flexible jobs track notifications in job_notifications_sent
         const { count: flexCount } = await adminClient
           .from("job_notifications_sent")
           .select("*", { count: "exact", head: true })
@@ -108,36 +117,34 @@ export async function GET(
         // alertedTrades stays [] for flexible — no per-company status tracking
       }
 
+      // Single query — include viewed_at so we don't need a second round-trip
       const { data: allAlerts, count } = await adminClient
         .from("urgent_job_dispatch_alerts")
-        .select("company_id, responded", { count: "exact" })
+        .select("company_id, responded, viewed_at", { count: "exact" } as any)
         .eq("job_id", jobId)
+
       if (!isFlexible) notifiedCount = count ?? 0
 
-      // Build alerted trades list (dispatched but haven't applied yet)
-      const respondedIds = new Set((applications ?? []).map((a: any) => a.company_id))
-      const alertedIds = (allAlerts ?? [])
-        .filter((a: any) => !a.responded && !respondedIds.has(a.company_id))
-        .map((a: any) => a.company_id)
+      // Trades who were dispatched but haven't applied yet
+      const respondedIds = new Set(appCompanyIds)
+      const pending = (allAlerts ?? []).filter(
+        (a: any) => !a.responded && !respondedIds.has(a.company_id)
+      )
+      const alertedIds = pending.map((a: any) => a.company_id)
+      // Build viewed_at map directly from the same query result
+      const viewedAtMap = new Map<string, string | null>(
+        (allAlerts ?? []).map((a: any) => [a.company_id, (a as any).viewed_at ?? null])
+      )
 
       if (alertedIds.length > 0) {
-        const { data: alertProfiles } = await adminClient
+        const { data: alertProfiles, error: alertProfileErr } = await adminClient
           .from("company_profiles")
           .select("id, user_id, company_name, logo_url, latitude, longitude")
           .in("id", alertedIds)
 
-        // Try to get viewed_at (graceful — column may not exist in DB yet)
-        const viewedAtMap = new Map<string, string | null>()
-        try {
-          const { data: viewData, error: viewErr } = await adminClient
-            .from("urgent_job_dispatch_alerts")
-            .select("company_id, viewed_at")
-            .eq("job_id", jobId)
-            .in("company_id", alertedIds)
-          if (!viewErr && viewData) {
-            viewData.forEach((v: any) => viewedAtMap.set(v.company_id, v.viewed_at ?? null))
-          }
-        } catch {}
+        if (alertProfileErr) {
+          console.error("[URGENT-RESPONSES GET] alertProfiles query error:", alertProfileErr.message)
+        }
 
         alertedTrades = (alertProfiles ?? []).map((p: any) => ({
           id:        p.id,
@@ -149,11 +156,13 @@ export async function GET(
           lng:       p.longitude ?? null,
         }))
       }
-    } catch {}
+    } catch (alertErr) {
+      console.error("[URGENT-RESPONSES GET] dispatch alerts block error:", alertErr)
+    }
 
-    const responses = (applications ?? [])
+    const responses = (rawApps ?? [])
       .map((app: any) => {
-        const p = app.company_profiles
+        const p = appProfiles[app.company_id]
         if (!p) return null
         return {
           id:             p.id,
@@ -212,6 +221,20 @@ export async function POST(
       const body = await request.json()
       message = typeof body?.message === "string" && body.message.trim() ? body.message.trim() : undefined
     } catch {}
+
+    // Guard: reject applications once the job is no longer POSTED
+    const { data: jobRow } = await supabase
+      .from("jobs")
+      .select("status, title")
+      .eq("id", jobId)
+      .maybeSingle()
+
+    if (jobRow && jobRow.status !== "POSTED") {
+      return NextResponse.json(
+        { error: "This job has already been filled. Sorry, this job has now been assigned to another tradesperson." },
+        { status: 409 }
+      )
+    }
 
     const { error: applyError } = await supabase.rpc("apply_to_job", { p_job_id: jobId })
 

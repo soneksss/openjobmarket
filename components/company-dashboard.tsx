@@ -429,6 +429,10 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
           } else {
             // Job moved away from CONFIRMED (accepted/cancelled) — clear modal
             setPendingOffer((prev) => (prev?.id === job.id ? null : prev))
+            // Job became COMPLETED — refresh server data so myJobs moves to history
+            if (job.status === "COMPLETED") {
+              router.refresh()
+            }
           }
         }
       )

@@ -4,7 +4,7 @@ import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import MapLocationPicker from "./map-location-picker"
 import { LocationInput } from "./location-input"
-import { X, ArrowLeft, ArrowRight, Briefcase, Hammer, Zap, Clock, Calendar, ChevronDown, User, Mail, Phone, Lock, Check } from "lucide-react"
+import { X, ArrowLeft, ArrowRight, Briefcase, Hammer, Zap, Clock, Calendar, ChevronDown, User, Mail, Phone, Lock, Check, MapPin } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
@@ -1520,140 +1520,98 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-white">Location</h3>
 
-            {/* Location Choice Radio Buttons */}
+            {/* Quick-fill from saved address */}
             {hasProfileLocation && (
-              <div className="space-y-3 mb-6">
-                <label className="block text-sm font-medium mb-2 text-white">Where is this job?</label>
-                <div className="grid grid-cols-2 gap-3 md:gap-4">
-                  <label
-                    className={`flex items-center justify-center p-3 md:p-4 border-2 rounded-xl cursor-pointer transition-all text-sm md:text-base ${
-                      locationChoice === "myLocation"
-                        ? "border-emerald-500 bg-emerald-500/20"
-                        : "border-slate-700 hover:border-emerald-400 hover:bg-slate-800"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="locationChoice"
-                      checked={locationChoice === "myLocation"}
-                      onChange={() => {
-                        setLocationChoice("myLocation")
-                        if (hasProfileCoords) {
-                          // Profile has exact coords — use them directly
-                          setFormData((prev) => ({
-                            ...prev,
-                            fullAddress: companyProfile.location || "",
-                            locationCoords: { lat: companyProfile.latitude, lon: companyProfile.longitude },
-                          }))
-                        } else if (companyProfile?.location) {
-                          // Profile has text/postcode only — geocode it
-                          setFormData((prev) => ({ ...prev, fullAddress: companyProfile.location, locationCoords: null }))
-                          geocodeProfileLocation(companyProfile.location)
-                        }
-                      }}
-                      className="mr-2"
-                    />
-                    <span className="font-medium text-white">At my location</span>
-                  </label>
-
-                  <label
-                    className={`flex items-center justify-center p-3 md:p-4 border-2 rounded-xl cursor-pointer transition-all text-sm md:text-base ${
-                      locationChoice === "differentLocation"
-                        ? "border-orange-500 bg-orange-500/20"
-                        : "border-slate-700 hover:border-orange-400 hover:bg-slate-800"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="locationChoice"
-                      checked={locationChoice === "differentLocation"}
-                      onChange={() => {
-                        setLocationChoice("differentLocation")
-                        // Clear location so user must select on map
-                        setFormData((prev) => ({
-                          ...prev,
-                          locationCoords: null,
-                          fullAddress: ""
-                        }))
-                      }}
-                      className="mr-2"
-                    />
-                    <span className="font-medium text-white">Other location</span>
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {/* Show location confirmation if "myLocation" selected with coords */}
-            {locationChoice === "myLocation" && hasProfileCoords && (
-              <div className="flex items-center gap-2.5 px-3 py-2.5 bg-emerald-500/10 border border-emerald-500/25 rounded-xl">
-                <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                <p className="text-sm text-emerald-300 truncate">{companyProfile.location || "Using your saved location"}</p>
-              </div>
-            )}
-
-            {/* Show map picker if "differentLocation" selected, OR no profile location, OR myLocation with no stored coords */}
-            {(locationChoice === "differentLocation" || !hasProfileLocation || (locationChoice === "myLocation" && !hasProfileCoords)) && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-sm font-medium text-white">
-                    Pin your location
-                    {locationChoice !== "myLocation" && <span className="text-red-400"> *</span>}
-                  </label>
-                  {formData.locationCoords && (
-                    <span className="text-xs text-emerald-400 flex items-center gap-1">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                      Location set
-                    </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setLocationChoice("myLocation")
+                  if (hasProfileCoords) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      fullAddress: companyProfile.location || "",
+                      locationCoords: { lat: companyProfile.latitude, lon: companyProfile.longitude },
+                    }))
+                  } else if (companyProfile?.location) {
+                    setFormData((prev) => ({ ...prev, fullAddress: companyProfile.location, locationCoords: null }))
+                    geocodeProfileLocation(companyProfile.location)
+                  }
+                }}
+                className={`w-full flex items-center gap-3 px-4 py-3 border-2 rounded-xl transition-all text-sm text-left ${
+                  locationChoice === "myLocation"
+                    ? "border-emerald-500 bg-emerald-500/15"
+                    : "border-slate-700 hover:border-emerald-400/60 hover:bg-slate-800"
+                }`}
+              >
+                <MapPin className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-semibold text-white">Use my saved address</div>
+                  {companyProfile?.location && (
+                    <div className="text-xs text-slate-400 truncate">{companyProfile.location}</div>
                   )}
                 </div>
+                {locationChoice === "myLocation" && (
+                  <svg className="h-4 w-4 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                  </svg>
+                )}
+              </button>
+            )}
 
-                {/* Postcode / address input with autocomplete */}
-                <div className="mb-2">
-                  <LocationInput
-                    value={formData.fullAddress}
-                    onChange={(val) => setFormData((prev) => ({ ...prev, fullAddress: val }))}
-                    onLocationSelect={(address, lat, lon) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        fullAddress: address,
-                        locationCoords: { lat, lon },
-                      }))
-                    }}
-                    placeholder="Enter postcode or address"
-                  />
-                </div>
-
-                {isGeocodingPostcode ? (
-                  <div className="flex items-center justify-center gap-2 h-16 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-400 text-xs">
-                    <svg className="animate-spin h-4 w-4 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                    </svg>
-                    Finding your location…
-                  </div>
-                ) : (
-                  <>
-                    {locationChoice === "myLocation" && !formData.locationCoords && !isGeocodingPostcode && (
-                      <p className="text-xs text-amber-400 mb-1.5">Postcode not found — tap the map to set your location</p>
-                    )}
-                    <div className="rounded-xl overflow-hidden border border-slate-700/60">
-                      <MapLocationPicker
-                        value={formData.locationCoords ? {
-                          latitude: formData.locationCoords.lat,
-                          longitude: formData.locationCoords.lon,
-                          address: formData.fullAddress
-                        } : null}
-                        onChange={handleMapLocationSelect}
-                        height="360px"
-                        placeholder={locationChoice === "myLocation" ? "Adjust pin if needed" : "Tap to set location"}
-                        defaultCenter={geoCenter}
-                      />
-                    </div>
-                  </>
+            {/* Map — always visible. Tap the map or press My Location to set a different spot. */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-white">
+                  Pin your location <span className="text-red-400">*</span>
+                </label>
+                {formData.locationCoords && (
+                  <span className="text-xs text-emerald-400 flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                    Location set
+                  </span>
                 )}
               </div>
-            )}
+
+              {/* Address search */}
+              <div className="mb-2">
+                <LocationInput
+                  value={formData.fullAddress}
+                  onChange={(val) => setFormData((prev) => ({ ...prev, fullAddress: val }))}
+                  onLocationSelect={(address, lat, lon) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      fullAddress: address,
+                      locationCoords: { lat, lon },
+                    }))
+                  }}
+                  placeholder="Enter postcode or address"
+                />
+              </div>
+
+              {isGeocodingPostcode ? (
+                <div className="flex items-center justify-center gap-2 h-16 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-400 text-xs">
+                  <svg className="animate-spin h-4 w-4 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Finding your location…
+                </div>
+              ) : (
+                <div className="rounded-xl overflow-hidden border border-slate-700/60">
+                  <MapLocationPicker
+                    value={formData.locationCoords ? {
+                      latitude: formData.locationCoords.lat,
+                      longitude: formData.locationCoords.lon,
+                      address: formData.fullAddress
+                    } : null}
+                    onChange={handleMapLocationSelect}
+                    height="360px"
+                    placeholder="Tap to set location"
+                    defaultCenter={geoCenter}
+                  />
+                </div>
+              )}
+            </div>
 
             {/* Location privacy — only shown once coords are set */}
             {formData.locationCoords && (

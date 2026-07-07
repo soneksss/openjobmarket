@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
+import { sendWebPushToUser } from "@/lib/web-push"
 
 // POST /api/jobs/[id]/confirm
 // Body: { company_id }  — company_profiles.id of the tradesperson to confirm
@@ -80,7 +81,18 @@ export async function POST(
       return NextResponse.json({ error: rpcError.message }, { status: 422 })
     }
 
+    // Mark job inactive so it disappears from map/listings and stops dispatch
+    await admin
+      .from("jobs")
+      .update({ is_active: false, dispatch_state: "completed" })
+      .eq("id", jobId)
+
     revalidateTag(`jobs-user-${user.id}`)
+
+    // Fire-and-forget — notify cancelled applicants and dispatched-but-not-applied trades
+    notifyFilledJob(jobId, job.title, admin).catch((err) =>
+      console.error("[CONFIRM] notifyFilledJob error:", err)
+    )
 
     return NextResponse.json({ success: true, conversationId })
 
@@ -88,5 +100,65 @@ export async function POST(
     console.error("[CONFIRM] Unexpected error:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
+}
+
+// Send "job filled" push to every tradesperson whose application was AUTO_CANCELLED
+// and every tradesperson dispatched but who never applied (responded=false in alerts).
+async function notifyFilledJob(jobId: string, jobTitle: string, admin: ReturnType<typeof createAdminClient>) {
+  const pushBody = `Sorry, "${jobTitle}" has now been assigned to another tradesperson.`
+  const tag      = `job-filled-${jobId}`
+
+  // 1. Collect user_ids from AUTO_CANCELLED applications
+  const { data: cancelledApps } = await admin
+    .from("job_applications")
+    .select("company_id")
+    .eq("job_id", jobId)
+    .eq("status", "AUTO_CANCELLED")
+
+  const cancelledCompanyIds = (cancelledApps ?? []).map((a: any) => a.company_id).filter(Boolean)
+
+  // 2. Collect company_ids from dispatched-but-not-responded alerts
+  const { data: unrespondedAlerts } = await admin
+    .from("urgent_job_dispatch_alerts")
+    .select("company_id")
+    .eq("job_id", jobId)
+    .eq("responded", false)
+
+  const unrespondedCompanyIds = (unrespondedAlerts ?? []).map((a: any) => a.company_id).filter(Boolean)
+
+  // Deduplicate all company_ids to notify
+  const allCompanyIds = [...new Set([...cancelledCompanyIds, ...unrespondedCompanyIds])]
+  if (allCompanyIds.length === 0) return
+
+  // 3. Resolve user_ids from company_ids
+  const { data: profiles } = await admin
+    .from("company_profiles")
+    .select("id, user_id")
+    .in("id", allCompanyIds)
+
+  const userIds = (profiles ?? []).map((p: any) => p.user_id).filter(Boolean)
+  if (userIds.length === 0) return
+
+  // 4. Fetch push tokens for all those users in one query
+  const { data: tokenRows } = await admin
+    .from("user_push_tokens")
+    .select("user_id, token")
+    .in("user_id", userIds)
+
+  if (!tokenRows?.length) return
+
+  const tokens = tokenRows.map((r: any) => r.token)
+  const { expired } = await sendWebPushToUser(tokens, {
+    title: "Job has been filled",
+    body:  pushBody,
+    url:   `/jobs/${jobId}`,
+    tag,
+  })
+
+  if (expired.length) {
+    await admin.from("user_push_tokens").delete().in("token", expired)
+  }
+
+  console.log(`[CONFIRM] Notified ${userIds.length} trade(s) that job ${jobId} was filled`)
 }
 

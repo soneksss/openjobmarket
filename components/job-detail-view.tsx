@@ -55,6 +55,7 @@ interface Job {
   expires_at?: string
   latitude?: number | null
   longitude?: number | null
+  location_type?: string | null
   company_profiles?: {
     id: string
     company_name: string
@@ -1055,9 +1056,9 @@ export default function JobDetailView({
               // Prefer purpose-built approx coords; fall back to job coords for old listings
               const approxLat = hp?.latitude_approx ?? job.latitude
               const approxLon = hp?.longitude_approx ?? job.longitude
-              // Exact coords only available after confirmation (fetched server-side)
-              const exactLat  = hp?.latitude
-              const exactLon  = hp?.longitude
+              // Exact coords revealed only when homeowner opted into exact privacy
+              const exactLat = job.location_type === 'exact' ? job.latitude : null
+              const exactLon = job.location_type === 'exact' ? job.longitude : null
               if (!approxLat || !approxLon) return null
               return (
                 <JobLocationMap
@@ -1082,6 +1083,7 @@ export default function JobDetailView({
                 jobTitle={job.title}
                 hasApplied={applicationSubmitted}
                 applicationStatus={myApplicationStatus}
+                jobStatus={job.status}
                 homeownerUserId={job.homeowner_profiles?.user_id}
                 homeownerName={job.homeowner_profiles ? `${job.homeowner_profiles.first_name} ${job.homeowner_profiles.last_name}`.trim() : undefined}
                 hasReviewedHomeowner={hasReviewedHomeowner}
