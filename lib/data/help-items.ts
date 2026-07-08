@@ -3,7 +3,7 @@
 // and the map "Post a Job" category picker.
 export const helpItems = [
   { label: "Plumbing",            img: "/Jobs/Fix_leak.png",           category: "Plumbing",              industry: "Plumbing & Heating",             service: "Plumber"                       },
-  { label: "Heating",            img: "/Jobs/Boiler_repair.png",      category: "Plumbing",              industry: "Plumbing & Heating",             service: "Boiler Repair"                  },
+  { label: "Heating",            img: "/Jobs/Boiler_repair.png",      category: "Plumbing",              industry: "Plumbing & Heating",             service: "Gas Engineer"                   },
   { label: "Electrician",        img: "/Jobs/Electrician.png",        category: "Electrical",            industry: "Electrical",                     service: "Electrician"                    },
   { label: "EV charger",         img: "/Jobs/EV_charger.png",         category: "Electrical",            industry: "Electrical",                     service: "EV Charger Installation"        },
   { label: "Extension",          img: "/Jobs/Extension.png",          category: "Construction",          industry: "Construction & Renovation",      service: "Extension Specialist"           },

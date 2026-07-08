@@ -11,6 +11,7 @@ import { helpItems } from "@/lib/data/help-items"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg, normaliseCategory } from "@/lib/data/industry-styles"
 import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2, Languages, Briefcase, Users, Home, LocateFixed, Loader2 } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
+import { getPosition } from "@/lib/native-geolocation"
 import JobWizardModal from "@/components/job-wizard-modal"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
@@ -270,29 +271,17 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const postcodeRef      = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    // Auto-geolocate when the server fell back to the default location
-    // (no postcode/lat-lng in URL and no saved profile location).
-    // Browser geolocation is unavailable server-side, so this is the only place to do it.
-    if (!coordsAreDefault || !navigator.geolocation) return
-
-    // Allow cached position (up to 5 min old) so it's fast; 20 s timeout gives
-    // enough headroom for the native permission dialog to appear and be tapped.
-    const opts: PositionOptions = { enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 }
-
-    const onSuccess = (pos: GeolocationPosition) => {
-      setCoords([pos.coords.latitude, pos.coords.longitude])
-      setFlyTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-      setLocationLabel("My location")
-    }
-
-    navigator.geolocation.getCurrentPosition(onSuccess, () => {
-      // First attempt failed (timeout or unavailable) — retry once after a short
-      // pause. On some mobile platforms the first call fails immediately after
-      // the user grants permission before the OS has recorded the grant.
-      setTimeout(() => {
-        navigator.geolocation.getCurrentPosition(onSuccess, () => {}, opts)
-      }, 1500)
-    }, opts)
+    // Auto-geolocate when the server fell back to the default location.
+    // On Android the @capacitor/geolocation plugin handles the permission
+    // dialog natively; on web it falls through to navigator.geolocation.
+    if (!coordsAreDefault) return
+    getPosition({ enableHighAccuracy: false, timeout: 20000, maximumAge: 300000 })
+      .then(({ latitude, longitude }) => {
+        setCoords([latitude, longitude])
+        setFlyTarget({ lat: latitude, lng: longitude })
+        setLocationLabel("My location")
+      })
+      .catch(() => { /* denied or unavailable — stay on default */ })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -461,19 +450,16 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   }
 
   const handleMyLocation = () => {
-    if (!navigator.geolocation) return
     setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        setCoords([pos.coords.latitude, pos.coords.longitude])
-        setFlyTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude })
-        setLocateSeq(n => n + 1)   // always force fly, even if coords unchanged
+    getPosition({ enableHighAccuracy: false, timeout: 8000 })
+      .then(({ latitude, longitude }) => {
+        setCoords([latitude, longitude])
+        setFlyTarget({ lat: latitude, lng: longitude })
+        setLocateSeq(n => n + 1)
         setLocationLabel("My location")
-        setLocating(false)
-      },
-      () => setLocating(false),
-      { enableHighAccuracy: false, timeout: 8000 }
-    )
+      })
+      .catch(() => {})
+      .finally(() => setLocating(false))
   }
 
   const handleTouchStart = (e: React.TouchEvent) => { touchStartY.current = e.touches[0].clientY }

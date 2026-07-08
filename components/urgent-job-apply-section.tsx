@@ -39,7 +39,7 @@ export function UrgentJobApplySection({
 
   const [message, setMessage]       = useState("")
   const [loading, setLoading]       = useState(false)
-  const [applied, setApplied]       = useState(hasApplied)
+  const [applied, setApplied]       = useState(hasApplied || applicationStatus === "PENDING" || applicationStatus === "pending")
   const [skipped, setSkipped]       = useState(false)
   const [error,   setError]         = useState<string | null>(null)
   const [showReviewModal, setShowReviewModal] = useState(false)

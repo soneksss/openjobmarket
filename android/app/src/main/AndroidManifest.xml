@@ -59,6 +59,10 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Location — required for map centering and Locate Me button -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+
     <!-- Required for push notifications on Android 13+ (API 33+).
          Without this declaration, requestPermissions() crashes with SecurityException
          when targetSdkVersion >= 33. -->

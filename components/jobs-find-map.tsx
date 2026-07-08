@@ -8,6 +8,7 @@ import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
 import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, LocateFixed, Loader2 } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
+import { getPosition } from "@/lib/native-geolocation"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
 const MapContainer = dynamic(() => import("react-leaflet").then(m => m.MapContainer), { ssr: false })
@@ -237,15 +238,12 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   // Auto-request geolocation on first load when no explicit location was supplied
   useEffect(() => {
     if (!coordsAreDefault) return
-    if (!navigator.geolocation) return
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        setCoords([pos.coords.latitude, pos.coords.longitude])
+    getPosition({ timeout: 10000, maximumAge: 300000 })
+      .then(({ latitude, longitude }) => {
+        setCoords([latitude, longitude])
         setLocationLabel("My location")
-      },
-      () => { /* denied or unavailable — stay on London default */ },
-      { timeout: 10000, maximumAge: 300000, enableHighAccuracy: false }
-    )
+      })
+      .catch(() => { /* denied or unavailable — stay on default */ })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -311,17 +309,14 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   }
 
   const handleMyLocation = useCallback(() => {
-    if (!navigator.geolocation) return
     setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        setCoords([pos.coords.latitude, pos.coords.longitude])
+    getPosition({ timeout: 20000, maximumAge: 300000 })
+      .then(({ latitude, longitude }) => {
+        setCoords([latitude, longitude])
         setLocationLabel("My location")
-        setLocating(false)
-      },
-      () => setLocating(false),
-      { timeout: 20000, maximumAge: 300000, enableHighAccuracy: false }
-    )
+      })
+      .catch(() => {})
+      .finally(() => setLocating(false))
   }, [])
   const clearFilters = () => {
     const r = { ...DEFAULT_FILTERS }
