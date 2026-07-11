@@ -16,6 +16,8 @@ import {
 } from "lucide-react"
 import { HomeownerApplicationActions } from "./homeowner-application-actions"
 import { JobCompletionModal } from "./job-completion-modal"
+import { TrustpilotReviewPrompt } from "./trustpilot-review-prompt"
+import { createClient } from "@/lib/client"
 
 interface Application {
   id: string
@@ -61,6 +63,8 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId,
   const [selectedContractor, setSelectedContractor]   = useState<{
     id: string; name: string; profileId: string
   } | null>(null)
+  const [justCompletedJob, setJustCompletedJob] = useState(false)
+  const [trustpilotProfileId, setTrustpilotProfileId] = useState<string | null>(null)
 
   const isJobAccepted  = job.completion_status === "accepted" || job.status === "CONFIRMED"
   const isJobCompleted = job.completion_status === "completed"
@@ -396,12 +400,39 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId,
       {selectedContractor && (
         <JobCompletionModal
           isOpen={showCompletionModal}
-          onClose={() => { setShowCompletionModal(false); setSelectedContractor(null) }}
+          onClose={async () => {
+            setShowCompletionModal(false)
+            setSelectedContractor(null)
+            // Only chain into the Trustpilot prompt once the completion flow
+            // (mark complete + optional contractor review) has fully finished,
+            // and only for a job that was actually completed just now.
+            if (justCompletedJob && homeownerUserId) {
+              setJustCompletedJob(false)
+              const supabase = createClient()
+              const { data } = await supabase
+                .from("homeowner_profiles")
+                .select("id, first_review_prompt_shown")
+                .eq("user_id", homeownerUserId)
+                .maybeSingle()
+              if (data && !data.first_review_prompt_shown) {
+                setTrustpilotProfileId(data.id)
+              }
+            }
+          }}
+          onCompleted={() => setJustCompletedJob(true)}
           jobId={job.id}
           jobTitle={job.title}
           contractorId={selectedContractor.id}
           contractorName={selectedContractor.name}
           contractorProfileId={selectedContractor.profileId}
+        />
+      )}
+
+      {trustpilotProfileId && (
+        <TrustpilotReviewPrompt
+          isOpen={!!trustpilotProfileId}
+          onClose={() => setTrustpilotProfileId(null)}
+          homeownerProfileId={trustpilotProfileId}
         />
       )}
     </>

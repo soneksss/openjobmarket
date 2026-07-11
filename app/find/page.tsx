@@ -56,7 +56,7 @@ export default async function FindPage({
   const coordsAreDefault = coords === DEFAULT_COORDS
 
   return (
-    <div className="fixed inset-0 bg-slate-900">
+    <div className="fixed left-0 right-0 bottom-0 bg-slate-900" style={{ top: "var(--global-header-h, 0px)" }}>
       <TradespeopleFindMap
         initialTraders={[]}
         initialCoords={coords}

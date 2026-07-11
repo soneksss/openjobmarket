@@ -6,10 +6,12 @@ import { createClient } from "@/lib/client"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import Link from "next/link"
+import Script from "next/script"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/context"
+import { TURNSTILE_SITE_KEY } from "@/lib/turnstile-client"
 
 export default function LoginForm() {
   const { t } = useTranslation()
@@ -20,9 +22,27 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | 'facebook' | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+  // Brute-force protection — after 5 failed attempts, a CAPTCHA is required;
+  // solving it skips the cooldown, otherwise the cooldown counts down on its own.
+  const [requiresCaptcha, setRequiresCaptcha] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [cooldownSeconds, setCooldownSeconds] = useState(0)
+  const turnstileRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+
+  useEffect(() => {
+    if (cooldownSeconds <= 0) return
+    const t = setTimeout(() => setCooldownSeconds((s) => Math.max(0, s - 1)), 1000)
+    return () => clearTimeout(t)
+  }, [cooldownSeconds])
+
+  // Turnstile posts the token to this global callback (declarative render via data-callback).
+  useEffect(() => {
+    ;(window as any).onTurnstileVerify = (token: string) => setCaptchaToken(token)
+    return () => { delete (window as any).onTurnstileVerify }
+  }, [])
 
   // Locale-aware sign-up URL
   const isOnBrRoute = pathname?.startsWith('/br')
@@ -43,6 +63,26 @@ export default function LoginForm() {
         throw new Error(t('auth.errorMissingBoth'))
       }
 
+      // Brute-force guard — checked BEFORE attempting sign-in. Blocks the
+      // attempt if this email has 5+ recent failures and no (valid) captcha
+      // token has been supplied yet.
+      const guardRes = await fetch("/api/auth/login-guard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, captchaToken }),
+      }).then((r) => r.json()).catch(() => ({ blocked: false }))
+
+      if (guardRes.blocked) {
+        setRequiresCaptcha(true)
+        setCaptchaToken(null)
+        if (typeof guardRes.retryAfterSeconds === "number") setCooldownSeconds(guardRes.retryAfterSeconds)
+        setError(guardRes.error || "Too many failed attempts. Please complete the CAPTCHA below, or wait for the cooldown to finish.")
+        setIsLoading(false)
+        return
+      }
+      // Captcha tokens are single-use — clear it now that the guard consumed it.
+      if (captchaToken) setCaptchaToken(null)
+
       if (staySignedIn) {
         localStorage.setItem('staySignedIn', 'true')
       } else {
@@ -53,6 +93,16 @@ export default function LoginForm() {
         email,
         password,
       })
+
+      // Record the outcome for brute-force tracking regardless of what happens next.
+      fetch("/api/auth/login-record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, success: !error }),
+      }).then((r) => r.json()).then((data) => {
+        if (data?.requiresCaptcha) setRequiresCaptcha(true)
+      }).catch(() => {})
+
       if (error) throw error
 
       // Set custom session duration preferences
@@ -178,6 +228,11 @@ export default function LoginForm() {
   return (
     <div className="w-full max-w-sm mx-auto">
 
+      {/* Loaded lazily — only needed once brute-force protection kicks in */}
+      {requiresCaptcha && (
+        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="lazyOnload" async defer />
+      )}
+
       {/* Full-screen overlay while OAuth browser is loading */}
       {isSocialLoading && (
         <div className="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
@@ -284,6 +339,23 @@ export default function LoginForm() {
           {error && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
               <p className="text-sm text-red-400">{error}</p>
+            </div>
+          )}
+
+          {/* Brute-force protection — CAPTCHA + cooldown after 5 failed attempts */}
+          {requiresCaptcha && (
+            <div className="space-y-2">
+              <div ref={turnstileRef}
+                className="cf-turnstile"
+                data-sitekey={TURNSTILE_SITE_KEY}
+                data-callback="onTurnstileVerify"
+                data-theme="dark"
+              />
+              {cooldownSeconds > 0 && (
+                <p className="text-xs text-slate-500">
+                  Or wait {Math.floor(cooldownSeconds / 60)}:{String(cooldownSeconds % 60).padStart(2, "0")} and try again.
+                </p>
+              )}
             </div>
           )}
 

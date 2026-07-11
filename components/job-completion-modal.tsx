@@ -13,6 +13,8 @@ interface JobCompletionModalProps {
   contractorId: string
   contractorName: string
   contractorProfileId: string
+  /** Fired once the job is actually marked COMPLETED (not on Cancel/X before that). */
+  onCompleted?: () => void
 }
 
 export function JobCompletionModal({
@@ -23,6 +25,7 @@ export function JobCompletionModal({
   contractorId,
   contractorName,
   contractorProfileId,
+  onCompleted,
 }: JobCompletionModalProps) {
   const router = useRouter()
   const supabase = createClient()
@@ -57,6 +60,7 @@ export function JobCompletionModal({
       const { error: rpcError } = await supabase.rpc("complete_job", { p_job_id: jobId })
       if (rpcError) throw rpcError
       setStep("review")
+      onCompleted?.()
     } catch (err: any) {
       setError(err.message || "Failed to mark job as complete. Please try again.")
     } finally {

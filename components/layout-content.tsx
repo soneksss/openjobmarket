@@ -15,6 +15,7 @@ import { LanguageRegionProvider } from "@/contexts/language-region-context"
 import { LanguageRegionModal } from "@/components/language-region-modal"
 import { parseLanguageRegionCookie, LANGUAGE_REGION_COOKIE, DEFAULT_STATE } from "@/lib/i18n/language-region"
 import { ActiveSearchProvider } from "@/lib/contexts/active-search-context"
+import { AvailableNowProvider } from "@/contexts/available-now-context"
 import { ActiveSearchBar } from "@/components/active-search-bar"
 import { UrgentJobNotifier, HomeownerJobNotifier } from "@/components/urgent-job-notifier"
 import { PushSubscriptionManager } from "@/components/push-subscription-manager"
@@ -113,8 +114,13 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
     <I18nProvider initialLocale={locale}>
       <LanguageRegionProvider initialState={getInitialLanguageRegionState()}>
         <NavigationLoader />
-        {/* On map pages: hide on mobile (map is full-screen), sticky z-[100] on desktop so it sits above the fixed map */}
-        <div className={isJobPostingPage || pathname?.startsWith("/find") ? "hidden md:block md:sticky md:top-0 md:z-[100]" : undefined}>
+        {/* Job posting: hide on mobile (keyboard pushes it over the form).
+            Map pages: sticky z-[100] on all sizes — the map sits below it via --global-header-h. */}
+        <div className={
+          isJobPostingPage ? "hidden md:block md:sticky md:top-0 md:z-[100]" :
+          pathname?.startsWith("/find") ? "sticky top-0 z-[100]" :
+          undefined
+        }>
           <Header user={user} userType={(userType as "company" | "professional" | undefined) || undefined} isAdmin={isAdmin} dark={true} />
         </div>
         {/* Sticky bar shown when user has minimised an active trade search */}
@@ -149,11 +155,13 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
   )
 }
 
-/* Exported wrapper — provides ActiveSearchContext to the whole layout */
+/* Exported wrapper — provides ActiveSearchContext + AvailableNowContext to the whole layout */
 export function LayoutContent(props: LayoutContentProps) {
   return (
     <ActiveSearchProvider>
-      <LayoutInner {...props} />
+      <AvailableNowProvider>
+        <LayoutInner {...props} />
+      </AvailableNowProvider>
     </ActiveSearchProvider>
   )
 }

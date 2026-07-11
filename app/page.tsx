@@ -20,8 +20,6 @@ export const metadata = generateSEO({
 export default async function HomePage() {
   // / is the default entry point — redirect to the live map so users see
   // value immediately. The marketing/info page lives at /home.
-  redirect("/find-trades")
-
   // createClient() has AbortSignal.timeout(3000) on every fetch — no separate withTimeout needed
   const supabase = await createClient()
 
@@ -38,6 +36,9 @@ export default async function HomePage() {
   const bootstrap = await getHomePageBootstrap(user)
   const { adminSettings, featureFlags, userType, profileLocation, profileSkills, profileIndustry, profileServices } = bootstrap
   const isAdmin = userType === 'admin'
+
+  // Tradespeople land on the Trades Jobs map; everyone else on the Tradespeople map.
+  redirect(userType === "company" ? "/find-jobs" : "/find-trades")
 
   return (
     <HomeClientWrapper>

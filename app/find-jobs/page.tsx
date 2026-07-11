@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import JobsFindMap from "@/components/jobs-find-map"
 
-const DEFAULT_COORDS: [number, number] = [51.5074, -0.1278]
+const DEFAULT_COORDS: [number, number] = [50.8058, -1.0872] // Portsmouth
 
 export default async function FindJobsPage({
   searchParams,
@@ -34,7 +34,7 @@ export default async function FindJobsPage({
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-950">
+    <div className="fixed left-0 right-0 bottom-0 bg-slate-950" style={{ top: "var(--global-header-h, 0px)" }}>
       <JobsFindMap
         initialJobs={[]}
         initialCoords={coords}

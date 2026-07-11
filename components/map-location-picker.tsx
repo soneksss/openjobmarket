@@ -167,10 +167,14 @@ export function MapLocationPicker({
   }
 
   const handleMapClick = async (lat: number, lng: number) => {
-    const address = await reverseGeocode(lat, lng)
-    onChange({ latitude: lat, longitude: lng, address })
+    // Register the pin immediately — don't make "did they pick a location?"
+    // validation wait on a reverse-geocode network call that can take a
+    // second or more. The address text upgrades in place once it resolves.
+    onChange({ latitude: lat, longitude: lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` })
     setMapCenter([lat, lng])
     setMapZoom(14)
+    const address = await reverseGeocode(lat, lng)
+    onChange({ latitude: lat, longitude: lng, address })
   }
 
   const handleSuggestionSelect = (suggestion: LocationSuggestion) => {
@@ -206,6 +210,8 @@ export function MapLocationPicker({
         const lng = pos.coords.longitude
         setMapCenter([lat, lng])
         setMapZoom(12)
+        // Register immediately, same as a map click — see handleMapClick.
+        onChange({ latitude: lat, longitude: lng, address: `${lat.toFixed(6)}, ${lng.toFixed(6)}` })
         const address = await reverseGeocode(lat, lng)
         onChange({ latitude: lat, longitude: lng, address })
       },

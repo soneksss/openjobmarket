@@ -237,7 +237,8 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
         params.set("lat", lat.toString())
         params.set("lng", lng.toString())
       }
-      if (industry) params.set("industry", industry)
+      // "General" is a stale placeholder some profiles were seeded with — treat as no filter
+      if (industry && industry !== "General") params.set("industry", industry)
       return `/find-jobs?${params.toString()}`
     }
 
@@ -253,7 +254,8 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
             const services = Array.isArray(data.services) ? data.services.slice(0, 2) : []
             setJobsSearchUrl(buildUrl(data.latitude, data.longitude, data.industry, services))
           } else {
-            setJobsSearchUrl("/find-jobs?lat=51.5074&lng=-0.1278")
+            // No lat/lng — let /find-jobs fall back to its own default + auto-geolocate
+            setJobsSearchUrl("/find-jobs")
           }
         })
     } else {
@@ -276,7 +278,8 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
                 if (comp) {
                   setJobsSearchUrl(buildUrl(comp.latitude, comp.longitude, comp.industry, []))
                 } else {
-                  setJobsSearchUrl("/find-jobs?lat=51.5074&lng=-0.1278")
+                  // No lat/lng — let /find-jobs fall back to its own default + auto-geolocate
+                  setJobsSearchUrl("/find-jobs")
                 }
               })
           }

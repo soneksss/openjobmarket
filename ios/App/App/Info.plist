@@ -49,5 +49,7 @@
 	<true/>
 	<key>NSUserNotificationUsageDescription</key>
 	<string>We send notifications for new job matches and messages.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>We use your location to show nearby tradespeople and jobs on the map.</string>
 </dict>
 </plist>

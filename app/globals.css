@@ -200,6 +200,14 @@ body {
   color: #f1f5f9 !important;
 }
 
+/* Job-pin popup on the jobs map — title + budget only, much smaller than the
+   default popup sizing above (which is tuned for the tradesperson profile card).
+   Width itself is controlled by the Popup's minWidth/maxWidth props in JSX —
+   not overridden here so the longest title can still grow the popup to fit. */
+.job-popup-compact .leaflet-popup-content {
+  margin: 3px 7px !important;
+}
+
 /* Ensure all interactive elements in popups are clickable */
 .leaflet-popup-content button,
 .leaflet-popup-content a,

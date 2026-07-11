@@ -32,7 +32,7 @@ export default async function CompanyDashboardPage() {
         .insert({
           user_id: user.id,
           company_name: metadata.company_name || metadata.first_name || user.email?.split("@")[0] || "My Business",
-          industry: metadata.industry || metadata.trade || "General",
+          industry: metadata.industry || metadata.trade || null,
           location: metadata.location || null,
         })
         .select().single()

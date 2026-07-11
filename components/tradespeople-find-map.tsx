@@ -11,8 +11,9 @@ import { helpItems } from "@/lib/data/help-items"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg, normaliseCategory } from "@/lib/data/industry-styles"
 import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2, Languages, Briefcase, Users, Home, LocateFixed, Loader2 } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
-import { getPosition } from "@/lib/native-geolocation"
+import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import JobWizardModal from "@/components/job-wizard-modal"
+import { useToast } from "@/hooks/use-toast"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
 const MapContainer = dynamic(() => import("react-leaflet").then(m => m.MapContainer), { ssr: false })
@@ -73,26 +74,30 @@ const MapViewUpdater = dynamic(
   { ssr: false }
 )
 
-// Smoothly flies the map to a target point covering ~10-mile radius (zoom 11)
+// Smoothly flies the map to a target point covering ~radiusMiles radius
 const MapFlyTo = dynamic(
   () => Promise.all([import("react-leaflet"), import("react")]).then(([lm, rm]) => {
     const { useMap } = lm
     const { useEffect, useRef } = rm
-    function Comp({ target }: { target: { lat: number; lng: number } | null }) {
+    function Comp({ target, radiusMiles = 10 }: { target: { lat: number; lng: number } | null; radiusMiles?: number }) {
       const map = useMap()
       const prev = useRef<{ lat: number; lng: number } | null>(null)
       useEffect(() => {
         if (!target) return
         if (prev.current?.lat === target.lat && prev.current?.lng === target.lng) return
         prev.current = target
-        // flyToBounds gives a 10-mile radius view regardless of screen size
-        const R = 0.145 // ~10 miles in degrees latitude
+        // flyToBounds gives a ~radiusMiles-mile radius view regardless of screen size
+        const R = radiusMiles / 69 // ~69 miles per degree latitude
         const RL = R / Math.cos(target.lat * Math.PI / 180)
+        // On mobile the bottom sheet covers ~110px; pad the bottom so the
+        // pin isn't hidden behind it.
+        const mapH    = map.getSize().y
+        const panelPx = mapH < 800 ? 110 : 0
         ;(map as any).flyToBounds(
           [[target.lat - R, target.lng - RL], [target.lat + R, target.lng + RL]],
-          { animate: true, duration: 1.5, padding: [20, 20] }
+          { animate: true, duration: 1.5, paddingTopLeft: [20, 20], paddingBottomRight: [20, 20 + panelPx] }
         )
-      }, [map, target])
+      }, [map, target, radiusMiles])
       return null
     }
     return Comp
@@ -101,6 +106,10 @@ const MapFlyTo = dynamic(
 )
 
 type BBox = { north: number; south: number; east: number; west: number }
+
+// Desktop width, OR a phone rotated to landscape (short viewport) — both use
+// the side-panel layout instead of the mobile bottom sheet.
+const WIDE_LAYOUT_QUERY = "(min-width: 1024px), (orientation: landscape) and (max-height: 500px)"
 
 // Fires onBoundsChange once on mount and again after every pan/zoom
 const ViewportLoader = dynamic(
@@ -230,6 +239,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const router        = useRouter()
   const searchParams  = useSearchParams()
   const supabase      = createClient()
+  const { toast }     = useToast()
 
   const [traders,          setTraders]          = useState<Trader[]>(initialTraders)
   const [filters,          setFilters]          = useState<Filters>(() => filtersFromSearchParams(searchParams, initialIndustry))
@@ -254,6 +264,12 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const [leafletL,         setLeafletL]         = useState<any>(null)
   const [user,             setUser]             = useState<any>(null)
   const [homeownerProfile, setHomeownerProfile] = useState<any>(null)
+  // The wizard needs to know who's actually posting — a tradesperson (company)
+  // reaching this map has no homeowner_profiles row, so defaulting to
+  // userType="homeowner" here made every submission fail with
+  // "Missing homeowner_id or company_id".
+  const [posterUserType,   setPosterUserType]   = useState<"homeowner" | "company">("homeowner")
+  const [posterCompanyProfile, setPosterCompanyProfile] = useState<any>(null)
   const [isDesktop,        setIsDesktop]        = useState(false)
   const [postcodeInput,    setPostcodeInput]    = useState(initialPostcode ?? "")
   const [postcodeEditing,  setPostcodeEditing]  = useState(false)
@@ -264,10 +280,15 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const [locateSeq,        setLocateSeq]        = useState(0)
   const [locationLabel,    setLocationLabel]    = useState(initialPostcode ?? "")
 
-  const touchStartY      = useRef<number | null>(null)
   const currentBoundsRef = useRef<BBox | null>(null)
   const fetchTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const filtersRef       = useRef(filtersFromSearchParams(searchParams, initialIndustry))
+  const headerRef        = useRef<HTMLDivElement>(null)
+  const sheetDragRef     = useRef<{ startY: number; startHeightPx: number } | null>(null)
+  // null = follow the named sheetState (collapsed/peek/expanded) CSS value;
+  // a number = freeform height the user dragged to — persists until they tap the handle again.
+  const [sheetHeightPx,    setSheetHeightPx]     = useState<number | null>(null)
+  const [isSheetDragging,  setIsSheetDragging]   = useState(false)
   const postcodeRef      = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -287,20 +308,33 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   useEffect(() => {
     setMounted(true)
     import("leaflet").then(mod => setLeafletL(mod.default ?? mod))
-    const mq = window.matchMedia("(min-width: 1024px)")
+    // Wide-layout mode: real desktop, OR a phone rotated to landscape — a
+    // bottom sheet looks bad on a short landscape screen, so use the
+    // desktop-style side panel there too.
+    const mq = window.matchMedia(WIDE_LAYOUT_QUERY)
     setIsDesktop(mq.matches)
     const onMqChange = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
     mq.addEventListener("change", onMqChange)
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
-      if (user) supabase.from("homeowner_profiles").select("*").eq("user_id", user.id)
-        .maybeSingle().then(({ data }) => setHomeownerProfile(data))
+      if (!user) return
+      supabase.from("users").select("user_type").eq("id", user.id).maybeSingle()
+        .then(({ data: userRow }) => {
+          const type = userRow?.user_type === "company" ? "company" : "homeowner"
+          setPosterUserType(type)
+          const table = type === "company" ? "company_profiles" : "homeowner_profiles"
+          supabase.from(table).select("*").eq("user_id", user.id)
+            .maybeSingle().then(({ data }) => {
+              if (type === "company") setPosterCompanyProfile(data)
+              else setHomeownerProfile(data)
+            })
+        })
     })
     // Push zoom controls below the floating header
     const style = document.createElement("style")
     style.id = "find-map-zoom-offset"
-    const isLg = window.matchMedia("(min-width: 1024px)").matches
-    style.textContent = `#find-map-container .leaflet-top { margin-top: ${isLg ? "160px" : "110px"}; }`
+    const isLg = window.matchMedia(WIDE_LAYOUT_QUERY).matches
+    style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + ${isLg ? "116px" : "86px"}); }`
     if (!document.getElementById("find-map-zoom-offset")) document.head.appendChild(style)
     // Van idle-sway animation
     if (!document.getElementById("van-pin-anim")) {
@@ -326,6 +360,12 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       mq.removeEventListener("change", onMqChange)
     }
   }, [])
+
+  // Keep the zoom-control offset in sync when rotating the phone, not just on mount.
+  useEffect(() => {
+    const style = document.getElementById("find-map-zoom-offset")
+    if (style) style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + ${isDesktop ? "116px" : "86px"}); }`
+  }, [isDesktop])
 
   // Fetch portfolio photos when a trader pin is clicked
   useEffect(() => {
@@ -458,18 +498,41 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         setLocateSeq(n => n + 1)
         setLocationLabel("My location")
       })
-      .catch(() => {})
+      .catch(err => {
+        toast({ title: "Couldn't find your location", description: describeGeoError(err), variant: "destructive" })
+      })
       .finally(() => setLocating(false))
   }
 
-  const handleTouchStart = (e: React.TouchEvent) => { touchStartY.current = e.touches[0].clientY }
-  const handleTouchEnd   = (e: React.TouchEvent) => {
-    if (touchStartY.current === null) return
-    const dy = touchStartY.current - e.changedTouches[0].clientY
-    touchStartY.current = null
-    if (Math.abs(dy) < 25) return
-    if (dy > 0) setSheetState(p => p === "collapsed" ? "peek" : "expanded")
-    else        setSheetState(p => p === "expanded"   ? "peek" : "collapsed")
+  // Pixel height of a given sheet stop. "expanded" is measured against the
+  // real rendered header (via headerRef) rather than replicating its
+  // safe-area-inset calc() formula in JS.
+  const getSheetStopPx = useCallback((state: SheetState): number => {
+    if (state === "collapsed") return 160
+    if (state === "peek") return window.innerHeight * 0.38
+    const headerBottom = headerRef.current?.getBoundingClientRect().bottom ?? 0
+    return window.innerHeight - headerBottom - 56
+  }, [])
+
+  // Pointer Events (not Touch Events) so this also works with a mouse/trackpad
+  // when testing in a desktop browser, not just on a real touchscreen.
+  const handleSheetPointerDown = (e: React.PointerEvent) => {
+    const startHeightPx = sheetHeightPx ?? getSheetStopPx(sheetState)
+    sheetDragRef.current = { startY: e.clientY, startHeightPx }
+    setIsSheetDragging(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const handleSheetPointerMove = (e: React.PointerEvent) => {
+    if (!sheetDragRef.current) return
+    const deltaY = sheetDragRef.current.startY - e.clientY
+    const min = getSheetStopPx("collapsed")
+    const max = getSheetStopPx("expanded")
+    setSheetHeightPx(Math.min(max, Math.max(min, sheetDragRef.current.startHeightPx + deltaY)))
+  }
+  // Freeform — no snapping. The sheet just stays wherever the pointer let go.
+  const handleSheetPointerUp = () => {
+    sheetDragRef.current = null
+    setIsSheetDragging(false)
   }
 
   const distanceMi = (lat: number, lon: number) => {
@@ -484,12 +547,15 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const findPageUrl = `/find-trades${initialPostcode ? `?postcode=${encodeURIComponent(initialPostcode)}` : ""}`
 
   // Mobile bottom sheet dimensions (bottom: 56px = bottom nav height h-14)
-  // Desktop HEADER = 44px layout header + 96px map overlay ≈ 140px
-  // Mobile HEADER = safe-area-top + tab row (~28px) + gap (4px) + search row (~28px) + bottom padding (6px)
-  const HEADER = isDesktop ? "140px" : "calc(max(env(safe-area-inset-top,0px),6px) + 66px)"
+  // The global site header is now visible above the map on both sizes (via
+  // --global-header-h), so both branches just add this map's own local
+  // header-row content height on top of it — no more separate safe-area math.
+  // Desktop local content ≈ 96px, mobile local content (tab row + search row) ≈ 66px.
+  const HEADER = isDesktop ? "calc(var(--global-header-h, 0px) + 96px)" : "calc(var(--global-header-h, 0px) + 66px)"
   const mobileSheetStyle: React.CSSProperties =
+    sheetHeightPx !== null    ? { bottom: "56px", left: 0, right: 0, height: `${sheetHeightPx}px` } :
     sheetState === "expanded" ? { top: HEADER, bottom: "56px", left: 0, right: 0 } :
-    sheetState === "peek"     ? { bottom: "56px", left: 0, right: 0, height: "48vh" } :
+    sheetState === "peek"     ? { bottom: "56px", left: 0, right: 0, height: "38vh" } :
                                 { bottom: "56px", left: 0, right: 0, height: "160px" }
 
   /* ── Shared panel content ────────────────────────────────────────────────── */
@@ -499,7 +565,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       {isDesktop && (
         <button
           onClick={() => setSelectedTrader(null)}
-          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition-colors border-b border-slate-800/60"
+          className="w-full flex items-center gap-2 px-3 py-2.5 text-sm font-bold text-orange-400 hover:text-orange-300 hover:bg-slate-800/60 transition-colors border-b border-slate-800/60"
         >
           <ArrowLeft className="w-4 h-4 flex-shrink-0" />
           All tradespeople
@@ -634,13 +700,15 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
   const listPanel = (
     <>
-      {/* Post a Job */}
-      <div className="flex-shrink-0 flex justify-center pt-2 pb-2 px-3">
-        <button onClick={() => setShowCategoryPicker(true)}
-          className="w-full py-2.5 bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 text-white font-semibold rounded-xl shadow-lg shadow-emerald-500/30 transition-colors">
-          <span className="text-[16.8px]">Get Multiple Quotes</span>
-        </button>
-      </div>
+      {/* Post a Job — homeowner-only action, hidden for tradesperson accounts */}
+      {posterUserType !== "company" && (
+        <div className="flex-shrink-0 flex justify-center pt-2 pb-2 px-3">
+          <button onClick={() => setShowCategoryPicker(true)}
+            className="px-6 py-1 bg-transparent border-2 border-emerald-500 hover:bg-emerald-500/10 hover:border-emerald-400 active:bg-emerald-500/20 text-emerald-400 font-semibold rounded-xl shadow-md shadow-emerald-500/20 transition-colors">
+            <span className="text-[16.8px]">Get Multiple Quotes</span>
+          </button>
+        </div>
+      )}
       {/* Title row — hidden on desktop (shown in sidebar header instead) */}
       <div className="flex-shrink-0 px-3 pb-1 lg:hidden">
         <span className="text-xs font-semibold text-white flex items-center gap-1.5">
@@ -700,17 +768,19 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         ) : traders.length === 0 ? (
           <div className="text-center py-6">
             <p className="text-slate-400 text-xs mb-2">No tradespeople found nearby.</p>
-            <button onClick={() => setShowJobWizard(true)} className="text-emerald-400 text-xs font-semibold underline underline-offset-2">Post a job instead →</button>
+            {posterUserType !== "company" && (
+              <button onClick={() => setShowJobWizard(true)} className="text-emerald-400 text-xs font-semibold underline underline-offset-2">Post a job instead →</button>
+            )}
           </div>
         ) : traders.map(trader => (
           <div key={trader.id} onClick={() => setSelectedTrader(p => p?.id === trader.id ? null : trader)}
             className={`flex items-center gap-2 px-2 py-1.5 rounded-xl border cursor-pointer transition-all active:bg-slate-700 hover:bg-slate-700/70 ${trader.profile_type === 'seeded' ? 'bg-slate-800/70 border-amber-500/20' : 'bg-slate-800 border-slate-700'}`}>
-            <div className="flex-shrink-0 w-9 h-9 rounded-lg overflow-hidden flex items-center justify-center">
+            <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center">
               {trader.logo_url
                 ? <img src={trader.logo_url} alt={trader.name} className="w-full h-full object-cover rounded-lg" />
                 : trader.profile_type === 'seeded'
-                ? <span className="w-full h-full rounded-lg bg-amber-500/15 flex items-center justify-center"><Building2 className="w-4 h-4 text-amber-400" /></span>
-                : (() => { const s = getIndustryStyle(trader.industry ?? ""); const I = s.icon; return <span className={`w-full h-full rounded-lg ${s.iconBg} flex items-center justify-center`}><I className={`w-4 h-4 ${s.iconColor}`} /></span> })()}
+                ? <span className="w-full h-full rounded-lg bg-amber-500/15 flex items-center justify-center"><Building2 className="w-5 h-5 text-amber-400" /></span>
+                : (() => { const s = getIndustryStyle(trader.industry ?? ""); const I = s.icon; return <span className={`w-full h-full rounded-lg ${s.iconBg} flex items-center justify-center`}><I className={`w-5 h-5 ${s.iconColor}`} /></span> })()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-white truncate">{trader.name}</p>
@@ -1018,7 +1088,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
   /* ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <div className="fixed inset-0 bg-slate-950 flex flex-col lg:flex-row">
+    <div className="fixed left-0 right-0 bottom-0 bg-slate-950 flex flex-col lg:flex-row" style={{ top: "var(--global-header-h, 0px)" }}>
 
       {/* ── LEFT: Map area (full on mobile, flex-1 on desktop) ──────────────── */}
       <div className="relative flex-1 min-h-0">
@@ -1036,6 +1106,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               <MapSizeHandler />
               <MapViewUpdater center={coords} forceSeq={locateSeq} />
               <ViewportLoader onBoundsChange={onBoundsChange} />
+              <MapFlyTo
+                target={selectedTrader?.latitude && selectedTrader?.longitude ? { lat: selectedTrader.latitude, lng: selectedTrader.longitude } : null}
+                radiusMiles={0.31}
+              />
               {leafletL && tradersWithCoords.map(trader => (
                 <Marker key={trader.id}
                   position={[trader.latitude!, trader.longitude!]}
@@ -1047,27 +1121,31 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           </div>
         )}
 
-        {/* Home button — desktop only, top-left corner of map */}
+        {/* Home button — desktop only, top-left corner of map.
+            Container already sits below the global header, so this is just a small local offset. */}
         <Link href="/home"
           className="absolute left-3 hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/95 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 hover:border-slate-500 transition-colors"
-          style={{ zIndex: 200, top: "60px" }}>
+          style={{ zIndex: 200, top: "16px" }}>
           <ArrowLeft className="w-3.5 h-3.5" />
           Home
         </Link>
 
-        {/* Header — absolute within the map area, overlays only the map column */}
-        <div className="absolute top-0 left-0 right-0 flex flex-col gap-1 px-3 pb-1.5"
-          style={{ zIndex: 20, paddingTop: isDesktop ? "52px" : "max(env(safe-area-inset-top,0px),6px)" }}>
-          {/* Tab switcher */}
-          <div className="flex self-center bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
-            <button className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500 text-white shadow-sm">
-              <Users className="w-3 h-3" />
+        {/* Header — absolute within the map area, overlays only the map column.
+            The global site header now sits above this whole container (via
+            --global-header-h), so this just needs a small local gap, not
+            safe-area/header clearance. */}
+        <div ref={headerRef} className="absolute top-0 left-0 right-0 flex flex-col gap-1 px-3 pb-1.5"
+          style={{ zIndex: 20, paddingTop: "10px" }}>
+          {/* Tab switcher — same footprint as the search bar below it */}
+          <div className="flex self-center w-[264px] lg:w-80 bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
+            <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold bg-emerald-500 text-white shadow-sm">
+              <Users className="w-3.5 h-3.5" />
               Tradespeople
             </button>
             <button
               onClick={() => router.push(`/find-jobs?lat=${coords[0]}&lng=${coords[1]}`)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
-              <Briefcase className="w-3 h-3" />
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
+              <Briefcase className="w-3.5 h-3.5" />
               Trade Jobs
             </button>
           </div>
@@ -1100,7 +1178,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
             disabled={locating}
             title="My location"
             className="absolute w-8 h-8 rounded-lg bg-slate-800/95 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-emerald-400 transition-colors text-slate-400"
-            style={{ zIndex: 500, top: "190px", right: "10px" }}
+            style={{ zIndex: 500, top: "calc(var(--global-header-h, 0px) + 156px)", right: "10px" }}
           >
             {locating
               ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
@@ -1118,9 +1196,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
             style={{ paddingTop: "max(env(safe-area-inset-top,0px),10px)" }}>
             {selectedTrader ? (
               <button onClick={() => setSelectedTrader(null)}
-                className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
+                className="flex items-center gap-1.5 text-orange-400 hover:text-orange-300 transition-colors">
                 <ArrowLeft className="w-4 h-4" />
-                <span className="text-xs font-medium">All tradespeople</span>
+                <span className="text-xs font-bold">All tradespeople</span>
               </button>
             ) : (
               <span className="text-xs font-semibold text-white flex items-center gap-1.5 min-w-0">
@@ -1145,20 +1223,24 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
       {/* ── MOBILE: Uber-style bottom sheet ─────────────────────────────────── */}
       {!isDesktop && (
-        <div className="fixed rounded-t-3xl shadow-2xl border-t border-x border-slate-700/50 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+        <div className={`fixed rounded-t-3xl shadow-2xl border-t border-x border-slate-700/50 flex flex-col overflow-hidden ${isSheetDragging ? "" : "transition-all duration-300 ease-in-out"}`}
           style={{ ...mobileSheetStyle, zIndex: 30, backgroundColor: "#0f172a" }}>
           {/* Drag handle */}
           <div className="flex-shrink-0 flex items-center justify-between px-3 pt-2 pb-1 cursor-grab select-none"
+            style={{ touchAction: "none" }}
             onClick={() => {
-              if (selectedTrader) { setSelectedTrader(null); setSheetState("peek"); return }
+              if (selectedTrader) { setSelectedTrader(null); setSheetHeightPx(null); setSheetState("peek"); return }
+              setSheetHeightPx(null)
               setSheetState(p => p === "collapsed" ? "peek" : p === "peek" ? "expanded" : "peek")
             }}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}>
+            onPointerDown={handleSheetPointerDown}
+            onPointerMove={handleSheetPointerMove}
+            onPointerUp={handleSheetPointerUp}
+            onPointerCancel={handleSheetPointerUp}>
             {selectedTrader ? (
               <>
-                <button className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
-                  <ArrowLeft className="w-4 h-4" /><span className="text-xs">All tradespeople</span>
+                <button className="flex items-center gap-1 text-orange-400 hover:text-orange-300 transition-colors">
+                  <ArrowLeft className="w-4 h-4" /><span className="text-xs font-bold">All tradespeople</span>
                 </button>
                 <div className="w-10 h-1 rounded-full bg-slate-600 absolute left-1/2 -translate-x-1/2" />
                 <div className="w-20" />
@@ -1191,7 +1273,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         <div className="fixed inset-0" style={{ zIndex: 60 }}>
           <JobWizardModal
             guestMode={!user} initialPostcode={initialPostcode}
-            companyProfile={homeownerProfile ?? null} userType="homeowner" redirectPath={findPageUrl}
+            companyProfile={(posterUserType === "company" ? posterCompanyProfile : homeownerProfile) ?? null}
+            userType={posterUserType} redirectPath={findPageUrl}
             initialIndustry={wizardIndustry}
             initialService={wizardService}
             onClose={() => { setShowJobWizard(false); setWizardIndustry(undefined); setWizardService(undefined) }}

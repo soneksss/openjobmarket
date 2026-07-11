@@ -67,6 +67,7 @@ import JobExpirationAlerts from "./job-expiration-alerts"
 import { AdminButton } from "@/components/admin-button"
 import { StarRating } from "@/components/star-rating"
 import { useToast } from "@/hooks/use-toast"
+import { useAvailableNow } from "@/contexts/available-now-context"
 import { useTranslation } from "@/lib/i18n/context"
 import { DashboardInbox } from "@/components/dashboard-inbox"
 import { JobConfirmationModal, type ConfirmedJobOffer } from "@/components/job-confirmation-modal"
@@ -233,9 +234,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [updatingVisibility, setUpdatingVisibility] = useState(false)
   const [hiring, setHiring] = useState(profile.is_hiring ?? false)
   const [updatingHiringStatus, setUpdatingHiringStatus] = useState(false)
-  // Urgent jobs: available for 24h active window
-  const [urgentEnabled, setUrgentEnabled] = useState(profile.urgent_notifications_enabled ?? false)
-  const [updatingUrgent, setUpdatingUrgent] = useState(false)
+  // Urgent jobs: available for 24h active window — shared with the header/map
+  // toggle via context so both stay mirrored without a page refresh.
+  const { enabled: urgentEnabled, saving: updatingUrgent, toggle: setAvailableNow } = useAvailableNow()
   // Flexible jobs: always-optional notifications
   const [flexibleEnabled, setFlexibleEnabled] = useState(profile.flexible_notifications_enabled ?? true)
   const [updatingFlexible, setUpdatingFlexible] = useState(false)
@@ -308,27 +309,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     Promise.resolve(supabase.rpc("log_company_activity", { p_activity_type: "dashboard_open" })).catch(() => {})
   }, [])
 
-  // Client-side expiry guard: the expire-availability cron only runs once daily at 09:00.
-  // If the trader loads the dashboard after their 24h window has passed but before the
-  // next cron run, the toggle would incorrectly appear ON. Fix it immediately on mount.
-  useEffect(() => {
-    const expiresAt = profile.urgent_notifications_expires_at
-    if (!expiresAt || !urgentEnabled) return
-    if (new Date(expiresAt) < new Date()) {
-      setUrgentEnabled(false)
-      supabase
-        .from("company_profiles")
-        .update({
-          urgent_notifications_enabled:    false,
-          urgent_notifications_expires_at: null,
-          open_for_business:               false,
-          availability_expires_at:         null,
-        })
-        .eq("id", profile.id)
-        .then(() => {})
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Expiry guard now lives in AvailableNowProvider (shared with the header/map
+  // toggle), so it only needs to run once regardless of how many places show this.
 
   // Fetch unread messages count
   useEffect(() => {
@@ -996,32 +978,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   }
 
   const handleUrgentToggle = async (enabled: boolean) => {
-    setUrgentEnabled(enabled)
-    setUpdatingUrgent(true)
-    const expiresAt = enabled ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
-    try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from("company_profiles")
-        .update({
-          urgent_notifications_enabled:    enabled,
-          urgent_notifications_expires_at: expiresAt,
-          open_for_business:               enabled,
-          availability_expires_at:         expiresAt,
-        })
-        .eq("id", profile.id)
-
-      if (error) {
-        setUrgentEnabled(!enabled)
-        toast({ title: "Update Failed", description: error.message, variant: "destructive", duration: 5000 })
-      } else if (enabled) {
-        toast({ title: "Available for urgent jobs", description: "You'll receive urgent job alerts for the next 24 hours.", duration: 3000 })
-      }
-    } catch {
-      setUrgentEnabled(!enabled)
-      toast({ title: "Update Failed", description: "Please try again.", variant: "destructive", duration: 5000 })
-    } finally {
-      setUpdatingUrgent(false)
+    await setAvailableNow(enabled)
+    if (enabled) {
+      toast({ title: "Available now", description: "You'll receive urgent job alerts for the next 24 hours.", duration: 3000 })
     }
   }
 
@@ -1254,13 +1213,13 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
               {/* Urgent toggle */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Zap className={`h-4 w-4 ${urgentEnabled ? 'text-amber-400' : 'text-slate-500'}`} />
+                  <Zap className={`h-4 w-4 ${urgentEnabled ? 'text-emerald-400' : 'text-slate-500'}`} />
                   <div>
-                    <p className="text-sm font-medium">{urgentEnabled ? 'Available for urgent jobs' : 'Urgent jobs off'}</p>
+                    <p className="text-sm font-medium">{urgentEnabled ? 'Available now' : 'Not available'}</p>
                     <p className="text-[10px] text-slate-400">Turn on when ready to work now</p>
                   </div>
                 </div>
-                <Switch checked={urgentEnabled} onCheckedChange={handleUrgentToggle} disabled={updatingUrgent} className="data-[state=checked]:bg-amber-500" />
+                <Switch checked={urgentEnabled} onCheckedChange={handleUrgentToggle} disabled={updatingUrgent} className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-600" />
               </div>
               {urgentEnabled && (
                 <div className="flex items-start gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-2">
@@ -1519,13 +1478,13 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     {/* Urgent toggle */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <Zap className={`h-4 w-4 ${urgentEnabled ? 'text-amber-400' : 'text-slate-500'}`} />
+                        <Zap className={`h-4 w-4 ${urgentEnabled ? 'text-emerald-400' : 'text-slate-500'}`} />
                         <div>
-                          <p className="text-sm font-medium text-white">{urgentEnabled ? 'Available for urgent jobs' : 'Urgent jobs off'}</p>
+                          <p className="text-sm font-medium text-white">{urgentEnabled ? 'Available now' : 'Not available'}</p>
                           <p className="text-[10px] text-slate-400">Turn on when ready to work now</p>
                         </div>
                       </div>
-                      <Switch checked={urgentEnabled} onCheckedChange={handleUrgentToggle} disabled={updatingUrgent} className="data-[state=checked]:bg-amber-500" />
+                      <Switch checked={urgentEnabled} onCheckedChange={handleUrgentToggle} disabled={updatingUrgent} className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-600" />
                     </div>
                     {urgentEnabled && (
                       <div className="flex items-start gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-2">

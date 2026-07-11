@@ -8,7 +8,8 @@ import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
 import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, LocateFixed, Loader2 } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
-import { getPosition } from "@/lib/native-geolocation"
+import { getPosition, describeGeoError } from "@/lib/native-geolocation"
+import { useToast } from "@/hooks/use-toast"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
 const MapContainer = dynamic(() => import("react-leaflet").then(m => m.MapContainer), { ssr: false })
@@ -78,6 +79,37 @@ const ViewportLoader = dynamic(
   { ssr: false }
 )
 
+// Smoothly flies the map to a target point covering ~radiusMiles radius
+const MapFlyTo = dynamic(
+  () => Promise.all([import("react-leaflet"), import("react")]).then(([lm, rm]) => {
+    const { useMap } = lm
+    const { useEffect, useRef } = rm
+    function Comp({ target, radiusMiles = 10 }: { target: { lat: number; lng: number } | null; radiusMiles?: number }) {
+      const map = useMap()
+      const prev = useRef<{ lat: number; lng: number } | null>(null)
+      useEffect(() => {
+        if (!target) return
+        if (prev.current?.lat === target.lat && prev.current?.lng === target.lng) return
+        prev.current = target
+        // flyToBounds gives a ~radiusMiles-mile radius view regardless of screen size
+        const R = radiusMiles / 69 // ~69 miles per degree latitude
+        const RL = R / Math.cos(target.lat * Math.PI / 180)
+        // On mobile the bottom sheet covers ~110px; pad the bottom so the
+        // pin isn't hidden behind it.
+        const mapH    = map.getSize().y
+        const panelPx = mapH < 800 ? 110 : 0
+        ;(map as any).flyToBounds(
+          [[target.lat - R, target.lng - RL], [target.lat + R, target.lng + RL]],
+          { animate: true, duration: 1.5, paddingTopLeft: [20, 20], paddingBottomRight: [20, 20 + panelPx] }
+        )
+      }, [map, target, radiusMiles])
+      return null
+    }
+    return Comp
+  }),
+  { ssr: false }
+)
+
 // Starts the map zoomed out to UK level then smoothly flies in to the target location
 const ZoomInOnLoad = dynamic(
   () => Promise.all([import("react-leaflet"), import("react")]).then(([lm, rm]) => {
@@ -126,6 +158,10 @@ const URGENCY_OPTIONS = [
   { label: "Flexible", value: "flexible" },
   { label: "Urgent / ASAP", value: "asap" },
 ]
+
+// Desktop width, OR a phone rotated to landscape (short viewport) — both use
+// the side-panel layout instead of the mobile bottom sheet.
+const WIDE_LAYOUT_QUERY = "(min-width: 1024px), (orientation: landscape) and (max-height: 500px)"
 
 // ── Types & session persistence ───────────────────────────────────────────────
 type BBox = { north: number; south: number; east: number; west: number }
@@ -200,10 +236,13 @@ function timeAgo(iso: string) {
 // ── Component ──────────────────────────────────────────────────────────────────
 export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, animateZoom, coordsAreDefault }: Props) {
   const router = useRouter()
+  const { toast } = useToast()
 
   const [jobs,            setJobs]            = useState<Job[]>(initialJobs)
-  const [filters,         setFilters]         = useState<Filters>(() => loadSavedFilters(initialIndustry))
-  const [draftFilters,    setDraftFilters]    = useState<Filters>(() => loadSavedFilters(initialIndustry))
+  // SSR-safe on first render (must match the server exactly); sessionStorage-saved
+  // filters are applied after mount in the effect below, once hydration is done.
+  const [filters,         setFilters]         = useState<Filters>({ ...DEFAULT_FILTERS, industry: initialIndustry ?? null })
+  const [draftFilters,    setDraftFilters]    = useState<Filters>({ ...DEFAULT_FILTERS, industry: initialIndustry ?? null })
   const [sheetState,      setSheetState]      = useState<SheetState>("peek")
   const [selectedJob,     setSelectedJob]     = useState<Job | null>(null)
   const [showFilters,     setShowFilters]     = useState(false)
@@ -217,23 +256,47 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   const [geocoding,       setGeocoding]       = useState(false)
   const [locating,        setLocating]        = useState(false)
 
-  const touchStartY      = useRef<number | null>(null)
   const currentBoundsRef = useRef<BBox | null>(null)
   const fetchTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const filtersRef       = useRef<Filters>(loadSavedFilters(initialIndustry))
+  const filtersRef       = useRef<Filters>({ ...DEFAULT_FILTERS, industry: initialIndustry ?? null })
+  const headerRef        = useRef<HTMLDivElement>(null)
+  const sheetDragRef     = useRef<{ startY: number; startHeightPx: number } | null>(null)
+  // null = follow the named sheetState (collapsed/peek/expanded) CSS value;
+  // a number = freeform height the user dragged to — persists until they tap the handle again.
+  const [sheetHeightPx,    setSheetHeightPx]     = useState<number | null>(null)
+  const [isSheetDragging,  setIsSheetDragging]   = useState(false)
 
   const [isDesktop, setIsDesktop] = useState(false)
+
+  // Apply sessionStorage-saved filters after mount, once hydration is done —
+  // reading them any earlier made the client's first render diverge from the
+  // server's (which has no access to sessionStorage), causing a hydration error.
+  useEffect(() => {
+    if (initialIndustry) return // URL-provided industry already wins
+    const saved = loadSavedFilters(initialIndustry)
+    if (saved.industry || saved.budget || saved.urgency) {
+      setFilters(saved)
+      setDraftFilters(saved)
+      filtersRef.current = saved
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setMounted(true)
     import("leaflet").then(mod => setLeafletL(mod.default ?? mod))
     const style = document.createElement("style")
     style.id = "find-jobs-zoom-offset"
-    const isLg = window.matchMedia("(min-width: 1024px)").matches
-    style.textContent = `#find-jobs-map .leaflet-top { margin-top: ${isLg ? "160px" : "110px"}; }`
+    const isLg = window.matchMedia(WIDE_LAYOUT_QUERY).matches
+    style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + ${isLg ? "116px" : "86px"}); }`
     if (!document.getElementById("find-jobs-zoom-offset")) document.head.appendChild(style)
     return () => { document.getElementById("find-jobs-zoom-offset")?.remove() }
   }, [])
+
+  // Keep the zoom-control offset in sync when rotating the phone, not just on mount.
+  useEffect(() => {
+    const style = document.getElementById("find-jobs-zoom-offset")
+    if (style) style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + ${isDesktop ? "116px" : "86px"}); }`
+  }, [isDesktop])
 
   // Auto-request geolocation on first load when no explicit location was supplied
   useEffect(() => {
@@ -247,7 +310,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)")
+    const mq = window.matchMedia(WIDE_LAYOUT_QUERY)
     setIsDesktop(mq.matches)
     const h = (e: MediaQueryListEvent) => setIsDesktop(e.matches)
     mq.addEventListener("change", h)
@@ -310,14 +373,16 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
 
   const handleMyLocation = useCallback(() => {
     setLocating(true)
-    getPosition({ timeout: 20000, maximumAge: 300000 })
+    getPosition({ timeout: 8000, maximumAge: 300000 })
       .then(({ latitude, longitude }) => {
         setCoords([latitude, longitude])
         setLocationLabel("My location")
       })
-      .catch(() => {})
+      .catch(err => {
+        toast({ title: "Couldn't find your location", description: describeGeoError(err), variant: "destructive" })
+      })
       .finally(() => setLocating(false))
-  }, [])
+  }, [toast])
   const clearFilters = () => {
     const r = { ...DEFAULT_FILTERS }
     setDraftFilters(r); setFilters(r); filtersRef.current = r; setShowFilters(false)
@@ -325,14 +390,34 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   }
   const hasActiveFilters = filters.industry !== null || filters.budget !== "" || filters.urgency !== ""
 
-  const handleTouchStart = (e: React.TouchEvent) => { touchStartY.current = e.touches[0].clientY }
-  const handleTouchEnd   = (e: React.TouchEvent) => {
-    if (touchStartY.current === null) return
-    const dy = touchStartY.current - e.changedTouches[0].clientY
-    touchStartY.current = null
-    if (Math.abs(dy) < 25) return
-    if (dy > 0) setSheetState(p => p === "collapsed" ? "peek" : "expanded")
-    else        setSheetState(p => p === "expanded"   ? "peek" : "collapsed")
+  // Pixel height of a given sheet stop. "expanded" is measured against the
+  // real rendered header (via headerRef) rather than duplicating its layout math.
+  const getSheetStopPx = useCallback((state: SheetState): number => {
+    if (state === "collapsed") return 160
+    if (state === "peek") return window.innerHeight * 0.38
+    const headerBottom = headerRef.current?.getBoundingClientRect().bottom ?? 0
+    return window.innerHeight - headerBottom - 56
+  }, [])
+
+  // Pointer Events (not Touch Events) so this also works with a mouse/trackpad
+  // when testing in a desktop browser, not just on a real touchscreen.
+  const handleSheetPointerDown = (e: React.PointerEvent) => {
+    const startHeightPx = sheetHeightPx ?? getSheetStopPx(sheetState)
+    sheetDragRef.current = { startY: e.clientY, startHeightPx }
+    setIsSheetDragging(true)
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const handleSheetPointerMove = (e: React.PointerEvent) => {
+    if (!sheetDragRef.current) return
+    const deltaY = sheetDragRef.current.startY - e.clientY
+    const min = getSheetStopPx("collapsed")
+    const max = getSheetStopPx("expanded")
+    setSheetHeightPx(Math.min(max, Math.max(min, sheetDragRef.current.startHeightPx + deltaY)))
+  }
+  // Freeform — no snapping. The sheet just stays wherever the pointer let go.
+  const handleSheetPointerUp = () => {
+    sheetDragRef.current = null
+    setIsSheetDragging(false)
   }
 
   const distanceMi = (lat: number, lon: number) => {
@@ -349,12 +434,15 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     return null
   }
   const jobsWithCoords = jobs.filter(j => jobMarkerCoords(j) !== null)
-  // Desktop HEADER = 44px layout header + 96px map overlay ≈ 140px
-  const HEADER = isDesktop ? "140px" : "96px"
+  // The global site header is now visible above the map on both sizes (via
+  // --global-header-h), so both branches just add this map's own local
+  // header-row content height on top of it.
+  const HEADER = isDesktop ? "calc(var(--global-header-h, 0px) + 96px)" : "calc(var(--global-header-h, 0px) + 66px)"
 
   const mobileSheetStyle: React.CSSProperties =
+    sheetHeightPx !== null    ? { bottom: "56px", left: 0, right: 0, height: `${sheetHeightPx}px` } :
     sheetState === "expanded" ? { top: HEADER, bottom: "56px", left: 0, right: 0 } :
-    sheetState === "peek"     ? { bottom: "56px", left: 0, right: 0, height: "48vh" } :
+    sheetState === "peek"     ? { bottom: "56px", left: 0, right: 0, height: "38vh" } :
                                 { bottom: "56px", left: 0, right: 0, height: "160px" }
 
   const jobPhotos = selectedJob?.job_photo_url ? [{ id: selectedJob.id, photo_url: selectedJob.job_photo_url }] : []
@@ -466,7 +554,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               <p className="text-xs font-semibold text-white truncate">{job.title}</p>
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 {formatBudget(job.budget_min, job.budget_max) && (
-                  <span className="text-[10px] font-semibold text-indigo-300">{formatBudget(job.budget_min, job.budget_max)}</span>
+                  <span className="text-[10px] font-semibold text-orange-400">{formatBudget(job.budget_min, job.budget_max)}</span>
                 )}
                 {(job.latitude_approx ?? job.latitude) && (job.longitude_approx ?? job.longitude) && (
                   <span className="text-[10px] text-slate-500">
@@ -580,7 +668,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
 
   /* ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <div className="fixed inset-0 bg-slate-950 flex flex-col lg:flex-row">
+    <div className="fixed left-0 right-0 bottom-0 bg-slate-950 flex flex-col lg:flex-row" style={{ top: "var(--global-header-h, 0px)" }}>
 
       {/* ── LEFT: Map area (full on mobile, flex-1 on desktop) ──────────────── */}
       <div className="relative flex-1 min-h-0">
@@ -598,6 +686,13 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               <MapViewUpdater center={coords} />
               <ViewportLoader onBoundsChange={onBoundsChange} />
               {animateZoom && <ZoomInOnLoad target={coords} />}
+              <MapFlyTo
+                target={(() => {
+                  const pos = selectedJob ? jobMarkerCoords(selectedJob) : null
+                  return pos ? { lat: pos[0], lng: pos[1] } : null
+                })()}
+                radiusMiles={0.31}
+              />
               {leafletL && jobsWithCoords.map(job => {
                 const pos = jobMarkerCoords(job)!
                 const isApprox = job.location_type === 'approx' || (job.latitude_approx !== null && job.latitude_approx !== job.latitude)
@@ -610,12 +705,10 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                     <Marker position={pos}
                       icon={createJobIcon(leafletL, selectedJob?.id === job.id, job.industry) as any}
                       eventHandlers={{ click: () => setSelectedJob(p => p?.id === job.id ? null : job) }}>
-                      <Popup>
-                        <b className="text-sm">{job.title}</b>
-                        {isApprox && <div className="text-xs text-indigo-500 mt-0.5">~ Approximate location</div>}
-                        {job.industry && <div className="text-xs text-gray-500">{job.industry}</div>}
+                      <Popup className="job-popup-compact" minWidth={110} maxWidth={280}>
+                        <b className="text-[11px] leading-tight whitespace-nowrap">{job.title}</b>
                         {formatBudget(job.budget_min, job.budget_max) && (
-                          <div className="text-xs text-emerald-600 font-semibold">{formatBudget(job.budget_min, job.budget_max)}</div>
+                          <div className="text-[10px] text-orange-400 font-semibold leading-tight">{formatBudget(job.budget_min, job.budget_max)}</div>
                         )}
                       </Popup>
                     </Marker>
@@ -626,27 +719,30 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
           </div>
         )}
 
-        {/* Home button — desktop only, top-left corner of map */}
+        {/* Home button — desktop only, top-left corner of map.
+            Container already sits below the global header, so this is just a small local offset. */}
         <Link href="/home"
           className="absolute left-3 hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/95 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 hover:border-slate-500 transition-colors"
-          style={{ zIndex: 200, top: "60px" }}>
+          style={{ zIndex: 200, top: "16px" }}>
           <ArrowLeft className="w-3.5 h-3.5" />
           Home
         </Link>
 
-        {/* Header — absolute within map column, centered on desktop */}
-        <div className="absolute top-0 left-0 right-0 flex flex-col gap-1.5 px-3 py-2"
-          style={{ zIndex: 20, paddingTop: isDesktop ? "52px" : "max(env(safe-area-inset-top,0px),8px)" }}>
-          {/* Tab switcher */}
-          <div className="flex self-center bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
+        {/* Header — absolute within map column, centered on desktop.
+            The global site header now sits above this whole container (via
+            --global-header-h), so this just needs a small local gap. */}
+        <div ref={headerRef} className="absolute top-0 left-0 right-0 flex flex-col gap-1.5 px-3 py-2"
+          style={{ zIndex: 20, paddingTop: "10px" }}>
+          {/* Tab switcher — same footprint as the search bar below it */}
+          <div className="flex self-center w-full lg:w-80 bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
             <button
               onClick={() => router.push(`/find?lat=${coords[0]}&lng=${coords[1]}`)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
-              <Users className="w-3 h-3" />
+              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
+              <Users className="w-3.5 h-3.5" />
               Tradespeople
             </button>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-orange-500 text-white shadow-sm">
-              <Briefcase className="w-3 h-3" />
+            <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold bg-orange-500 text-white shadow-sm">
+              <Briefcase className="w-3.5 h-3.5" />
               Trade Jobs
             </button>
           </div>
@@ -705,15 +801,19 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
 
       {/* ── MOBILE: Bottom sheet ─────────────────────────────────────────────── */}
       {!isDesktop && (
-        <div className="fixed rounded-t-3xl shadow-2xl border-t border-x border-slate-700/50 flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
+        <div className={`fixed rounded-t-3xl shadow-2xl border-t border-x border-slate-700/50 flex flex-col overflow-hidden ${isSheetDragging ? "" : "transition-all duration-300 ease-in-out"}`}
           style={{ ...mobileSheetStyle, zIndex: 30, backgroundColor: "#0f172a" }}>
           <div className="flex-shrink-0 flex items-center justify-between px-3 pt-2 pb-1 cursor-grab select-none"
+            style={{ touchAction: "none" }}
             onClick={() => {
-              if (selectedJob) { setSelectedJob(null); return }
+              if (selectedJob) { setSelectedJob(null); setSheetHeightPx(null); return }
+              setSheetHeightPx(null)
               setSheetState(p => p === "collapsed" ? "peek" : p === "peek" ? "expanded" : "peek")
             }}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}>
+            onPointerDown={handleSheetPointerDown}
+            onPointerMove={handleSheetPointerMove}
+            onPointerUp={handleSheetPointerUp}
+            onPointerCancel={handleSheetPointerUp}>
             {selectedJob ? (
               <>
                 <button className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors">

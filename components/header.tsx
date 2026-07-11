@@ -14,9 +14,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
 import { TradespersonMyJobsButton } from "@/components/tradesperson-my-jobs-button"
+import { AvailableNowToggle } from "@/components/available-now-toggle"
 import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { signOut } from "@/lib/actions"
 import dynamic from "next/dynamic"
 import { useLanguageRegion } from "@/contexts/language-region-context"
@@ -103,6 +104,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
   const router = useRouter()
   const pathname = usePathname()
   const { t, locale } = useTranslation()
+  const headerElRef = useRef<HTMLElement>(null)
   const [clientUser, setClientUser] = useState(user)
   const [clientUserType, setClientUserType] = useState(userType)
   const [isLoading, setIsLoading] = useState(false) // Don't show loading by default
@@ -134,6 +136,21 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
   // Prevent hydration mismatch by only showing language text after mount
   useEffect(() => {
     setIsMounted(true)
+  }, [])
+
+  // Publish our rendered height as a CSS var — full-screen pages (the map
+  // screens) read it to sit below us instead of underneath us.
+  useEffect(() => {
+    const el = headerElRef.current
+    if (!el) return
+    const publish = () => document.documentElement.style.setProperty("--global-header-h", `${el.offsetHeight}px`)
+    publish()
+    const obs = new ResizeObserver(publish)
+    obs.observe(el)
+    return () => {
+      obs.disconnect()
+      document.documentElement.style.setProperty("--global-header-h", "0px")
+    }
   }, [])
 
   // Always-on SIGNED_OUT listener — runs regardless of server auth state.
@@ -295,10 +312,10 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
 
   // ─── Header: dark slate bg on mobile home page, default everywhere else ─────
   return (
-    <header className={`pt-safe ${dark ? "bg-slate-900 border-b border-slate-700/50" : "bg-background border-b"}`}>
+    <header ref={headerElRef} className={`pt-safe ${dark ? "bg-slate-900 border-b border-slate-700/50" : "bg-background border-b"}`}>
       <div className="container mx-auto px-2 py-1">
 
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center gap-2">
           <div className="flex items-center space-x-2">
             {logoEl}
 
@@ -372,6 +389,13 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
               </div>
             )}
           </div>
+
+          {/* Middle — tradesperson-only "Available now" toggle, always visible */}
+          {currentUserType === "company" && (
+            <div className="flex flex-1 justify-center min-w-0">
+              <AvailableNowToggle />
+            </div>
+          )}
 
           {showAuth && (
             <div className="flex items-center gap-2 sm:gap-3">

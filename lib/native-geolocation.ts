@@ -25,6 +25,37 @@ function isNativePlatform(): boolean {
 }
 
 export async function getPosition(options: GeoOptions = {}): Promise<GeoCoords> {
+  // Native plugins (and some browsers) don't reliably honor the `timeout`
+  // option internally, which leaves callers hanging indefinitely. Race
+  // against our own timer so this always settles in bounded time.
+  const timeoutMs = options.timeout ?? 15000
+  let timer: ReturnType<typeof setTimeout>
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Location request timed out")), timeoutMs)
+  })
+  try {
+    return await Promise.race([getPositionRaw(options), timeout])
+  } finally {
+    clearTimeout(timer!)
+  }
+}
+
+// Turns a getPosition() rejection into a short, user-facing message.
+export function describeGeoError(err: unknown): string {
+  if (err instanceof Error) {
+    if (err.message === "Location permission denied") return "Location permission denied — enable it in your device settings."
+    if (err.message === "Location request timed out") return "Couldn't get your location — please try again."
+    if (err.message === "Geolocation not supported") return "Your browser doesn't support geolocation."
+  }
+  switch ((err as any)?.code) {
+    case 1: return "Location permission denied — enable it in your device settings."
+    case 2: return "Your location is currently unavailable."
+    case 3: return "Couldn't get your location — please try again."
+    default: return "Couldn't get your location."
+  }
+}
+
+async function getPositionRaw(options: GeoOptions): Promise<GeoCoords> {
   if (isNativePlatform()) {
     const { Geolocation } = await import("@capacitor/geolocation")
 
