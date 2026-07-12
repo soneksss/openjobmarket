@@ -71,6 +71,11 @@ async function getPositionRaw(options: GeoOptions): Promise<GeoCoords> {
     const pos = await Geolocation.getCurrentPosition({
       enableHighAccuracy: options.enableHighAccuracy ?? false,
       timeout: options.timeout,
+      // Without this, the native plugin defaults maximumAge to 0 — every call
+      // forces a brand-new GPS/network fix from scratch, even when the caller
+      // said a position up to 5 minutes old is fine. That's what made the
+      // second "Locate me" tap slow enough to time out.
+      maximumAge: options.maximumAge,
     })
     return { latitude: pos.coords.latitude, longitude: pos.coords.longitude }
   }

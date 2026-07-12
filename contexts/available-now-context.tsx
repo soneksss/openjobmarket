@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react"
 import { createClient } from "@/lib/client"
+import { nextNineAM } from "@/lib/availability"
 
 interface AvailableNowContextValue {
   /** True once we've determined whether this account even has the toggle. */
@@ -10,6 +11,8 @@ interface AvailableNowContextValue {
   isCompany: boolean
   enabled: boolean
   saving: boolean
+  /** When `enabled`, the fixed daily-reset time (ISO string) — for the countdown display. */
+  expiresAt: string | null
   toggle: (next: boolean) => Promise<void>
 }
 
@@ -21,11 +24,15 @@ const AvailableNowContext = createContext<AvailableNowContextValue | undefined>(
  * toggle (global header, both map screens, the company dashboard) reads and
  * writes the same state — flipping it anywhere updates it everywhere
  * instantly, no page refresh needed.
+ *
+ * Resets at a fixed daily time (9am, see lib/availability.ts) rather than a
+ * rolling 24h window — toggling off/on doesn't push the reset further out.
  */
 export function AvailableNowProvider({ children }: { children: ReactNode }) {
   const supabase = createClient()
   const [profileId, setProfileId] = useState<string | null>(null)
   const [enabled, setEnabled] = useState(false)
+  const [expiresAt, setExpiresAt] = useState<string | null>(null)
   const [isCompany, setIsCompany] = useState(false)
   const [ready, setReady] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -45,11 +52,12 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
         .maybeSingle()
       if (cancelled || !data) { setReady(true); return }
 
-      const expiresAt = data.urgent_notifications_expires_at
-      const stillActive = !!data.urgent_notifications_enabled && (!expiresAt || new Date(expiresAt) > new Date())
+      const expiry = data.urgent_notifications_expires_at
+      const stillActive = !!data.urgent_notifications_enabled && (!expiry || new Date(expiry) > new Date())
       setProfileId(data.id)
       setIsCompany(true)
       setEnabled(stillActive)
+      setExpiresAt(stillActive ? expiry : null)
       setReady(true)
 
       // Client-side expiry guard — DB cron may not have run yet since expiry.
@@ -69,22 +77,23 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
     if (!profileId) return
     setSaving(true)
     setEnabled(next)
-    const expiresAt = next ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null
+    const expiry = next ? nextNineAM().toISOString() : null
+    setExpiresAt(expiry)
     const { error } = await supabase
       .from("company_profiles")
       .update({
         urgent_notifications_enabled:    next,
-        urgent_notifications_expires_at: expiresAt,
+        urgent_notifications_expires_at: expiry,
         open_for_business:               next,
-        availability_expires_at:         expiresAt,
+        availability_expires_at:         expiry,
       })
       .eq("id", profileId)
-    if (error) setEnabled(!next)
+    if (error) { setEnabled(!next); setExpiresAt(null) }
     setSaving(false)
   }, [profileId, supabase])
 
   return (
-    <AvailableNowContext.Provider value={{ ready, isCompany, enabled, saving, toggle }}>
+    <AvailableNowContext.Provider value={{ ready, isCompany, enabled, saving, expiresAt, toggle }}>
       {children}
     </AvailableNowContext.Provider>
   )

@@ -32,8 +32,10 @@ export async function POST(req: NextRequest) {
       .eq("email", email)
       .maybeSingle()
 
-    const nextCount = (row?.failed_count ?? 0) + 1
-    const locked_until = nextCount >= MAX_ATTEMPTS ? new Date(Date.now() + COOLDOWN_MS).toISOString() : null
+    const hitLimit = (row?.failed_count ?? 0) + 1 >= MAX_ATTEMPTS
+    // Reset the counter once a cooldown starts, so the next cycle also gets a full 5 attempts.
+    const nextCount = hitLimit ? 0 : (row?.failed_count ?? 0) + 1
+    const locked_until = hitLimit ? new Date(Date.now() + COOLDOWN_MS).toISOString() : null
 
     await admin
       .from("login_attempts")
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest) {
         { onConflict: "email" }
       )
 
-    return NextResponse.json({ ok: true, failedCount: nextCount, requiresCaptcha: nextCount >= MAX_ATTEMPTS })
+    return NextResponse.json({ ok: true, lockedOut: hitLimit, retryAfterSeconds: hitLimit ? COOLDOWN_MS / 1000 : 0 })
   } catch (err) {
     console.error("[LOGIN-RECORD] error:", err)
     return NextResponse.json({ ok: false })

@@ -164,7 +164,7 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
       </div>
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden py-6 sm:py-10 lg:py-20">
+      <section className="relative overflow-hidden py-6 sm:py-10 lg:py-12">
         {/* Ambient glows */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div className="absolute -top-48 -left-48 w-[480px] h-[480px] bg-emerald-500/6 rounded-full blur-3xl" />
@@ -172,28 +172,38 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
         </div>
 
         <div className="container mx-auto px-4 relative">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-start">
 
             {/* LEFT column */}
             <div>
               {/* Headline */}
-              <h1 className="text-lg sm:text-3xl xl:text-5xl font-bold text-white leading-[1.2] mb-1">
-                <span className="text-emerald-400">Open Job Market</span>
+              <h1 className="text-lg sm:text-3xl xl:text-5xl font-bold text-white leading-[1.2] mb-3">
+                Find Available Local Tradespeople — <span className="text-emerald-400">Fast</span>
               </h1>
-              <p className="text-base sm:text-xl xl:text-2xl font-semibold text-slate-300 mb-3">
-                The Uber for Local Tradespeople
-              </p>
               <p className="text-sm sm:text-base text-slate-300 mb-4 leading-relaxed">
-                Find trusted local tradespeople in minutes — without lead selling, spam calls or waiting days for quotes.
+                See trusted local tradespeople on a live map, check who&apos;s available nearby, message them
+                directly, or post a job to receive multiple quotes.
               </p>
+
+              {/* Van colour legend */}
+              <div className="flex flex-col gap-1.5 mb-5 text-sm">
+                <span className="flex items-center gap-2 text-slate-300">
+                  <img src="/Van2.png" alt="Green van" className="w-8 h-4 object-contain flex-shrink-0" />
+                  <span className="font-semibold text-emerald-400">Green vans</span> = Available Now
+                </span>
+                <span className="flex items-center gap-2 text-slate-400">
+                  <img src="/Van1.png" alt="Grey van" className="w-8 h-4 object-contain flex-shrink-0" />
+                  <span className="font-semibold text-slate-300">Grey vans</span> = Currently Busy (but can still be contacted)
+                </span>
+              </div>
 
               {/* Sub-bullets */}
               <ul className="mb-6 space-y-2">
                 {[
-                  "Message nearby tradespeople directly",
-                  "No lead-selling or unwanted sales calls",
-                  "Verified local professionals with real reviews",
-                  "Fast replies. Fair prices. Built for homeowners.",
+                  "View nearby tradespeople on a live map",
+                  "Message tradespeople directly",
+                  "See who's available before making contact",
+                  "Or post a job and receive multiple quotes",
                 ].map(point => (
                   <li key={point} className="flex items-center gap-2 text-slate-300 text-sm">
                     <span className="text-emerald-400 flex-shrink-0">✅</span>
@@ -410,36 +420,28 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
         </div>
       </section>
 
-      {/* ── Our Promise ─────────────────────────────────────────────────────── */}
+      {/* ── Become a Founding Member ─────────────────────────────────────────── */}
       <section id="sec-promise" data-fade
         className={`py-10 border-t border-slate-800/60 ${fade("sec-promise")}`}>
         <div className="container mx-auto px-4 max-w-2xl">
           <div className="space-y-4 text-[15px] text-slate-300 leading-relaxed">
-            <p className="font-bold text-white text-lg">Open Job Market is free to use.</p>
+            <p className="font-bold text-white text-lg">🚀 Become a Founding Member</p>
 
-            <p>Our mission is to connect homeowners directly with trusted local tradespeople — without lead selling, hidden fees or unwanted sales calls.</p>
+            <p>Join Open Job Market today and help build the Portsmouth trade community.</p>
 
-            <p>Unlike many platforms, we don't charge tradespeople for every lead or make homeowners pay to post a job.</p>
+            <p>During Launch Mode every tradesperson receives full Active Membership completely free.</p>
 
-            <p>If, in the future, Open Job Market grows into a service that genuinely saves people time and money, we may introduce a small membership (around <strong className="text-white">£10/month</strong>) simply to help cover running costs and continue improving the platform.</p>
+            <p>Membership plans will only be introduced once the marketplace is established and delivering regular work.</p>
 
-            <p className="text-white font-medium">Only if the platform delivers real value.</p>
+            <p className="text-white font-medium">Existing members will receive advance notice before any subscriptions begin.</p>
 
-            <p className="text-white font-semibold">That's our promise.</p>
-
-            <ul className="pt-1 space-y-2.5">
-              {[
-                "No lead selling",
-                "No hidden charges",
-                "No surprise subscriptions",
-                "Built for people, not investors",
-              ].map(item => (
-                <li key={item} className="flex items-center gap-3">
-                  <span className="text-emerald-400 font-bold flex-shrink-0">✔</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="pt-2">
+              <Link href="/auth/sign-up?accountType=company&source=quickcheck"
+                className="inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white font-semibold rounded-xl px-6 py-3 text-sm transition-colors">
+                Join Free Today
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>

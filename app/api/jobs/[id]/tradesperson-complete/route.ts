@@ -70,6 +70,12 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 422 })
     }
 
+    // First-completed-job trial reward — no-ops if this isn't the tradesperson's first job.
+    const { error: rewardError } = await admin.rpc("grant_first_job_reward_if_due", {
+      p_tradesperson_company_id: job.confirmed_tradesperson_id,
+    })
+    if (rewardError) console.error("[TRADESPERSON-COMPLETE] grant_first_job_reward_if_due error:", rewardError.message)
+
     const homeowner = (job as any).homeowner_profiles
     if (homeowner?.user_id) {
       revalidateTag(`jobs-user-${homeowner.user_id}`)

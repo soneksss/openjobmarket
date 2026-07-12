@@ -8,11 +8,12 @@
  * Returns null if the env var is not set — FCM sending is then silently skipped.
  */
 
-import * as admin from "firebase-admin"
+import { initializeApp, getApps, cert, type App } from "firebase-admin/app"
+import { getMessaging } from "firebase-admin/messaging"
 
-let app: admin.app.App | null = null
+let app: App | null = null
 
-export function getFirebaseAdmin(): admin.app.App | null {
+export function getFirebaseAdmin(): App | null {
   if (app) return app
 
   const raw = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
@@ -21,14 +22,15 @@ export function getFirebaseAdmin(): admin.app.App | null {
 
   try {
     // Avoid re-initialising on hot-reload in dev
-    if (admin.apps.length > 0) {
-      app = admin.apps[0]!
+    const existing = getApps()
+    if (existing.length > 0) {
+      app = existing[0]!
       return app
     }
 
     const serviceAccount = JSON.parse(raw)
-    app = admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
+    app = initializeApp({
+      credential: cert(serviceAccount),
     })
     return app
   } catch (err) {
@@ -53,7 +55,7 @@ export async function sendFcmToTokens(
     return { sent: 0, failed: [] }
   }
 
-  const messaging = admin.messaging(firebaseApp)
+  const messaging = getMessaging(firebaseApp)
   const failed: string[] = []
   let sent = 0
 

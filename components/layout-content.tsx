@@ -23,6 +23,7 @@ import { NativePushManager } from "@/components/native-push-manager"
 import { PresenceTracker } from "@/components/presence-tracker"
 import { PageTransition } from "@/components/page-transition"
 import { NavigationLoader } from "@/components/navigation-loader"
+import { PageviewTracker } from "@/components/pageview-tracker"
 
 interface LayoutContentProps {
   children: React.ReactNode
@@ -114,6 +115,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
     <I18nProvider initialLocale={locale}>
       <LanguageRegionProvider initialState={getInitialLanguageRegionState()}>
         <NavigationLoader />
+        <PageviewTracker />
         {/* Job posting: hide on mobile (keyboard pushes it over the form).
             Map pages: sticky z-[100] on all sizes — the map sits below it via --global-header-h. */}
         <div className={

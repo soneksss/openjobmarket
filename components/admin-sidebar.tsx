@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
-  LayoutDashboard, Users, Briefcase, BarChart3, Settings, X, Zap, Map,
+  LayoutDashboard, Users, Briefcase, BarChart3, Settings, X, Zap, Map, Megaphone,
 } from "lucide-react"
 import type { AdminUser } from "@/lib/admin"
 
@@ -20,6 +20,7 @@ const navigation = [
   { name: "Jobs",         href: "/admin/jobs",           icon: Briefcase,       color: "text-emerald-400"},
   { name: "Seeded Trades",href: "/admin/seeded-trades",  icon: Map,             color: "text-amber-400"  },
   { name: "Analytics",   href: "/admin/analytics",      icon: BarChart3,       color: "text-purple-400" },
+  { name: "Marketing",  href: "/admin/marketing",   icon: Megaphone,       color: "text-pink-400"   },
   { name: "Settings",   href: "/admin/settings",    icon: Settings,        color: "text-slate-400"  },
 ]
 

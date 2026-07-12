@@ -255,12 +255,6 @@ export function getAdminNavItems(adminUser: AdminUser) {
       href: '/admin/settings',
       icon: 'Settings',
       available: hasPermission(adminUser, 'can_manage_settings')
-    },
-    {
-      label: 'Payments',
-      href: '/admin/payments',
-      icon: 'CreditCard',
-      available: hasPermission(adminUser, 'can_manage_settings')
     }
   ]
 

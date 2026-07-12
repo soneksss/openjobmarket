@@ -46,6 +46,14 @@ export async function POST(
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    // First-completed-job trial reward — no-ops if this isn't the tradesperson's first job.
+    if ((job as any).confirmed_tradesperson_id) {
+      const { error: rewardError } = await admin.rpc("grant_first_job_reward_if_due", {
+        p_tradesperson_company_id: (job as any).confirmed_tradesperson_id,
+      })
+      if (rewardError) console.error("[COMPLETE] grant_first_job_reward_if_due error:", rewardError.message)
+    }
+
     revalidateTag(`jobs-user-${user.id}`)
 
     // Revalidate the tradesperson's cache too so their dashboard shows completion

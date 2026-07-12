@@ -27,6 +27,7 @@ import {
   ChevronRight,
   X,
   Eye,
+  Trophy,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -77,6 +78,7 @@ interface CompanyProfile {
   business_type?: "limited_company" | "sole_trader" | null
   insurance_document_url?: string | null
   insurance_expiry_date?: string | null
+  founding_member?: boolean
 }
 
 interface User {
@@ -378,6 +380,11 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 ✓ Insured{company.insurance_expiry_date ? ` (exp ${new Date(company.insurance_expiry_date).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" })})` : ""}
               </span>
             )}
+            {company.founding_member && (
+              <span className="inline-flex items-center gap-1 text-xs bg-amber-800/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">
+                <Trophy className="h-2.5 w-2.5" />Founding Member
+              </span>
+            )}
           </div>
         </div>
 
@@ -602,6 +609,11 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 {company.insurance_document_url && (
                   <span className="inline-flex items-center gap-1 text-xs bg-emerald-800/50 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
                     ✓ Insured{company.insurance_expiry_date ? ` (exp ${new Date(company.insurance_expiry_date).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" })})` : ""}
+                  </span>
+                )}
+                {company.founding_member && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full">
+                    <Trophy className="h-2.5 w-2.5" />Founding Member
                   </span>
                 )}
               </div>

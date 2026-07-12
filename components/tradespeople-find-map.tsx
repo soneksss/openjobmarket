@@ -619,9 +619,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               {selectedTrader.profile_type === 'seeded' && (
                 <span className="px-2 py-0.5 bg-amber-500/15 border border-amber-500/30 rounded-full text-xs text-amber-300 font-semibold">Local business</span>
               )}
-              {selectedTrader.rating > 0 ? (
+              {(selectedTrader.rating ?? 0) > 0 ? (
                 <span className="flex items-center gap-0.5 text-xs text-amber-400 font-semibold">
-                  <Star className="w-3 h-3 fill-amber-400" />{selectedTrader.rating.toFixed(1)}
+                  <Star className="w-3 h-3 fill-amber-400" />{(selectedTrader.rating ?? 0).toFixed(1)}
                   {selectedTrader.reviews_count ? <span className="text-slate-500 font-normal ml-0.5">({selectedTrader.reviews_count})</span> : null}
                 </span>
               ) : null}
@@ -800,9 +800,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
                 {trader.profile_type === 'seeded' && (
                   <span className="px-1.5 py-px bg-amber-500/15 border border-amber-500/25 rounded-full text-[10px] text-slate-400">Local business</span>
                 )}
-                {trader.rating > 0 ? (
+                {(trader.rating ?? 0) > 0 ? (
                   <span className="flex items-center gap-0.5 text-[10px] text-amber-400">
-                    <Star className="w-2.5 h-2.5 fill-amber-400" />{trader.rating.toFixed(1)}
+                    <Star className="w-2.5 h-2.5 fill-amber-400" />{(trader.rating ?? 0).toFixed(1)}
                     {trader.reviews_count ? <span className="text-slate-500">({trader.reviews_count})</span> : null}
                   </span>
                 ) : null}

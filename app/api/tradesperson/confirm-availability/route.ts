@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient, createAdminClient } from "@/lib/server"
+import { nextNineAM } from "@/lib/availability"
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
 
     const admin = createAdminClient()
     const now = new Date().toISOString()
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+    const expiresAt = nextNineAM().toISOString()
 
     const { error } = await admin
       .from("company_profiles")

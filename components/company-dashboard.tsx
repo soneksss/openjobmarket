@@ -56,6 +56,7 @@ import {
   HelpCircle,
   History,
   CheckCircle2,
+  Trophy,
 } from "lucide-react"
 import Link from "next/link"
 import { useState, useMemo, useEffect } from "react"
@@ -110,6 +111,7 @@ interface CompanyProfile {
   urgent_notifications_enabled?: boolean
   urgent_notifications_expires_at?: string | null
   flexible_notifications_enabled?: boolean
+  founding_member?: boolean
 }
 
 interface Job {
@@ -1225,7 +1227,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                 <div className="flex items-start gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-2">
                   <Clock className="h-3 w-3 text-amber-400 flex-shrink-0 mt-0.5" />
                   <p className="text-[10px] text-amber-300 leading-snug">
-                    Auto-expires after 24 hours. You'll get a push notification to re-confirm — so homeowners always know who's genuinely available right now.
+                    Resets to Busy at 9:00 AM the next day. You'll get a push notification to re-confirm.
                   </p>
                 </div>
               )}
@@ -1402,8 +1404,13 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                   <div className="flex-1 min-w-0">
                     {/* Company Name - 50% larger (clickable to edit profile) */}
                     <Link href="/company/profile/edit" className="block hover:opacity-80 transition-opacity">
-                      <h2 className="text-xl sm:text-2xl font-bold text-white break-words mb-0.5 leading-tight cursor-pointer">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white break-words mb-0.5 leading-tight cursor-pointer flex items-center gap-2 flex-wrap">
                         {profile.company_name}
+                        {profile.founding_member && (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold bg-amber-900/50 text-amber-300 border border-amber-700/50 px-2 py-0.5 rounded-full align-middle">
+                            <Trophy className="h-3 w-3" />Founding Member
+                          </span>
+                        )}
                       </h2>
                     </Link>
 
@@ -1490,7 +1497,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                       <div className="flex items-start gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-2">
                         <Clock className="h-3 w-3 text-amber-400 flex-shrink-0 mt-0.5" />
                         <p className="text-[10px] text-amber-300 leading-snug">
-                          Auto-expires after 24 hours. You'll get a push notification to re-confirm — so homeowners always know who's genuinely available right now.
+                          Resets to Busy at 9:00 AM the next day. You'll get a push notification to re-confirm.
                         </p>
                       </div>
                     )}

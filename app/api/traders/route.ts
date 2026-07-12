@@ -28,9 +28,7 @@ export async function GET(req: NextRequest) {
   let cq = admin
     .from("company_profiles")
     .select(
-      "id, company_name, industry, industries, latitude, longitude, " +
-      "logo_url, average_rating, reviews_count, user_id, " +
-      "open_for_business, service_24_7, services, location, phone_number, spoken_languages"
+      "id, company_name, industry, industries, latitude, longitude, logo_url, average_rating, reviews_count, user_id, open_for_business, service_24_7, services, location, phone_number, spoken_languages"
     )
     .gte("latitude", south).lte("latitude", north)
     .gte("longitude", west).lte("longitude", east)
