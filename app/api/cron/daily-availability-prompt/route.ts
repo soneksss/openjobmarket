@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     for (const trader of traders) {
       const { data: tokenRows } = await admin
         .from("user_push_tokens")
-        .select("token")
+        .select("token, device_type")
         .eq("user_id", trader.user_id)
 
       if (!tokenRows?.length) continue
@@ -72,25 +72,49 @@ export async function GET(request: NextRequest) {
       const title = jobsNearby
         ? "🔔 New jobs posted near you today. Are you available?"
         : "Are you available for jobs today?"
+      const body = "Tap Yes to go back on the map and receive job notifications."
 
-      const tokens = tokenRows.map((r: any) => r.token)
-      const result = await sendWebPushToUser(tokens, {
-        title,
-        body: "Tap Yes to go back on the map and receive job notifications.",
-        url: "/confirm-availability",
-        tag: "availability-prompt",
-        requireInteraction: true,
-        actions: [
-          { action: "confirm", title: "✔ Yes" },
-          { action: "decline", title: "✖ Not today" },
-        ],
-      })
+      // Native (FCM/APNs) tokens aren't Web Push subscriptions — sending them
+      // through sendWebPushToUser silently fails (JSON.parse on a non-JSON
+      // token). Split by device_type and route each through its own sender,
+      // matching the pattern in send-trade-job-notification/route.ts.
+      const webTokens = tokenRows.filter((r: any) => r.device_type === "web").map((r: any) => r.token)
+      const fcmTokens = tokenRows.filter((r: any) => r.device_type === "fcm" || r.device_type === "apns").map((r: any) => r.token)
 
-      sent += result.sent
-      staleTokens.push(...result.expired)
+      let traderSent = 0
+
+      if (webTokens.length > 0) {
+        const result = await sendWebPushToUser(webTokens, {
+          title,
+          body,
+          url: "/confirm-availability",
+          tag: "availability-prompt",
+          requireInteraction: true,
+          actions: [
+            { action: "confirm", title: "✔ Yes" },
+            { action: "decline", title: "✖ Not today" },
+          ],
+        })
+        traderSent += result.sent
+        staleTokens.push(...result.expired)
+      }
+
+      if (fcmTokens.length > 0) {
+        const { sendFcmToTokens } = await import("@/lib/firebase-admin")
+        const result = await sendFcmToTokens(fcmTokens, {
+          title,
+          body,
+          url: "/confirm-availability",
+          tag: "availability-prompt",
+        })
+        traderSent += result.sent
+        staleTokens.push(...result.failed)
+      }
+
+      sent += traderSent
 
       // Record that we prompted this trader so we don't spam them
-      if (result.sent > 0) {
+      if (traderSent > 0) {
         await admin.rpc("mark_availability_prompt_sent", { p_company_id: trader.company_id })
       }
     }

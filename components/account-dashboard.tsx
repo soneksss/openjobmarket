@@ -482,7 +482,7 @@ export function AccountDashboard({ user, userType, profileData }: AccountDashboa
           },
           {
             icon: CreditCard,
-            label: "Subscription & Billing",
+            label: "Membership",
             href: getLocalePath("/dashboard/company/subscription"),
           }
         ],

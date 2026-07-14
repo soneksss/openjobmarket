@@ -354,37 +354,57 @@ export default function JobApplicationForm({
         }
       }
 
-      // Check for duplicate application
-      // For companies/contractors, check company_id; for professionals, check professional_id
-      const duplicateCheck = await supabase
-        .from("job_applications")
-        .select("id")
-        .eq("job_id", job.id)
-        .eq(isCompanyApplicant ? "company_id" : "professional_id", userProfile.id)
-        .maybeSingle()
-
-      console.log("[v0] Duplicate check using field:", isCompanyApplicant ? "company_id" : "professional_id", "value:", userProfile.id)
-
-      if (duplicateCheck.data) {
-        console.log("[v0] Duplicate application detected, aborting")
-        setSubmissionError("You have already applied for this job.")
-        setTimeout(() => setSubmissionError(null), 5000)
-        setLoading(false)
-        return
-      }
-
-      // Build application data with correct applicant ID field
-      const applicationData: any = {
-        job_id: job.id,
-        cover_letter: coverLetter || null,
-        status: "PENDING",
-      }
-
-      // Use company_id for company applicants, professional_id for professional applicants
       if (isCompanyApplicant) {
-        applicationData.company_id = userProfile.id
+        // Trade job apply — route through the shared apply_to_job() RPC (the
+        // same endpoint urgent-job-apply-section.tsx uses) instead of inserting
+        // into job_applications directly, so dispatch tracking, the FILLED
+        // response cap, and the homeowner notification all fire consistently.
+        const res = await fetch(`/api/jobs/${job.id}/urgent-responses`, {
+          method:      "POST",
+          headers:     { "Content-Type": "application/json" },
+          credentials: "include",
+          body:        JSON.stringify({ message: coverLetter || undefined }),
+        })
+        const data = await res.json().catch(() => null)
+
+        if (res.status === 409 && data?.error?.toLowerCase().includes("already")) {
+          console.log("[v0] Duplicate application detected, aborting")
+          setSubmissionError("You have already applied for this job.")
+          setTimeout(() => setSubmissionError(null), 5000)
+          setLoading(false)
+          return
+        }
+        if (!res.ok) {
+          throw new Error(data?.error || "Failed to submit application")
+        }
+
+        console.log("[v0] Application submitted successfully via apply_to_job")
       } else {
-        applicationData.professional_id = userProfile.id
+        // Check for duplicate application
+        const duplicateCheck = await supabase
+          .from("job_applications")
+          .select("id")
+          .eq("job_id", job.id)
+          .eq("professional_id", userProfile.id)
+          .maybeSingle()
+
+        console.log("[v0] Duplicate check using field: professional_id value:", userProfile.id)
+
+        if (duplicateCheck.data) {
+          console.log("[v0] Duplicate application detected, aborting")
+          setSubmissionError("You have already applied for this job.")
+          setTimeout(() => setSubmissionError(null), 5000)
+          setLoading(false)
+          return
+        }
+
+        // Build application data
+        const applicationData: any = {
+          job_id: job.id,
+          cover_letter: coverLetter || null,
+          status: "PENDING",
+          professional_id: userProfile.id,
+        }
 
         // Record CV attachment status for professionals
         if (attachCV && hasCV) {
@@ -401,52 +421,50 @@ export default function JobApplicationForm({
           applicationData.cv_type_used = 'none'
           console.log("[v0] CV will NOT be attached")
         }
-      }
 
-      console.log("[v0] Application data to insert:", applicationData)
+        console.log("[v0] Application data to insert:", applicationData)
 
-      // Submit the application
-      const { data: applicationResult, error: applicationError } = await supabase
-        .from("job_applications")
-        .insert(applicationData)
-        .select("id")
-        .single()
+        // Submit the application
+        const { data: applicationResult, error: applicationError } = await supabase
+          .from("job_applications")
+          .insert(applicationData)
+          .select("id")
+          .single()
 
-      if (applicationError) {
-        console.error("[v0] Application error:", applicationError)
-        throw applicationError
-      }
+        if (applicationError) {
+          console.error("[v0] Application error:", applicationError)
+          throw applicationError
+        }
 
-      console.log("[v0] Application submitted successfully")
+        console.log("[v0] Application submitted successfully")
 
-      // Send email notification to job poster (non-blocking)
-      const posterUserId = getPosterUserId()
-      if (posterUserId && applicationResult) {
-        fetch("/api/notifications/send-application-notification", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jobPosterId: posterUserId,
-            applicantId: user!.id,
-            jobId: job.id,
-            jobTitle: job.title,
-            applicationId: applicationResult.id,
-            applicationMessage: coverLetter || undefined,
-          }),
-        }).catch((err) => {
-          console.error("[v0] Failed to send application email notification:", err)
-          // Don't block user flow on notification failure
-        })
-      }
+        // Send email notification to job poster (non-blocking)
+        const posterUserId = getPosterUserId()
+        if (posterUserId && applicationResult) {
+          fetch("/api/notifications/send-application-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jobPosterId: posterUserId,
+              applicantId: user!.id,
+              jobId: job.id,
+              jobTitle: job.title,
+              applicationId: applicationResult.id,
+              applicationMessage: coverLetter || undefined,
+            }),
+          }).catch((err) => {
+            console.error("[v0] Failed to send application email notification:", err)
+            // Don't block user flow on notification failure
+          })
+        }
 
-      // Increment application counter (only for professionals/homeowners, not companies)
-      if (!isCompanyApplicant) {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          console.log("[APPLICATION-LIMIT] Incrementing application counter for user:", user.id)
+        // Increment application counter
+        const { data: { user: counterUser } } = await supabase.auth.getUser()
+        if (counterUser) {
+          console.log("[APPLICATION-LIMIT] Incrementing application counter for user:", counterUser.id)
 
           const { data: incrementResult, error: incrementError } = await supabase
-            .rpc('increment_application_counter', { user_id_param: user.id })
+            .rpc('increment_application_counter', { user_id_param: counterUser.id })
 
           if (incrementError) {
             console.error("[APPLICATION-LIMIT] Error incrementing counter:", incrementError)

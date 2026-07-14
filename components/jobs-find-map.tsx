@@ -255,6 +255,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   const [postcodeInput,   setPostcodeInput]   = useState("")
   const [geocoding,       setGeocoding]       = useState(false)
   const [locating,        setLocating]        = useState(false)
+  const [messagingJobId,  setMessagingJobId]  = useState<string | null>(null)
 
   const currentBoundsRef = useRef<BBox | null>(null)
   const fetchTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -369,6 +370,31 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     sessionStorage.setItem(JOBS_FILTERS_KEY, JSON.stringify(draftFilters))
     setShowFilters(false)
     if (!didGeocode && currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, draftFilters)
+  }
+
+  const handleMessageHomeowner = async (job: Job) => {
+    const homeownerUserId = job.homeowner_profiles?.user_id
+    if (!homeownerUserId) return
+    setMessagingJobId(job.id)
+    try {
+      const res = await fetch(`/api/jobs/${job.id}/urgent-responses`, {
+        method:      "POST",
+        headers:     { "Content-Type": "application/json" },
+        credentials: "include",
+        body:        JSON.stringify({}),
+      })
+      // 409 "already applied" / "filled" / "assigned" are all fine — messaging
+      // should still work even if this job can no longer be applied to.
+      if (!res.ok && res.status !== 409) {
+        const data = await res.json().catch(() => null)
+        console.error("[MessageHomeowner] apply_to_job failed:", data?.error)
+      }
+    } catch (err) {
+      console.error("[MessageHomeowner] apply_to_job request failed:", err)
+    } finally {
+      setMessagingJobId(null)
+    }
+    router.push(`/messages/${homeownerUserId}`)
   }
 
   const handleMyLocation = useCallback(() => {
@@ -508,12 +534,13 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
       <div className="flex gap-2 px-4 pb-4 pt-1">
         <button onClick={() => router.push(`/jobs/${selectedJob.id}`)}
           className="flex-1 py-2.5 bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-500/20 transition-colors">
-          View &amp; Apply
+          View Details
         </button>
         {selectedJob.homeowner_profiles?.user_id && (
-          <button onClick={() => router.push(`/messages/${selectedJob.homeowner_profiles!.user_id}`)}
-            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-sm rounded-xl transition-colors">
-            Message
+          <button onClick={() => handleMessageHomeowner(selectedJob)}
+            disabled={messagingJobId === selectedJob.id}
+            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-sm rounded-xl transition-colors disabled:opacity-60">
+            {messagingJobId === selectedJob.id ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Message Homeowner"}
           </button>
         )}
       </div>

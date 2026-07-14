@@ -6,20 +6,26 @@ import { verifyCronRequest } from "@/lib/cron-auth"
 /**
  * GET /api/cron/dispatch-expand
  *
- * Uber-style radius expansion cron — runs every 2 minutes (see vercel.json).
+ * Uber-style radius expansion cron — runs every 2 minutes, triggered by a
+ * pg_cron job (see supabase/migrations/20260715000009_*.sql) calling this
+ * route via pg_net.http_post(). NOT scheduled through vercel.json — Vercel's
+ * Hobby plan caps cron at once-daily, which is why this drifted before;
+ * pg_cron has no such limit and is already used elsewhere in this project.
  *
  * Expansion tiers (set by expand_job_search via jobs.next_expand_at):
- *   3mi → wait 15 min → 5mi
- *   5mi → wait 15 min → 10mi
- *   10mi → wait 30 min → no further expansion (or instant skip if 0 local supply)
+ *   0.5mi → 1mi → 2mi → 3mi → 10mi (max), ~2 min between each check.
+ *   Empty tiers are skipped instantly within a single expand_job_search()
+ *   call — it doesn't wait a full cron cycle per empty tier.
  *
  * Each invocation:
  *   1. Expire jobs past their 1-hour window
- *   2. Mark dispatch as completed when >= 3 responders (belt+suspenders — trigger does this atomically too)
+ *   2. Mark dispatch as completed when the response target is reached
+ *      (belt+suspenders — trg_auto_complete_dispatch does this atomically too)
  *   3. Find jobs whose next_expand_at <= NOW() (precise timing, no elapsed-since-start drift)
  *   4. For each: expand_job_search() → notify new batch
  *
- * Auth: Vercel CRON_SECRET header.
+ * Auth: same CRON_SECRET_TOKEN bearer header verifyCronRequest() already
+ * accepts — pg_cron sends it explicitly since there's no x-vercel-cron header.
  */
 
 export async function GET(request: NextRequest) {
@@ -53,13 +59,10 @@ export async function GET(request: NextRequest) {
       .in("dispatch_state", ["searching", "expanding"])
 
     for (const { id: jobId } of activeJobs ?? []) {
-      const { count } = await admin
-        .from("urgent_job_dispatch_alerts")
-        .select("*", { count: "exact", head: true })
-        .eq("job_id", jobId)
-        .eq("responded", true)
+      const { data: count } = await admin.rpc("count_urgent_job_responses", { p_job_id: jobId })
+      const { data: target } = await admin.rpc("urgent_response_target")
 
-      if ((count ?? 0) >= 3) {
+      if ((count ?? 0) >= (target ?? 3)) {
         await admin.from("jobs").update({ dispatch_state: "completed" }).eq("id", jobId)
         report.completed++
         console.log(`[DISPATCH-EXPAND] Completed job=${jobId} (${count} responders)`)
@@ -81,11 +84,7 @@ export async function GET(request: NextRequest) {
 
     for (const job of expandableJobs ?? []) {
       // Confirm still 0 responses — don't expand if someone already responded
-      const { count: respCount } = await admin
-        .from("urgent_job_dispatch_alerts")
-        .select("*", { count: "exact", head: true })
-        .eq("job_id", job.id)
-        .eq("responded", true)
+      const { data: respCount } = await admin.rpc("count_urgent_job_responses", { p_job_id: job.id })
 
       if ((respCount ?? 0) > 0) {
         // Got a response — clear next_expand_at so we stop expanding

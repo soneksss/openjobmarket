@@ -8,16 +8,17 @@ import { NextRequest, NextResponse } from "next/server"
  * Uber-style urgent dispatch — tiered radius, instant skip on empty radius.
  *
  * Flow:
- *   1. Rank candidates via geospatial RPC (3-mile radius, top 5)
- *   2. If 0 at current radius → immediately jump to 5mi, then 10mi (instant skip)
+ *   1. Rank candidates via geospatial RPC (500m radius, top 5)
+ *   2. If 0 at current radius → immediately try 1mi, 2mi, 3mi, 10mi (instant skip)
  *   3. Fallback to industry-matched company_profiles if RPC unavailable
  *   4. For each candidate: record alert row → in-app notification → web push
  *   5. Set dispatch_started_at / dispatch_expires_at / dispatch_radius_miles / dispatch_state
- *   6. If < 3 dispatched → trigger adaptive expansion RPC for next wave
+ *   6. If fewer than urgent_response_target() dispatched → trigger adaptive expansion RPC for next wave
  */
 
-// Radius expansion tiers (miles)
-const RADIUS_TIERS = [3, 5, 10]
+// Radius expansion tiers (miles). 0.5mi ≈ 500m. Keep in sync with the tier
+// ladder in expand_job_search() (supabase/migrations/20260715000007_*.sql).
+const RADIUS_TIERS = [0.5, 1, 2, 3, 10]
 
 export async function POST(
   _request: NextRequest,
@@ -256,11 +257,12 @@ export async function POST(
 
     console.log(`[DISPATCH-URGENT] Initial: dispatched=${dispatched} skipped=${skipped} radius=${usedRadiusMiles}mi`)
 
-    // ── 6. Adaptive expansion if < 3 dispatched ──────────────────────────────
+    // ── 6. Adaptive expansion if fewer than target dispatched ────────────────
     let expandDispatched = 0
 
-    if (dispatched < 3) {
-      console.log(`[DISPATCH-URGENT] < 3 dispatched — triggering expand_job_search`)
+    const { data: responseTarget } = await admin.rpc("urgent_response_target")
+    if (dispatched < (responseTarget ?? 3)) {
+      console.log(`[DISPATCH-URGENT] < ${responseTarget ?? 3} dispatched — triggering expand_job_search`)
 
       const { data: expanded, error: expandErr } = await admin.rpc("expand_job_search", { p_job_id: jobId })
 
@@ -278,10 +280,13 @@ export async function POST(
           (expandedProfiles ?? []).map((p: { id: string; user_id: string }) => [p.id, p.user_id])
         )
 
-        // Update dispatch state to expanding
+        // Update dispatch state — expand_job_search() already set
+        // dispatch_radius_miles/search_radius_miles to the tier it actually
+        // used (which may have skipped several empty tiers in one call), so
+        // don't recompute it here with the naive "just the next tier" helper.
         await admin
           .from("jobs")
-          .update({ dispatch_state: "expanding", dispatch_radius_miles: nextRadius(usedRadiusMiles) })
+          .update({ dispatch_state: "expanding" })
           .eq("id", jobId)
 
         for (const { company_id: cid, radius_used } of expanded) {
@@ -385,12 +390,6 @@ function distanceMiles(lat1: number, lon1: number, lat2?: number | null, lon2?: 
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-function nextRadius(current: number): number {
-  const TIERS = [3, 5, 10]
-  const idx = TIERS.indexOf(current)
-  return idx >= 0 && idx < TIERS.length - 1 ? TIERS[idx + 1] : current
-}
-
 async function setDispatchLifecycle(
   admin: ReturnType<typeof createAdminClient>,
   jobId: string,
@@ -409,8 +408,9 @@ async function setDispatchLifecycle(
       // Reset deadline_at so the apply_to_job trigger doesn't reject applications
       patch.deadline_at         = new Date(Date.now() + 60 * 60 * 1000).toISOString()
       patch.matching_status     = 'searching'
-      // Seed next_expand_at: first tier (≤3mi) waits 15 min before expanding to 5mi
-      patch.next_expand_at      = new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      // Seed next_expand_at: pg_cron checks every ~2 minutes (see the scheduler
+      // migration) — uniform per-tier wait matching that cadence.
+      patch.next_expand_at      = new Date(Date.now() + 2 * 60 * 1000).toISOString()
     }
     // Remove undefined keys
     Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k])

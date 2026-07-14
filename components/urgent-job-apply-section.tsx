@@ -198,7 +198,7 @@ export function UrgentJobApplySection({
     return (
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-center space-y-1">
         <CheckCircle className="h-8 w-8 text-emerald-400 mx-auto" />
-        <p className="text-base font-semibold text-white">Application sent ✓</p>
+        <p className="text-base font-semibold text-white">Message sent ✓</p>
         <p className="text-sm text-slate-400">Status: Waiting for homeowner</p>
       </div>
     )
@@ -262,7 +262,7 @@ export function UrgentJobApplySection({
           ) : (
             <>
               <Send className="h-4 w-4" />
-              Apply &amp; Send
+              Send Message
             </>
           )}
         </button>

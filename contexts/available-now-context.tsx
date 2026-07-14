@@ -61,12 +61,15 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
       setReady(true)
 
       // Client-side expiry guard — DB cron may not have run yet since expiry.
+      // Deliberately NOT nulling urgent_notifications_expires_at / availability_expires_at
+      // here (mirrors expire-availability/route.ts) — daily-availability-prompt needs
+      // that now-past timestamp to find who to send the confirmation push to. Nulling
+      // it here would silently remove this trader from that pipeline the moment they
+      // open the app, before the cron ever gets a chance to prompt them.
       if (data.urgent_notifications_enabled && !stillActive) {
         supabase.from("company_profiles").update({
           urgent_notifications_enabled: false,
-          urgent_notifications_expires_at: null,
           open_for_business: false,
-          availability_expires_at: null,
         }).eq("id", data.id).then(() => {})
       }
     })

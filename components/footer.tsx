@@ -47,7 +47,7 @@ export function Footer() {
     { href: getLocalePath("/privacy"),   label: t('header.privacyPolicy') },
     { href: getLocalePath("/cookies"),   label: t('header.cookiePolicy') },
     { href: getLocalePath("/security"),  label: t('dashboard.security') },
-    { href: getBillingHref(),            label: user ? t('header.subscriptionBilling') : t('dashboard.billing') },
+    { href: getBillingHref(),            label: (user && userType === "company") ? "Membership" : t('dashboard.billing') },
   ]
 
   return (

@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info } from "lucide-react"
+import { User, Building2, LogOut, Settings, FileText, Briefcase, ChevronDown, BookmarkIcon, RefreshCw, Shield, CreditCard, X, BarChart3, Menu, ChevronRight, Home, Globe, HelpCircle, Info, Crown, Map as MapIcon } from "lucide-react"
 import { MessageIcon } from "@/components/message-icon"
 import { TradespersonMyJobsButton } from "@/components/tradesperson-my-jobs-button"
 import { AvailableNowToggle } from "@/components/available-now-toggle"
@@ -328,13 +328,35 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                     size="sm"
                     className={`p-1.5 rounded-full ${dark ? "text-slate-400 hover:text-white hover:bg-white/10" : "text-slate-500 hover:text-slate-800 hover:bg-slate-100"}`}
                   >
-                    <HelpCircle className="h-5 w-5" />
+                    <Menu className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="start"
                   className="w-52 z-[100] bg-slate-800 border border-slate-700/60 rounded-2xl p-1.5 shadow-xl shadow-black/30"
                 >
+                  <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-700/60 cursor-pointer">
+                    <Link href={getLocalePath(currentUserType === "company" ? "/find-jobs" : "/find-trades")} className="flex items-center gap-3 px-3 py-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
+                        <MapIcon className="h-4 w-4 text-emerald-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-100">Map</p>
+                        <p className="text-xs text-slate-500">See who&apos;s nearby</p>
+                      </div>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-700/60 cursor-pointer">
+                    <Link href={getLocalePath("/membership")} className="flex items-center gap-3 px-3 py-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                        <Crown className="h-4 w-4 text-amber-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-slate-100">Membership</p>
+                        <p className="text-xs text-slate-500">Pricing & Launch Mode</p>
+                      </div>
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-700/60 cursor-pointer">
                     <Link href={getLocalePath("/about")} className="flex items-center gap-3 px-3 py-2.5">
                       <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center flex-shrink-0">
@@ -362,7 +384,19 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
             </div>
 
             <nav className="hidden md:flex items-center space-x-2">
-<Link href={getLocalePath("/about")}>
+<Link href={getLocalePath(currentUserType === "company" ? "/find-jobs" : "/find-trades")}>
+                <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
+                  Map
+                </Button>
+              </Link>
+
+              <Link href={getLocalePath("/membership")}>
+                <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
+                  Membership
+                </Button>
+              </Link>
+
+              <Link href={getLocalePath("/about")}>
                 <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
                   {t('header.about')}
                 </Button>
@@ -757,6 +791,17 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
 
             {/* Menu Items */}
             <div className="p-4 space-y-4">
+              {/* Membership */}
+              <div>
+                <Link
+                  href={getLocalePath("/membership")}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block w-full text-left font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                >
+                  Membership
+                </Link>
+              </div>
+
               {/* About */}
               <div>
                 <Link

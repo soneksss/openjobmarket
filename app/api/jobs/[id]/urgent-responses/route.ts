@@ -293,14 +293,11 @@ export async function POST(
           .eq("job_id", jobId)
           .eq("company_id", cp.id)
 
-        // Check if >= 3 responders → mark dispatch completed
-        const { count } = await adm
-          .from("urgent_job_dispatch_alerts")
-          .select("*", { count: "exact", head: true })
-          .eq("job_id", jobId)
-          .eq("responded", true)
+        // Check if >= target responders → mark dispatch completed
+        const { data: count } = await adm.rpc("count_urgent_job_responses", { p_job_id: jobId })
+        const { data: target } = await adm.rpc("urgent_response_target")
 
-        if ((count ?? 0) >= 3) {
+        if ((count ?? 0) >= (target ?? 3)) {
           await adm
             .from("jobs")
             .update({ dispatch_state: "completed" })

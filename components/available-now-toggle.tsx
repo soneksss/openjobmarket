@@ -51,7 +51,7 @@ export function AvailableNowToggle({ className = "" }: { className?: string }) {
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-800/95 border border-slate-700/80 shadow-md">
           <Zap className={`w-3.5 h-3.5 ${enabled ? "text-emerald-400" : "text-slate-500"}`} />
           <span className={`text-xs font-semibold whitespace-nowrap ${enabled ? "text-white" : "text-slate-400"}`}>
-            Available now
+            {enabled ? "Available now" : "Not available"}
           </span>
           <Switch
             checked={enabled}
