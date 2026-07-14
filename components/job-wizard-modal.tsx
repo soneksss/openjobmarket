@@ -1806,7 +1806,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 md:bg-black/40"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 md:bg-black/40"
         >
           <div
             className="w-full h-full md:h-auto md:max-h-[90vh] max-w-2xl bg-slate-900 md:rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden flex flex-col"

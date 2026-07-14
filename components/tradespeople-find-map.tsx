@@ -1270,7 +1270,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       )}
 
       {showJobWizard && (
-        <div className="fixed inset-0" style={{ zIndex: 60 }}>
+        <div className="fixed inset-0" style={{ zIndex: 9999 }}>
           <JobWizardModal
             guestMode={!user} initialPostcode={initialPostcode}
             companyProfile={(posterUserType === "company" ? posterCompanyProfile : homeownerProfile) ?? null}

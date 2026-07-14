@@ -39,16 +39,18 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) { if (!cancelled) setReady(true); return }
-      const { data: userRow } = await supabase.from("users").select("user_type").eq("id", user.id).maybeSingle()
+
+    // Runs whenever we have a resolved user id — both on initial load AND on
+    // a fresh client-side login (see onAuthStateChange below).
+    const resolveForUser = async (userId: string) => {
+      const { data: userRow } = await supabase.from("users").select("user_type").eq("id", userId).maybeSingle()
       if (cancelled) return
       if (userRow?.user_type !== "company") { setReady(true); return }
 
       const { data } = await supabase
         .from("company_profiles")
         .select("id, urgent_notifications_enabled, urgent_notifications_expires_at")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .maybeSingle()
       if (cancelled || !data) { setReady(true); return }
 
@@ -72,8 +74,28 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
           open_for_business: false,
         }).eq("id", data.id).then(() => {})
       }
+    }
+
+    // onAuthStateChange (not a one-shot getUser() call) so this reacts to a
+    // login that happens AFTER this provider mounted. It's mounted once at
+    // the root layout and never remounts on the login form's router.push()
+    // redirect, so a one-shot check here would permanently freeze isCompany
+    // at whatever it was on the login page (false) — hiding the toggle until
+    // a hard refresh. INITIAL_SESSION covers first load, SIGNED_IN covers a
+    // fresh login in the same tab. Same fix already used in header.tsx.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session?.user) {
+        resolveForUser(session.user.id)
+      } else if (event === "SIGNED_OUT" || (event === "INITIAL_SESSION" && !session?.user)) {
+        setProfileId(null)
+        setIsCompany(false)
+        setEnabled(false)
+        setExpiresAt(null)
+        setReady(true)
+      }
     })
-    return () => { cancelled = true }
+
+    return () => { cancelled = true; subscription.unsubscribe() }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggle = useCallback(async (next: boolean) => {

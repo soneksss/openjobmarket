@@ -18,7 +18,7 @@ export function PostJobCategorySelector({ onClose }: PostJobCategorySelectorProp
   }
 
   return (
-    <div className="fixed inset-0 z-[60] bg-slate-950 flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+    <div className="fixed inset-0 z-[9999] bg-slate-950 flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
       {/* Header */}
       <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800">
         <div>

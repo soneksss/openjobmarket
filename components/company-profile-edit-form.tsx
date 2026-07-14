@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Upload, ArrowLeft, Building2, MapPin, Eye, EyeOff, Trash2, ShieldCheck, FileText, Calendar, Plus, X } from "lucide-react"
+import { Upload, ArrowLeft, Building2, MapPin, Eye, EyeOff, Trash2, ShieldCheck, FileText, Calendar, Plus, X, Globe2, Camera, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/client"
 import Link from "next/link"
 import { Switch } from "@/components/ui/switch"
@@ -69,8 +69,13 @@ interface CompanyProfile {
   business_type?: "limited_company" | "sole_trader" | null
   company_registration_number?: string | null
   registered_address?: string | null
-  insurance_document_url?: string | null
+  insurance_document_path?: string | null
   insurance_expiry_date?: string | null
+  insurance_provider?: string | null
+  insurance_policy_type?: string | null
+  insurance_cover_amount?: string | null
+  google_maps_url?: string | null
+  facebook_url?: string | null
 }
 
 interface CompanyProfileEditFormProps {
@@ -103,6 +108,10 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
   const [contactEmail, setContactEmail] = useState((profile as any).contact_email || "")
   const [location, setLocation] = useState(profile.location || "")
   const [fullAddress, setFullAddress] = useState(profile.full_address || "")
+
+  // Online Presence — plain profile links (no API import, no cost)
+  const [googleMapsUrl, setGoogleMapsUrl] = useState(profile.google_maps_url || "")
+  const [facebookUrl, setFacebookUrl] = useState(profile.facebook_url || "")
   // Initialize with the plain URL — cache-busting is applied after mount to avoid hydration mismatch
   const [logoUrl, setLogoUrl] = useState(profile.logo_url || "")
 
@@ -133,9 +142,13 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
   const [businessType, setBusinessType] = useState<"limited_company" | "sole_trader" | null>(profile.business_type || null)
   const [companyRegNumber, setCompanyRegNumber] = useState(profile.company_registration_number || "")
   const [registeredAddress, setRegisteredAddress] = useState(profile.registered_address || "")
-  const [insuranceDocUrl, setInsuranceDocUrl] = useState(profile.insurance_document_url || "")
+  const [insuranceDocPath, setInsuranceDocPath] = useState(profile.insurance_document_path || "")
   const [insuranceExpiry, setInsuranceExpiry] = useState(profile.insurance_expiry_date || "")
+  const [insuranceProvider, setInsuranceProvider] = useState(profile.insurance_provider || "")
+  const [insurancePolicyType, setInsurancePolicyType] = useState(profile.insurance_policy_type || "")
+  const [insuranceCoverAmount, setInsuranceCoverAmount] = useState(profile.insurance_cover_amount || "")
   const [uploadingInsurance, setUploadingInsurance] = useState(false)
+  const [viewingInsuranceDoc, setViewingInsuranceDoc] = useState(false)
 
   const supabase = createClient()
 
@@ -415,24 +428,64 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
   const handleInsuranceUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    const allowedTypes = ["application/pdf", "image/jpeg", "image/jpg", "image/png"]
+    if (!allowedTypes.includes(file.type)) {
+      toast({ title: "Invalid file type", description: "Please upload a PDF, JPG, or PNG file.", variant: "destructive", duration: 5000 })
+      e.target.value = ""
+      return
+    }
+
     const MAX_MB = 5
     if (file.size > MAX_MB * 1024 * 1024) {
       toast({ title: "File too large", description: `Max ${MAX_MB}MB allowed.`, variant: "destructive", duration: 4000 })
+      e.target.value = ""
       return
     }
+
     setUploadingInsurance(true)
     try {
-      const ext = file.name.split(".").pop() || "pdf"
-      const path = `insurance/${profile.id}/${Date.now()}.${ext}`
-      const { error: upErr } = await supabase.storage.from("company-logos").upload(path, file, { upsert: true })
+      const ext = file.name.split(".").pop() || (file.type === "application/pdf" ? "pdf" : "jpg")
+      const path = `${user.id}/certificate-${Date.now()}.${ext}`
+
+      // 30-second timeout — same defensive pattern as the logo upload, so a
+      // stalled request can't leave the button stuck on "Uploading…" forever.
+      const uploadPromise = supabase.storage
+        .from("insurance-documents")
+        .upload(path, file, { upsert: true, contentType: file.type })
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Upload timed out. Please check your connection and try again.")), 30_000)
+      )
+      const { error: upErr } = await Promise.race([uploadPromise, timeoutPromise])
       if (upErr) throw upErr
-      const { data: urlData } = supabase.storage.from("company-logos").getPublicUrl(path)
-      setInsuranceDocUrl(urlData.publicUrl)
-      toast({ title: "Document uploaded", description: "Insurance document saved.", duration: 3000 })
+
+      // Fire-and-forget delete of the previous certificate — don't await,
+      // mirrors the logo upload's approach to avoid hanging on cleanup.
+      if (insuranceDocPath && insuranceDocPath !== path) {
+        supabase.storage.from("insurance-documents").remove([insuranceDocPath]).catch(() => {})
+      }
+
+      setInsuranceDocPath(path)
+      toast({ title: "Document uploaded", description: "Insurance certificate saved.", duration: 3000 })
     } catch (err: any) {
-      toast({ title: "Upload failed", description: err?.message || "Try again.", variant: "destructive", duration: 4000 })
+      toast({ title: "Upload failed", description: err?.message || "Please try again.", variant: "destructive", duration: 4000 })
     } finally {
       setUploadingInsurance(false)
+      e.target.value = ""
+    }
+  }
+
+  const handleViewInsuranceDoc = async () => {
+    setViewingInsuranceDoc(true)
+    try {
+      const res = await fetch("/api/company/insurance-document", { credentials: "include" })
+      const data = await res.json()
+      if (!res.ok || !data?.url) throw new Error(data?.error || "Could not open document")
+      window.open(data.url, "_blank", "noopener,noreferrer")
+    } catch (err: any) {
+      toast({ title: "Could not open document", description: err?.message || "Please try again.", variant: "destructive", duration: 4000 })
+    } finally {
+      setViewingInsuranceDoc(false)
     }
   }
 
@@ -469,8 +522,13 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
         business_type: businessType || null,
         company_registration_number: companyRegNumber || null,
         registered_address: registeredAddress || null,
-        insurance_document_url: insuranceDocUrl || null,
+        insurance_document_path: insuranceDocPath || null,
         insurance_expiry_date: insuranceExpiry || null,
+        insurance_provider: insuranceProvider || null,
+        insurance_policy_type: insurancePolicyType || null,
+        insurance_cover_amount: insuranceCoverAmount || null,
+        google_maps_url: googleMapsUrl || null,
+        facebook_url: facebookUrl || null,
       }
 
       console.log("[COMPANY-EDIT] Update data:", {
@@ -936,6 +994,59 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                 </p>
               </div>
 
+              {/* ── Online Presence ────────────────────────────────────── */}
+              <div className="space-y-4 pt-6 border-t border-slate-700/50">
+                <div className="flex items-center gap-2">
+                  <Globe2 className="h-5 w-5 text-blue-400" />
+                  <h3 className="text-base font-semibold text-white">Online Presence <span className="text-slate-500 text-sm font-normal">(Optional)</span></h3>
+                </div>
+                <p className="text-xs text-slate-400">
+                  Link your Google Business and Facebook pages so customers can click through and see your reviews.
+                </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="googleMapsUrl" className="text-sm font-medium text-slate-200">
+                    Google Business / Maps Link
+                  </Label>
+                  <Input
+                    id="googleMapsUrl"
+                    type="url"
+                    value={googleMapsUrl}
+                    onChange={(e) => setGoogleMapsUrl(e.target.value)}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value && !value.startsWith('http://') && !value.startsWith('https://')) {
+                        setGoogleMapsUrl(`https://${value}`)
+                      }
+                    }}
+                    placeholder="https://g.page/yourbusiness or Google Maps link"
+                    className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
+                  />
+                  <p className="text-xs text-slate-400">Shown as a "View on Google" button on your public profile.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="facebookUrl" className="text-sm font-medium text-slate-200">
+                    Facebook Page Link
+                  </Label>
+                  <Input
+                    id="facebookUrl"
+                    type="url"
+                    value={facebookUrl}
+                    onChange={(e) => setFacebookUrl(e.target.value)}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim()
+                      if (value && !value.startsWith('http://') && !value.startsWith('https://')) {
+                        setFacebookUrl(`https://${value}`)
+                      }
+                    }}
+                    placeholder="https://facebook.com/yourbusiness"
+                    className="text-sm bg-slate-700/50 border-2 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-400"
+                  />
+                  <p className="text-xs text-slate-400">Shown as a "Visit Facebook" button on your public profile.</p>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="phoneNumber" className="text-sm font-medium text-slate-200">
@@ -1143,70 +1254,120 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                       className="text-sm bg-slate-700/50 border-slate-600 focus:border-blue-500 text-white placeholder:text-slate-500"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm text-slate-300">Insurance Document (Employers / Public Liability)</Label>
-                    <div className="flex items-center gap-3">
-                      <label className={`flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                        uploadingInsurance ? "opacity-50 cursor-not-allowed" : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700"
-                      }`}>
-                        <FileText className="w-4 h-4" />
-                        {uploadingInsurance ? "Uploading…" : insuranceDocUrl ? "Replace" : "Upload PDF / Image"}
-                        <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleInsuranceUpload} disabled={uploadingInsurance} />
-                      </label>
-                      {insuranceDocUrl && (
-                        <span className="text-xs text-emerald-400 flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5" /> Uploaded
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm text-slate-300 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5" /> Insurance Expiry Date
-                    </Label>
-                    <Input
-                      type="date"
-                      value={insuranceExpiry}
-                      onChange={(e) => setInsuranceExpiry(e.target.value)}
-                      className="text-sm bg-slate-700/50 border-slate-600 focus:border-blue-500 text-white"
-                    />
-                  </div>
                 </div>
               )}
 
               {/* Sole trader fields */}
               {businessType === "sole_trader" && (
                 <div className="space-y-3 p-4 rounded-xl bg-slate-800/60 border border-slate-700/50">
-                  <div className="space-y-1.5">
-                    <Label className="text-sm text-slate-300">Public Liability Insurance Document</Label>
-                    <div className="flex items-center gap-3">
-                      <label className={`flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                        uploadingInsurance ? "opacity-50 cursor-not-allowed" : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700"
-                      }`}>
-                        <FileText className="w-4 h-4" />
-                        {uploadingInsurance ? "Uploading…" : insuranceDocUrl ? "Replace" : "Upload PDF / Image"}
-                        <input type="file" accept=".pdf,.jpg,.jpeg,.png" className="hidden" onChange={handleInsuranceUpload} disabled={uploadingInsurance} />
-                      </label>
-                      {insuranceDocUrl && (
-                        <span className="text-xs text-emerald-400 flex items-center gap-1">
-                          <ShieldCheck className="w-3.5 h-3.5" /> Uploaded
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-sm text-slate-300 flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5" /> Insurance Expiry Date
-                    </Label>
-                    <Input
-                      type="date"
-                      value={insuranceExpiry}
-                      onChange={(e) => setInsuranceExpiry(e.target.value)}
-                      className="text-sm bg-slate-700/50 border-slate-600 focus:border-blue-500 text-white"
-                    />
-                  </div>
+                  <p className="text-xs text-slate-500">No additional details needed for sole traders — add your insurance below.</p>
                 </div>
               )}
+            </div>
+
+            {/* ── Insurance ───────────────────────────────────────────── */}
+            <div className="space-y-4 pt-6 border-t border-slate-700/50">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-emerald-400" />
+                <h3 className="text-base font-semibold text-white">Insurance <span className="text-slate-500 text-sm font-normal">(Optional)</span></h3>
+              </div>
+              <p className="text-xs text-slate-400">
+                Show homeowners you're insured. Your certificate stays private — only you and OpenJobMarket admins can view it; we only ever display the provider, policy type, cover amount and expiry date publicly.
+              </p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-sm text-slate-300">Insurance Provider</Label>
+                  <Input
+                    placeholder="e.g. Simply Business"
+                    value={insuranceProvider}
+                    onChange={(e) => setInsuranceProvider(e.target.value)}
+                    className="text-sm bg-slate-700/50 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm text-slate-300">Policy Type</Label>
+                  <select
+                    value={insurancePolicyType}
+                    onChange={(e) => setInsurancePolicyType(e.target.value)}
+                    className="w-full text-sm bg-slate-700/50 border border-slate-600 focus:border-emerald-500 text-white rounded-md h-10 px-3"
+                  >
+                    <option value="">Select policy type</option>
+                    <option value="Public Liability">Public Liability</option>
+                    <option value="Professional Indemnity">Professional Indemnity</option>
+                    <option value="Employers' Liability">Employers' Liability</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm text-slate-300">Cover Amount</Label>
+                  <Input
+                    placeholder="e.g. £2,000,000"
+                    value={insuranceCoverAmount}
+                    onChange={(e) => setInsuranceCoverAmount(e.target.value)}
+                    className="text-sm bg-slate-700/50 border-slate-600 focus:border-emerald-500 text-white placeholder:text-slate-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-sm text-slate-300 flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" /> Expiry Date
+                  </Label>
+                  <Input
+                    type="date"
+                    value={insuranceExpiry}
+                    onChange={(e) => setInsuranceExpiry(e.target.value)}
+                    className="text-sm bg-slate-700/50 border-slate-600 focus:border-emerald-500 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm text-slate-300">Insurance Certificate (PDF, JPG or PNG)</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className={`flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    uploadingInsurance ? "opacity-50 cursor-not-allowed" : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700"
+                  }`}>
+                    <FileText className="w-4 h-4" />
+                    {uploadingInsurance ? "Uploading…" : insuranceDocPath ? "Replace File" : "Upload File"}
+                    <input
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                      className="hidden"
+                      onChange={handleInsuranceUpload}
+                      disabled={uploadingInsurance}
+                    />
+                  </label>
+                  <label className={`flex items-center gap-2 cursor-pointer px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    uploadingInsurance ? "opacity-50 cursor-not-allowed" : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-700"
+                  }`}>
+                    <Camera className="w-4 h-4" />
+                    Take Photo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      onChange={handleInsuranceUpload}
+                      disabled={uploadingInsurance}
+                    />
+                  </label>
+                  {insuranceDocPath && (
+                    <button
+                      type="button"
+                      onClick={handleViewInsuranceDoc}
+                      disabled={viewingInsuranceDoc}
+                      className="flex items-center gap-1.5 text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5" /> {viewingInsuranceDoc ? "Opening…" : "View current document"}
+                    </button>
+                  )}
+                </div>
+                {insuranceExpiry && new Date(insuranceExpiry) < new Date() && (
+                  <p className="text-xs text-amber-400 flex items-center gap-1.5 mt-1.5">
+                    <AlertCircle className="w-3.5 h-3.5" /> This certificate has expired — upload a new one to keep your "Insurance Verified" badge.
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Portfolio Photos */}

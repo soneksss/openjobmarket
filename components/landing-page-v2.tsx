@@ -533,7 +533,7 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
 
       {/* ── Post-a-Job category picker ───────────────────────────────────────── */}
       {showCategoryPicker && (
-        <div className="fixed inset-0 flex flex-col bg-slate-950" style={{ zIndex: 60 }}>
+        <div className="fixed inset-0 flex flex-col bg-slate-950" style={{ zIndex: 9999 }}>
           <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800/80"
             style={{ paddingTop: "max(env(safe-area-inset-top,0px),12px)" }}>
             <div>
@@ -578,7 +578,7 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
 
       {/* ── Job Wizard ──────────────────────────────────────────────────────── */}
       {showWizard && (
-        <div className="fixed inset-0" style={{ zIndex: 60 }}>
+        <div className="fixed inset-0" style={{ zIndex: 9999 }}>
           <JobWizardModal
             companyProfile={null}
             userType="homeowner"

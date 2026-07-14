@@ -332,7 +332,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
           <PostJobCategorySelector onClose={() => setShowCategorySelector(false)} />
         )}
         {showWizard && (
-          <div className="fixed inset-0" style={{ zIndex: 60 }}>
+          <div className="fixed inset-0" style={{ zIndex: 9999 }}>
             <JobWizardModal
               guestMode={!user}
               companyProfile={homeownerProfile ?? null}

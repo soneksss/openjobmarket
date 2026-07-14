@@ -28,6 +28,8 @@ import {
   X,
   Eye,
   Trophy,
+  Star,
+  Facebook,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -50,6 +52,14 @@ function parseLang(raw: string): { name: string; flagUrl: string | null } {
     return { name: "", flagUrl: raw }
   }
   return { name: raw, flagUrl: getLanguageFlag(raw) }
+}
+
+// Insurance is "verified" only when a certificate is on file AND not expired —
+// never expose the document itself, only this computed status + the plain fields.
+function getInsuranceStatus(company: CompanyProfile): "verified" | "expired" | "none" {
+  if (!company.insurance_document_path) return "none"
+  if (!company.insurance_expiry_date) return "verified"
+  return new Date(company.insurance_expiry_date) >= new Date() ? "verified" : "expired"
 }
 
 interface CompanyProfile {
@@ -76,9 +86,14 @@ interface CompanyProfile {
   reviews_count?: number
   created_at: string
   business_type?: "limited_company" | "sole_trader" | null
-  insurance_document_url?: string | null
+  insurance_document_path?: string | null
   insurance_expiry_date?: string | null
+  insurance_provider?: string | null
+  insurance_policy_type?: string | null
+  insurance_cover_amount?: string | null
   founding_member?: boolean
+  google_maps_url?: string | null
+  facebook_url?: string | null
 }
 
 interface User {
@@ -112,6 +127,7 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
   const [fetchedPhotos, setFetchedPhotos] = useState<PortfolioPhoto[]>([])
   const [phoneRevealed, setPhoneRevealed] = useState(false)
   const [emailRevealed, setEmailRevealed] = useState(false)
+  const [showAllLanguages, setShowAllLanguages] = useState(false)
 
   // Self-fetch portfolio photos when used in modal (no prop passed from server)
   useEffect(() => {
@@ -375,9 +391,14 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             {company.business_type === "sole_trader" && (
               <span className="text-xs bg-slate-700/60 text-slate-300 border border-slate-600/50 px-2 py-0.5 rounded-full">Sole trader</span>
             )}
-            {company.insurance_document_url && (
+            {getInsuranceStatus(company) === "verified" && (
               <span className="inline-flex items-center gap-1 text-xs bg-emerald-800/50 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
-                ✓ Insured{company.insurance_expiry_date ? ` (exp ${new Date(company.insurance_expiry_date).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" })})` : ""}
+                🛡️ Insurance Verified
+              </span>
+            )}
+            {getInsuranceStatus(company) === "expired" && (
+              <span className="inline-flex items-center gap-1 text-xs bg-red-900/40 text-red-300 border border-red-800/50 px-2 py-0.5 rounded-full">
+                Insurance Expired
               </span>
             )}
             {company.founding_member && (
@@ -394,6 +415,28 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">About</p>
               <p className="text-sm text-slate-300 leading-relaxed">{company.description}</p>
+            </div>
+          )}
+
+          {getInsuranceStatus(company) !== "none" && (
+            <div className={`rounded-xl border p-3 ${
+              getInsuranceStatus(company) === "verified"
+                ? "bg-emerald-950/30 border-emerald-800/40"
+                : "bg-red-950/20 border-red-900/40"
+            }`}>
+              <p className={`text-xs font-semibold flex items-center gap-1.5 ${
+                getInsuranceStatus(company) === "verified" ? "text-emerald-400" : "text-red-400"
+              }`}>
+                🛡️ {getInsuranceStatus(company) === "verified" ? "Insurance Verified" : "Insurance Expired"}
+              </p>
+              <div className="mt-1.5 space-y-0.5 text-xs text-slate-400">
+                {company.insurance_provider && <p>Provider: <span className="text-slate-300">{company.insurance_provider}</span></p>}
+                {company.insurance_policy_type && <p>Policy: <span className="text-slate-300">{company.insurance_policy_type}</span></p>}
+                {company.insurance_cover_amount && <p>Cover: <span className="text-slate-300">{company.insurance_cover_amount}</span></p>}
+                {company.insurance_expiry_date && (
+                  <p>Valid until: <span className="text-slate-300">{new Date(company.insurance_expiry_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}</span></p>
+                )}
+              </div>
             </div>
           )}
 
@@ -414,8 +457,8 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
           {company.spoken_languages && company.spoken_languages.length > 0 && (
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1.5">Languages</p>
-              <div className="flex flex-wrap gap-1">
-                {company.spoken_languages.map((raw, i) => {
+              <div className="flex flex-wrap gap-1 items-center">
+                {(showAllLanguages ? company.spoken_languages : company.spoken_languages.slice(0, 5)).map((raw, i) => {
                   const { name, flagUrl } = parseLang(raw)
                   if (!name) return null
                   return (
@@ -425,6 +468,24 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                     </span>
                   )
                 })}
+                {!showAllLanguages && company.spoken_languages.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllLanguages(true)}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 px-2 py-0.5 rounded-md border border-slate-700 hover:border-indigo-500/50 transition-colors"
+                  >
+                    +{company.spoken_languages.length - 5} more
+                  </button>
+                )}
+                {showAllLanguages && company.spoken_languages.length > 5 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllLanguages(false)}
+                    className="text-xs text-slate-400 hover:text-slate-300 px-2 py-0.5 rounded-md border border-slate-700 hover:border-slate-500/50 transition-colors"
+                  >
+                    Show less
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -487,12 +548,24 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             </div>
           )}
 
-          {/* Website link */}
-          {company.website_url && (
+          {/* Trust indicators: Google, Website, Facebook */}
+          {(company.google_maps_url || company.website_url || company.facebook_url) && (
             <div className="flex flex-wrap gap-1.5">
-              <a href={company.website_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-blue-300 hover:text-blue-200 bg-slate-800 border border-slate-700 hover:border-blue-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
-                <Globe className="h-3 w-3" />Website
-              </a>
+              {company.google_maps_url && (
+                <a href={company.google_maps_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 bg-slate-800 border border-slate-700 hover:border-amber-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />View on Google
+                </a>
+              )}
+              {company.website_url && (
+                <a href={company.website_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-blue-300 hover:text-blue-200 bg-slate-800 border border-slate-700 hover:border-blue-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <Globe className="h-3 w-3" />Website
+                </a>
+              )}
+              {company.facebook_url && (
+                <a href={company.facebook_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs text-indigo-300 hover:text-indigo-200 bg-slate-800 border border-slate-700 hover:border-indigo-500/50 px-2.5 py-1.5 rounded-lg transition-colors">
+                  <Facebook className="h-3 w-3" />Facebook
+                </a>
+              )}
             </div>
           )}
 
@@ -606,9 +679,14 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 {company.business_type === "sole_trader" && (
                   <span className="text-xs bg-slate-700/60 text-slate-300 border border-slate-600/50 px-2 py-0.5 rounded-full">Sole trader</span>
                 )}
-                {company.insurance_document_url && (
+                {getInsuranceStatus(company) === "verified" && (
                   <span className="inline-flex items-center gap-1 text-xs bg-emerald-800/50 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
-                    ✓ Insured{company.insurance_expiry_date ? ` (exp ${new Date(company.insurance_expiry_date).toLocaleDateString("en-GB", { month: "2-digit", year: "numeric" })})` : ""}
+                    🛡️ Insurance Verified
+                  </span>
+                )}
+                {getInsuranceStatus(company) === "expired" && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-red-900/40 text-red-300 border border-red-800/50 px-2 py-0.5 rounded-full">
+                    Insurance Expired
                   </span>
                 )}
                 {company.founding_member && (
@@ -719,6 +797,22 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                     </a>
                   </div>
                 )}
+                {company.google_maps_url && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 flex-shrink-0" />
+                    <a href={company.google_maps_url} target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 transition-colors truncate">
+                      View on Google
+                    </a>
+                  </div>
+                )}
+                {company.facebook_url && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Facebook className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                    <a href={company.facebook_url} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 transition-colors truncate">
+                      Visit Facebook
+                    </a>
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-sm text-slate-400">
                   <Calendar className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
                   Member since {new Date(company.created_at).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
@@ -775,6 +869,35 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
               <section className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
                 <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">About</h2>
                 <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{company.description}</p>
+              </section>
+            )}
+
+            {/* Insurance */}
+            {getInsuranceStatus(company) !== "none" && (
+              <section className={`rounded-2xl border p-5 ${
+                getInsuranceStatus(company) === "verified"
+                  ? "bg-emerald-950/30 border-emerald-800/40"
+                  : "bg-red-950/20 border-red-900/40"
+              }`}>
+                <h2 className={`text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-1.5 ${
+                  getInsuranceStatus(company) === "verified" ? "text-emerald-400" : "text-red-400"
+                }`}>
+                  🛡️ {getInsuranceStatus(company) === "verified" ? "Insurance Verified" : "Insurance Expired"}
+                </h2>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {company.insurance_provider && (
+                    <div><p className="text-[10px] text-slate-500 uppercase tracking-wide">Provider</p><p className="text-slate-200">{company.insurance_provider}</p></div>
+                  )}
+                  {company.insurance_policy_type && (
+                    <div><p className="text-[10px] text-slate-500 uppercase tracking-wide">Policy Type</p><p className="text-slate-200">{company.insurance_policy_type}</p></div>
+                  )}
+                  {company.insurance_cover_amount && (
+                    <div><p className="text-[10px] text-slate-500 uppercase tracking-wide">Cover Amount</p><p className="text-slate-200">{company.insurance_cover_amount}</p></div>
+                  )}
+                  {company.insurance_expiry_date && (
+                    <div><p className="text-[10px] text-slate-500 uppercase tracking-wide">Valid Until</p><p className="text-slate-200">{new Date(company.insurance_expiry_date).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })}</p></div>
+                  )}
+                </div>
               </section>
             )}
 
@@ -934,6 +1057,29 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                     className="text-emerald-400 hover:text-emerald-300 transition-colors truncate"
                   >
                     Visit Website
+                  </a>
+                </div>
+              )}
+
+              {company.google_maps_url && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400 flex-shrink-0" />
+                  <a href={company.google_maps_url} target="_blank" rel="noopener noreferrer" className="text-amber-300 hover:text-amber-200 transition-colors truncate">
+                    View on Google
+                  </a>
+                </div>
+              )}
+
+              {company.facebook_url && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Facebook className="h-3.5 w-3.5 text-slate-500 flex-shrink-0" />
+                  <a
+                    href={company.facebook_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-emerald-400 hover:text-emerald-300 transition-colors truncate"
+                  >
+                    Visit Facebook
                   </a>
                 </div>
               )}
