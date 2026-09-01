@@ -13,7 +13,6 @@ import { getAdminSettings } from "@/lib/bootstrap"
 import { cookies } from "next/headers"
 import { type Locale } from "@/lib/i18n/config"
 import CapacitorInitWrapper from "@/components/capacitor-init-wrapper"
-import { TradesLocationSync } from "@/components/trades-location-sync"
 import { IOSInstallBanner } from "@/components/ios-install-banner"
 
 export const metadata: Metadata = {
@@ -228,8 +227,6 @@ export default async function RootLayout({
         </FeatureFlagsProvider>
         {/* OTA updater + notifyAppReady — no-op outside Capacitor native context */}
         <CapacitorInitWrapper />
-        {/* Silently sync tradesperson lat/lng on every page load (web) */}
-        <TradesLocationSync />
         {/* iOS Safari "Add to Home Screen" install prompt */}
         <IOSInstallBanner />
       </body>

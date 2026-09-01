@@ -98,6 +98,23 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; subscription.unsubscribe() }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Local expiry guard — flip `enabled` off in memory the moment the fixed
+  // daily reset time passes, without waiting for a refresh or the cron. This is
+  // what stops live-location GPS sharing (components/trades-live-location.tsx)
+  // at 9:00 AM. The DB write is owned by the expire-availability cron.
+  useEffect(() => {
+    if (!enabled || !expiresAt) return
+    const check = () => {
+      if (new Date(expiresAt).getTime() <= Date.now()) {
+        setEnabled(false)
+        setExpiresAt(null)
+      }
+    }
+    check()
+    const id = setInterval(check, 30_000)
+    return () => clearInterval(id)
+  }, [enabled, expiresAt])
+
   const toggle = useCallback(async (next: boolean) => {
     if (!profileId) return
     setSaving(true)

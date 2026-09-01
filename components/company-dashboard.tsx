@@ -38,7 +38,6 @@ import {
   Camera,
   Clock,
   AlertTriangle,
-  BellOff,
   Globe,
   Star,
   Info,
@@ -66,6 +65,7 @@ import { createClient } from "@/lib/client"
 import { manualLogout } from "@/hooks/use-auto-logout"
 import pica from "pica"
 import JobExpirationAlerts from "./job-expiration-alerts"
+import { JobAlertHealthBanner } from "@/components/job-alert-health-banner"
 import { AdminButton } from "@/components/admin-button"
 import { StarRating } from "@/components/star-rating"
 import { useToast } from "@/hooks/use-toast"
@@ -259,27 +259,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   // New state for success signals
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0)
   const [profileViewsWeekly, setProfileViewsWeekly] = useState(0)
-
-  // Job-alert health: does this tradesperson have a registered push device?
-  // null = still checking (don't nag yet).
-  const [pushDeviceCount, setPushDeviceCount] = useState<number | null>(null)
-  useEffect(() => {
-    Promise.resolve(
-      supabase.from("user_push_tokens").select("id", { count: "exact", head: true }).eq("user_id", user.id)
-    )
-      .then(({ count }: any) => setPushDeviceCount(count ?? 0))
-      .catch(() => setPushDeviceCount(null))
-  }, [user.id])
-
-  const hasLocation = profile.latitude != null && profile.longitude != null
-  const jobAlertWarnings: { icon: any; text: string; href: string }[] = [
-    ...(!hasLocation
-      ? [{ icon: MapPin, text: "Add your work location so nearby jobs reach you", href: "/company/profile/edit" }]
-      : []),
-    ...(pushDeviceCount === 0
-      ? [{ icon: BellOff, text: "Turn on notifications to get job alerts on this device", href: "/account/settings" }]
-      : []),
-  ]
 
   // ── Job-confirmation offer (state machine) ─────────────────
   // Shown as a full-screen modal when a homeowner confirms this
@@ -1134,29 +1113,9 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const historyMyJobs = myJobs.filter(j => j.status === "COMPLETED")
   const displayedMyJobs = myJobsTab === "active" ? activeMyJobs : historyMyJobs
 
-  const jobAlertBanner = jobAlertWarnings.length > 0 ? (
-    <div className="bg-amber-500/15 border-y border-amber-500/30">
-      <div className="container mx-auto px-3 sm:px-4 md:px-6 py-2">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-300 flex-shrink-0">
-            <AlertTriangle className="h-3.5 w-3.5" /> You may be missing job alerts
-          </span>
-          {jobAlertWarnings.map((w, i) => {
-            const Icon = w.icon
-            return (
-              <Link
-                key={i}
-                href={w.href}
-                className="flex items-center gap-1 text-xs text-amber-200/90 hover:text-white underline underline-offset-2"
-              >
-                <Icon className="h-3.5 w-3.5 flex-shrink-0" /> {w.text}
-              </Link>
-            )
-          })}
-        </div>
-      </div>
-    </div>
-  ) : null
+  const jobAlertBanner = (
+    <JobAlertHealthBanner hasLocation={profile.latitude != null && profile.longitude != null} />
+  )
 
   return (
     <>

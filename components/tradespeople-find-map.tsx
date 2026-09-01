@@ -216,6 +216,7 @@ type Trader = {
   rating: number | null; reviews_count: number | null; user_id: string | null
   profile_type: string; services: string[] | null
   open_for_business?: boolean; service_24_7?: boolean
+  is_live?: boolean
   claim_token?: string | null
   phone_number?: string | null
   normalised_categories?: string[] | null
@@ -398,8 +399,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   // Keep filtersRef in sync so the debounced viewport callback always has current filters
   useEffect(() => { filtersRef.current = filters }, [filters])
 
-  const fetchByViewport = useCallback(async (bounds: BBox, f: Filters) => {
-    setLoading(true)
+  const fetchByViewport = useCallback(async (bounds: BBox, f: Filters, silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const params = new URLSearchParams({
         north: bounds.north.toFixed(6), south: bounds.south.toFixed(6),
@@ -425,8 +426,19 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       setTraders(results)
     } catch {
       // silent — map stays with last good data
-    } finally { setLoading(false) }
+    } finally { if (!silent) setLoading(false) }
   }, [])
+
+  // Poll the current viewport every ~20s so "Available now" green vans move as
+  // their live GPS updates. Silent — no loading spinner, keeps last data on error.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (currentBoundsRef.current) {
+        fetchByViewport(currentBoundsRef.current, filtersRef.current, true)
+      }
+    }, 20_000)
+    return () => clearInterval(id)
+  }, [fetchByViewport])
 
   const onBoundsChange = useCallback((bounds: BBox) => {
     currentBoundsRef.current = bounds

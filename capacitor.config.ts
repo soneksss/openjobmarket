@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli"
+import { KeyboardResize } from "@capacitor/keyboard"
 
 const config: CapacitorConfig = {
   appId: "com.openjobmarket.app",
@@ -26,6 +27,13 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: "DARK",
       backgroundColor: "#0f172a",
+    },
+    Keyboard: {
+      // WebView resizes to sit above the keyboard (so focused inputs scroll into
+      // view). capacitor-init.tsx additionally hides the bottom nav on
+      // keyboardWillShow so it doesn't ride up over the keyboard.
+      resize: KeyboardResize.Native,
+      resizeOnFullScreen: true,
     },
     // Capgo OTA updater — pushes native-shell updates without app store review.
     // The web app updates automatically via server.url (no OTA needed for UI).

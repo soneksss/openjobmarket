@@ -393,7 +393,7 @@ interface NavItem {
 
 function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavItem[], unreadMessages: number, unreadNotifications: number }) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900 border-t border-slate-700 pb-safe pl-safe pr-safe">
+    <nav data-bottom-nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-slate-900 border-t border-slate-700 pb-safe pl-safe pr-safe">
       <div className="flex justify-around items-center h-14 px-1">
         {items.map((item) => {
           const Icon = item.icon

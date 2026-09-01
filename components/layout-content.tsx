@@ -19,6 +19,7 @@ import { AvailableNowProvider } from "@/contexts/available-now-context"
 import { ActiveSearchBar } from "@/components/active-search-bar"
 import { UrgentJobNotifier, HomeownerJobNotifier } from "@/components/urgent-job-notifier"
 import { PushSubscriptionManager } from "@/components/push-subscription-manager"
+import { TradesLiveLocation } from "@/components/trades-live-location"
 import { NativePushManager } from "@/components/native-push-manager"
 import { PresenceTracker } from "@/components/presence-tracker"
 import { PageTransition } from "@/components/page-transition"
@@ -38,6 +39,9 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const isAdminRoute = pathname?.startsWith("/admin")
+  // Auth screens are a focused, full-screen flow — no site header / footer /
+  // bottom nav (the bottom nav was riding up over the on-screen keyboard).
+  const isAuthRoute = pathname?.startsWith("/auth")
   const isHomePage = pathname === "/" || pathname === "/br" || pathname === "/home"
   const isDashboardPage = pathname?.startsWith("/dashboard")
   const isJobPostingPage = pathname?.includes("/jobs/new") || pathname?.includes("/post-job")
@@ -98,7 +102,7 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
     })
   }, [])
 
-  if (isAdminRoute) {
+  if (isAdminRoute || isAuthRoute) {
     return (
       <I18nProvider initialLocale={locale}>
         <LanguageRegionProvider initialState={getInitialLanguageRegionState()}>
@@ -134,6 +138,8 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
             <UrgentJobNotifier userId={user.id} />
             {/* Web Push — works in browsers and PWAs */}
             <PushSubscriptionManager />
+            {/* Live GPS while "Available now" is ON — see contexts/available-now-context */}
+            <TradesLiveLocation />
           </>
         )}
         {/* Native push (FCM/APNs) — no-op in browsers, registers in Capacitor apps */}

@@ -3,7 +3,6 @@
 import { useEffect, startTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { Capacitor } from '@capacitor/core'
-import { syncLocation } from '@/hooks/use-trades-location-sync'
 
 /**
  * CapacitorInit — native-shell initialisation, runs client-side only.
@@ -14,7 +13,6 @@ import { syncLocation } from '@/hooks/use-trades-location-sync'
  *   isAppActive     — false while backgrounded; blocks all bridge calls
  *   isTransitioning — true for 500ms after every background↔foreground switch
  *   lastStateChange — debounces rapid appStateChange toggles (<500ms apart)
- *   locationSynced  — geolocation requested at most once per cold start
  *   pendingNavPath  — tap path that arrived mid-transition; replayed once stable
  *   navigateTo      — router.replace reference, always kept current
  *
@@ -26,7 +24,6 @@ import { syncLocation } from '@/hooks/use-trades-location-sync'
 let appInitialized          = false
 let isAppActive             = true   // app always starts in foreground
 let isTransitioning         = false  // blocks bridge calls during lifecycle switch
-let locationSynced          = false  // geolocation requested at most once per session
 let lastStateChange         = 0      // timestamp of last appStateChange event
 let transitionTimer:          ReturnType<typeof setTimeout> | null = null
 let pendingNavPath:           string | null = null  // tap received during transition
@@ -167,13 +164,7 @@ export function CapacitorInit() {
         // ── 1. Mark bundle healthy — once on cold start, never repeated ──────────
         await CapacitorUpdater.notifyAppReady()
 
-        // ── 2. Location sync — once per cold start, never on resume ──────────────
-        if (!locationSynced) {
-          locationSynced = true
-          syncLocation()
-        }
-
-        // ── 3. Lifecycle tracking — debounced, no React state changes ────────────
+        // ── 2. Lifecycle tracking — debounced, no React state changes ────────────
         // On foreground restore: refresh session (token may have expired while backgrounded)
         // and reconnect Supabase Realtime (WebSocket closes after ~60s in background).
         const appHandle = await App.addListener('appStateChange', async ({ isActive }) => {
@@ -193,7 +184,7 @@ export function CapacitorInit() {
         })
         cleanupFns.push(() => appHandle.remove())
 
-        // ── 4. Notification tap — guarded, queued if mid-transition ──────────────
+        // ── 3. Notification tap — guarded, queued if mid-transition ──────────────
         // Single source of truth for push navigation — no other listeners exist.
         const pushHandle = await PushNotifications.addListener(
           'pushNotificationActionPerformed',
@@ -201,7 +192,23 @@ export function CapacitorInit() {
         )
         cleanupFns.push(() => pushHandle.remove())
 
-        // ── 5. Push registration — all platforms, delayed, permission-gated ────
+        // ── 3b. Keyboard — hide the fixed bottom nav while typing ───────────────
+        // Without this the WebView's adjustResize pushes the `position:fixed`
+        // bottom nav up over the keyboard. CSS: html.keyboard-open [data-bottom-nav].
+        try {
+          const { Keyboard } = await import('@capacitor/keyboard')
+          const kbShow = await Keyboard.addListener('keyboardWillShow', () => {
+            document.documentElement.classList.add('keyboard-open')
+          })
+          const kbHide = await Keyboard.addListener('keyboardWillHide', () => {
+            document.documentElement.classList.remove('keyboard-open')
+          })
+          cleanupFns.push(() => { kbShow.remove(); kbHide.remove() })
+        } catch {
+          // Plugin not present (older bundle) — nav just behaves as before
+        }
+
+        // ── 4. Push registration — all platforms, delayed, permission-gated ────
         // Android 13+ (API 33+): must call requestPermissions() before register().
         // On older APIs and iOS, requestPermissions() resolves immediately.
         // Delay 3 s and verify an active session first — avoids the permission
@@ -240,7 +247,7 @@ export function CapacitorInit() {
             // Channel creation is best-effort; older Capacitor versions may lack createChannel
           }
 
-          // ── 6. Swipe-back gesture — left-edge swipe triggers history.back() ─────
+          // ── 5. Swipe-back gesture — left-edge swipe triggers history.back() ─────
           // Guards against accidental triggers:
           //   - velocity > 0.3 px/ms  (slow drag ignored)
           //   - elapsed  < 600ms      (very slow press-and-drag ignored)

@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Zap, Info, X } from "lucide-react"
+import { Zap, Info, X, MapPin } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { useAvailableNow } from "@/contexts/available-now-context"
 
@@ -77,7 +77,8 @@ export function AvailableNowToggle({ className = "" }: { className?: string }) {
             </button>
             <p className="text-xs font-bold text-white pr-4">Available now</p>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
-              Turn this on to receive urgent job alerts and appear as available on the map.
+              Turn this on to show you're available for work and share your live location — you'll
+              appear as a green van at your current spot on the map and get nearby urgent job alerts.
             </p>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
               It automatically resets to <span className="text-slate-300 font-medium">Busy at 9:00 AM the next day</span> —
@@ -88,6 +89,11 @@ export function AvailableNowToggle({ className = "" }: { className?: string }) {
         )}
       </div>
 
+      {enabled && (
+        <span className="text-[10px] text-emerald-400 whitespace-nowrap flex items-center gap-1">
+          <MapPin className="w-2.5 h-2.5" /> Live location active
+        </span>
+      )}
       {countdownLabel && (
         <span className="text-[10px] text-slate-500 whitespace-nowrap">Resets in {countdownLabel}</span>
       )}

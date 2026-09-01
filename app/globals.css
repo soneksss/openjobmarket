@@ -77,6 +77,13 @@ body {
   padding: 0;
   zoom: 1;
   transform: none !important;
+  background: #0f172a; /* slate-900 — stops white showing when the WebView resizes for the keyboard */
+}
+
+/* Native keyboard open (set by capacitor-init.tsx): hide the fixed bottom nav so
+   it doesn't ride up over the keyboard. */
+html.keyboard-open [data-bottom-nav] {
+  display: none !important;
 }
 
 :root {
