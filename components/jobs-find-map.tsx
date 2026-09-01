@@ -210,6 +210,9 @@ type Props = {
   initialCoords: [number, number]
   initialPostcode?: string
   initialIndustry?: string
+  /** The tradesperson's full industry list — used as the default filter so a
+   *  multi-trade user sees jobs from ALL their industries, not just the primary. */
+  initialIndustries?: string[]
   animateZoom?: boolean
   coordsAreDefault?: boolean
 }
@@ -234,9 +237,17 @@ function timeAgo(iso: string) {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, animateZoom, coordsAreDefault }: Props) {
+export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, initialIndustries, animateZoom, coordsAreDefault }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+
+  // The tradesperson's own industries — the default match set. Sent to /api/jobs
+  // as `industries=` whenever the user hasn't picked an explicit single-industry
+  // filter and hasn't taken manual control of the filter panel.
+  const profileIndustries = useRef<string[]>(
+    (initialIndustries ?? []).map((s) => s.trim()).filter(Boolean),
+  )
+  const manualFilter = useRef(false)
 
   const [jobs,            setJobs]            = useState<Job[]>(initialJobs)
   // SSR-safe on first render (must match the server exactly); sessionStorage-saved
@@ -276,6 +287,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     if (initialIndustry) return // URL-provided industry already wins
     const saved = loadSavedFilters(initialIndustry)
     if (saved.industry || saved.budget || saved.urgency) {
+      manualFilter.current = true // a saved filter set means the user chose one before
       setFilters(saved)
       setDraftFilters(saved)
       filtersRef.current = saved
@@ -288,7 +300,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     const style = document.createElement("style")
     style.id = "find-jobs-zoom-offset"
     const isLg = window.matchMedia(WIDE_LAYOUT_QUERY).matches
-    style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + ${isLg ? "116px" : "86px"}); }`
+    style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + ${isLg ? "116px" : "86px"}); }`
     if (!document.getElementById("find-jobs-zoom-offset")) document.head.appendChild(style)
     return () => { document.getElementById("find-jobs-zoom-offset")?.remove() }
   }, [])
@@ -296,7 +308,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   // Keep the zoom-control offset in sync when rotating the phone, not just on mount.
   useEffect(() => {
     const style = document.getElementById("find-jobs-zoom-offset")
-    if (style) style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + ${isDesktop ? "116px" : "86px"}); }`
+    if (style) style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + ${isDesktop ? "116px" : "86px"}); }`
   }, [isDesktop])
 
   // Auto-request geolocation on first load when no explicit location was supplied
@@ -333,7 +345,11 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
           north: String(b.north), south: String(b.south),
           east:  String(b.east),  west:  String(b.west),
         })
-        if (ff.industry) params.set("industry", ff.industry)
+        if (ff.industry) {
+          params.set("industry", ff.industry)
+        } else if (!manualFilter.current && profileIndustries.current.length > 0) {
+          params.set("industries", profileIndustries.current.join(","))
+        }
         if (ff.urgency)  params.set("urgency",  ff.urgency)
         if (ff.budget)   params.set("budget",   ff.budget)
         const res = await fetch(`/api/jobs?${params}`)
@@ -347,6 +363,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   }, [fetchByViewport])
 
   const applyFilters = async () => {
+    manualFilter.current = true // user has taken control of the filter panel
     let didGeocode = false
     const q = postcodeInput.trim()
     if (q) {
@@ -410,6 +427,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
       .finally(() => setLocating(false))
   }, [toast])
   const clearFilters = () => {
+    manualFilter.current = true // "clear" means show everything, not just my industries
     const r = { ...DEFAULT_FILTERS }
     setDraftFilters(r); setFilters(r); filtersRef.current = r; setShowFilters(false)
     fetchByViewport(currentBoundsRef.current, r)
@@ -465,11 +483,17 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   // header-row content height on top of it.
   const HEADER = isDesktop ? "calc(var(--global-header-h, 0px) + 96px)" : "calc(var(--global-header-h, 0px) + 66px)"
 
+  // The mobile bottom nav is h-14 (56px) plus its own safe-area padding, so the
+  // sheet must clear 56px + env(safe-area-inset-bottom) — otherwise the action
+  // buttons at the bottom of the detail panel sit behind the nav with nothing
+  // left to scroll.
+  const NAV_OFFSET = "calc(56px + env(safe-area-inset-bottom, 0px))"
+
   const mobileSheetStyle: React.CSSProperties =
-    sheetHeightPx !== null    ? { bottom: "56px", left: 0, right: 0, height: `${sheetHeightPx}px` } :
-    sheetState === "expanded" ? { top: HEADER, bottom: "56px", left: 0, right: 0 } :
-    sheetState === "peek"     ? { bottom: "56px", left: 0, right: 0, height: "38vh" } :
-                                { bottom: "56px", left: 0, right: 0, height: "160px" }
+    sheetHeightPx !== null    ? { bottom: NAV_OFFSET, left: 0, right: 0, height: `${sheetHeightPx}px` } :
+    sheetState === "expanded" ? { top: HEADER, bottom: NAV_OFFSET, left: 0, right: 0 } :
+    sheetState === "peek"     ? { bottom: NAV_OFFSET, left: 0, right: 0, height: "38vh" } :
+                                { bottom: NAV_OFFSET, left: 0, right: 0, height: "160px" }
 
   const jobPhotos = selectedJob?.job_photo_url ? [{ id: selectedJob.id, photo_url: selectedJob.job_photo_url }] : []
 
@@ -756,10 +780,11 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
         </Link>
 
         {/* Header — absolute within map column, centered on desktop.
-            The global site header now sits above this whole container (via
-            --global-header-h), so this just needs a small local gap. */}
+            The global site header is hidden on mobile (bottom nav is enough), so
+            this floating header owns the status-bar clearance there; on desktop
+            --global-header-h offsets the container and safe-area-inset-top is 0. */}
         <div ref={headerRef} className="absolute top-0 left-0 right-0 flex flex-col gap-1.5 px-3 py-2"
-          style={{ zIndex: 20, paddingTop: "10px" }}>
+          style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top, 0px), 10px)" }}>
           {/* Tab switcher — same footprint as the search bar below it */}
           <div className="flex self-center w-full lg:w-80 bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
             <button

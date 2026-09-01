@@ -3,6 +3,7 @@ import { createClient } from "@/lib/server"
 import Link from "next/link"
 import { MapPin, Zap, MessageSquare, Star, Wrench, Home, Map } from "lucide-react"
 import BrowseTradespeopleButton from "@/components/browse-tradespeople-button"
+import { LocalImpactSection } from "@/components/local-impact-section"
 
 export const dynamic = "force-dynamic"
 
@@ -25,7 +26,7 @@ export default async function AboutPage() {
         {/* ── Hero ──────────────────────────────────────────────────────── */}
         <section className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
           <h1 className="text-2xl font-bold text-white mb-4">About Open Job Market</h1>
-          <div className="space-y-3 text-sm text-slate-400 leading-relaxed">
+          <div className="space-y-3 text-sm text-slate-300 leading-relaxed">
             <p>
               Open Job Market helps people find nearby tradespeople quickly — without lead selling, spam calls, or waiting days for replies.
             </p>
@@ -82,7 +83,7 @@ export default async function AboutPage() {
           </div>
 
           <div className="bg-slate-800/50 border border-emerald-500/25 rounded-2xl p-5 flex flex-col justify-between">
-            <p className="text-sm text-slate-400 leading-relaxed italic">
+            <p className="text-sm text-slate-300 leading-relaxed italic">
               "Think Uber for urgent jobs, Google Maps for local tradespeople, and Airbnb-style applications for larger projects."
             </p>
             <div className="mt-4 grid grid-cols-3 gap-2">
@@ -94,7 +95,7 @@ export default async function AboutPage() {
                 <div key={label} className="bg-slate-700/40 rounded-xl p-2.5 text-center">
                   <Icon className="h-4 w-4 text-emerald-400 mx-auto mb-1" />
                   <p className="text-xs font-semibold text-white leading-tight">{label}</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">{sub}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>
                 </div>
               ))}
             </div>
@@ -103,18 +104,18 @@ export default async function AboutPage() {
 
         {/* ── Why different ─────────────────────────────────────────────── */}
         <section>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-1 mb-3">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest px-1 mb-3">
             Why it's different
           </p>
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5 space-y-4">
             <p className="text-sm text-slate-300 leading-relaxed">
               Most trade platforms are built around selling leads. Open Job Market is built around helping people find the right tradesperson as quickly as possible.
             </p>
-            <p className="text-sm text-slate-400 leading-relaxed">
+            <p className="text-sm text-slate-300 leading-relaxed">
               Instead of sending your job to dozens of companies and waiting for callbacks, you can immediately see who works nearby and who is currently available for urgent jobs.
             </p>
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">That means</p>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-3">That means</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {[
                   { icon: Zap,           text: "Faster responses" },
@@ -135,11 +136,11 @@ export default async function AboutPage() {
 
         {/* ── Built for local work ──────────────────────────────────────── */}
         <section>
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-1 mb-3">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest px-1 mb-3">
             Built for local work
           </p>
           <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-5">
-            <p className="text-sm text-slate-400 mb-4">Whether it's:</p>
+            <p className="text-sm text-slate-300 mb-4">Whether it's:</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-4">
               {[
                 { icon: Zap,     label: "Urgent leak" },
@@ -161,10 +162,13 @@ export default async function AboutPage() {
           </div>
         </section>
 
+        {/* ── Local impact — "Good to know" ─────────────────────────────── */}
+        <LocalImpactSection variant="homeowner" embedded />
+
         {/* ── Final CTA ─────────────────────────────────────────────────── */}
         <section className="bg-slate-800/50 border border-emerald-700/25 rounded-2xl p-6 text-center">
           <p className="text-lg font-bold text-white mb-1">Completely free to use.</p>
-          <p className="text-sm text-slate-400 mb-5">Find the right tradesperson without the hassle.</p>
+          <p className="text-sm text-slate-300 mb-5">Find the right tradesperson without the hassle.</p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {isSignedIn ? (
               <>

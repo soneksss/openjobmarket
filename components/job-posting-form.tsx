@@ -20,7 +20,7 @@ import { ProfessionalMap } from "@/components/professional-map"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createClient } from "@/lib/client"
 import { useToast } from "@/hooks/use-toast"
-import imageCompression from "browser-image-compression"
+import { compressImage, MAX_IMAGE_UPLOAD_BYTES } from "@/lib/compress-image"
 
 interface CompanyProfile {
   id: string
@@ -149,11 +149,11 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Reject anything over 10MB (before compression)
-    if (file.size > 10 * 1024 * 1024) {
+    // Reject oversized files before we try to decode them (Android memory guard)
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
       toast({
         title: "⚠️ File Too Large",
-        description: "Photo must be under 10MB",
+        description: "Photo must be under 20MB",
         variant: "destructive",
       })
       return
@@ -171,11 +171,10 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
     const { dismiss } = toast({ title: "Optimising photo…", description: "Just a moment." })
 
     try {
-      const processedFile = await imageCompression(file, {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1600,
-        useWebWorker: true,
-        fileType: "image/webp",
+      const { file: processedFile } = await compressImage(file, {
+        maxDimension: 1600,
+        quality: 0.82,
+        fileName: file.name,
       })
 
       dismiss()
@@ -183,12 +182,12 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
       setJobPhoto(processedFile)
       setJobPhotoUrl(previewUrl)
       setPhotoChanged(true)
-    } catch (error) {
+    } catch (error: any) {
       dismiss()
       console.error("[Job Edit] Error processing image:", error)
       toast({
         title: "❌ Image Processing Failed",
-        description: "Failed to process image. Please try another photo.",
+        description: error?.message ?? "Failed to process image. Please try another photo.",
         variant: "destructive",
       })
     }
@@ -224,17 +223,17 @@ export default function JobPostingForm({ companyProfile, existingJob }: JobPosti
             return
           }
 
-          // Always use .jpg extension since we convert all images to JPEG
-          // Use folder structure to match RLS policy: {userId}/filename.jpg
-          const fileName = `${user.id}/${Date.now()}.jpg`
+          // Images are compressed to WebP client-side (see lib/compress-image).
+          // Folder structure {userId}/... matches the storage RLS policy.
+          const fileName = `${user.id}/${Date.now()}.webp`
 
           setUploadingPhoto(true)
           const { error: uploadError } = await supabase.storage
             .from('job-photos')
             .upload(fileName, jobPhoto, {
-              cacheControl: '3600',
+              cacheControl: '31536000',
               upsert: false,
-              contentType: 'image/jpeg'
+              contentType: 'image/webp'
             })
           setUploadingPhoto(false)
 

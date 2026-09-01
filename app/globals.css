@@ -80,6 +80,9 @@ body {
 }
 
 :root {
+  /* Dark-only UI — opt out of WebView/OS "Force Dark" so it doesn't invert
+     images (e.g. the grey van map markers rendering white on MIUI). */
+  color-scheme: dark;
   --background: #ffffff;
   --foreground: #0f172a;
   --card: #ffffff;

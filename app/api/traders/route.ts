@@ -58,9 +58,16 @@ export async function GET(req: NextRequest) {
     sq = sq.or(`normalised_categories.cs.{"${term}"},trade_category.ilike.%${term}%`)
   }
 
-  const [{ data: companies }, { data: seeded }] = await Promise.all([cq, sq])
+  const [{ data: companies }, { data: seeded }, { data: adminRows }] = await Promise.all([
+    cq,
+    sq,
+    admin.from("admin_users").select("user_id"),
+  ])
 
-  const companyRows = (companies ?? []).map(c => ({
+  // Admins are never shown on the public map, regardless of their profile settings.
+  const adminUserIds = new Set((adminRows ?? []).map((r: { user_id: string }) => r.user_id))
+
+  const companyRows = (companies ?? []).filter(c => !adminUserIds.has(c.user_id)).map(c => ({
     id:               c.id,
     profile_type:     "company" as const,
     name:             c.company_name,

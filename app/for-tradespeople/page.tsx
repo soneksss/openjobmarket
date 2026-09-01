@@ -7,6 +7,7 @@ import {
   CheckCircle, Zap, Search, Send, MapPin, ArrowRight, Loader2, X, Check, Rocket,
   Smartphone, Users, Copy, Share2, Clock,
 } from "lucide-react"
+import { LocalImpactSection } from "@/components/local-impact-section"
 
 interface MembershipPlan {
   id: string
@@ -277,7 +278,7 @@ export default function ForTradespeoplePageWrapper() {
             Why Tradespeople Choose{" "}
             <span className="text-orange-400 whitespace-nowrap">Open Job Market</span>
           </h2>
-          <p className="text-slate-400 text-sm text-center max-w-lg mx-auto mb-6 leading-relaxed">
+          <p className="text-slate-300 text-sm text-center max-w-lg mx-auto mb-6 leading-relaxed">
             A local marketplace built around membership instead of paying for every lead — no bidding wars, no
             middlemen, no unwanted sales calls.
           </p>
@@ -285,7 +286,7 @@ export default function ForTradespeoplePageWrapper() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-700/50">
-                  <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-bold text-slate-400 bg-slate-800/60">Traditional Lead Platforms</th>
+                  <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-bold text-slate-300 bg-slate-800/60">Traditional Lead Platforms</th>
                   <th className="text-left px-3 sm:px-4 py-2.5 text-xs font-bold text-orange-400 bg-orange-950/20">Open Job Market</th>
                 </tr>
               </thead>
@@ -293,7 +294,7 @@ export default function ForTradespeoplePageWrapper() {
                 {COMPARISON_ROWS.map((row, i) => (
                   <tr key={row.them} className={i > 0 ? "border-t border-slate-800/60" : ""}>
                     <td className="px-3 sm:px-4 py-2.5 bg-slate-800/30">
-                      <span className="flex items-start gap-1.5 text-slate-400 text-xs sm:text-sm leading-snug">
+                      <span className="flex items-start gap-1.5 text-slate-300 text-xs sm:text-sm leading-snug">
                         <X className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
                         {row.them}
                       </span>
@@ -341,10 +342,10 @@ export default function ForTradespeoplePageWrapper() {
 
               {/* Planned memberships */}
               <div className="pt-5 border-t border-slate-700/50">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-400 mb-3">Planned Memberships</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-slate-300 mb-3">Planned Memberships</p>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div className="rounded-xl bg-slate-900/50 border border-slate-700/50 p-3 min-w-0">
-                    <p className="text-xs text-slate-400 mb-0.5">Passive Membership</p>
+                    <p className="text-xs text-slate-300 mb-0.5">Passive Membership</p>
                     <p className="text-sm sm:text-base font-bold text-white leading-tight break-words">{passivePlan ? formatAroundPrice(passivePlan.price_pence) : "Around £10/month"}</p>
                   </div>
                   <div className="rounded-xl bg-orange-950/20 border border-orange-500/30 p-3 min-w-0">
@@ -352,7 +353,7 @@ export default function ForTradespeoplePageWrapper() {
                     <p className="text-sm sm:text-base font-bold text-white leading-tight break-words">{activePlan ? formatAroundPrice(activePlan.price_pence) : "Around £20/month"}</p>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-500 leading-relaxed">
+                <p className="text-[11px] text-slate-400 leading-relaxed">
                   Our goal is to keep memberships affordable and predictable. Existing members will always receive
                   plenty of advance notice before memberships begin.
                 </p>
@@ -397,7 +398,7 @@ export default function ForTradespeoplePageWrapper() {
                   </span>
                   <div>
                     <p className="text-sm font-bold text-white leading-tight">{item.label}</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">{item.sub}</p>
+                    <p className="text-[11px] text-slate-300 mt-0.5 leading-tight">{item.sub}</p>
                   </div>
                 </div>
                 {item.mockup}
@@ -407,11 +408,14 @@ export default function ForTradespeoplePageWrapper() {
         </div>
       </section>
 
+      {/* ── Local impact — "Good to know" ──────────────────────────────── */}
+      <LocalImpactSection variant="tradesperson" />
+
       {/* ── You Stay in Control ─────────────────────────────────────────── */}
       <section className="py-10 border-t border-slate-800/60 px-4">
         <div className="container mx-auto max-w-2xl">
           <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-2">You Stay in Control</h2>
-          <p className="text-slate-400 text-sm text-center mb-6">
+          <p className="text-slate-300 text-sm text-center mb-6">
             Nothing here commits you to work you haven&apos;t seen.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -435,7 +439,7 @@ export default function ForTradespeoplePageWrapper() {
                 <ArrowRight className="w-4 h-4 text-orange-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-white font-semibold text-sm leading-tight">{item.headline}</p>
-                  <p className="text-slate-400 text-xs mt-1">{item.sub}</p>
+                  <p className="text-slate-300 text-xs mt-1">{item.sub}</p>
                 </div>
               </div>
             ))}
@@ -491,7 +495,7 @@ export default function ForTradespeoplePageWrapper() {
                       fill="url(#gp-g2)" />
                   </svg>
                   <div>
-                    <p className="text-slate-400 text-[10px] leading-none mb-0.5 uppercase tracking-wider">GET IT ON</p>
+                    <p className="text-slate-300 text-[10px] leading-none mb-0.5 uppercase tracking-wider">GET IT ON</p>
                     <p className="text-white font-bold text-sm leading-none">Google Play</p>
                   </div>
                 </a>
@@ -509,7 +513,7 @@ export default function ForTradespeoplePageWrapper() {
               <Users className="w-5 h-5 text-orange-400 flex-shrink-0" />
               <h2 className="text-lg font-bold text-white">Grow Your Network</h2>
             </div>
-            <p className="text-slate-400 text-sm leading-relaxed mb-4">
+            <p className="text-slate-300 text-sm leading-relaxed mb-4">
               Help grow your local trade community. Share your referral link with another tradesperson.
               {referralEnabled
                 ? " When the referral programme is active, both of you can receive membership rewards."
@@ -518,8 +522,8 @@ export default function ForTradespeoplePageWrapper() {
 
             {!referralEnabled ? (
               <div className="flex items-start gap-2.5 rounded-xl bg-slate-900/50 border border-slate-700/40 p-3.5">
-                <Clock className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-400 leading-relaxed">
+                <Clock className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-slate-300 leading-relaxed">
                   Referral rewards are coming soon. Your link will still work — rewards will apply retroactively
                   once the programme is switched on.
                 </p>
@@ -556,7 +560,7 @@ export default function ForTradespeoplePageWrapper() {
       <section className="py-8 border-t border-slate-800/60 px-4">
         <div className="container mx-auto max-w-2xl">
           <h2 className="text-lg font-bold text-white text-center mb-1">Why Homeowners Love Open Job Market</h2>
-          <p className="text-slate-400 text-sm text-center mb-5">
+          <p className="text-slate-300 text-sm text-center mb-5">
             Homeowners have their own strong reasons to use the platform — which means real demand for your work.
           </p>
           <div className="flex flex-wrap justify-center gap-2">
@@ -579,7 +583,7 @@ export default function ForTradespeoplePageWrapper() {
       <section className="py-8 px-4">
         <div className="container mx-auto max-w-lg text-center">
           <p className="text-2xl font-bold text-white mb-2">Ready to find more work?</p>
-          <p className="text-slate-400 text-sm mb-6">Join local tradespeople already using Open Job Market.</p>
+          <p className="text-slate-300 text-sm mb-6">Join local tradespeople already using Open Job Market.</p>
           <Link href="/auth/sign-up"
             className="inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl text-base transition-all shadow-lg shadow-orange-500/25">
             <Zap className="w-4 h-4 fill-white" />

@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Send, User, MapPin, Briefcase, CheckCircle, Clock, Play, PoundSterling, ImageIcon, X as XIcon, ChevronLeft, ChevronRight } from "lucide-react"
 import { createClient } from "@/lib/client"
+import { compressImage } from "@/lib/compress-image"
 import Link from "next/link"
 import { StatusDot } from "@/components/status-dot"
 import { updatePresence } from "@/lib/presence"
@@ -182,37 +183,16 @@ function ChatPhotos({ paths, supabase }: { paths: string[]; supabase: ReturnType
   )
 }
 
-// Compress image using Canvas 2D (no external deps, no Turbopack issues)
-// Rejects images >6000px, resizes to max 1280px, outputs webp at 0.82 quality
+// Chat photos: cap the longest side at 1280px, output WebP ~0.82.
+// Shared client-side compressor — no external deps, no server processing.
 async function compressChatImage(file: File): Promise<File> {
-  return new Promise((resolve, reject) => {
-    const img = new Image()
-    const blobUrl = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(blobUrl)
-      if (img.width > 6000 || img.height > 6000) {
-        reject(new Error("Image too large (max 6000 px). Please upload a smaller photo."))
-        return
-      }
-      const maxW = 1280
-      const scale = img.width > maxW ? maxW / img.width : 1
-      const canvas = document.createElement("canvas")
-      canvas.width  = Math.round(img.width  * scale)
-      canvas.height = Math.round(img.height * scale)
-      const ctx = canvas.getContext("2d")
-      if (!ctx) { reject(new Error("Canvas not available")); return }
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-      canvas.toBlob(
-        (b) => b
-          ? resolve(new File([b], "photo.webp", { type: "image/webp" }))
-          : reject(new Error("Compression failed")),
-        "image/webp",
-        0.82
-      )
-    }
-    img.onerror = () => reject(new Error("Could not load image"))
-    img.src = blobUrl
+  const { file: out } = await compressImage(file, {
+    maxDimension: 1280,
+    quality: 0.82,
+    maxSourceDimension: 6000,
+    fileName: "photo",
   })
+  return out
 }
 
 interface JobContext {
@@ -500,7 +480,7 @@ export default function ConversationPage() {
           const convRes = await fetch('/api/conversations', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ with_user_id: conversationId }),
+            body: JSON.stringify({ with_user_id: conversationId, job_id: jobParam ?? undefined }),
           })
           const convJson = await convRes.json()
 
@@ -854,7 +834,7 @@ export default function ConversationPage() {
             const path = `${folder}/${uuid}.webp`
             const { error: upErr } = await supabase.storage
               .from("chat-images")
-              .upload(path, compressed, { contentType: "image/webp", upsert: false })
+              .upload(path, compressed, { contentType: "image/webp", cacheControl: "31536000", upsert: false })
             if (upErr) throw new Error(upErr.message)
             uploadedPaths.push(path)
           } catch (err: any) {

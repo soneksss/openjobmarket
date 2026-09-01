@@ -7,9 +7,12 @@ const DEFAULT_COORDS: [number, number] = [50.8058, -1.0872] // Portsmouth
 export default async function FindJobsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ postcode?: string; lat?: string; lng?: string; industry?: string }>
+  searchParams: Promise<{ postcode?: string; lat?: string; lng?: string; industry?: string; industries?: string }>
 }) {
-  const { postcode, lat, lng, industry } = await searchParams
+  const { postcode, lat, lng, industry, industries } = await searchParams
+  const initialIndustries = industries
+    ? industries.split(",").map((s) => s.trim()).filter(Boolean)
+    : undefined
 
   let coords: [number, number] = DEFAULT_COORDS
   let coordsAreDefault = true
@@ -40,6 +43,7 @@ export default async function FindJobsPage({
         initialCoords={coords}
         initialPostcode={postcode}
         initialIndustry={industry}
+        initialIndustries={initialIndustries}
         animateZoom={!!(lat && lng)}
         coordsAreDefault={coordsAreDefault}
       />

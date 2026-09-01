@@ -780,7 +780,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
     try {
       const res = await fetch("/api/conversations", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        credentials: "include", body: JSON.stringify({ with_user_id: trade.userId }),
+        credentials: "include", body: JSON.stringify({ with_user_id: trade.userId, job_id: job.id }),
       })
       const body = await res.json().catch(() => ({}))
       router.push(body.conversationId ? `/messages/${body.conversationId}?job=${job.id}` : "/messages")

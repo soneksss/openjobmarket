@@ -18,9 +18,16 @@ export async function GET(req: NextRequest) {
   if (north - south > MAX_SPAN || east - west > MAX_SPAN)
     return NextResponse.json([], { status: 400 })
 
-  const industry = sp.get("industry") || null
-  const budget   = sp.get("budget")   || null
-  const urgency  = sp.get("urgency")  || null
+  const industry   = sp.get("industry")   || null
+  // `industries` (comma-separated) lets a multi-trade tradesperson see jobs from
+  // ALL of their industries at once. A single explicit `industry` filter wins.
+  const industries = sp.get("industries") || null
+  const budget     = sp.get("budget")     || null
+  const urgency    = sp.get("urgency")    || null
+
+  // Reduce an industry label to a stable ilike keyword (e.g. "Heating & Plumbing" → "Heating").
+  const industryKeyword = (name: string) =>
+    (name.split(/[\s&,/]+/).find((w) => w.length > 3) || name).replace(/[(),%]/g, "")
 
   const admin = createAdminClient()
 
@@ -46,8 +53,15 @@ export async function GET(req: NextRequest) {
     .limit(MAP_LIMIT)
 
   if (industry) {
-    const kw = industry.split(/[\s&,/]+/).find((w: string) => w.length > 3) || industry
+    const kw = industryKeyword(industry)
     q = (q as any).or(`industry.ilike.%${kw}%,industry.is.null`)
+  } else if (industries) {
+    const list = industries.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 12)
+    if (list.length) {
+      const parts = list.map((name) => `industry.ilike.%${industryKeyword(name)}%`)
+      parts.push("industry.is.null")
+      q = (q as any).or(parts.join(","))
+    }
   }
   if (urgency) q = (q as any).eq("urgency_type", urgency)
   if (budget === "0-500")      q = (q as any).lte("budget_max", 500)

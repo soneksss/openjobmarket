@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/client"
 import { X, ImagePlus, Loader2, GripVertical } from "lucide-react"
-import imageCompression from "browser-image-compression"
+import { compressImage } from "@/lib/compress-image"
 import {
   DndContext,
   closestCenter,
@@ -169,11 +169,10 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
         }
         try {
           setOptimising(true)
-          const compressed = await imageCompression(file, {
-            maxSizeMB: 1,
-            maxWidthOrHeight: 1600,
-            useWebWorker: true,
-            fileType: "image/webp",
+          const { file: compressed } = await compressImage(file, {
+            maxDimension: 1600,
+            quality: 0.82,
+            fileName: file.name,
           })
           setOptimising(false)
           setUploading(true)
@@ -181,7 +180,7 @@ export function PortfolioPhotosEditor({ profileId }: Props) {
 
           const { error: uploadErr } = await supabase.storage
             .from("trades-portfolio")
-            .upload(storagePath, compressed, { cacheControl: "3600", upsert: false })
+            .upload(storagePath, compressed, { cacheControl: "31536000", upsert: false, contentType: "image/webp" })
 
           if (uploadErr) { setError(uploadErr.message); continue }
 

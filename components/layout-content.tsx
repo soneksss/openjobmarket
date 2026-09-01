@@ -117,10 +117,11 @@ function LayoutInner({ children, user, userType, isAdmin, serverLocale }: Layout
         <NavigationLoader />
         <PageviewTracker />
         {/* Job posting: hide on mobile (keyboard pushes it over the form).
-            Map pages: sticky z-[100] on all sizes — the map sits below it via --global-header-h. */}
+            Map pages: hidden on mobile (the bottom nav is enough — the map goes
+            full-bleed via --global-header-h = 0), sticky z-[100] from md up. */}
         <div className={
           isJobPostingPage ? "hidden md:block md:sticky md:top-0 md:z-[100]" :
-          pathname?.startsWith("/find") ? "sticky top-0 z-[100]" :
+          pathname?.startsWith("/find") ? "hidden md:block md:sticky md:top-0 md:z-[100]" :
           undefined
         }>
           <Header user={user} userType={(userType as "company" | "professional" | undefined) || undefined} isAdmin={isAdmin} dark={true} />

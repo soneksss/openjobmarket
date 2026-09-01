@@ -154,8 +154,14 @@ function createTraderIcon(L: any, isSelected: boolean, industryTitle?: string | 
   const vanSrc      = isGrey ? "/Van1.png" : "/Van2.png"
   const badgeBg     = isGrey ? "rgba(15,23,42,0.82)" : "rgba(21,128,61,0.88)"
   const badgeBorder = isGrey ? "rgba(100,116,139,0.55)" : "rgba(134,239,172,0.5)"
-  const glow        = isSelected
-    ? `filter:drop-shadow(0 0 6px ${isGrey ? "#64748b" : "#22c55e"});`
+  // Selected van: orange halo so it's unmistakable which one is picked.
+  const glow        = isSelected ? "filter:drop-shadow(0 0 6px #f97316);" : ""
+  const ringD       = vanW + 14
+  const ring        = isSelected
+    ? `<div style="position:absolute;top:50%;left:50%;width:${ringD}px;height:${ringD}px;` +
+      `transform:translate(-50%,-50%);border-radius:50%;border:3px solid #f97316;` +
+      `background:rgba(249,115,22,0.10);box-shadow:0 0 10px 2px rgba(249,115,22,0.55);` +
+      `animation:vanSelPulse 1.6s ease-in-out infinite;pointer-events:none;"></div>`
     : ""
 
   // Per-van stagger: negative delay = jump into the animation mid-cycle,
@@ -168,9 +174,14 @@ function createTraderIcon(L: any, isSelected: boolean, industryTitle?: string | 
   const direction = h % 3 === 0 ? "reverse" : "normal"
   const anim      = `vanIdle 10s ease-in-out ${delay}s infinite ${direction}`
 
-  const html = `<div style="position:relative;width:${vanW}px;height:${vanH}px;animation:${anim};transform-origin:center center;will-change:transform;${glow}">` +
+  // Root is a static (non-animated) box so the orange ring stays rock-steady
+  // while the van itself keeps its idle sway inside.
+  const html = `<div style="position:relative;width:${vanW}px;height:${vanH}px;">` +
+    ring +
+    `<div style="position:absolute;inset:0;animation:${anim};transform-origin:center center;will-change:transform;${glow}">` +
     `<img src="${vanSrc}" style="width:${vanW}px;height:${vanH}px;object-fit:contain;display:block;" />` +
     `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:${iconSz+4}px;height:${iconSz+4}px;background:${badgeBg};border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid ${badgeBorder};">${svg}</div>` +
+    `</div>` +
     `</div>`
 
   return L.divIcon({
@@ -334,7 +345,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     const style = document.createElement("style")
     style.id = "find-map-zoom-offset"
     const isLg = window.matchMedia(WIDE_LAYOUT_QUERY).matches
-    style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + ${isLg ? "116px" : "86px"}); }`
+    style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + ${isLg ? "116px" : "86px"}); }`
     if (!document.getElementById("find-map-zoom-offset")) document.head.appendChild(style)
     // Van idle-sway animation
     if (!document.getElementById("van-pin-anim")) {
@@ -351,6 +362,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         "  84%  { transform: rotate(240deg); }",
         "  100% { transform: rotate(360deg); }",
         "}",
+        "@keyframes vanSelPulse {",
+        "  0%, 100% { box-shadow: 0 0 8px 1px rgba(249,115,22,0.45); }",
+        "  50%      { box-shadow: 0 0 16px 4px rgba(249,115,22,0.75); }",
+        "}",
       ].join("")
       document.head.appendChild(vanAnim)
     }
@@ -364,7 +379,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   // Keep the zoom-control offset in sync when rotating the phone, not just on mount.
   useEffect(() => {
     const style = document.getElementById("find-map-zoom-offset")
-    if (style) style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + ${isDesktop ? "116px" : "86px"}); }`
+    if (style) style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + ${isDesktop ? "116px" : "86px"}); }`
   }, [isDesktop])
 
   // Fetch portfolio photos when a trader pin is clicked
@@ -546,17 +561,19 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   const tradersWithCoords = traders.filter(t => t.latitude && t.longitude)
   const findPageUrl = `/find-trades${initialPostcode ? `?postcode=${encodeURIComponent(initialPostcode)}` : ""}`
 
-  // Mobile bottom sheet dimensions (bottom: 56px = bottom nav height h-14)
-  // The global site header is now visible above the map on both sizes (via
-  // --global-header-h), so both branches just add this map's own local
-  // header-row content height on top of it — no more separate safe-area math.
+  // Mobile bottom sheet dimensions.
   // Desktop local content ≈ 96px, mobile local content (tab row + search row) ≈ 66px.
   const HEADER = isDesktop ? "calc(var(--global-header-h, 0px) + 96px)" : "calc(var(--global-header-h, 0px) + 66px)"
+  // The mobile bottom nav is h-14 (56px) plus its own safe-area padding, so the
+  // sheet must clear 56px + env(safe-area-inset-bottom) — otherwise the action
+  // buttons at the bottom of the profile panel sit behind the nav with nothing
+  // left to scroll.
+  const NAV_OFFSET = "calc(56px + env(safe-area-inset-bottom, 0px))"
   const mobileSheetStyle: React.CSSProperties =
-    sheetHeightPx !== null    ? { bottom: "56px", left: 0, right: 0, height: `${sheetHeightPx}px` } :
-    sheetState === "expanded" ? { top: HEADER, bottom: "56px", left: 0, right: 0 } :
-    sheetState === "peek"     ? { bottom: "56px", left: 0, right: 0, height: "38vh" } :
-                                { bottom: "56px", left: 0, right: 0, height: "160px" }
+    sheetHeightPx !== null    ? { bottom: NAV_OFFSET, left: 0, right: 0, height: `${sheetHeightPx}px` } :
+    sheetState === "expanded" ? { top: HEADER, bottom: NAV_OFFSET, left: 0, right: 0 } :
+    sheetState === "peek"     ? { bottom: NAV_OFFSET, left: 0, right: 0, height: "38vh" } :
+                                { bottom: NAV_OFFSET, left: 0, right: 0, height: "160px" }
 
   /* ── Shared panel content ────────────────────────────────────────────────── */
   const profilePanel = selectedTrader && (
@@ -1131,11 +1148,11 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         </Link>
 
         {/* Header — absolute within the map area, overlays only the map column.
-            The global site header now sits above this whole container (via
-            --global-header-h), so this just needs a small local gap, not
-            safe-area/header clearance. */}
+            The global site header is hidden on mobile (bottom nav is enough), so
+            this floating header owns the status-bar clearance there; on desktop
+            --global-header-h offsets the container and safe-area-inset-top is 0. */}
         <div ref={headerRef} className="absolute top-0 left-0 right-0 flex flex-col gap-1 px-3 pb-1.5"
-          style={{ zIndex: 20, paddingTop: "10px" }}>
+          style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top, 0px), 10px)" }}>
           {/* Tab switcher — same footprint as the search bar below it */}
           <div className="flex self-center w-[264px] lg:w-80 bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
             <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold bg-emerald-500 text-white shadow-sm">
@@ -1178,7 +1195,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
             disabled={locating}
             title="My location"
             className="absolute w-8 h-8 rounded-lg bg-slate-800/95 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-emerald-400 transition-colors text-slate-400"
-            style={{ zIndex: 500, top: "calc(var(--global-header-h, 0px) + 156px)", right: "10px" }}
+            style={{ zIndex: 500, top: "calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + 156px + 5mm)", right: "10px" }}
           >
             {locating
               ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
@@ -1239,11 +1256,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
             onPointerCancel={handleSheetPointerUp}>
             {selectedTrader ? (
               <>
-                <button className="flex items-center gap-1 text-orange-400 hover:text-orange-300 transition-colors">
-                  <ArrowLeft className="w-4 h-4" /><span className="text-xs font-bold">All tradespeople</span>
+                <button className="flex items-center gap-2 py-1.5 pr-2 text-orange-400 hover:text-orange-300 transition-colors">
+                  <ArrowLeft className="w-7 h-7" /><span className="text-lg font-bold">All tradespeople</span>
                 </button>
-                <div className="w-10 h-1 rounded-full bg-slate-600 absolute left-1/2 -translate-x-1/2" />
-                <div className="w-20" />
+                <div className="w-6" />
               </>
             ) : (
               <div className="w-full flex justify-center">

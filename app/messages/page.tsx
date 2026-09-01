@@ -130,14 +130,25 @@ export default function MessagesPage() {
 
       // ── Step 3: Synthetic "empty" conversations (no messages yet) ────────
       const coveredConvIds = new Set<string>()
+      const usersWithRealThread = new Set<string>()
       for (const msg of messages) {
         if ((msg as any).conversation_id) coveredConvIds.add((msg as any).conversation_id)
+        const otherId = msg.sender_id === uid ? msg.recipient_id : msg.sender_id
+        if (otherId) usersWithRealThread.add(otherId)
       }
 
+      // Collapse duplicate empty threads: at most one "say hello" row per
+      // person+job, and none at all for a non-job thread if a real message
+      // thread with that person already exists.
+      const emptyKeysSeen = new Set<string>()
       const emptySynthetic: typeof messages = []
       for (const conv of emptyConvs) {
         if (!coveredConvIds.has(conv.id)) {
           const otherId = conv.participant_1 === uid ? conv.participant_2 : conv.participant_1
+          const emptyKey = `${otherId}::${(conv as any).job_id ?? ""}`
+          if (!otherId || emptyKeysSeen.has(emptyKey)) continue
+          if (!(conv as any).job_id && usersWithRealThread.has(otherId)) continue
+          emptyKeysSeen.add(emptyKey)
           emptySynthetic.push({
             id:              `empty-${conv.id}`,
             subject:         (conv as any).subject ?? "",

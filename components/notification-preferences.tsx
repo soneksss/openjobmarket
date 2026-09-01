@@ -211,9 +211,12 @@ export default function NotificationPreferences({ userId }: NotificationPreferen
   const savePushAlert = async (field: 'trade_job_notifications' | 'flexible_job_notifications', value: boolean) => {
     setSavingPush(true)
     try {
+      // Mirror the flexible flag onto the canonical column that dispatch reads.
+      const patch: Record<string, boolean> = { [field]: value }
+      if (field === 'flexible_job_notifications') patch.flexible_notifications_enabled = value
       const { error } = await supabase
         .from('company_profiles')
-        .update({ [field]: value })
+        .update(patch)
         .eq('user_id', userId)
       if (error) throw error
       if (field === 'trade_job_notifications')   setUrgentJobAlerts(value)

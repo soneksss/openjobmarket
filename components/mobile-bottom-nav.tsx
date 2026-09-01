@@ -230,29 +230,38 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
     const isTrade = serverUserType === "company" || clientUserType === "company"
     if (!isTrade) return
 
-    // Use industry= + services= params (single ilike path) instead of skills= (slow multi-column ilike)
-    const buildUrl = (lat: number | null, lng: number | null, industry: string | null, services: string[]) => {
+    // Pre-filter the jobs map to the tradesperson's trade(s). A multi-industry
+    // profile passes `industries=` (all of them) so they see jobs from every
+    // trade they cover, not just the primary one.
+    const buildUrl = (lat: number | null, lng: number | null, industry: string | null, allIndustries: string[]) => {
       const params = new URLSearchParams()
       if (lat && lng) {
         params.set("lat", lat.toString())
         params.set("lng", lng.toString())
       }
       // "General" is a stale placeholder some profiles were seeded with — treat as no filter
-      if (industry && industry !== "General") params.set("industry", industry)
+      const list = allIndustries.filter((i) => i && i !== "General")
+      if (list.length > 1) {
+        params.set("industries", list.join(","))
+      } else if (list.length === 1) {
+        params.set("industry", list[0])
+      } else if (industry && industry !== "General") {
+        params.set("industry", industry)
+      }
       return `/find-jobs?${params.toString()}`
     }
 
     const effectiveUserType = userType
     if (effectiveUserType === "company") {
-      // Company (tradesperson) → use company_profiles (industry + services)
+      // Company (tradesperson) → use company_profiles (industry + industries[])
       supabase.from("company_profiles")
-        .select("industry, services, location, latitude, longitude")
+        .select("industry, industries, location, latitude, longitude")
         .eq("user_id", userId)
         .maybeSingle()
         .then(({ data }) => {
           if (data) {
-            const services = Array.isArray(data.services) ? data.services.slice(0, 2) : []
-            setJobsSearchUrl(buildUrl(data.latitude, data.longitude, data.industry, services))
+            const allIndustries = Array.isArray(data.industries) ? data.industries : []
+            setJobsSearchUrl(buildUrl(data.latitude, data.longitude, data.industry, allIndustries))
           } else {
             // No lat/lng — let /find-jobs fall back to its own default + auto-geolocate
             setJobsSearchUrl("/find-jobs")
@@ -266,17 +275,17 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
         .maybeSingle()
         .then(({ data: prof }) => {
           if (prof) {
-            const services = Array.isArray(prof.skills) ? prof.skills.slice(0, 2) : []
-            setJobsSearchUrl(buildUrl(prof.latitude, prof.longitude, prof.title, services))
+            setJobsSearchUrl(buildUrl(prof.latitude, prof.longitude, prof.title, []))
           } else {
             // Fallback to company_profiles
             supabase.from("company_profiles")
-              .select("industry, location, latitude, longitude")
+              .select("industry, industries, location, latitude, longitude")
               .eq("user_id", userId)
               .maybeSingle()
               .then(({ data: comp }) => {
                 if (comp) {
-                  setJobsSearchUrl(buildUrl(comp.latitude, comp.longitude, comp.industry, []))
+                  const allIndustries = Array.isArray(comp.industries) ? comp.industries : []
+                  setJobsSearchUrl(buildUrl(comp.latitude, comp.longitude, comp.industry, allIndustries))
                 } else {
                   // No lat/lng — let /find-jobs fall back to its own default + auto-geolocate
                   setJobsSearchUrl("/find-jobs")
@@ -388,40 +397,14 @@ function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavI
       <div className="flex justify-around items-center h-14 px-1">
         {items.map((item) => {
           const Icon = item.icon
-
-          if (item.isCenter) {
-            const centerInner = (
-              <>
-                <div className={`w-[68px] h-[68px] rounded-full flex items-center justify-center shadow-lg transition-colors ${item.centerColor || "bg-emerald-500 shadow-emerald-500/30 hover:bg-emerald-600"}`}>
-                  <Icon className="h-6 w-6 text-white" />
-                </div>
-                <span className="text-[10px] mt-0.5 text-slate-400 font-medium">{item.label}</span>
-              </>
-            )
-            if (item.onClick) {
-              return (
-                <button key={item.key} onClick={item.onClick} className="flex flex-col items-center justify-center -mt-7">
-                  {centerInner}
-                </button>
-              )
-            }
-            return (
-              <Link key={item.key} href={item.href} className="flex flex-col items-center justify-center -mt-7">
-                {centerInner}
-              </Link>
-            )
-          }
-
           const badgeCount = item.badge || 0
 
-          return (
-            <Link
-              key={item.key}
-              href={item.href}
-              className={`flex flex-col items-center justify-center min-h-[44px] min-w-[44px] px-2 rounded-lg transition-colors relative ${
-                item.isActive ? "text-emerald-400" : "text-slate-400 hover:text-emerald-400"
-              }`}
-            >
+          const itemClass = `flex flex-col items-center justify-center min-h-[44px] min-w-[44px] px-2 rounded-lg transition-colors relative ${
+            item.isActive ? "text-emerald-400" : "text-slate-400 hover:text-emerald-400"
+          }`
+
+          const inner = (
+            <>
               <div className="relative">
                 <Icon className={`h-5 w-5 ${item.isActive ? "stroke-[2.5]" : ""}`} />
                 {badgeCount > 0 && (
@@ -436,6 +419,20 @@ function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavI
               {item.isActive && (
                 <div className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-500" />
               )}
+            </>
+          )
+
+          if (item.onClick) {
+            return (
+              <button key={item.key} onClick={item.onClick} className={itemClass}>
+                {inner}
+              </button>
+            )
+          }
+
+          return (
+            <Link key={item.key} href={item.href} className={itemClass}>
+              {inner}
             </Link>
           )
         })}

@@ -38,6 +38,7 @@ import {
   Camera,
   Clock,
   AlertTriangle,
+  BellOff,
   Globe,
   Star,
   Info,
@@ -259,6 +260,27 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0)
   const [profileViewsWeekly, setProfileViewsWeekly] = useState(0)
 
+  // Job-alert health: does this tradesperson have a registered push device?
+  // null = still checking (don't nag yet).
+  const [pushDeviceCount, setPushDeviceCount] = useState<number | null>(null)
+  useEffect(() => {
+    Promise.resolve(
+      supabase.from("user_push_tokens").select("id", { count: "exact", head: true }).eq("user_id", user.id)
+    )
+      .then(({ count }: any) => setPushDeviceCount(count ?? 0))
+      .catch(() => setPushDeviceCount(null))
+  }, [user.id])
+
+  const hasLocation = profile.latitude != null && profile.longitude != null
+  const jobAlertWarnings: { icon: any; text: string; href: string }[] = [
+    ...(!hasLocation
+      ? [{ icon: MapPin, text: "Add your work location so nearby jobs reach you", href: "/company/profile/edit" }]
+      : []),
+    ...(pushDeviceCount === 0
+      ? [{ icon: BellOff, text: "Turn on notifications to get job alerts on this device", href: "/account/settings" }]
+      : []),
+  ]
+
   // ── Job-confirmation offer (state machine) ─────────────────
   // Shown as a full-screen modal when a homeowner confirms this
   // tradesperson for a job. Never updated via direct DB write —
@@ -299,12 +321,21 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       params.set('lat', String(profile.latitude))
       params.set('lng', String(profile.longitude))
     }
-    if (profile.industry) {
+    // Multi-trade profiles pass `industries=` so the map shows jobs from every
+    // trade they cover, not just the primary industry.
+    const list: string[] = Array.isArray((profile as any).industries)
+      ? (profile as any).industries.filter((i: string) => i && i !== 'General')
+      : []
+    if (list.length > 1) {
+      params.set('industries', list.join(','))
+    } else if (list.length === 1) {
+      params.set('industry', list[0])
+    } else if (profile.industry) {
       params.set('industry', profile.industry)
     }
     const qs = params.toString()
     return qs ? `/find-jobs?${qs}` : '/find-jobs'
-  }, [profile.latitude, profile.longitude, profile.industry])
+  }, [profile.latitude, profile.longitude, profile.industry, (profile as any).industries])
 
   // Log dashboard open as activity event (drives freshness score)
   useEffect(() => {
@@ -1103,6 +1134,30 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const historyMyJobs = myJobs.filter(j => j.status === "COMPLETED")
   const displayedMyJobs = myJobsTab === "active" ? activeMyJobs : historyMyJobs
 
+  const jobAlertBanner = jobAlertWarnings.length > 0 ? (
+    <div className="bg-amber-500/15 border-y border-amber-500/30">
+      <div className="container mx-auto px-3 sm:px-4 md:px-6 py-2">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-amber-300 flex-shrink-0">
+            <AlertTriangle className="h-3.5 w-3.5" /> You may be missing job alerts
+          </span>
+          {jobAlertWarnings.map((w, i) => {
+            const Icon = w.icon
+            return (
+              <Link
+                key={i}
+                href={w.href}
+                className="flex items-center gap-1 text-xs text-amber-200/90 hover:text-white underline underline-offset-2"
+              >
+                <Icon className="h-3.5 w-3.5 flex-shrink-0" /> {w.text}
+              </Link>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  ) : null
+
   return (
     <>
       {/* ── Job-confirmation offer modal ────────────────────────
@@ -1119,6 +1174,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
       {/* Mobile: SpareRoom-style Account Page */}
       <div className="md:hidden min-h-screen bg-slate-900 text-white">
+        {jobAlertBanner}
         {/* Profile Header */}
         <div className="bg-slate-800 px-4 py-5">
           <div className="flex items-center gap-4">
@@ -1312,6 +1368,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
       {/* Desktop: Full Dashboard - Premium Dark Theme */}
       <div className="hidden md:block min-h-screen bg-slate-900 text-white">
+      {jobAlertBanner}
       {/* Incomplete Profile Banner - Dark Theme */}
       {!isProfileComplete && missingFields.length > 0 && (
         <div className="bg-amber-500/20 border-b border-amber-500/30">

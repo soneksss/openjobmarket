@@ -59,6 +59,7 @@ import { useTranslation } from "@/lib/i18n/context"
 import { LocationInput } from "@/components/location-input"
 import { MainPageSearch } from "@/components/main-page-search"
 import ActivityTickerCard from "@/components/activity-ticker-card"
+import { LocalImpactSection } from "@/components/local-impact-section"
 import { industries, allSubcategories } from "@/lib/data/industries"
 import { helpItems } from "@/lib/data/help-items"
 import dynamic from "next/dynamic"
@@ -540,7 +541,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
         <div className="container mx-auto px-4 py-3">
           <button
             onClick={() => router.push("/")}
-            className="flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors text-sm font-medium"
+            className="flex items-center gap-2 text-slate-300 hover:text-emerald-400 transition-colors text-sm font-medium"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Home
@@ -569,7 +570,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               className={`px-4 sm:px-6 py-2 rounded-full text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
                 activeTab === "tradespeople"
                   ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-300 hover:text-white"
               }`}
             >
               Find a Tradesperson
@@ -579,7 +580,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               className={`px-4 sm:px-6 py-2 rounded-full text-sm font-semibold transition-all duration-200 whitespace-nowrap ${
                 activeTab === "jobs"
                   ? "bg-orange-500 text-white shadow-md shadow-orange-500/30"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-300 hover:text-white"
               }`}
             >
               Find Jobs
@@ -597,8 +598,8 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               : "border-slate-600/40 bg-slate-800/50"
           }`}>
             <div className="flex items-center gap-1.5">
-              <Zap className={`h-3 w-3 flex-shrink-0 ${urgentEnabled ? "text-amber-400" : "text-slate-500"}`} />
-              <p className={`text-xs font-semibold leading-tight ${urgentEnabled ? "text-white" : "text-slate-400"}`}>
+              <Zap className={`h-3 w-3 flex-shrink-0 ${urgentEnabled ? "text-amber-400" : "text-slate-400"}`} />
+              <p className={`text-xs font-semibold leading-tight ${urgentEnabled ? "text-white" : "text-slate-300"}`}>
                 {urgentEnabled ? "Available for urgent jobs" : "Urgent jobs off"}
               </p>
             </div>
@@ -611,7 +612,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
             <Popover>
               <PopoverTrigger asChild>
                 <button
-                  className="text-slate-500 hover:text-slate-300 transition-colors"
+                  className="text-slate-400 hover:text-slate-300 transition-colors"
                   type="button"
                 >
                   <Info className="w-4 h-4" />
@@ -684,8 +685,8 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     feedbackSubmitted === "like"
                       ? "bg-emerald-500/30 text-emerald-400"
                       : feedbackSubmitted === "dislike"
-                        ? "opacity-30 cursor-not-allowed text-slate-500"
-                        : "hover:bg-emerald-500/20 text-slate-400 hover:text-emerald-400"
+                        ? "opacity-30 cursor-not-allowed text-slate-400"
+                        : "hover:bg-emerald-500/20 text-slate-300 hover:text-emerald-400"
                   }`}
                   title="I like this app"
                 >
@@ -698,8 +699,8 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     feedbackSubmitted === "dislike"
                       ? "bg-red-500/30 text-red-400"
                       : feedbackSubmitted === "like"
-                        ? "opacity-30 cursor-not-allowed text-slate-500"
-                        : "hover:bg-red-500/20 text-slate-400 hover:text-red-400"
+                        ? "opacity-30 cursor-not-allowed text-slate-400"
+                        : "hover:bg-red-500/20 text-slate-300 hover:text-red-400"
                   }`}
                   title="I don't like this app"
                 >
@@ -822,7 +823,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   {/* Close button */}
                   <button
                     onClick={() => setShowFeedbackModal(false)}
-                    className="absolute top-3 right-3 p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                    className="absolute top-3 right-3 p-1 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -830,7 +831,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   <h3 className="text-lg font-semibold text-white mb-2">
                     Don't like the app?
                   </h3>
-                  <p className="text-sm text-slate-400 mb-4">
+                  <p className="text-sm text-slate-300 mb-4">
                     How can we improve it?
                   </p>
 
@@ -838,7 +839,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     value={feedbackMessage}
                     onChange={(e) => setFeedbackMessage(e.target.value)}
                     placeholder="Tell us what you'd like to see improved..."
-                    className="w-full h-24 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+                    className="w-full h-24 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
                   />
 
                   {feedbackError && (
@@ -880,7 +881,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   {/* Close button */}
                   <button
                     onClick={() => setShowLikeFeedbackModal(false)}
-                    className="absolute top-3 right-3 p-1 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                    className="absolute top-3 right-3 p-1 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -891,7 +892,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                       Thanks!
                     </h3>
                   </div>
-                  <p className="text-sm text-slate-400 mb-4">
+                  <p className="text-sm text-slate-300 mb-4">
                     Tell us what you like?
                   </p>
 
@@ -899,7 +900,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     value={feedbackMessage}
                     onChange={(e) => setFeedbackMessage(e.target.value)}
                     placeholder="What do you enjoy about the app..."
-                    className="w-full h-24 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+                    className="w-full h-24 px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
                   />
 
                   {feedbackError && (
@@ -1005,7 +1006,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                       <CheckCircle className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                       <div>
                         <p className="text-slate-100 font-semibold text-sm leading-tight">{item.label}</p>
-                        <p className="text-slate-500 text-xs mt-0.5">{item.sub}</p>
+                        <p className="text-slate-400 text-xs mt-0.5">{item.sub}</p>
                       </div>
                     </div>
                   ))}
@@ -1063,14 +1064,14 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     <div className="p-2.5 flex flex-col gap-2">
                       {/* Status bar */}
                       <div className="flex justify-between items-center px-0.5">
-                        <span className="text-[8px] text-slate-500 font-medium">9:41</span>
+                        <span className="text-[8px] text-slate-400 font-medium">9:41</span>
                         <div className="flex gap-0.5 items-center">
                           <div className="w-2.5 h-1 rounded-sm bg-slate-600" />
                           <div className="w-1 h-1 rounded-full bg-slate-600" />
                         </div>
                       </div>
                       {/* Screen content */}
-                      <p className="text-[9px] text-slate-400 text-center font-medium">Your Status</p>
+                      <p className="text-[9px] text-slate-300 text-center font-medium">Your Status</p>
                       <div className="bg-slate-800 rounded-lg p-2 flex items-center justify-between">
                         <div>
                           <p className="text-[10px] font-bold text-white leading-none">Available</p>
@@ -1092,7 +1093,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">1</span>
                     <div>
                       <p className="text-sm font-bold text-white leading-tight">Turn on &ldquo;Available&rdquo;</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">One tap when you're ready for work</p>
+                      <p className="text-[11px] text-slate-300 mt-0.5 leading-tight">One tap when you're ready for work</p>
                     </div>
                   </div>
                 </div>
@@ -1102,7 +1103,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   <div className="bg-slate-950 rounded-xl overflow-hidden border border-slate-700/40 shadow-inner">
                     <div className="p-2.5 flex flex-col gap-1.5">
                       <div className="flex justify-between items-center px-0.5 mb-0.5">
-                        <span className="text-[8px] text-slate-500 font-medium">9:41</span>
+                        <span className="text-[8px] text-slate-400 font-medium">9:41</span>
                         <span className="text-[8px] text-orange-400 font-bold">● LIVE</span>
                       </div>
                       {/* Alert banner */}
@@ -1120,7 +1121,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                         <div key={j.t} className="bg-slate-800 rounded-lg p-1.5 flex items-center justify-between">
                           <div>
                             <p className="text-[9px] font-semibold text-white leading-none">{j.t}</p>
-                            <p className="text-[8px] text-slate-400 mt-0.5">{j.d}</p>
+                            <p className="text-[8px] text-slate-300 mt-0.5">{j.d}</p>
                           </div>
                           <span className="text-[9px] font-bold text-emerald-400">{j.e}</span>
                         </div>
@@ -1131,7 +1132,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">2</span>
                     <div>
                       <p className="text-sm font-bold text-white leading-tight">Receive job alerts</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Instant alerts for jobs near you</p>
+                      <p className="text-[11px] text-slate-300 mt-0.5 leading-tight">Instant alerts for jobs near you</p>
                     </div>
                   </div>
                 </div>
@@ -1141,13 +1142,13 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   <div className="bg-slate-950 rounded-xl overflow-hidden border border-slate-700/40 shadow-inner">
                     <div className="p-2.5 flex flex-col gap-2">
                       <div className="flex justify-between items-center px-0.5">
-                        <span className="text-[8px] text-slate-500 font-medium">9:42</span>
-                        <MapPin className="w-2.5 h-2.5 text-slate-500" />
+                        <span className="text-[8px] text-slate-400 font-medium">9:42</span>
+                        <MapPin className="w-2.5 h-2.5 text-slate-400" />
                       </div>
                       {/* Job card */}
                       <div className="bg-slate-800 rounded-lg p-2">
                         <p className="text-[9px] font-bold text-white leading-none">🔧 Boiler repair</p>
-                        <p className="text-[8px] text-slate-400 mt-0.5">1.2 mi · Today · £80–120</p>
+                        <p className="text-[8px] text-slate-300 mt-0.5">1.2 mi · Today · £80–120</p>
                         <div className="flex gap-1 mt-1.5 flex-wrap">
                           {["Plumbing", "Boiler"].map((tag) => (
                             <span key={tag} className="text-[7px] bg-slate-700 text-slate-300 px-1 py-0.5 rounded">{tag}</span>
@@ -1158,14 +1159,14 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                       <div className="w-full bg-orange-500 rounded-lg py-1.5 text-center shadow-md shadow-orange-500/40">
                         <span className="text-[10px] font-bold text-white">⚡ Apply Now</span>
                       </div>
-                      <p className="text-[8px] text-slate-500 text-center">No bidding. One tap.</p>
+                      <p className="text-[8px] text-slate-400 text-center">No bidding. One tap.</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">3</span>
                     <div>
                       <p className="text-sm font-bold text-white leading-tight">Tap Apply</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Interested? Apply in one tap</p>
+                      <p className="text-[11px] text-slate-300 mt-0.5 leading-tight">Interested? Apply in one tap</p>
                     </div>
                   </div>
                 </div>
@@ -1175,7 +1176,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                   <div className="bg-slate-950 rounded-xl overflow-hidden border border-slate-700/40 shadow-inner">
                     <div className="p-2.5 flex flex-col gap-1.5">
                       <div className="flex justify-between items-center px-0.5 mb-0.5">
-                        <span className="text-[8px] text-slate-500 font-medium">9:45</span>
+                        <span className="text-[8px] text-slate-400 font-medium">9:45</span>
                         <div className="flex items-center gap-0.5">
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                           <span className="text-[7px] text-emerald-400">Online</span>
@@ -1212,7 +1213,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     <span className="w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">4</span>
                     <div>
                       <p className="text-sm font-bold text-white leading-tight">Chat &amp; arrange visit</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 leading-tight">Direct message. No middleman.</p>
+                      <p className="text-[11px] text-slate-300 mt-0.5 leading-tight">Direct message. No middleman.</p>
                     </div>
                   </div>
                 </div>
@@ -1269,6 +1270,9 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
         </div>
       </section>
 
+      {/* Local impact — "Good to know" */}
+      <LocalImpactSection variant="homeowner" />
+
       {/* Urgent Job Section — homeowners tab only */}
       {activeTab === "tradespeople" && (
         <section className="py-5 px-4">
@@ -1278,7 +1282,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                 <span className="text-xl flex-shrink-0">⚡</span>
                 <div>
                   <p className="text-white font-semibold text-sm leading-tight">Need it done today?</p>
-                  <p className="text-slate-400 text-xs mt-0.5">Alert nearby available trades instantly.</p>
+                  <p className="text-slate-300 text-xs mt-0.5">Alert nearby available trades instantly.</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0 w-full sm:w-auto">
@@ -1327,7 +1331,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
 
                   <div className="flex items-center gap-3 mt-2.5 flex-wrap">
                     {["No contracts", "No hidden fees", "Keep 100% of earnings"].map((item) => (
-                      <span key={item} className="flex items-center gap-1 text-xs text-slate-400">
+                      <span key={item} className="flex items-center gap-1 text-xs text-slate-300">
                         <CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" />
                         {item}
                       </span>
@@ -1344,7 +1348,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     <Zap className="w-4 h-4 fill-white" />
                     Start Free Today
                   </button>
-                  <p className="text-[11px] text-slate-500 text-center mt-1.5">No card needed to start</p>
+                  <p className="text-[11px] text-slate-400 text-center mt-1.5">No card needed to start</p>
                 </div>
 
               </div>
@@ -1364,7 +1368,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
           <div className="grid grid-cols-2 gap-4">
             {/* Other platforms column */}
             <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-4">
-              <div className="text-center text-xs sm:text-sm font-bold text-slate-400 mb-4 pb-3 border-b border-slate-700">Other platforms</div>
+              <div className="text-center text-xs sm:text-sm font-bold text-slate-300 mb-4 pb-3 border-b border-slate-700">Other platforms</div>
               <ul className="space-y-2.5">
                 {[
                   "Sell your request as paid leads",
@@ -1374,7 +1378,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                 ].map((text, i) => (
                   <li key={i} className="flex items-start gap-1.5">
                     <span className="text-red-400 flex-shrink-0 mt-0.5 text-xs">✕</span>
-                    <span className="text-slate-400 text-[11px] sm:text-sm leading-snug">{text}</span>
+                    <span className="text-slate-300 text-[11px] sm:text-sm leading-snug">{text}</span>
                   </li>
                 ))}
               </ul>
@@ -1411,12 +1415,12 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
             { href: "/terms",   label: "Terms" },
             { href: "/privacy", label: "Privacy" },
           ].map((link) => (
-            <Link key={link.href} href={link.href} className="text-sm text-slate-400 hover:text-white transition-colors">
+            <Link key={link.href} href={link.href} className="text-sm text-slate-300 hover:text-white transition-colors">
               {link.label}
             </Link>
           ))}
         </div>
-        <p className="text-center text-xs text-slate-600">© 2025 Open Job Market Ltd.</p>
+        <p className="text-center text-xs text-slate-500">© 2025 Open Job Market Ltd.</p>
       </div>
 
       {/* Map Picker Dialog */}
@@ -1426,7 +1430,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
         <DialogContent className="max-w-[95vw] w-full sm:max-w-4xl max-h-[80vh] sm:max-h-[85vh] overflow-y-auto p-3 sm:p-6 bg-slate-900 border-slate-700" showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="text-base sm:text-lg text-white">Pick Location on Map</DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm text-slate-400">
+            <DialogDescription className="text-xs sm:text-sm text-slate-300">
               Click on the map to select your search location and radius
             </DialogDescription>
           </DialogHeader>
@@ -1450,7 +1454,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               </Select>
             </div>
             {mapPickerLocation && (
-              <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-400">
+              <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-300">
                 <MapPin className="h-3 w-3 sm:h-4 sm:w-4 text-blue-400" />
                 <span className="font-mono">{mapPickerLocation.lat.toFixed(4)}, {mapPickerLocation.lon.toFixed(4)}</span>
               </div>
@@ -1474,7 +1478,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
           </div>
 
           <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2 sm:pt-3">
-            <div className="text-xs sm:text-sm text-slate-400 text-center sm:text-left mb-2 sm:mb-0 sm:flex-1">
+            <div className="text-xs sm:text-sm text-slate-300 text-center sm:text-left mb-2 sm:mb-0 sm:flex-1">
               {mapPickerLocation ? (
                 <span className="font-medium text-emerald-400">
                   Location selected! Click "Use This Location" to confirm.
@@ -1508,7 +1512,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
         <DialogContent className="max-w-md bg-slate-900 border-slate-700 max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-white">Search Filters</DialogTitle>
-            <DialogDescription className="text-slate-400">
+            <DialogDescription className="text-slate-300">
               Refine your search with these filters
             </DialogDescription>
           </DialogHeader>
@@ -1531,7 +1535,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   {jobType === "trade_jobs"
                     ? "Quick jobs with notifications to nearby tradespeople"
                     : "Permanent or contract positions"}
@@ -1597,7 +1601,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               <div className="flex items-center justify-between p-3 bg-slate-800 rounded-lg border border-slate-700">
                 <div className="space-y-0.5">
                   <label className="text-sm font-medium text-white">24/7 Service</label>
-                  <p className="text-xs text-slate-400">Only show tradespeople available around the clock</p>
+                  <p className="text-xs text-slate-300">Only show tradespeople available around the clock</p>
                 </div>
                 <button
                   type="button"
@@ -1631,7 +1635,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                         setSelectedLanguage("all")
                         setLanguageSearch("")
                       }}
-                      className="text-slate-400 hover:text-white"
+                      className="text-slate-300 hover:text-white"
                     >
                       <X className="h-4 w-4" />
                     </button>
@@ -1648,7 +1652,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     }}
                     onFocus={() => setShowLanguageSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowLanguageSuggestions(false), 200)}
-                    className="h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                    className="h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-400"
                   />
                 )}
 
@@ -1670,7 +1674,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
 
                     {/* Popular languages header */}
                     {!languageSearch && (
-                      <div className="px-3 py-1.5 text-xs font-semibold text-slate-500 bg-slate-900/50">
+                      <div className="px-3 py-1.5 text-xs font-semibold text-slate-400 bg-slate-900/50">
                         Popular Languages
                       </div>
                     )}
@@ -1700,14 +1704,14 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
                     {languageSearch && allLanguages.filter(lang =>
                       lang.toLowerCase().includes(languageSearch.toLowerCase())
                     ).length === 0 && (
-                      <div className="px-3 py-2 text-sm text-slate-400">
+                      <div className="px-3 py-2 text-sm text-slate-300">
                         No languages found. Try a different search.
                       </div>
                     )}
                   </div>
                 )}
               </div>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-400">
                 Find {activeTab === "tradespeople" ? "tradespeople" : "jobs"} that speak your preferred language
               </p>
             </div>
@@ -1762,7 +1766,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
         <DialogContent className="bg-slate-900 border-slate-700 text-white w-[min(360px,calc(100vw-2rem))] p-4 rounded-2xl">
           <DialogHeader className="mb-3">
             <DialogTitle className="text-sm font-bold text-white">Enter your postcode</DialogTitle>
-            <DialogDescription className="text-xs text-slate-400 mt-0.5">
+            <DialogDescription className="text-xs text-slate-300 mt-0.5">
               {pendingIndustry ? `Find ${pendingIndustry} specialists near you.` : "Find tradespeople near you."}
             </DialogDescription>
           </DialogHeader>
@@ -1779,7 +1783,7 @@ export function LandingPage({ isSignedIn, user, userType, adminSettings, profile
               value={modalPostcode}
               onChange={e => setModalPostcode(e.target.value)}
               placeholder="e.g. SW1A 1AA"
-              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-500 focus:border-emerald-500 h-9 text-sm"
+              className="bg-slate-800 border-slate-700 text-white placeholder:text-slate-400 focus:border-emerald-500 h-9 text-sm"
               autoFocus
             />
             <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-white font-semibold h-9 text-sm">
@@ -1871,7 +1875,7 @@ function MobileBottomNavLanding({
                 <div className="w-14 h-14 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg shadow-emerald-500/30 hover:bg-emerald-600 transition-colors">
                   <Icon className="h-7 w-7 text-white" />
                 </div>
-                <span className="text-xs mt-1 text-slate-400 font-medium">
+                <span className="text-xs mt-1 text-slate-300 font-medium">
                   {item.label}
                 </span>
               </button>
@@ -1885,7 +1889,7 @@ function MobileBottomNavLanding({
               className={`flex flex-col items-center justify-center py-2 px-3 rounded-lg transition-colors relative ${
                 isActive
                   ? "text-emerald-400"
-                  : "text-slate-500 hover:text-slate-300"
+                  : "text-slate-400 hover:text-slate-300"
               }`}
             >
               <Icon className={`h-6 w-6 ${isActive ? "stroke-[2.5]" : ""}`} />

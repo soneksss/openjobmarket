@@ -6,6 +6,7 @@ import { Trash2, Edit, Clock, Eye, EyeOff, Camera, Upload, X as XIcon, Loader2, 
 import { createClient } from "@/lib/client"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
+import { compressImage, MAX_IMAGE_UPLOAD_BYTES } from "@/lib/compress-image"
 
 interface HomeownerJobActionsProps {
   jobId: string
@@ -74,10 +75,10 @@ export function HomeownerJobActions({
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
       toast({
         title: "⚠️ File Too Large",
-        description: "Photo size must be less than 5MB",
+        description: "Photo size must be less than 20MB",
         variant: "destructive",
       })
       return
@@ -94,76 +95,24 @@ export function HomeownerJobActions({
 
     setIsProcessingPhoto(true)
     try {
-      const processedFile = await compressImage(file, 1024 * 1024)
+      const { file: processedFile } = await compressImage(file, {
+        maxDimension: 1600,
+        quality: 0.82,
+        fileName: file.name,
+      })
       const previewUrl = URL.createObjectURL(processedFile)
       setJobPhoto(processedFile)
       setJobPhotoUrl(previewUrl)
       setPhotoChanged(true)
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "❌ Image Processing Failed",
-        description: "Failed to process image",
+        description: error?.message ?? "Failed to process image",
         variant: "destructive",
       })
     } finally {
       setIsProcessingPhoto(false)
     }
-  }
-
-  const compressImage = (file: File, maxSizeBytes: number): Promise<File> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = (event) => {
-        const img = new Image()
-        img.src = event.target?.result as string
-        img.onload = () => {
-          const canvas = document.createElement('canvas')
-          canvas.width = img.width
-          canvas.height = img.height
-          const ctx = canvas.getContext('2d')
-          if (!ctx) {
-            reject(new Error('Failed to get canvas context'))
-            return
-          }
-          ctx.drawImage(img, 0, 0)
-
-          let quality = 0.9
-          const tryCompress = () => {
-            canvas.toBlob(
-              (blob) => {
-                if (!blob) {
-                  reject(new Error('Failed to compress image'))
-                  return
-                }
-
-                if (blob.size > maxSizeBytes && quality > 0.1) {
-                  quality -= 0.1
-                  tryCompress()
-                  return
-                }
-
-                // Create file from blob (always JPEG)
-                // Replace original extension with .jpg
-                const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "")
-                const jpegFileName = `${nameWithoutExt}.jpg`
-
-                const compressedFile = new File([blob], jpegFileName, {
-                  type: 'image/jpeg',
-                  lastModified: Date.now(),
-                })
-                resolve(compressedFile)
-              },
-              'image/jpeg',
-              quality
-            )
-          }
-          tryCompress()
-        }
-        img.onerror = () => reject(new Error('Failed to load image'))
-      }
-      reader.onerror = () => reject(new Error('Failed to read file'))
-    })
   }
 
   const handleRemovePhoto = () => {
@@ -323,14 +272,14 @@ export function HomeownerJobActions({
             return
           }
 
-          // Always use .jpg extension since we convert all images to JPEG
-          // Use folder structure to match RLS policy: {userId}/filename.jpg
-          const fileName = `${user.id}/${Date.now()}.jpg`
+          // Images are compressed to WebP client-side (see lib/compress-image).
+          // Folder structure {userId}/... matches the storage RLS policy.
+          const fileName = `${user.id}/${Date.now()}.webp`
 
           const { error: uploadError } = await supabase.storage.from('job-photos').upload(fileName, jobPhoto, {
-            cacheControl: '3600',
+            cacheControl: '31536000',
             upsert: false,
-            contentType: 'image/jpeg',
+            contentType: 'image/webp',
           })
 
           if (uploadError) {

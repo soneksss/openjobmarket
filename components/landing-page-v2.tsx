@@ -3,12 +3,14 @@
 import React, { useState, useRef, useEffect, Fragment } from "react"
 import { useRouter } from "next/navigation"
 import {
-  CheckCircle, ChevronLeft, ChevronRight,
-  Smartphone, Users, Briefcase, X,
+  ChevronLeft, ChevronRight,
+  Smartphone, Users, Briefcase, X, Check,
+  Map, Zap, ClipboardList, ShieldCheck, MessagesSquare, Tag, Star, Gift,
 } from "lucide-react"
 import Link from "next/link"
 import dynamic from "next/dynamic"
 import { helpItems } from "@/lib/data/help-items"
+import { LocalImpactSection } from "@/components/local-impact-section"
 
 const JobWizardModal = dynamic(() => import("@/components/job-wizard-modal"), { ssr: false })
 
@@ -20,12 +22,12 @@ interface Props {
 }
 
 const TRUST_ITEMS = [
-  { headline: "Verified local trades", sub: "Every trade is vetted" },
-  { headline: "Direct contact",        sub: "No middleman. No spam calls." },
-  { headline: "No lead selling",       sub: "Fairer prices for everyone" },
-  { headline: "Real reviews",          sub: "See previous work" },
-  { headline: "Fast replies",          sub: "Most trades reply same day" },
-  { headline: "Free to post jobs",     sub: "No subscription needed" },
+  { headline: "Verified local trades", sub: "Every trade is vetted",        icon: ShieldCheck },
+  { headline: "Direct contact",        sub: "No middleman. No spam calls.", icon: MessagesSquare },
+  { headline: "No lead selling",       sub: "Fairer prices for everyone",   icon: Tag },
+  { headline: "Real reviews",          sub: "See previous work",            icon: Star },
+  { headline: "Fast replies",          sub: "Most trades reply same day",   icon: Zap },
+  { headline: "Free to post jobs",     sub: "No subscription needed",       icon: Gift },
 ] as const
 
 const OTHERS_CONS = [
@@ -46,7 +48,7 @@ const OJM_PROS = [
 const HOW_OPTIONS = [
   {
     id: "direct",
-    emoji: "🗺️",
+    icon: Map,
     title: "Find & Contact Directly",
     intro: "Open the live map and view trusted local tradespeople near you.",
     points: [
@@ -59,7 +61,7 @@ const HOW_OPTIONS = [
   },
   {
     id: "urgent",
-    emoji: "⚡",
+    icon: Zap,
     title: "Post an Urgent Job",
     intro: "Need help today? Post an urgent job.",
     points: [
@@ -71,7 +73,7 @@ const HOW_OPTIONS = [
   },
   {
     id: "flexible",
-    emoji: "📋",
+    icon: ClipboardList,
     title: "Post a Flexible Job",
     intro: "Planning work? Post your job for up to 7 days.",
     points: [
@@ -84,9 +86,9 @@ const HOW_OPTIONS = [
 ] as const
 
 const DECISION_HELPER = [
-  { need: "Someone you've already found on the map", emoji: "🗺️", option: "Find & Contact Directly" },
-  { need: "Help today",                               emoji: "⚡", option: "Post an Urgent Job" },
-  { need: "Multiple quotations",                      emoji: "📋", option: "Post a Flexible Job" },
+  { need: "Someone you've already found on the map", icon: Map,           option: "Find & Contact Directly" },
+  { need: "Help today",                               icon: Zap,           option: "Post an Urgent Job" },
+  { need: "Multiple quotations",                      icon: ClipboardList, option: "Post a Flexible Job" },
 ] as const
 
 export function LandingPageV2({ isSignedIn, user, userType }: Props) {
@@ -188,15 +190,20 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
       <div style={{ borderBottom: '1px solid rgba(51,65,85,0.5)', background: 'rgba(15,23,42,0.82)' }}>
         {/* Mobile: 2-col grid */}
         <div className="sm:hidden px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
-          {TRUST_ITEMS.map(item => (
-            <div key={item.headline} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
-              <CheckCircle style={{ width: 13, height: 13, color: '#34d399', flexShrink: 0, marginTop: 2 }} />
-              <div>
-                <p style={{ color: '#f1f5f9', fontSize: 11, fontWeight: 600, lineHeight: 1.3, margin: 0 }}>{item.headline}</p>
-                <p style={{ color: '#64748b', fontSize: 10, margin: 0, lineHeight: 1.2 }}>{item.sub}</p>
+          {TRUST_ITEMS.map(item => {
+            const Icon = item.icon
+            return (
+              <div key={item.headline} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span style={{ width: 22, height: 22, borderRadius: 7, background: 'rgba(16,185,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                  <Icon style={{ width: 13, height: 13, color: '#34d399' }} strokeWidth={2.25} />
+                </span>
+                <div>
+                  <p style={{ color: '#f1f5f9', fontSize: 11, fontWeight: 600, lineHeight: 1.3, margin: 0 }}>{item.headline}</p>
+                  <p style={{ color: '#94a3b8', fontSize: 10, margin: 0, lineHeight: 1.2 }}>{item.sub}</p>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
           <div className="col-span-2 flex justify-center pt-1">
             <a href="https://uk.trustpilot.com/review/openjobmarket.com" target="_blank" rel="noopener noreferrer" style={{ opacity: 0.85 }}>
               <img src="/Trustpilot_1.png" alt="Trustpilot" loading="lazy" style={{ height: 32, width: 'auto' }} />
@@ -206,18 +213,23 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
         {/* Desktop: horizontal centred strip */}
         <div className="hidden sm:block" style={{ overflowX: 'auto', scrollbarWidth: 'none', textAlign: 'center' } as React.CSSProperties}>
           <div style={{ display: 'inline-flex', flexDirection: 'row', flexWrap: 'nowrap', alignItems: 'center', padding: '14px 24px', whiteSpace: 'nowrap' }}>
-            {TRUST_ITEMS.map((item, i) => (
-              <Fragment key={item.headline}>
-                {i > 0 && <div style={{ width: 1, minWidth: 1, height: 32, background: 'rgba(71,85,105,0.5)', margin: '0 22px', flexShrink: 0 }} />}
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 9, flexShrink: 0 }}>
-                  <CheckCircle style={{ width: 16, height: 16, color: '#34d399', flexShrink: 0 }} />
-                  <div style={{ textAlign: 'left' }}>
-                    <p style={{ color: '#f1f5f9', fontSize: 13, fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap', margin: 0 }}>{item.headline}</p>
-                    <p style={{ color: '#64748b', fontSize: 11, whiteSpace: 'nowrap', margin: 0 }}>{item.sub}</p>
+            {TRUST_ITEMS.map((item, i) => {
+              const Icon = item.icon
+              return (
+                <Fragment key={item.headline}>
+                  {i > 0 && <div style={{ width: 1, minWidth: 1, height: 32, background: 'rgba(71,85,105,0.5)', margin: '0 22px', flexShrink: 0 }} />}
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <span style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(16,185,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Icon style={{ width: 16, height: 16, color: '#34d399' }} strokeWidth={2.25} />
+                    </span>
+                    <div style={{ textAlign: 'left' }}>
+                      <p style={{ color: '#f1f5f9', fontSize: 13, fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap', margin: 0 }}>{item.headline}</p>
+                      <p style={{ color: '#94a3b8', fontSize: 11, whiteSpace: 'nowrap', margin: 0 }}>{item.sub}</p>
+                    </div>
                   </div>
-                </div>
-              </Fragment>
-            ))}
+                </Fragment>
+              )
+            })}
             <div style={{ width: 1, minWidth: 1, height: 32, background: 'rgba(71,85,105,0.5)', margin: '0 22px', flexShrink: 0 }} />
             <a href="https://uk.trustpilot.com/review/openjobmarket.com"
               target="_blank" rel="noopener noreferrer"
@@ -274,8 +286,12 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
         className={`py-10 border-t border-slate-800/60 ${fade("sec-available")}`}>
         <div className="container mx-auto px-4 max-w-2xl">
           <div className="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-5 sm:p-7">
-            <h2 className="text-lg sm:text-xl font-bold text-white text-center mb-4">
-              🟢 See Who&apos;s Available Before You Contact Anyone
+            <h2 className="flex items-center justify-center gap-2.5 text-lg sm:text-xl font-bold text-white text-center mb-4">
+              <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
+              </span>
+              See Who&apos;s Available Before You Contact Anyone
             </h2>
             <div className="rounded-xl border border-slate-700/50 overflow-hidden mb-4 max-w-md mx-auto">
               <div className="flex items-center gap-3 px-3 py-2.5 bg-slate-800/40">
@@ -317,15 +333,19 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-4 lg:gap-5">
-            {HOW_OPTIONS.map(opt => (
+            {HOW_OPTIONS.map(opt => {
+              const Icon = opt.icon
+              return (
               <div key={opt.id} className="flex flex-col rounded-2xl border border-slate-700/50 bg-slate-800/40 p-5">
-                <span className="text-3xl mb-2">{opt.emoji}</span>
+                <span className="mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 ring-1 ring-inset ring-emerald-500/25">
+                  <Icon className="h-5 w-5 text-emerald-400" strokeWidth={2} />
+                </span>
                 <h3 className="font-bold text-white text-base mb-1.5">{opt.title}</h3>
                 <p className="text-sm text-slate-300 mb-3 leading-relaxed">{opt.intro}</p>
                 <ul className="space-y-1.5 mb-3">
                   {opt.points.map(point => (
                     <li key={point} className="flex items-start gap-2 text-xs sm:text-sm text-slate-300">
-                      <span className="text-emerald-400 flex-shrink-0 mt-0.5">✓</span>
+                      <Check className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
                       {point}
                     </li>
                   ))}
@@ -334,26 +354,35 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
                   <p className="text-xs text-slate-500 leading-snug mt-auto pt-3 border-t border-slate-700/40">{opt.footer}</p>
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Decision helper */}
           <div className="mt-8 max-w-xl mx-auto">
             <h3 className="text-center text-sm font-semibold text-slate-400 mb-3">Which option should I choose?</h3>
             <div className="space-y-2">
-              {DECISION_HELPER.map(row => (
+              {DECISION_HELPER.map(row => {
+                const Icon = row.icon
+                return (
                 <div key={row.need} className="flex items-center gap-3 rounded-xl border border-slate-700/50 bg-slate-800/40 px-4 py-3">
                   <span className="text-sm text-slate-300 flex-1">If you need <span className="text-white font-medium">{row.need}</span></span>
                   <span className="flex items-center gap-1.5 text-sm text-emerald-400 font-semibold whitespace-nowrap flex-shrink-0">
-                    <span className="text-base">{row.emoji}</span>
+                    <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/12 ring-1 ring-inset ring-emerald-500/20">
+                      <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    </span>
                     {row.option}
                   </span>
                 </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
       </section>
+
+      {/* ── Local impact — "Good to know" ───────────────────────────────────── */}
+      <LocalImpactSection variant="homeowner" />
 
       {/* ── Comparison ──────────────────────────────────────────────────────── */}
       <section id="sec-comparison" data-fade
@@ -370,8 +399,10 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
               </p>
               <ul className="space-y-3">
                 {OTHERS_CONS.map(text => (
-                  <li key={text} className="flex items-start gap-2">
-                    <span className="text-red-400 font-bold flex-shrink-0 mt-0.5 text-sm">✕</span>
+                  <li key={text} className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-red-500/15">
+                      <X className="h-2.5 w-2.5 text-red-400" strokeWidth={3} />
+                    </span>
                     <span className="text-slate-400 text-xs sm:text-sm leading-snug">{text}</span>
                   </li>
                 ))}
@@ -383,8 +414,10 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
               </p>
               <ul className="space-y-3">
                 {OJM_PROS.map(text => (
-                  <li key={text} className="flex items-start gap-2">
-                    <span className="text-emerald-400 font-bold flex-shrink-0 mt-0.5 text-sm">✓</span>
+                  <li key={text} className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                      <Check className="h-2.5 w-2.5 text-emerald-400" strokeWidth={3} />
+                    </span>
                     <span className="text-slate-100 text-xs sm:text-sm font-medium leading-snug">{text}</span>
                   </li>
                 ))}
@@ -455,7 +488,7 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
                 <ul className="space-y-1 mb-4">
                   {["Instant replies", "Push notifications", "Faster messaging", "Better mobile experience"].map(item => (
                     <li key={item} className="flex items-center justify-center sm:justify-start gap-2 text-slate-300 text-sm">
-                      <span className="text-emerald-400 flex-shrink-0">✓</span>
+                      <Check className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" strokeWidth={2.5} />
                       {item}
                     </li>
                   ))}
@@ -503,8 +536,10 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
               "Compare multiple quotations",
               "Completely free to post jobs",
             ].map(item => (
-              <div key={item} className="flex items-start gap-2 bg-slate-800/40 border border-slate-700/40 rounded-xl p-3">
-                <span className="text-emerald-400 flex-shrink-0 mt-0.5">✓</span>
+              <div key={item} className="flex items-start gap-2.5 bg-slate-800/40 border border-slate-700/40 rounded-xl p-3">
+                <span className="mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-emerald-500/20">
+                  <Check className="h-2.5 w-2.5 text-emerald-400" strokeWidth={3} />
+                </span>
                 <span className="text-slate-200 text-xs sm:text-sm leading-snug">{item}</span>
               </div>
             ))}

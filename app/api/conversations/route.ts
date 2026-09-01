@@ -129,6 +129,9 @@ export async function POST(request: NextRequest) {
     if (!with_user_id) {
       return NextResponse.json({ error: "with_user_id required" }, { status: 400 })
     }
+    if (with_user_id === user.id) {
+      return NextResponse.json({ error: "You cannot message yourself" }, { status: 400 })
+    }
 
     // Use admin client so homeowners/professionals can create conversations
     // without needing explicit GRANT EXECUTE on get_or_create_conversation.

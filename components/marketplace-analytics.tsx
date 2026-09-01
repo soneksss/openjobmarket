@@ -8,7 +8,7 @@ import {
 } from "recharts"
 import {
   Users, Hammer, Briefcase, CheckCircle2, RefreshCw, AlertTriangle,
-  TrendingUp, PoundSterling,
+  TrendingUp, PoundSterling, MapPin, Leaf,
 } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -19,8 +19,17 @@ interface MarketplaceData {
   totalTradespeople: number
   totalJobsPosted: number
   totalJobsCompleted: number
+  avgJobDistanceMiles: number | null
+  completedJobsMeasured: number
+  estimatedCo2eAvoidedKg: number | null
   mostPopularJobs: Array<{ name: string; count: number }>
   revenue: number | null
+}
+
+// kg → "340 kg" / "1.2 t"
+function formatCo2e(kg: number): string {
+  if (kg >= 1000) return `${(kg / 1000).toFixed(1)} t`
+  return `${Math.round(kg)} kg`
 }
 
 interface GrowthData {
@@ -361,6 +370,33 @@ export function MarketplaceAnalytics() {
         <div className="grid grid-cols-2 gap-3">
           <K title="Homeowners" value={data.totalHomeowners} icon={Users} accent="cyan" />
           <K title="Tradespeople" value={data.totalTradespeople} icon={Hammer} accent="purple" />
+        </div>
+      </div>
+
+      {/* Local impact — short job trips = less van mileage */}
+      <div>
+        <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold uppercase tracking-widest text-green-400">
+          <Leaf className="h-3 w-3" />Local Impact
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <K
+            title="Avg. job distance"
+            value={data.avgJobDistanceMiles != null ? `${data.avgJobDistanceMiles.toFixed(1)} mi` : "—"}
+            icon={MapPin}
+            accent="green"
+            note={
+              data.completedJobsMeasured > 0
+                ? `across ${data.completedJobsMeasured.toLocaleString()} completed job${data.completedJobsMeasured === 1 ? "" : "s"}`
+                : "no completed jobs with location data yet"
+            }
+          />
+          <K
+            title="Est. CO₂e avoided"
+            value={data.estimatedCo2eAvoidedKg != null ? formatCo2e(data.estimatedCo2eAvoidedKg) : "—"}
+            icon={Leaf}
+            accent="green"
+            note="model: 20-mi one-way baseline, round trip, 0.33 kg CO₂e/mi (van)"
+          />
         </div>
       </div>
 

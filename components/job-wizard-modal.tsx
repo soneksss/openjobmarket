@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
 import { TRADE_INDUSTRIES, INDUSTRY_TO_CATEGORY as TRADE_INDUSTRY_TO_CATEGORY, findTradeIndustry } from "@/lib/data/trade-industries"
-import imageCompression from "browser-image-compression"
+import { compressImage, MAX_IMAGE_UPLOAD_BYTES } from "@/lib/compress-image"
 
 type Props = {
   companyProfile: any
@@ -567,11 +567,11 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Reject anything over 10MB (before compression)
-    if (file.size > 10 * 1024 * 1024) {
+    // Reject oversized files before we try to decode them (Android memory guard)
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
       toast({
         title: "⚠️ File Too Large",
-        description: "Photo must be under 10MB",
+        description: "Photo must be under 20MB",
         variant: "destructive",
       })
       return
@@ -589,11 +589,10 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
     const { dismiss } = toast({ title: "Optimising photo…", description: "Just a moment." })
 
     try {
-      const processedFile = await imageCompression(file, {
-        maxSizeMB: 1,
-        maxWidthOrHeight: 1600,
-        useWebWorker: true,
-        fileType: "image/webp",
+      const { file: processedFile } = await compressImage(file, {
+        maxDimension: 1600,
+        quality: 0.82,
+        fileName: file.name,
       })
 
       dismiss()
@@ -603,12 +602,12 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         jobPhoto: processedFile,
         jobPhotoUrl: previewUrl,
       }))
-    } catch (error) {
+    } catch (error: any) {
       dismiss()
       console.error("[Job Wizard] Error processing image:", error)
       toast({
         title: "❌ Image Processing Failed",
-        description: "Failed to process image. Please try another photo.",
+        description: error?.message ?? "Failed to process image. Please try another photo.",
         variant: "destructive",
       })
     }
@@ -930,14 +929,14 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       let jobPhotoPublicUrl: string | null = null
       if (formData.jobPhoto && formData.postingType === "tradespeople") {
         try {
-          const fileName = `${user.id}/${Date.now()}.jpg`
+          const fileName = `${user.id}/${Date.now()}.webp`
 
           const { error: uploadError } = await supabase.storage
             .from('job-photos')
             .upload(fileName, formData.jobPhoto, {
-              cacheControl: '3600',
+              cacheControl: '31536000',
               upsert: false,
-              contentType: 'image/jpeg',
+              contentType: 'image/webp',
             })
 
           if (uploadError) {

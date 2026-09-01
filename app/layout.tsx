@@ -134,6 +134,10 @@ export default async function RootLayout({
     <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased dark`}>
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+        {/* The UI is dark-only. Tell the browser / Android WebView so its
+            "Force Dark" auto-darkening doesn't invert the page — that inversion
+            is what turned the grey van markers white on MIUI/Xiaomi WebViews. */}
+        <meta name="color-scheme" content="dark" />
         {/* PWA manifest */}
         <link rel="manifest" href="/manifest.json" />
         {/* PWA "Add to Home Screen" full-screen mode — both standards */}

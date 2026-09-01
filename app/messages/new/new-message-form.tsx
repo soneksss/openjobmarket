@@ -91,13 +91,17 @@ export default function NewMessageForm({
 
   const handleSend = async () => {
     if (!recipientId || !subject.trim() || !message.trim()) return
+    if (recipientId === userId) {
+      setErrorMsg("You cannot message yourself.")
+      return
+    }
     setSending(true)
     setErrorMsg(null)
 
     try {
       const { data: conversationId, error: convError } = await supabase.rpc(
         "get_or_create_conversation",
-        { user1_id: userId, user2_id: recipientId }
+        { user1_id: userId, user2_id: recipientId, p_job_id: jobId || null, p_subject: subject.trim() || null }
       )
 
       if (convError || !conversationId) {
