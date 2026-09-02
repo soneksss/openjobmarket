@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="colorAccent">#10b981</color>
+    <!-- App dark background (slate-900). Used as the window background so any area
+         the WebView vacates when the soft keyboard resizes it (MIUI/Xiaomi shows
+         this most) paints dark instead of the theme's default white. -->
+    <color name="bgDark">#0f172a</color>
 </resources>

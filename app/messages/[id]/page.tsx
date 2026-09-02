@@ -257,6 +257,27 @@ export default function ConversationPage() {
   const [photoError, setPhotoError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Bind the chat shell height to the *visual* viewport. On MIUI/Xiaomi the
+  // WebView's layout viewport (what `100vh` / `fixed inset-0` resolve to) does
+  // NOT shrink when the soft keyboard opens, so a `fixed inset-0` flex column
+  // keeps its full height and the input bar is pushed off-screen behind the
+  // keyboard (leaving a big blank band). `visualViewport.height` reports the
+  // genuinely visible area on every Android WebView, so sizing the shell to it
+  // keeps the input row just above the keyboard on all devices.
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null)
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null
+    if (!vv) return
+    const apply = () => setViewportHeight(Math.round(vv.height))
+    apply()
+    vv.addEventListener("resize", apply)
+    vv.addEventListener("scroll", apply)
+    return () => {
+      vv.removeEventListener("resize", apply)
+      vv.removeEventListener("scroll", apply)
+    }
+  }, [])
+
   useEffect(() => {
     fetchConversation()
   }, [])
@@ -1074,8 +1095,11 @@ export default function ConversationPage() {
   }
 
   return (
-    <div className="fixed inset-0 bg-slate-900 flex flex-col z-[60] pb-16 md:pb-0">
-      <div className="flex flex-col flex-1 min-h-0 w-full max-w-2xl mx-auto px-4 md:px-6 py-4 md:py-6">
+    <div
+      className="fixed inset-x-0 top-0 bg-slate-900 flex flex-col z-[60]"
+      style={{ height: viewportHeight ? `${viewportHeight}px` : "100dvh" }}
+    >
+      <div className="flex flex-col flex-1 min-h-0 w-full max-w-2xl mx-auto px-4 md:px-6 py-4 md:py-6 pb-[max(1rem,env(safe-area-inset-bottom))]">
         {/* Header */}
         <div className="bg-slate-800/90 rounded-t-xl border border-slate-700/50 border-b-0 p-3 flex-shrink-0">
           <div className="flex items-center gap-3">

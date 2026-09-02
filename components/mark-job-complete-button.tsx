@@ -24,7 +24,6 @@ export function MarkJobCompleteButton({
   redirectAfter = "/dashboard/company/my-jobs?tab=history",
 }: Props) {
   const [loading, setLoading] = useState(false)
-  const [confirmed, setConfirmed] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [stage, setStage] = useState<Stage>("idle")
   const [companyProfileId, setCompanyProfileId] = useState<string | null>(null)
@@ -33,11 +32,9 @@ export function MarkJobCompleteButton({
   const goToHistory = () => { window.location.href = redirectAfter }
 
   async function handleClick() {
-    if (!confirmed) {
-      setConfirmed(true)
-      setErrorMsg(null)
-      return
-    }
+    if (loading) return
+    // Single click, with one plain confirm so an accidental tap can't close a job.
+    if (!window.confirm(`Mark "${jobTitle}" as completed?`)) return
 
     setLoading(true)
     setErrorMsg(null)
@@ -46,7 +43,6 @@ export function MarkJobCompleteButton({
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         if (body.error === "already_completed") { goToHistory(); return }
-        setConfirmed(false)
         setErrorMsg(body.error ?? "Failed to mark complete. Please try again.")
         return
       }
@@ -57,7 +53,6 @@ export function MarkJobCompleteButton({
         goToHistory()
       }
     } catch {
-      setConfirmed(false)
       setErrorMsg("Network error. Please try again.")
     } finally {
       setLoading(false)
@@ -93,14 +88,10 @@ export function MarkJobCompleteButton({
       <button
         onClick={handleClick}
         disabled={loading}
-        className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60 ${
-          confirmed
-            ? "bg-emerald-600 hover:bg-emerald-500 text-white"
-            : "bg-slate-700 hover:bg-slate-600 text-slate-200"
-        }`}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-60 bg-emerald-600 hover:bg-emerald-500 text-white"
       >
         <CheckCircle2 className="w-3.5 h-3.5" />
-        {loading ? "Completing…" : confirmed ? "Confirm Complete" : "Mark as Completed"}
+        {loading ? "Completing…" : "Mark as Completed"}
       </button>
       {errorMsg && (
         <p className="text-xs text-red-400 leading-tight">{errorMsg}</p>

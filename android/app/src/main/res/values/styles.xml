@@ -13,6 +13,9 @@
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
+        <!-- Dark window background so the strip exposed when the keyboard resizes
+             the WebView (very visible on MIUI/Xiaomi) is slate-900, not white. -->
+        <item name="android:windowBackground">@color/bgDark</item>
     </style>
 
 
