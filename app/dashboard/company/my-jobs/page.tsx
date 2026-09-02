@@ -205,7 +205,12 @@ export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
                         View Job
                       </Link>
                       {!isCompleted && (
-                        <MarkJobCompleteButton jobId={job.id} jobTitle={job.title} />
+                        <MarkJobCompleteButton
+                          jobId={job.id}
+                          jobTitle={job.title}
+                          homeownerUserId={homeowner?.user_id}
+                          homeownerName={posterName}
+                        />
                       )}
                       {isCompleted && homeowner?.user_id && (
                         <ReviewHomeownerButton

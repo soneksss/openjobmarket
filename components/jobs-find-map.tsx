@@ -411,7 +411,8 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     } finally {
       setMessagingJobId(null)
     }
-    router.push(`/messages/${homeownerUserId}`)
+    // Pass the job so the conversation is linked to it (job badge + context in chat).
+    router.push(`/messages/${homeownerUserId}?job=${job.id}`)
   }
 
   const handleMyLocation = useCallback(() => {

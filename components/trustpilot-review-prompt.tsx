@@ -10,12 +10,15 @@ const TRUSTPILOT_URL = "https://uk.trustpilot.com/review/openjobmarket.com"
 interface Props {
   isOpen: boolean
   onClose: () => void
-  homeownerProfileId: string
+  /** Profile row id whose `first_review_prompt_shown` flag we set on open. */
+  profileId: string
+  /** Which profile table that id belongs to. Defaults to homeowner_profiles. */
+  profileTable?: "homeowner_profiles" | "company_profiles"
 }
 
 type Step = "ask" | "positive" | "negative"
 
-export function TrustpilotReviewPrompt({ isOpen, onClose, homeownerProfileId }: Props) {
+export function TrustpilotReviewPrompt({ isOpen, onClose, profileId, profileTable = "homeowner_profiles" }: Props) {
   const router = useRouter()
   const supabase = createClient()
   const [step, setStep] = useState<Step>("ask")
@@ -24,9 +27,9 @@ export function TrustpilotReviewPrompt({ isOpen, onClose, homeownerProfileId }: 
   // "shown" means shown, not "the user picked a button."
   useEffect(() => {
     if (!isOpen) return
-    supabase.from("homeowner_profiles")
+    supabase.from(profileTable)
       .update({ first_review_prompt_shown: true })
-      .eq("id", homeownerProfileId)
+      .eq("id", profileId)
       .then(() => {})
   }, [isOpen]) // eslint-disable-line react-hooks/exhaustive-deps
 

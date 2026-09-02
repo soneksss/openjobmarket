@@ -432,7 +432,8 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId,
         <TrustpilotReviewPrompt
           isOpen={!!trustpilotProfileId}
           onClose={() => setTrustpilotProfileId(null)}
-          homeownerProfileId={trustpilotProfileId}
+          profileId={trustpilotProfileId}
+          profileTable="homeowner_profiles"
         />
       )}
     </>

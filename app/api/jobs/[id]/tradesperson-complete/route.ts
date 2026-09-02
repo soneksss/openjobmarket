@@ -53,20 +53,24 @@ export async function POST(
       return NextResponse.json({ error: "already_completed" }, { status: 409 })
     }
 
-    if (job.status !== "CONFIRMED" && job.status !== "ACTIVE") {
-      return NextResponse.json({ error: "Job cannot be marked as completed in current status" }, { status: 422 })
+    const COMPLETABLE = ["CONFIRMED", "ACTIVE", "FILLED"]
+    if (!COMPLETABLE.includes(job.status)) {
+      return NextResponse.json(
+        { error: `Job cannot be marked as completed in status "${job.status}"` },
+        { status: 422 }
+      )
     }
 
-    // Single-step: CONFIRMED or ACTIVE → COMPLETED.
-    // migration 20260317000004 added CONFIRMED→COMPLETED as a valid transition.
+    // CONFIRMED / ACTIVE / FILLED → COMPLETED. enforce_job_state_machine allows
+    // all of these for both urgent and flexible jobs (migration 20260902000002).
     const { error: updateError } = await admin
       .from("jobs")
       .update({ status: "COMPLETED", is_active: false, completed_at: new Date().toISOString() })
       .eq("id", jobId)
-      .in("status", ["CONFIRMED", "ACTIVE"])
+      .in("status", COMPLETABLE)
 
     if (updateError) {
-      console.error("[TRADESPERSON-COMPLETE] ACTIVE→COMPLETED error:", updateError.message)
+      console.error("[TRADESPERSON-COMPLETE] → COMPLETED error:", updateError.message)
       return NextResponse.json({ error: updateError.message }, { status: 422 })
     }
 
