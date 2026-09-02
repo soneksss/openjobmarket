@@ -205,6 +205,7 @@ interface JobContext {
   is_tradespeople_job?: boolean
   urgency_type?: string | null
   max_responses?: number | null
+  confirmed_tradesperson_id?: string | null
 }
 
 export default function ConversationPage() {
@@ -281,6 +282,8 @@ export default function ConversationPage() {
           ...prev,
           status: updated.status ?? prev.status,
           matching_status: updated.matching_status ?? prev.matching_status,
+          confirmed_tradesperson_id:
+            'confirmed_tradesperson_id' in updated ? updated.confirmed_tradesperson_id : prev.confirmed_tradesperson_id,
         } : null)
       })
       .subscribe()
@@ -742,7 +745,7 @@ export default function ConversationPage() {
         console.log('[CONVERSATION] Step 17.5: Fetching job context for:', jobId)
         const { data: jobData, error: jobError } = await supabase
           .from('jobs')
-          .select('id, title, location, created_at, status, matching_status, is_tradespeople_job, urgency_type, max_responses')
+          .select('id, title, location, created_at, status, matching_status, is_tradespeople_job, urgency_type, max_responses, confirmed_tradesperson_id')
           .eq('id', jobId)
           .maybeSingle()
 
@@ -994,7 +997,7 @@ export default function ConversationPage() {
           p_tradesperson_id: otherUserProfileId,
         })
         if (error) throw error
-        setJobContext(prev => prev ? { ...prev, status: 'CONFIRMED' } : null)
+        setJobContext(prev => prev ? { ...prev, status: 'CONFIRMED', matching_status: 'closed', confirmed_tradesperson_id: otherUserProfileId } : null)
       } else {
         const { error } = await supabase
           .from('jobs')
@@ -1006,6 +1009,25 @@ export default function ConversationPage() {
     } catch (error: any) {
       console.error('[CONVERSATION] Error updating job status:', error)
       alert(error.message || 'Failed to update job status')
+    } finally {
+      setUpdatingJobStatus(false)
+    }
+  }
+
+  const cancelConfirmation = async () => {
+    if (!jobContext?.id || updatingJobStatus) return
+    if (!confirm('Cancel this confirmation? The job goes back to searching and other applicants return.')) return
+    setUpdatingJobStatus(true)
+    try {
+      const res = await fetch(`/api/jobs/${jobContext.id}/cancel-confirmation`, { method: 'POST', credentials: 'include' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error ?? 'Failed to cancel confirmation')
+      }
+      setJobContext(prev => prev ? { ...prev, status: 'POSTED', matching_status: 'searching', confirmed_tradesperson_id: null } : null)
+    } catch (error: any) {
+      console.error('[CONVERSATION] Error cancelling confirmation:', error)
+      alert(error.message || 'Failed to cancel confirmation')
     } finally {
       setUpdatingJobStatus(false)
     }
@@ -1160,31 +1182,58 @@ export default function ConversationPage() {
                     </>
                   )}
                 </div>
-                {jobContext.is_tradespeople_job && senderRole === 'homeowner' && jobContext.status !== 'COMPLETED' && (
-                  jobContext.status === 'CONFIRMED' ? (
-                    <Button
-                      size="sm"
-                      onClick={() => updateJobStatus('completed')}
-                      disabled={updatingJobStatus}
-                      className="h-7 px-2.5 text-[11px] bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 font-medium flex-shrink-0"
-                      variant="outline"
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      {updatingJobStatus ? '…' : 'Mark as completed'}
-                    </Button>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() => updateJobStatus('CONFIRMED')}
-                      disabled={updatingJobStatus}
-                      className="h-7 px-2.5 text-[11px] bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 font-medium flex-shrink-0"
-                      variant="outline"
-                    >
-                      <CheckCircle className="h-3 w-3 mr-1" />
-                      {updatingJobStatus ? '…' : 'Confirm'}
-                    </Button>
-                  )
-                )}
+                {jobContext.is_tradespeople_job && senderRole === 'homeowner'
+                  && jobContext.status !== 'COMPLETED' && jobContext.status !== 'CANCELLED'
+                  && (() => {
+                  const confirmedHere = !!jobContext.confirmed_tradesperson_id && jobContext.confirmed_tradesperson_id === otherUserProfileId
+                  const elseConfirmed = !!jobContext.confirmed_tradesperson_id && jobContext.confirmed_tradesperson_id !== otherUserProfileId
+                  const canConfirm    = !jobContext.confirmed_tradesperson_id && !!otherUserProfileId
+
+                  if (confirmedHere) {
+                    return (
+                      <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+                        <span className="h-7 pl-2 pr-1 inline-flex items-center gap-1 text-[11px] rounded-md bg-emerald-600/25 text-emerald-300 border border-emerald-500/40 font-semibold">
+                          <CheckCircle className="h-3 w-3" /> Confirmed
+                          <button
+                            onClick={cancelConfirmation}
+                            disabled={updatingJobStatus}
+                            title="Cancel confirmation"
+                            className="ml-0.5 w-4 h-4 rounded flex items-center justify-center text-emerald-400/70 hover:text-red-400 hover:bg-red-500/15 disabled:opacity-50"
+                          >
+                            <XIcon className="h-3 w-3" />
+                          </button>
+                        </span>
+                        <Button
+                          size="sm"
+                          onClick={() => updateJobStatus('completed')}
+                          disabled={updatingJobStatus}
+                          className="h-7 px-2.5 text-[11px] bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 font-medium"
+                          variant="outline"
+                        >
+                          {updatingJobStatus ? '…' : 'Mark completed'}
+                        </Button>
+                      </div>
+                    )
+                  }
+                  if (elseConfirmed) {
+                    return <span className="text-[10px] text-slate-500 flex-shrink-0">Another tradesperson is confirmed</span>
+                  }
+                  if (canConfirm) {
+                    return (
+                      <Button
+                        size="sm"
+                        onClick={() => updateJobStatus('CONFIRMED')}
+                        disabled={updatingJobStatus}
+                        className="h-7 px-2.5 text-[11px] bg-orange-500/20 hover:bg-orange-500/40 text-orange-400 border border-orange-500/40 font-semibold flex-shrink-0"
+                        variant="outline"
+                      >
+                        <CheckCircle className="h-3 w-3 mr-1" />
+                        {updatingJobStatus ? '…' : 'Confirm tradesperson'}
+                      </Button>
+                    )
+                  }
+                  return null
+                })()}
               </div>
             </div>
           )}

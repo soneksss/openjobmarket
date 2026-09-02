@@ -10,8 +10,15 @@
 --
 -- Turning "Available now" OFF (manual toggle OR the existing 9:00 AM
 -- expire-availability cron) flips is_active = false via a trigger on
--- company_profiles — no cron/route changes needed.
+-- company_profiles — that trigger lives in 20260901000009 (separate file
+-- because it briefly locks the very hot company_profiles table).
+--
+-- ── Run this as its own SQL-editor execution. If it fails with
+--    "deadlock detected" / "lock timeout", nothing was committed — just run
+--    it again (ideally during a quiet moment).
 -- ============================================================================
+
+SET lock_timeout = '6s';
 
 -- ── 1. Table ────────────────────────────────────────────────────────────────
 -- One row per tradesperson (PK = company_id) → exactly one live record each.
@@ -61,36 +68,9 @@ CREATE POLICY tll_delete_own ON public.tradesperson_live_locations
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.tradesperson_live_locations TO authenticated;
 
--- ── 3. Deactivation trigger ─────────────────────────────────────────────────
--- When a company goes "not available" (open_for_business OR
--- urgent_notifications_enabled true→false) — from the toggle, the client
--- expiry guard, or the 9:00 AM cron — deactivate its live row in the same
--- statement. Never re-activates: the client re-creates an active row on the
--- next GPS ping when the tradesperson turns "Available now" back on.
-
-CREATE OR REPLACE FUNCTION public.deactivate_live_location_on_unavailable()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-  IF (COALESCE(OLD.open_for_business, false)           AND NOT COALESCE(NEW.open_for_business, false))
-  OR (COALESCE(OLD.urgent_notifications_enabled, false) AND NOT COALESCE(NEW.urgent_notifications_enabled, false))
-  THEN
-    UPDATE public.tradesperson_live_locations
-    SET    is_active = false
-    WHERE  company_id = NEW.id AND is_active;
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_deactivate_live_location ON public.company_profiles;
-CREATE TRIGGER trg_deactivate_live_location
-AFTER UPDATE OF open_for_business, urgent_notifications_enabled ON public.company_profiles
-FOR EACH ROW
-EXECUTE FUNCTION public.deactivate_live_location_on_unavailable();
+-- ── 3. Deactivation trigger → see 20260901000009_live_location_trigger.sql ──
+-- (kept separate: it briefly ACCESS-EXCLUSIVE-locks company_profiles, which
+--  deadlocks against live traffic if bundled with the rest.)
 
 -- ============================================================================
 -- 4. Matching RPCs — use the live position when Available now + fresh (<120 s),
