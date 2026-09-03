@@ -724,10 +724,15 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
 
     setLoading(true)
 
+    // Tracks which step we're on so a hang reports something diagnosable
+    // instead of a blanket "Request timed out".
+    let phase = "start"
+
     // Timeout protection - automatically reset loading after 30 seconds
     const timeoutId = setTimeout(() => {
       setLoading(false)
-      setErr("Request timed out. Please check your connection and try again.")
+      console.error(`[JOB-WIZARD] master timeout — stuck at phase=${phase}`)
+      setErr(`Posting is taking longer than expected (stuck at: ${phase}). Please try again; if it keeps happening, contact support.`)
     }, 30000)
 
     try {
@@ -776,9 +781,13 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           created_at: new Date().toISOString(),
         }
 
+        phase = "create-guest-account"
+        const guestAbort = new AbortController()
+        const guestAbortId = setTimeout(() => guestAbort.abort(), 25_000)
         const guestRes = await fetch("/api/auth/create-guest-account", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: guestAbort.signal,
           body: JSON.stringify({
             firstName:  contactData.firstName.trim(),
             lastName:   contactData.lastName.trim(),
@@ -792,6 +801,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
             jobData:    guestJobData,
           }),
         })
+        clearTimeout(guestAbortId)
 
         const guestBody = await guestRes.json().catch(() => ({}))
 
@@ -833,6 +843,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       // companyProfile may be null when the wizard is opened from the landing page
       // without a pre-loaded profile (e.g. clicking a service card). In that case
       // fetch the session user and their profile on the fly.
+      phase = "resolve-profile"
       let resolvedProfile = companyProfile
       if (!resolvedProfile) {
         const { data: { user: sessionUser } } = await supabase.auth.getUser()
@@ -865,6 +876,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
 
       // Homeowners don't have subscriptions — they can always post trade jobs
       if (userType !== "homeowner") {
+        phase = "check-can-post"
         const { data: canPost, error: checkError } = await supabase
           .rpc("can_user_post_job", { user_id_param: user.id })
 
@@ -925,33 +937,76 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         expirationDate.setDate(expirationDate.getDate() + daysToAdd)
       }
 
-      // Upload job photo if provided
+      // Upload job photo if provided.
+      // The photo is OPTIONAL and must never block job creation. The Supabase
+      // Storage upload has no built-in timeout, so a stalled CDN request here
+      // used to freeze the whole "Publish" action until the 30s master timeout
+      // fired ("Request timed out") — with the job never even attempted. Race it
+      // against a 15s deadline; on timeout/error we post the job without the
+      // photo (the user can add it later by editing the job).
       let jobPhotoPublicUrl: string | null = null
       if (formData.jobPhoto && formData.postingType === "tradespeople") {
-        try {
-          const fileName = `${user.id}/${Date.now()}.webp`
+        phase = "photo-upload"
+        const photo = formData.jobPhoto
 
-          const { error: uploadError } = await supabase.storage
+        // Use the LIVE session's user id for the folder — the storage RLS policy
+        // is `(storage.foldername(name))[1] = auth.uid()::text`, and resolvedProfile
+        // (from server props) can carry a stale/foreign user_id.
+        const { data: { session } } = await supabase.auth.getSession()
+        const uploaderId = session?.user?.id ?? user.id
+        const fileName = `${uploaderId}/${Date.now()}.webp`
+
+        // Sanity-check the compressed file so a broken resize (0 bytes, wrong
+        // type) is visible in logs instead of a silent upload failure.
+        console.log("[JOB-WIZARD] phase=photo-upload start:", {
+          name: photo.name, type: photo.type, bytes: photo.size, fileName,
+          hasSession: !!session, uploaderId,
+        })
+
+        try {
+          if (!(photo instanceof Blob) || photo.size === 0) {
+            throw new Error(`compressed photo is empty/invalid (size=${(photo as any)?.size})`)
+          }
+
+          const uploadPromise = supabase.storage
             .from('job-photos')
-            .upload(fileName, formData.jobPhoto, {
+            .upload(fileName, photo, {
               cacheControl: '31536000',
               upsert: false,
-              contentType: 'image/webp',
+              contentType: photo.type || 'image/webp',
             })
+          const timeoutPromise = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+            setTimeout(() => resolve({ data: null, error: { message: "upload did not respond within 15s" } }), 15_000)
+          )
+
+          const { error: uploadError } = await Promise.race([uploadPromise, timeoutPromise]) as { error: any }
 
           if (uploadError) {
-            console.error("[JOB PHOTO UPLOAD ERROR]", {
+            console.error("[JOB-WIZARD] phase=photo-upload FAILED — posting without photo:", {
               message: uploadError.message,
+              statusCode: uploadError.statusCode ?? uploadError.status,
+              name: uploadError.name,
+              full: JSON.stringify(uploadError),
               bucket: "job-photos",
               fileName,
+            })
+            toast({
+              title: "Photo couldn't be attached",
+              description: `${uploadError.message ?? "Upload failed"} — your job will still be posted; add the photo later by editing it.`,
+              variant: "destructive",
             })
           } else {
             const { data: urlData } = supabase.storage.from('job-photos').getPublicUrl(fileName)
             jobPhotoPublicUrl = urlData.publicUrl
-            console.log("[JOB PHOTO UPLOAD OK] url:", jobPhotoPublicUrl)
+            console.log("[JOB-WIZARD] phase=photo-upload ok:", jobPhotoPublicUrl)
           }
         } catch (err: any) {
-          console.error("[JOB PHOTO UPLOAD EXCEPTION]", err?.message ?? err)
+          console.error("[JOB-WIZARD] phase=photo-upload exception — posting without photo:", err?.message ?? err)
+          toast({
+            title: "Photo couldn't be attached",
+            description: `${err?.message ?? "Image error"} — your job will still be posted.`,
+            variant: "destructive",
+          })
         }
       }
 
@@ -1043,6 +1098,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
 
       // Use the server-side API route (admin/service_role) to avoid
       // client-side RLS subquery hangs. 15-second abort for safety.
+      phase = "insert-job"
       const insertAbort = new AbortController()
       const insertAbortId = setTimeout(() => insertAbort.abort(), 15_000)
 
@@ -1060,8 +1116,11 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           insertErrMsg = body?.error ?? `HTTP ${res.status}`
         }
       } catch (fetchErr: any) {
-        insertErrMsg = fetchErr?.message ?? String(fetchErr)
-        console.error("[JOB-WIZARD] API fetch threw:", fetchErr)
+        const aborted = fetchErr?.name === "AbortError" || /abort/i.test(fetchErr?.message ?? "")
+        insertErrMsg = aborted
+          ? "The server didn't respond in time. Your job was not posted — please try again."
+          : (fetchErr?.message ?? String(fetchErr))
+        console.error("[JOB-WIZARD] phase=insert-job fetch threw:", fetchErr)
       } finally {
         clearTimeout(insertAbortId)
       }
@@ -1075,6 +1134,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       }
 
       clearTimeout(timeoutId)
+      phase = "dispatch"
 
       // ── Everything below is fire-and-forget. ─────────────────
       // The job exists in the DB. Redirect immediately; never block on these.

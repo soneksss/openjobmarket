@@ -194,20 +194,29 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
     // No server user — use onAuthStateChange to detect current and future auth state.
     // INITIAL_SESSION fires synchronously from local storage (no network call).
     // This replaces the old getUser() approach which could hang and freeze navigation.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
-        try {
-          const { data: userData } = await supabase
-            .from('users')
-            .select('user_type')
-            .eq('id', session.user.id)
-            .single()
-          setClientUser(session.user)
-          setClientUserType(userData?.user_type as "professional" | "company")
-          setIsAdmin(userData?.user_type === 'admin')
-        } catch {
-          setClientUser(session.user)
+        // Reflect the logged-in state IMMEDIATELY — never gate it on the `users`
+        // query, which can hang (RLS / network) and would freeze the header on
+        // "Log In". Seed the role from JWT metadata, then refine from the DB.
+        setClientUser(session.user)
+        const metaType = session.user.user_metadata?.user_type
+        if (metaType) {
+          setClientUserType(metaType as "professional" | "company")
+          setIsAdmin(metaType === 'admin')
         }
+        supabase
+          .from('users')
+          .select('user_type')
+          .eq('id', session.user.id)
+          .maybeSingle()
+          .then(({ data: userData }) => {
+            if (userData?.user_type) {
+              setClientUserType(userData.user_type as "professional" | "company")
+              setIsAdmin(userData.user_type === 'admin')
+            }
+          })
+          .catch(() => { /* keep the metadata-derived role */ })
       } else if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESH_FAILED') {
         if (event === 'TOKEN_REFRESH_FAILED') {
           // Stale/revoked refresh token — clear corrupt session silently

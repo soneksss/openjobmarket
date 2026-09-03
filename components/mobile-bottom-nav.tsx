@@ -54,19 +54,39 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   const [clientUserType, setClientUserType] = useState<string | null>(serverUserType ?? null)
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         setClientUser(null)
         setClientUserType(null)
-      } else if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user && !serverUser) {
-        // Only fetch user type from DB when server didn't already resolve it
-        const { data } = await supabase.from("users").select("user_type").eq("id", session.user.id).maybeSingle()
-        setClientUser(session.user)
-        setClientUserType(data?.user_type ?? session.user.user_metadata?.user_type ?? null)
+        return
+      }
+      if (!session?.user) return
+      if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN' && event !== 'TOKEN_REFRESHED' && event !== 'USER_UPDATED') return
+
+      // Show the logged-in nav IMMEDIATELY from the session — never gate this on a
+      // secondary `users` query, which (RLS / network) can hang and would leave the
+      // nav stuck on "Log In" forever. Seed the role from JWT metadata now…
+      setClientUser(session.user)
+      setClientUserType((prev) => prev ?? session.user.user_metadata?.user_type ?? null)
+
+      // …then refine the role from the DB in the background (best-effort).
+      if (!serverUser) {
+        supabase.from("users").select("user_type").eq("id", session.user.id).maybeSingle()
+          .then(({ data }) => { if (data?.user_type) setClientUserType(data.user_type) })
+          .catch(() => { /* keep the metadata-derived role */ })
       }
     })
     return () => { subscription.unsubscribe() }
-  }, []) // run once — serverUser is captured in closure for the INITIAL_SESSION guard only
+  }, []) // run once — serverUser is captured in closure for the background-fetch guard only
+
+  // If the server later resolves the user (e.g. a full navigation re-renders the
+  // layout) but this component didn't remount, adopt those props.
+  useEffect(() => {
+    if (serverUser && !clientUser) {
+      setClientUser(serverUser)
+      setClientUserType(serverUserType ?? null)
+    }
+  }, [serverUser, serverUserType]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const user = clientUser
   const userType = clientUserType
