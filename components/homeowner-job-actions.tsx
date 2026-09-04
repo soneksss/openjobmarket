@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Trash2, Edit, Clock, Eye, EyeOff, Camera, Upload, X as XIcon, Loader2, ImageIcon } from "lucide-react"
+import { Trash2, Edit, Clock, EyeOff, Camera, Upload, X as XIcon, Loader2, ImageIcon } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
@@ -174,6 +174,7 @@ export function HomeownerJobActions({
         }
         updateData.expires_at = newExpiry.toISOString()
         updateData.matching_status = "searching"
+        updateData.bumped_at = now.toISOString()
       }
 
       const { error } = await supabase.from("jobs").update(updateData).eq("id", jobId)
@@ -215,6 +216,8 @@ export function HomeownerJobActions({
           expires_at:      newExpiry.toISOString(),
           is_active:       true,
           matching_status: "searching",
+          // Reads as a fresh post to tradespeople — "posted just now", not "5w ago"
+          bumped_at:       now.toISOString(),
           // Reset dispatch state so the job can be re-dispatched
           ...(isUrgentJob ? { dispatch_state: null } : {}),
         })
@@ -382,15 +385,19 @@ export function HomeownerJobActions({
         Edit
       </button>
 
-      {/* Toggle Active/Inactive */}
-      <button
-        onClick={handleToggleActive}
-        disabled={isToggling}
-        className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-50"
-      >
-        {isActive ? <EyeOff className="w-3.5 h-3.5 flex-shrink-0" /> : <Eye className="w-3.5 h-3.5 flex-shrink-0" />}
-        {isActive ? "Deactivate" : "Activate"}
-      </button>
+      {/* Deactivate (hide from search). Reactivating an expired job goes through
+          "Extend" — a bare "Activate" wouldn't give it a new deadline, so it's
+          not shown. */}
+      {isActive && (
+        <button
+          onClick={handleToggleActive}
+          disabled={isToggling}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors disabled:opacity-50"
+        >
+          <EyeOff className="w-3.5 h-3.5 flex-shrink-0" />
+          Deactivate
+        </button>
+      )}
 
       {/* Extend */}
       <button
@@ -411,7 +418,7 @@ export function HomeownerJobActions({
 
       {/* Delete Confirmation — compact mobile-friendly overlay */}
       {showDeleteDialog && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <div className="w-full max-w-xs bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
             {/* Icon */}
             <div className="flex flex-col items-center px-5 pt-6 pb-4 text-center">
@@ -450,7 +457,7 @@ export function HomeownerJobActions({
 
       {/* Extend Dialog */}
       {showExtendDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="w-full max-w-xs bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200">
             <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400" />
             <div className="px-5 pt-5 pb-4">
@@ -510,8 +517,8 @@ export function HomeownerJobActions({
 
       {/* Edit Dialog */}
       {showEditDialog && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 flex flex-col" style={{maxHeight: 'calc(100dvh - 80px)'}}>
+        <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-700/60 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-200 flex flex-col" style={{maxHeight: 'calc(100dvh - 32px)'}}>
             <div className="h-1 w-full bg-gradient-to-r from-emerald-500 to-emerald-400 flex-shrink-0" />
 
             {/* Header */}

@@ -131,16 +131,21 @@ const ZoomInOnLoad = dynamic(
 )
 
 // ── Job pin ────────────────────────────────────────────────────────────────────
-function createJobIcon(L: any, isSelected: boolean, industry?: string | null) {
-  const color    = getIndustryPinColor(industry)
-  const size     = isSelected ? 44 : 36
-  const pinBg    = isSelected ? color : "#0f172a"
-  const iconClr  = isSelected ? "#ffffff" : color
-  const iconSize = Math.round(size * 0.50)
-  const svg      = getIndustryPinSvg(industry, iconClr, iconSize)
+function createJobIcon(L: any, isSelected: boolean, industry?: string | null, isUrgent?: boolean) {
+  const color     = getIndustryPinColor(industry)
+  const size      = isSelected ? 44 : 36
+  const pinBg     = isSelected ? color : "#0f172a"
+  const iconClr   = isSelected ? "#ffffff" : color
+  const iconSize  = Math.round(size * 0.50)
+  const svg       = getIndustryPinSvg(industry, iconClr, iconSize)
+  // Urgent (ASAP) jobs get a red border + a pulsing red halo so tradespeople
+  // spot them instantly. `.ojm-job-pin-urgent` keyframes are injected on mount.
+  const borderClr = isUrgent ? "#ef4444" : color
+  const haloClr   = isUrgent ? "rgba(239,68,68,0.35)" : `${color}30`
+  const cls       = isUrgent ? "ojm-job-pin-urgent" : ""
   return L.divIcon({
     className: "",
-    html: `<div style="width:${size}px;height:${size}px;background:${pinBg};border:2.5px solid ${color};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.4),0 0 0 4px ${color}30">${svg}</div>`,
+    html: `<div class="${cls}" style="width:${size}px;height:${size}px;background:${pinBg};border:2.5px solid ${borderClr};border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.4),0 0 0 4px ${haloClr}">${svg}</div>`,
     iconSize: [size, size], iconAnchor: [size/2, size/2], popupAnchor: [0, -(size/2+4)],
   })
 }
@@ -183,6 +188,11 @@ type Job = {
   industry: string | null
   category: string | null
   created_at: string
+  /** Set when the homeowner extends/reactivates — the public "posted X ago"
+   *  counter uses this over created_at so an extended job reads as fresh. */
+  bumped_at: string | null
+  expires_at: string | null
+  applications_count: number | null
   homeowner_profiles: Poster
 }
 
@@ -224,6 +234,16 @@ function formatBudget(min: number | null, max: number | null) {
   if (min && max) return `${fmt(min)} – ${fmt(max)}`
   if (max) return `Up to ${fmt(max)}`
   return `From ${fmt(min!)}`
+}
+
+// "5d left" / "6h left" / "Expired" for a job popup. Null when there's no deadline.
+function timeLeft(iso: string | null) {
+  if (!iso) return null
+  const diff = new Date(iso).getTime() - Date.now()
+  if (diff <= 0) return "Expired"
+  const h = diff / 3.6e6
+  if (h < 24) return `${Math.max(1, Math.ceil(h))}h left`
+  return `${Math.ceil(h / 24)}d left`
 }
 
 function timeAgo(iso: string) {
@@ -302,7 +322,25 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     const isLg = window.matchMedia(WIDE_LAYOUT_QUERY).matches
     style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + ${isLg ? "116px" : "86px"}); }`
     if (!document.getElementById("find-jobs-zoom-offset")) document.head.appendChild(style)
-    return () => { document.getElementById("find-jobs-zoom-offset")?.remove() }
+
+    // Pulsing red halo for urgent (ASAP) job pins.
+    if (!document.getElementById("job-pin-anim")) {
+      const anim = document.createElement("style")
+      anim.id = "job-pin-anim"
+      anim.textContent = [
+        "@keyframes ojmJobUrgentPulse {",
+        "  0%   { box-shadow: 0 3px 10px rgba(0,0,0,.45), 0 0 0 0 rgba(239,68,68,.65); }",
+        "  70%  { box-shadow: 0 3px 10px rgba(0,0,0,.45), 0 0 0 16px rgba(239,68,68,0); }",
+        "  100% { box-shadow: 0 3px 10px rgba(0,0,0,.45), 0 0 0 0 rgba(239,68,68,0); }",
+        "}",
+        ".ojm-job-pin-urgent { animation: ojmJobUrgentPulse 1.5s ease-out infinite; will-change: box-shadow; }",
+      ].join("")
+      document.head.appendChild(anim)
+    }
+    return () => {
+      document.getElementById("find-jobs-zoom-offset")?.remove()
+      document.getElementById("job-pin-anim")?.remove()
+    }
   }, [])
 
   // Keep the zoom-control offset in sync when rotating the phone, not just on mount.
@@ -353,7 +391,14 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
         if (ff.urgency)  params.set("urgency",  ff.urgency)
         if (ff.budget)   params.set("budget",   ff.budget)
         const res = await fetch(`/api/jobs?${params}`)
-        if (res.ok) setJobs(await res.json())
+        if (res.ok) {
+          const rows = (await res.json()) as Job[]
+          // Freshest first — an extended job (bumped_at) sorts as if just posted.
+          rows.sort((a, b) =>
+            new Date(b.bumped_at ?? b.created_at).getTime() -
+            new Date(a.bumped_at ?? a.created_at).getTime())
+          setJobs(rows)
+        }
       } finally { setLoading(false) }
     }, 600)
   }, [])
@@ -534,7 +579,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-medium">~ Approximate</span>
           )}
           <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
-            <Clock className="w-3 h-3" />{timeAgo(selectedJob.created_at)}
+            <Clock className="w-3 h-3" />{timeAgo(selectedJob.bumped_at ?? selectedJob.created_at)}
           </span>
         </div>
         {selectedJob.industry && (
@@ -615,7 +660,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                   </span>
                 )}
                 {job.urgency_type === "asap" && <span className="text-[10px] font-medium text-red-400">Urgent</span>}
-                <span className="text-[10px] text-slate-600">{timeAgo(job.created_at)}</span>
+                <span className="text-[10px] text-slate-600">{timeAgo(job.bumped_at ?? job.created_at)}</span>
               </div>
             </div>
           </div>
@@ -755,13 +800,23 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                         pathOptions={{ color: '#6366f1', fillColor: '#6366f1', fillOpacity: 0.10, weight: 1, opacity: 0.4 }} />
                     )}
                     <Marker position={pos}
-                      icon={createJobIcon(leafletL, selectedJob?.id === job.id, job.industry) as any}
+                      icon={createJobIcon(leafletL, selectedJob?.id === job.id, job.industry, job.urgency_type === "asap") as any}
                       eventHandlers={{ click: () => setSelectedJob(p => p?.id === job.id ? null : job) }}>
                       <Popup className="job-popup-compact" minWidth={110} maxWidth={280}>
-                        <b className="text-[11px] leading-tight whitespace-nowrap">{job.title}</b>
-                        {formatBudget(job.budget_min, job.budget_max) && (
-                          <div className="text-[10px] text-orange-400 font-semibold leading-tight">{formatBudget(job.budget_min, job.budget_max)}</div>
-                        )}
+                        {/* Line 1: title + budget */}
+                        <div className="text-[11px] leading-snug">
+                          <b>{job.title}</b>
+                          {formatBudget(job.budget_min, job.budget_max) && (
+                            <span className="text-orange-400 font-semibold whitespace-nowrap">{"  "}{formatBudget(job.budget_min, job.budget_max)}</span>
+                          )}
+                        </div>
+                        {/* Line 2: replies + time left — social proof + urgency */}
+                        <div className="text-[10px] leading-snug text-slate-400 mt-0.5 whitespace-nowrap">
+                          <span className="font-semibold">Replies ({job.applications_count ?? 0})</span>
+                          {timeLeft(job.expires_at) && (
+                            <span className="text-slate-500">{" · "}{timeLeft(job.expires_at)}</span>
+                          )}
+                        </div>
                       </Popup>
                     </Marker>
                   </React.Fragment>

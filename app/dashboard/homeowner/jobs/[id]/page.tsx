@@ -209,7 +209,7 @@ urgencyType={job.urgency_type ?? undefined}
             </span>
             {job.is_tradespeople_job && (
               <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/30">
-                Tradespeople Job
+                Trade Job
               </span>
             )}
             {job.urgency_type === "urgent" && (

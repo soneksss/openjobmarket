@@ -169,10 +169,11 @@ function createTraderIcon(L: any, isSelected: boolean, industryTitle?: string | 
   // ~1 in 3 vans gets reverse direction (anti-clockwise, like Uber idle).
   // CSS transform animations run on the GPU compositor — zero JS/layout cost.
   const h         = hashStr(traderId ?? Math.random().toString())
-  const DELAYS    = [0, -1.5, -3, -5, -2, -4, -6.5, -7, -8.5, -9]
+  const DELAYS    = [0, -3, -6, -10, -4, -8, -13, -14, -17, -18]
   const delay     = DELAYS[h % DELAYS.length]
   const direction = h % 3 === 0 ? "reverse" : "normal"
-  const anim      = `vanIdle 10s ease-in-out ${delay}s infinite ${direction}`
+  // 20s cycle — half the previous turning speed so the idle sway reads naturally.
+  const anim      = `vanIdle 20s ease-in-out ${delay}s infinite ${direction}`
 
   // Root is a static (non-animated) box so the orange ring stays rock-steady
   // while the van itself keeps its idle sway inside.
@@ -701,16 +702,11 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
       {/* Action buttons */}
       <div className="flex gap-2 px-4 pb-4 pt-2">
         {selectedTrader.profile_type === 'seeded' ? (
-          <>
-            <button onClick={() => router.push(`/seeded/${selectedTrader.id}`)}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-sm rounded-xl transition-colors">
-              <User className="w-4 h-4" /> View profile
-            </button>
-            <button onClick={() => router.push(`/claim/${selectedTrader.claim_token}`)}
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-amber-500/20 transition-colors">
-              <Building2 className="w-4 h-4" /> Claim
-            </button>
-          </>
+          // "Claim this business" lives on the seeded profile page itself, not here.
+          <button onClick={() => router.push(`/seeded/${selectedTrader.id}`)}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-white font-semibold text-sm rounded-xl transition-colors">
+            <User className="w-4 h-4" /> View profile
+          </button>
         ) : (
           <>
             <button onClick={() => router.push(`/messages/${selectedTrader.user_id}`)}

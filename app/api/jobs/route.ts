@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
       "id, title, short_description, location, latitude, longitude, " +
       "latitude_approx, longitude_approx, location_type, " +
       "budget_min, budget_max, urgency_type, job_photo_url, industry, category, " +
-      "created_at, " +
+      "created_at, bumped_at, expires_at, applications_count, " +
       "homeowner_profiles!homeowner_id(first_name, last_name, profile_photo_url, user_id)"
     )
     .eq("status", "POSTED")

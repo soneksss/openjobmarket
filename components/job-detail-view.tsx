@@ -15,7 +15,6 @@ import {
   Users,
   ExternalLink,
   Calendar,
-  DollarSign,
   BookmarkIcon,
   ArrowLeft,
   Star,
@@ -804,7 +803,6 @@ export default function JobDetailView({
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pt-3 border-t border-white/10">
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                     <span className="flex items-center text-emerald-400 font-semibold">
-                      <DollarSign className="h-4 w-4 mr-1" />
                       {formatSalary(job.budget_min, job.budget_max)}
                     </span>
                     <span className="flex items-center text-slate-500 text-xs">
