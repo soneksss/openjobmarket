@@ -9,21 +9,9 @@ import {
 } from "lucide-react"
 import { LocalImpactSection } from "@/components/local-impact-section"
 
-interface MembershipPlan {
-  id: string
-  key: string
-  name: string
-  price_pence: number
-}
-
-function formatAroundPrice(pricePence: number) {
-  const pounds = pricePence / 100
-  return `Around £${pounds % 1 === 0 ? pounds.toFixed(0) : pounds.toFixed(2)}/month`
-}
-
 const COMPARISON_ROWS = [
   { them: "Pay for every lead",                    us: "No lead fees" },
-  { them: "Expensive yearly listings",              us: "Free during Launch Mode" },
+  { them: "Expensive yearly listings",              us: "Free to join and use" },
   { them: "Compete with dozens of tradespeople",    us: "Local opportunities only" },
   { them: "Customers receive unwanted calls",       us: "Direct messaging only" },
   { them: "Commission on completed work",           us: "Keep 100% of what you earn" },
@@ -171,18 +159,12 @@ const HOW_STEPS = [
 export default function ForTradespeoplePageWrapper() {
   const router = useRouter()
   const [locating, setLocating] = useState(false)
-  const [plans, setPlans] = useState<MembershipPlan[]>([])
   const [referralCode, setReferralCode] = useState<string | null>(null)
   const [referralEnabled, setReferralEnabled] = useState(true)
   const [checkedAuth, setCheckedAuth] = useState(false)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    fetch("/api/membership-plans")
-      .then(r => (r.ok ? r.json() : { plans: [] }))
-      .then(d => setPlans(d.plans ?? []))
-      .catch(() => {})
-
     fetch("/api/referral-config")
       .then(r => (r.ok ? r.json() : { enabled: true }))
       .then(d => setReferralEnabled(d.enabled ?? true))
@@ -195,8 +177,6 @@ export default function ForTradespeoplePageWrapper() {
       .finally(() => setCheckedAuth(true))
   }, [])
 
-  const passivePlan = plans.find(p => p.key === "passive")
-  const activePlan = plans.find(p => p.key === "active")
 
   const referralLink = referralCode && typeof window !== "undefined"
     ? `${window.location.origin}/auth/sign-up?accountType=company&source=quickcheck&ref=${referralCode}`
@@ -313,51 +293,30 @@ export default function ForTradespeoplePageWrapper() {
         </div>
       </section>
 
-      {/* ── Launch Mode pricing ──────────────────────────────────────────── */}
+      {/* ── Free for tradespeople ────────────────────────────────────────── */}
       <section className="py-8 px-4">
         <div className="container mx-auto max-w-2xl">
-          <div className="relative overflow-hidden rounded-2xl border border-orange-500/25 bg-gradient-to-br from-slate-800 via-slate-800 to-orange-950/30 shadow-lg p-6 sm:p-8">
-            <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-orange-500/10 blur-2xl" />
+          <div className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-slate-800 via-slate-800 to-emerald-950/30 shadow-lg p-6 sm:p-8">
+            <div className="pointer-events-none absolute -top-10 -right-10 w-40 h-40 rounded-full bg-emerald-500/10 blur-2xl" />
             <div className="relative">
-              <div className="mb-6">
-                <div className="inline-flex items-center gap-2 bg-orange-500/15 border border-orange-500/30 rounded-full px-3 py-1 mb-3">
-                  <Rocket className="w-3.5 h-3.5 text-orange-400" />
-                  <span className="text-orange-300 text-sm font-bold tracking-wide uppercase">🚀 Launch Mode</span>
-                </div>
-                <p className="text-3xl font-bold text-white leading-tight mb-2">FREE</p>
-                <ul className="space-y-1.5">
-                  {[
-                    "Full Active Membership included",
-                    "No payment details required",
-                    "No subscription during Launch Mode",
-                    "Existing members will receive plenty of advance notice before memberships begin",
-                  ].map(item => (
-                    <li key={item} className="flex items-start gap-2 text-slate-300 text-sm leading-snug">
-                      <Check className="w-3.5 h-3.5 text-orange-400 flex-shrink-0 mt-0.5" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Planned memberships */}
-              <div className="pt-5 border-t border-slate-700/50">
-                <p className="text-xs font-semibold uppercase tracking-widest text-slate-300 mb-3">Planned Memberships</p>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="rounded-xl bg-slate-900/50 border border-slate-700/50 p-3 min-w-0">
-                    <p className="text-xs text-slate-300 mb-0.5">Passive Membership</p>
-                    <p className="text-sm sm:text-base font-bold text-white leading-tight break-words">{passivePlan ? formatAroundPrice(passivePlan.price_pence) : "Around £10/month"}</p>
-                  </div>
-                  <div className="rounded-xl bg-orange-950/20 border border-orange-500/30 p-3 min-w-0">
-                    <p className="text-xs text-orange-300/80 mb-0.5">Active Membership</p>
-                    <p className="text-sm sm:text-base font-bold text-white leading-tight break-words">{activePlan ? formatAroundPrice(activePlan.price_pence) : "Around £20/month"}</p>
-                  </div>
-                </div>
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Our goal is to keep memberships affordable and predictable. Existing members will always receive
-                  plenty of advance notice before memberships begin.
-                </p>
-              </div>
+              <p className="text-3xl font-bold text-white leading-tight mb-2">Free</p>
+              <p className="text-sm text-slate-300 mb-4 leading-relaxed">
+                Open Job Market is free for tradespeople. Set up your profile, appear on the map, browse jobs and
+                message homeowners directly — at no cost.
+              </p>
+              <ul className="space-y-1.5">
+                {[
+                  "No membership or subscription fee",
+                  "No payment details required",
+                  "No pay-per-lead charges",
+                  "Any future paid features will be optional extras — never a wall on finding work",
+                ].map(item => (
+                  <li key={item} className="flex items-start gap-2 text-slate-300 text-sm leading-snug">
+                    <Check className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </div>
@@ -514,18 +473,16 @@ export default function ForTradespeoplePageWrapper() {
               <h2 className="text-lg font-bold text-white">Grow Your Network</h2>
             </div>
             <p className="text-slate-300 text-sm leading-relaxed mb-4">
-              Help grow your local trade community. Share your referral link with another tradesperson.
-              {referralEnabled
-                ? " When the referral programme is active, both of you can receive membership rewards."
-                : ""}
+              Help grow your local trade community. Share your invite link with another tradesperson — it's free
+              for them to join.
             </p>
 
             {!referralEnabled ? (
               <div className="flex items-start gap-2.5 rounded-xl bg-slate-900/50 border border-slate-700/40 p-3.5">
                 <Clock className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
                 <p className="text-xs text-slate-300 leading-relaxed">
-                  Referral rewards are coming soon. Your link will still work — rewards will apply retroactively
-                  once the programme is switched on.
+                  Your invite link is ready to share. It always works — anyone who joins through it gets the same
+                  free access you have.
                 </p>
               </div>
             ) : referralCode ? (

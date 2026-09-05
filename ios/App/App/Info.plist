@@ -51,5 +51,11 @@
 	<string>We send notifications for new job matches and messages.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>We use your location to show nearby tradespeople and jobs on the map.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>OpenJobMarket uses the camera so you can take photos of jobs, properties and completed work.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>OpenJobMarket needs access to your photos so you can upload job and property images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>OpenJobMarket needs permission to save photos when you choose to save images.</string>
 </dict>
 </plist>

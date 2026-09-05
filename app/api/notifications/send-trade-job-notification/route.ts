@@ -230,9 +230,8 @@ export async function POST(request: NextRequest) {
           const webTokens = (tokenRows ?? [])
             .filter((r: { token: string; device_type: string }) => r.device_type === 'web')
             .map((r: { token: string; device_type: string }) => r.token)
-          const fcmTokens = (tokenRows ?? [])
-            .filter((r: { token: string; device_type: string }) => r.device_type === 'fcm')
-            .map((r: { token: string; device_type: string }) => r.token)
+          const nativeRows = (tokenRows ?? [])
+            .filter((r: { token: string; device_type: string }) => r.device_type === 'fcm' || r.device_type === 'apns')
 
           const pushTag = isUrgent ? `urgent-job-${jobId}` : `flexible-job-${jobId}`
 
@@ -246,10 +245,10 @@ export async function POST(request: NextRequest) {
               if (expired.length > 0) await adminClient.from('user_push_tokens').delete().in('token', expired)
             } catch { /* non-fatal */ }
           }
-          if (fcmTokens.length > 0) {
+          if (nativeRows.length > 0) {
             try {
-              const { sendFcmToTokens } = await import('@/lib/firebase-admin')
-              const { failed } = await sendFcmToTokens(fcmTokens, {
+              const { sendNativePush } = await import('@/lib/native-push')
+              const { failed } = await sendNativePush(nativeRows, {
                 title: notifTitle, body: notifMessage, url: jobUrl,
                 tag: pushTag, jobId,
               })

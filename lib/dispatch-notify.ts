@@ -10,7 +10,7 @@
  */
 
 import { sendWebPushToUser } from "@/lib/web-push"
-import { sendFcmToTokens } from "@/lib/firebase-admin"
+import { sendNativePush } from "@/lib/native-push"
 
 type AdminClient = ReturnType<typeof import("@/lib/server").createAdminClient>
 
@@ -100,9 +100,8 @@ export async function notifyOne(
     .filter((r: { token: string; device_type: string }) => r.device_type === "web")
     .map((r: { token: string; device_type: string }) => r.token)
 
-  const fcmTokens = (tokenRows ?? [])
-    .filter((r: { token: string; device_type: string }) => r.device_type === "fcm")
-    .map((r: { token: string; device_type: string }) => r.token)
+  const nativeRows = (tokenRows ?? [])
+    .filter((r: { token: string; device_type: string }) => r.device_type === "fcm" || r.device_type === "apns")
 
   // Keep existing variable name for the web-push block below
   const tokens = webTokens
@@ -156,10 +155,10 @@ export async function notifyOne(
     }
   }
 
-  // ── 4. FCM push (Android / iOS) ──────────────────────────────────────────
-  if (fcmTokens.length > 0) {
+  // ── 4. Native push (Android FCM + iOS APNs) ──────────────────────────────
+  if (nativeRows.length > 0) {
     try {
-      const { sent: fcmSent, failed: fcmFailed } = await sendFcmToTokens(fcmTokens, {
+      const { sent: fcmSent, failed: fcmFailed } = await sendNativePush(nativeRows, {
         title,
         body:  body.replace(" — first come, first served.", "."),
         url:   jobUrl,
@@ -167,7 +166,7 @@ export async function notifyOne(
         jobId,
       })
 
-      // Remove stale FCM tokens
+      // Remove stale native tokens
       if (fcmFailed.length > 0) {
         await admin.from("user_push_tokens").delete().in("token", fcmFailed)
       }

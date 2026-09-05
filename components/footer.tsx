@@ -33,12 +33,6 @@ export function Footer() {
     getUser()
   }, [])
 
-  const getBillingHref = () => {
-    if (!user) return "/billing"
-    if (userType === "company") return "/dashboard/company/subscription"
-    return "/billing"
-  }
-
   const links = [
     { href: "/site-map",                 label: "Sitemaps" },
     { href: getLocalePath("/about"),     label: t('header.about') },
@@ -47,7 +41,6 @@ export function Footer() {
     { href: getLocalePath("/privacy"),   label: t('header.privacyPolicy') },
     { href: getLocalePath("/cookies"),   label: t('header.cookiePolicy') },
     { href: getLocalePath("/security"),  label: t('dashboard.security') },
-    { href: getBillingHref(),            label: (user && userType === "company") ? "Membership" : t('dashboard.billing') },
   ]
 
   return (

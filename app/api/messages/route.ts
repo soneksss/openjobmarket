@@ -1,5 +1,5 @@
 import { createClient, createAdminClient } from "@/lib/server"
-import { sendFcmToTokens } from "@/lib/firebase-admin"
+import { sendNativePush } from "@/lib/native-push"
 import { sendWebPushToUser } from "@/lib/web-push"
 import { NextRequest, NextResponse } from "next/server"
 
@@ -265,8 +265,8 @@ async function sendMessagePush({
   const body    = content?.trim() || (hasPhotos ? "📎 Photo" : "New message")
   const tag     = `message-${conversationId ?? recipientId}`
 
-  const webTokens = tokenRows.filter((r: any) => r.device_type === "web").map((r: any) => r.token as string)
-  const fcmTokens = tokenRows.filter((r: any) => r.device_type === "fcm").map((r: any) => r.token as string)
+  const webTokens   = tokenRows.filter((r: any) => r.device_type === "web").map((r: any) => r.token as string)
+  const nativeRows  = tokenRows.filter((r: any) => r.device_type === "fcm" || r.device_type === "apns")
 
   if (webTokens.length > 0) {
     const { expired } = await sendWebPushToUser(webTokens, { title: senderName, body, url, tag })
@@ -275,14 +275,14 @@ async function sendMessagePush({
     }
   }
 
-  if (fcmTokens.length > 0) {
-    const { failed } = await sendFcmToTokens(fcmTokens, { title: senderName, body, url, tag })
+  if (nativeRows.length > 0) {
+    const { failed } = await sendNativePush(nativeRows, { title: senderName, body, url, tag })
     if (failed.length > 0) {
       await admin.from("user_push_tokens").delete().in("token", failed)
     }
   }
 
-  console.log(`[MESSAGES] Push sent to ${recipientId} — web=${webTokens.length} fcm=${fcmTokens.length}`)
+  console.log(`[MESSAGES] Push sent to ${recipientId} — web=${webTokens.length} native=${nativeRows.length}`)
 }
 
 // Notify any recipient when a company (tradesperson) sends them a message.

@@ -874,32 +874,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
       }
       const user = { id: userId }
 
-      // Homeowners don't have subscriptions — they can always post trade jobs
-      if (userType !== "homeowner") {
-        phase = "check-can-post"
-        const { data: canPost, error: checkError } = await supabase
-          .rpc("can_user_post_job", { user_id_param: user.id })
-
-        if (checkError) {
-          clearTimeout(timeoutId)
-          setErr("Failed to verify posting permissions.")
-          setLoading(false)
-          return
-        }
-
-        if (!canPost.can_post) {
-          clearTimeout(timeoutId)
-          if (canPost.reason === 'no_subscription') {
-            setErr("You need an active subscription to post jobs. Please visit the Subscription page.")
-          } else if (canPost.reason === 'job_limit_exceeded') {
-            setErr(`You have reached your job posting limit (${canPost.jobs_used}/${canPost.jobs_limit}). Please upgrade your subscription.`)
-          } else {
-            setErr("You are not authorized to post jobs at this time.")
-          }
-          setLoading(false)
-          return
-        }
-      }
+      // Open Job Market is free for everyone — no subscription / posting-limit
+      // gate. (Future paid features will be additive, not a wall on posting.)
 
       // Calculate expiration date based on job type and urgency
       const expirationDate = new Date()

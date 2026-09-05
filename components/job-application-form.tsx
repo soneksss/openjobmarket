@@ -342,8 +342,8 @@ export default function JobApplicationForm({
               : 'next month'
 
             setSubmissionError(
-              `You've reached your monthly application limit (${limitCheck.applications_used}/${limitCheck.applications_limit}). ` +
-              `Upgrade to Premium for unlimited applications, or wait until ${resetDate} when your limit resets.`
+              `You've reached your application limit for now (${limitCheck.applications_used}/${limitCheck.applications_limit}). ` +
+              `It resets on ${resetDate}.`
             )
             setTimeout(() => setSubmissionError(null), 8000)
             setLoading(false)
@@ -645,18 +645,6 @@ export default function JobApplicationForm({
                           You've used {applicationLimit.applications_used} of {applicationLimit.applications_limit} applications this month.
                           {applicationLimit.reset_date && ` Resets ${new Date(applicationLimit.reset_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}.`}
                         </p>
-                        {(applicationLimit.applications_remaining || 0) <= 2 && (
-                          <Link
-                            href="/dashboard/professional/subscription"
-                            className={`text-sm font-medium inline-flex items-center mt-2 ${
-                              applicationLimit.applications_remaining === 0
-                                ? 'text-red-700 hover:text-red-800'
-                                : 'text-amber-700 hover:text-amber-800'
-                            }`}
-                          >
-                            Upgrade to Premium for unlimited applications →
-                          </Link>
-                        )}
                       </div>
                     </div>
                   </CardContent>

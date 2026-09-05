@@ -18,7 +18,7 @@ export const dynamic = 'force-dynamic'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/server'
 import { sendWebPushToUser } from '@/lib/web-push'
-import { sendFcmToTokens } from '@/lib/firebase-admin'
+import { sendNativePush } from '@/lib/native-push'
 
 export async function POST(
   _req: NextRequest,
@@ -139,9 +139,8 @@ export async function POST(
           .filter((r: { token: string; device_type: string }) => r.device_type === 'web')
           .map((r: { token: string; device_type: string }) => r.token)
 
-        const fcmTokens = (tokenRows ?? [])
-          .filter((r: { token: string; device_type: string }) => r.device_type === 'fcm')
-          .map((r: { token: string; device_type: string }) => r.token)
+        const nativeRows = (tokenRows ?? [])
+          .filter((r: { token: string; device_type: string }) => r.device_type === 'fcm' || r.device_type === 'apns')
 
         if (webTokens.length > 0) {
           try {
@@ -160,9 +159,9 @@ export async function POST(
           }
         }
 
-        if (fcmTokens.length > 0) {
+        if (nativeRows.length > 0) {
           try {
-            const { failed } = await sendFcmToTokens(fcmTokens, {
+            const { failed } = await sendNativePush(nativeRows, {
               title:  pushTitle,
               body:   pushBody,
               url:    jobUrl,
@@ -172,8 +171,8 @@ export async function POST(
             if (failed.length > 0) {
               await admin.from('user_push_tokens').delete().in('token', failed)
             }
-          } catch (fcmErr: any) {
-            console.error('[DISPATCH-FLEXIBLE] FCM push error:', fcmErr?.message)
+          } catch (nativeErr: any) {
+            console.error('[DISPATCH-FLEXIBLE] Native push error:', nativeErr?.message)
           }
         }
 

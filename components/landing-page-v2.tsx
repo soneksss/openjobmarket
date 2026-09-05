@@ -27,7 +27,7 @@ const TRUST_ITEMS = [
   { headline: "No lead selling",       sub: "Fairer prices for everyone",   icon: Tag },
   { headline: "Real reviews",          sub: "See previous work",            icon: Star },
   { headline: "Fast replies",          sub: "Most trades reply same day",   icon: Zap },
-  { headline: "Free to post jobs",     sub: "No subscription needed",       icon: Gift },
+  { headline: "Free for everyone",     sub: "Homeowners & tradespeople",    icon: Gift },
 ] as const
 
 const OTHERS_CONS = [
@@ -256,9 +256,12 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
           <p className="text-base sm:text-xl font-semibold text-emerald-400 mb-3">
             The Smartest Way to Find Local Tradespeople
           </p>
-          <p className="text-sm sm:text-base text-slate-300 mb-7 leading-relaxed">
+          <p className="text-sm sm:text-base text-slate-300 mb-3 leading-relaxed">
             Choose the option that best suits your job — contact a nearby tradesperson directly, request urgent
             help, or compare multiple quotations.
+          </p>
+          <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1 mb-7">
+            <Gift className="w-3.5 h-3.5" /> A free platform for everyone — homeowners and tradespeople
           </p>
 
           {/* CTA buttons */}

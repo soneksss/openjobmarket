@@ -2,7 +2,7 @@ import { createClient, createAdminClient } from "@/lib/server"
 import { sendEmail, shouldSendEmailNotification, logNotification } from "@/lib/email/service"
 import { jobApplicationEmail } from "@/lib/email/templates"
 import { sendWebPushToUser } from "@/lib/web-push"
-import { sendFcmToTokens } from "@/lib/firebase-admin"
+import { sendNativePush } from "@/lib/native-push"
 import { NextRequest, NextResponse } from "next/server"
 
 /**
@@ -177,9 +177,8 @@ export async function POST(request: NextRequest) {
           .filter((r: any) => r.device_type === "web")
           .map((r: any) => r.token as string)
 
-        const fcmTokens = (tokenRows ?? [])
-          .filter((r: any) => r.device_type === "fcm")
-          .map((r: any) => r.token as string)
+        const nativeRows = (tokenRows ?? [])
+          .filter((r: any) => r.device_type === "fcm" || r.device_type === "apns")
 
         if (webTokens.length > 0) {
           const { expired } = await sendWebPushToUser(webTokens, {
@@ -194,8 +193,8 @@ export async function POST(request: NextRequest) {
           console.log("[NOTIFICATION] Web push sent to homeowner:", jobPosterId)
         }
 
-        if (fcmTokens.length > 0) {
-          const { failed } = await sendFcmToTokens(fcmTokens, {
+        if (nativeRows.length > 0) {
+          const { failed } = await sendNativePush(nativeRows, {
             title: pushTitle,
             body:  pushBody,
             url:   applicationUrl,
@@ -204,7 +203,7 @@ export async function POST(request: NextRequest) {
           if (failed.length > 0) {
             await adminClient.from("user_push_tokens").delete().in("token", failed)
           }
-          console.log("[NOTIFICATION] FCM push sent to homeowner:", jobPosterId)
+          console.log("[NOTIFICATION] Native push sent to homeowner:", jobPosterId)
         }
       } catch (pushErr: any) {
         console.warn("[NOTIFICATION] Push failed:", pushErr?.message)

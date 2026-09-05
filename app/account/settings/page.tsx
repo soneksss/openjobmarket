@@ -133,43 +133,16 @@ export default async function AccountSettingsPage() {
             description="Change your password or secure your account"
             href="/account/security"
           />
-          {userType === "company" && (
-            <SettingsRow
-              icon={CreditCard}
-              iconBg="bg-emerald-500/15"
-              iconColor="text-emerald-400"
-              label="Subscription Plan"
-              description="View and manage your current plan"
-              href="/dashboard/company/subscription"
-              last
-            />
-          )}
-          {userType !== "company" && (
-            <SettingsRow
-              icon={Shield}
-              iconBg="bg-purple-500/15"
-              iconColor="text-purple-400"
-              label="Privacy Centre"
-              description="Control your data and privacy settings"
-              href="/privacy-centre"
-              last
-            />
-          )}
+          <SettingsRow
+            icon={Shield}
+            iconBg="bg-purple-500/15"
+            iconColor="text-purple-400"
+            label="Privacy Centre"
+            description="Control your data and privacy settings"
+            href="/privacy-centre"
+            last
+          />
         </Section>
-
-        {userType === "company" && (
-          <Section title="Privacy">
-            <SettingsRow
-              icon={Shield}
-              iconBg="bg-purple-500/15"
-              iconColor="text-purple-400"
-              label="Privacy Centre"
-              description="Control your data and privacy settings"
-              href="/privacy-centre"
-              last
-            />
-          </Section>
-        )}
 
         {/* ── Email Alerts ── */}
         <Section title="Email Alerts">

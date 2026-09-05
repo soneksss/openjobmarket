@@ -76,10 +76,10 @@ export async function GET(request: NextRequest) {
 
       // Native (FCM/APNs) tokens aren't Web Push subscriptions — sending them
       // through sendWebPushToUser silently fails (JSON.parse on a non-JSON
-      // token). Split by device_type and route each through its own sender,
-      // matching the pattern in send-trade-job-notification/route.ts.
-      const webTokens = tokenRows.filter((r: any) => r.device_type === "web").map((r: any) => r.token)
-      const fcmTokens = tokenRows.filter((r: any) => r.device_type === "fcm" || r.device_type === "apns").map((r: any) => r.token)
+      // token). Split web vs native; sendNativePush() routes fcm→Firebase and
+      // apns→direct APNs. APNs tokens must NOT go to Firebase messaging.send().
+      const webTokens  = tokenRows.filter((r: any) => r.device_type === "web").map((r: any) => r.token)
+      const nativeRows = tokenRows.filter((r: any) => r.device_type === "fcm" || r.device_type === "apns")
 
       let traderSent = 0
 
@@ -99,9 +99,9 @@ export async function GET(request: NextRequest) {
         staleTokens.push(...result.expired)
       }
 
-      if (fcmTokens.length > 0) {
-        const { sendFcmToTokens } = await import("@/lib/firebase-admin")
-        const result = await sendFcmToTokens(fcmTokens, {
+      if (nativeRows.length > 0) {
+        const { sendNativePush } = await import("@/lib/native-push")
+        const result = await sendNativePush(nativeRows, {
           title,
           body,
           url: "/confirm-availability",

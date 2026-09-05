@@ -108,21 +108,6 @@ export default async function HomeownerAccountPage() {
             </CardContent>
           </Card>
 
-          {/* Billing (if applicable) */}
-          <Card className="hover:border-primary/50 transition-colors">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <CreditCard className="h-5 w-5 mr-2" />
-                Billing
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">View your billing information and subscription</p>
-              <Button variant="outline" className="w-full" asChild>
-                <Link href="/billing">View Billing</Link>
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </div>

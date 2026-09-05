@@ -480,11 +480,6 @@ export function AccountDashboard({ user, userType, profileData }: AccountDashboa
             label: "Edit Company Profile",
             href: getLocalePath("/company/profile/edit"),
           },
-          {
-            icon: CreditCard,
-            label: "Membership",
-            href: getLocalePath("/dashboard/company/subscription"),
-          }
         ],
         settingsItems
       ]

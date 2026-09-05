@@ -1277,11 +1277,10 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
             ))}
           </div>
 
-          {/* Profile & Billing */}
+          {/* Profile */}
           <div className="py-1">
             {[
               { icon: Building2, label: 'Edit Company Profile', href: '/company/profile/edit' },
-              { icon: CreditCard, label: 'Membership', href: '/dashboard/company/subscription' },
             ].map(item => (
               <Link key={item.href} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-slate-800 transition-colors">
                 <div className="flex items-center gap-3">

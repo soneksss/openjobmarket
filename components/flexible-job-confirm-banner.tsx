@@ -90,10 +90,14 @@ export function FlexibleJobConfirmBanner({ jobId, jobTitle, jobCategory, jobLoca
 
       {/* ── Share your job (growth loop) ── */}
       <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent px-5 py-4">
-        <p className="text-sm font-bold text-white">Help the right tradesperson find your job</p>
-        <p className="text-xs font-medium text-slate-200 mt-1.5">Know a tradesperson who could do this job?</p>
+        <p className="text-sm font-bold text-white">Want 5&times; more quotes fast?</p>
+        <p className="text-xs font-medium text-slate-200 mt-1.5">
+          Share your job to your local Facebook community group.
+        </p>
         <p className="text-xs text-slate-400 leading-relaxed mt-1">
-          Share the job directly with them — no need to describe the job yourself. It&apos;s free for tradespeople to join.
+          Post the link in a &ldquo;<span className="text-slate-300">[your town] recommendations</span>&rdquo; or local
+          trades group — anyone can open it and reply. No need to describe the job yourself, and it&apos;s free for
+          tradespeople to join.
         </p>
         <ShareJobButton
           url={`/jobs/${jobId}`}
@@ -101,7 +105,7 @@ export function FlexibleJobConfirmBanner({ jobId, jobTitle, jobCategory, jobLoca
           category={jobCategory}
           location={jobLocation}
           shareSource="homeowner-post"
-          label="Share your job"
+          label="Share to a community group"
           prominent
           className="mt-3 w-full"
         />
