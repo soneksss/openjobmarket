@@ -25,6 +25,7 @@ import { LocationPicker } from "@/components/ui/location-picker"
 import { deleteCompanyAccount, updateCompanyProfile } from "@/lib/actions"
 import LanguageSelector from "@/components/language-selector"
 import { PortfolioPhotosEditor } from "@/components/portfolio-photos-editor"
+import { CompanyVerificationSection } from "@/components/company-verification-section"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1369,6 +1370,9 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                 )}
               </div>
             </div>
+
+            {/* ── Verification (optional trust layer) ─────────────────── */}
+            <CompanyVerificationSection />
 
             {/* Portfolio Photos */}
             <div className="space-y-3 pt-6 border-t border-slate-700/60">

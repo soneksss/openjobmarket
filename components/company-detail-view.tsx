@@ -40,6 +40,8 @@ import UserReviewsDisplay from "./user-reviews-display"
 import { RatingDisplay } from "./rating-display"
 import { ReviewsList } from "./reviews-list"
 import { getLanguageFlag } from "./language-selector"
+import { CompanyTrustSection } from "@/components/company-trust-section"
+import type { PublicVerificationItem } from "@/lib/verification"
 
 // Parse a stored language entry which may be "https://flagcdn.com/…/xx.png Name" or plain "Name"
 function parseLang(raw: string): { name: string; flagUrl: string | null } {
@@ -112,9 +114,12 @@ interface CompanyDetailViewProps {
   isModal?: boolean
   onSignUpPrompt?: () => void
   portfolioPhotos?: PortfolioPhoto[]
+  /** Admin-verified categories from get_company_public_verification(). Optional
+   *  — a profile with none renders exactly as before. */
+  verification?: PublicVerificationItem[]
 }
 
-export default function CompanyDetailView({ company, user, isModal = false, onSignUpPrompt, portfolioPhotos: portfolioPhotosProp = [] }: CompanyDetailViewProps) {
+export default function CompanyDetailView({ company, user, isModal = false, onSignUpPrompt, portfolioPhotos: portfolioPhotosProp = [], verification = [] }: CompanyDetailViewProps) {
   const router = useRouter()
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -393,7 +398,7 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
             )}
             {getInsuranceStatus(company) === "verified" && (
               <span className="inline-flex items-center gap-1 text-xs bg-emerald-800/50 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
-                🛡️ Insurance Verified
+                🛡️ Insured
               </span>
             )}
             {getInsuranceStatus(company) === "expired" && (
@@ -427,7 +432,7 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
               <p className={`text-xs font-semibold flex items-center gap-1.5 ${
                 getInsuranceStatus(company) === "verified" ? "text-emerald-400" : "text-red-400"
               }`}>
-                🛡️ {getInsuranceStatus(company) === "verified" ? "Insurance Verified" : "Insurance Expired"}
+                🛡️ {getInsuranceStatus(company) === "verified" ? "Insurance details" : "Insurance Expired"}
               </p>
               <div className="mt-1.5 space-y-0.5 text-xs text-slate-400">
                 {company.insurance_provider && <p>Provider: <span className="text-slate-300">{company.insurance_provider}</span></p>}
@@ -681,7 +686,7 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 )}
                 {getInsuranceStatus(company) === "verified" && (
                   <span className="inline-flex items-center gap-1 text-xs bg-emerald-800/50 text-emerald-300 border border-emerald-700/50 px-2 py-0.5 rounded-full">
-                    🛡️ Insurance Verified
+                    🛡️ Insured
                   </span>
                 )}
                 {getInsuranceStatus(company) === "expired" && (
@@ -872,7 +877,11 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
               </section>
             )}
 
-            {/* Insurance */}
+            {/* Trust & verification — only renders when an admin has verified something */}
+            <CompanyTrustSection verification={verification} company={company} />
+
+            {/* Insurance (self-declared details on file — the admin-verified state
+                lives in the Trust & verification panel above) */}
             {getInsuranceStatus(company) !== "none" && (
               <section className={`rounded-2xl border p-5 ${
                 getInsuranceStatus(company) === "verified"
@@ -882,7 +891,7 @@ export default function CompanyDetailView({ company, user, isModal = false, onSi
                 <h2 className={`text-xs font-semibold uppercase tracking-widest mb-3 flex items-center gap-1.5 ${
                   getInsuranceStatus(company) === "verified" ? "text-emerald-400" : "text-red-400"
                 }`}>
-                  🛡️ {getInsuranceStatus(company) === "verified" ? "Insurance Verified" : "Insurance Expired"}
+                  🛡️ {getInsuranceStatus(company) === "verified" ? "Insurance details" : "Insurance Expired"}
                 </h2>
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   {company.insurance_provider && (

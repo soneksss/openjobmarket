@@ -9,7 +9,7 @@ import { createClient } from "@/lib/client"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { helpItems } from "@/lib/data/help-items"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg, normaliseCategory } from "@/lib/data/industry-styles"
-import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2, Languages, Briefcase, Users, Home, LocateFixed, Loader2 } from "lucide-react"
+import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Check, ChevronLeft, ChevronRight, Search, Building2, Languages, Briefcase, Users, Home, LocateFixed, Loader2, ShieldCheck } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import JobWizardModal from "@/components/job-wizard-modal"
@@ -218,6 +218,7 @@ type Trader = {
   profile_type: string; services: string[] | null
   open_for_business?: boolean; service_24_7?: boolean
   is_live?: boolean
+  is_verified?: boolean
   claim_token?: string | null
   phone_number?: string | null
   normalised_categories?: string[] | null
@@ -829,7 +830,14 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
                 : (() => { const s = getIndustryStyle(trader.industry ?? ""); const I = s.icon; return <span className={`w-full h-full rounded-lg ${s.iconBg} flex items-center justify-center`}><I className={`w-5 h-5 ${s.iconColor}`} /></span> })()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{trader.name}</p>
+              <p className="text-xs font-semibold text-white truncate flex items-center gap-1">
+                <span className="truncate">{trader.name}</span>
+                {trader.is_verified && (
+                  <span className="flex-shrink-0 inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-400" title="Verified by OpenJobMarket">
+                    <ShieldCheck className="w-3 h-3" />Verified
+                  </span>
+                )}
+              </p>
               {trader.profile_type === 'seeded' && trader.normalised_categories && trader.normalised_categories.length > 1 ? (
                 <div className="flex flex-wrap gap-0.5 mt-0.5">
                   {trader.normalised_categories.slice(0, 3).map(c => (

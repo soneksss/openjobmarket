@@ -99,6 +99,10 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
     industry: company.industry,
   })
 
+  // Admin-verified trust items (public-safe; empty for unverified profiles)
+  const { data: verification } = await supabase
+    .rpc("get_company_public_verification", { p_company_id: company.id })
+
   const schemaJson = generateOrganizationSchema({
     id: company.id,
     company_name: company.company_name,
@@ -113,7 +117,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: schemaJson }} />
-      <CompanyDetailView company={company} user={user as any} />
+      <CompanyDetailView company={company} user={user as any} verification={verification ?? []} />
     </>
   )
 }

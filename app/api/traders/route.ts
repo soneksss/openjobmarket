@@ -13,10 +13,11 @@ const COMPANY_SELECT =
 
 type CompanyRow = Record<string, any>
 
-function mapCompany(c: CompanyRow, live?: { lat: number; lng: number }) {
+function mapCompany(c: CompanyRow, live?: { lat: number; lng: number }, verified?: boolean) {
   return {
     id:               c.id,
     profile_type:     "company" as const,
+    is_verified:      !!verified,
     name:             c.company_name,
     industry:         (c.industries?.[0] ?? c.industry) as string | null,
     location:         (c.location ?? null) as string | null,
@@ -105,6 +106,7 @@ export async function GET(req: NextRequest) {
     liq,
   ])
 
+
   // Admins are never shown on the public map, regardless of their profile settings.
   const adminUserIds = new Set((adminRows ?? []).map((r: { user_id: string }) => r.user_id))
 
@@ -134,9 +136,28 @@ export async function GET(req: NextRequest) {
     extraLive = (data ?? []).filter(c => !adminUserIds.has(c.user_id))
   }
 
+  // Currently-valid admin verification → small "Verified" badge on the card.
+  // Expired insurance no longer counts toward the badge.
+  const verifiedIds = new Set<string>()
+  {
+    const allIds = [...inViewport.map(c => c.id), ...extraLive.map(c => c.id)]
+    if (allIds.length > 0) {
+      const { data: vItems } = await admin
+        .from("company_verification_items")
+        .select("company_id, type, expires_at")
+        .eq("status", "verified")
+        .in("company_id", allIds)
+      const today = new Date().toISOString().slice(0, 10)
+      for (const it of vItems ?? []) {
+        if (it.type === "insurance" && it.expires_at && it.expires_at < today) continue
+        verifiedIds.add(it.company_id)
+      }
+    }
+  }
+
   const companyRows = [
-    ...inViewport.map(c => mapCompany(c, liveMap.get(c.id))),
-    ...extraLive.map(c => mapCompany(c, liveMap.get(c.id))),
+    ...inViewport.map(c => mapCompany(c, liveMap.get(c.id), verifiedIds.has(c.id))),
+    ...extraLive.map(c => mapCompany(c, liveMap.get(c.id), verifiedIds.has(c.id))),
   ]
 
   // Names already covered by a real company profile — seeded rows with the same

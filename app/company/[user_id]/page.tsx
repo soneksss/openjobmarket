@@ -84,6 +84,10 @@ export default async function CompanyProfilePage({ params }: PageProps) {
     .order("display_order", { ascending: true })
     .limit(6)
 
+  // Admin-verified trust items (public-safe; empty for unverified profiles)
+  const { data: verification } = await supabase
+    .rpc("get_company_public_verification", { p_company_id: companyProfile.id })
+
   console.log("[COMPANY-PROFILE] Profile loaded successfully:", companyProfile.company_name)
 
   return (
@@ -93,6 +97,7 @@ export default async function CompanyProfilePage({ params }: PageProps) {
         user={user as any}
         isModal={false}
         portfolioPhotos={portfolioPhotos ?? []}
+        verification={verification ?? []}
       />
     </div>
   )
