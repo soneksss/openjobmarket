@@ -224,6 +224,8 @@ type Props = {
   initialIndustries?: string[]
   animateZoom?: boolean
   coordsAreDefault?: boolean
+  /** false → show the "sign up" prompts in the list panel. */
+  isSignedIn?: boolean
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -256,7 +258,7 @@ function timeAgo(iso: string) {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, initialIndustries, animateZoom, coordsAreDefault }: Props) {
+export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, initialIndustries, animateZoom, coordsAreDefault, isSignedIn = true }: Props) {
   const router = useRouter()
   const { toast } = useToast()
 
@@ -614,6 +616,14 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
 
   const listPanel = (
     <>
+      {!isSignedIn && (
+        <Link
+          href="/auth/sign-up?returnUrl=%2Ffind-jobs"
+          className="flex-shrink-0 mx-2 mt-2 mb-1 flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-[11px] font-medium text-orange-300 transition-colors hover:bg-orange-500/15 hover:text-orange-200"
+        >
+          <span>🔔 Sign up to get new job alerts and be visible to homeowners.</span>
+        </Link>
+      )}
       <div className="flex-shrink-0 px-3 pt-2 pb-1.5">
         <span className="text-xs font-semibold text-white flex items-center gap-1.5">
           <Briefcase className="w-3 h-3 text-indigo-400" />
@@ -631,9 +641,24 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             <div className="animate-spin w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full" />
           </div>
         ) : jobs.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-slate-400 text-xs">No jobs found in this area.</p>
-          </div>
+          isSignedIn ? (
+            <div className="text-center py-6">
+              <p className="text-slate-400 text-xs">No jobs found in this area.</p>
+            </div>
+          ) : (
+            <div className="text-center px-4 py-7">
+              <p className="text-sm font-semibold text-white">Nothing available right now.</p>
+              <p className="text-xs text-slate-400 leading-relaxed mt-1.5">
+                Jobs come and go quickly. Sign up so you don&apos;t miss new opportunities — and let homeowners contact you directly.
+              </p>
+              <Link
+                href="/auth/sign-up?returnUrl=%2Ffind-jobs"
+                className="mt-3 inline-flex items-center justify-center rounded-xl bg-orange-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-orange-500/30 transition-colors hover:bg-orange-600"
+              >
+                Sign up free
+              </Link>
+            </div>
+          )
         ) : jobs.map(job => (
           <div key={job.id} onClick={() => setSelectedJob(p => p?.id === job.id ? null : job)}
             className="flex items-start gap-2.5 px-2 py-2 rounded-xl border cursor-pointer transition-all bg-slate-800 border-slate-700 active:bg-slate-700">

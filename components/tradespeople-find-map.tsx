@@ -791,12 +791,33 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
             <div className="animate-spin w-5 h-5 border-2 border-emerald-500 border-t-transparent rounded-full" />
           </div>
         ) : traders.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-slate-400 text-xs mb-2">No tradespeople found nearby.</p>
-            {posterUserType !== "company" && (
-              <button onClick={() => setShowJobWizard(true)} className="text-emerald-400 text-xs font-semibold underline underline-offset-2">Post a job instead →</button>
-            )}
-          </div>
+          posterUserType === "company" ? (
+            <div className="text-center py-6">
+              <p className="text-slate-400 text-xs">No tradespeople found nearby.</p>
+            </div>
+          ) : (
+            <div className="px-3 py-5 text-center">
+              <p className="text-sm font-semibold text-white">No tradespeople nearby right now</p>
+              <p className="text-xs text-slate-400 leading-relaxed mt-1.5">
+                Many local tradespeople haven&apos;t discovered Open Job Market yet. They can join for free and see jobs in their area.
+              </p>
+              <p className="text-xs font-medium text-slate-200 mt-2 leading-relaxed">
+                Need a tradesperson? Post your job and let available tradespeople find you.
+              </p>
+              <button
+                onClick={() => setShowJobWizard(true)}
+                className="mt-3 inline-flex items-center justify-center rounded-xl bg-orange-500 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-orange-500/30 transition-colors hover:bg-orange-600"
+              >
+                Post a job
+              </button>
+              <div className="mt-4 rounded-xl border border-slate-700/50 bg-slate-800/50 px-3.5 py-3 text-left">
+                <p className="text-xs font-semibold text-white">Know someone who could do the job?</p>
+                <p className="text-[11px] text-slate-400 leading-relaxed mt-1">
+                  Once your job is posted, you can share the job link directly with them — no need to explain the job yourself. It&apos;s free for tradespeople to join.
+                </p>
+              </div>
+            </div>
+          )
         ) : traders.map(trader => (
           <div key={trader.id} onClick={() => setSelectedTrader(p => p?.id === trader.id ? null : trader)}
             className={`flex items-center gap-2 px-2 py-1.5 rounded-xl border cursor-pointer transition-all active:bg-slate-700 hover:bg-slate-700/70 ${trader.profile_type === 'seeded' ? 'bg-slate-800/70 border-amber-500/20' : 'bg-slate-800 border-slate-700'}`}>

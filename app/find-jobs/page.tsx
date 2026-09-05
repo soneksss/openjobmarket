@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import JobsFindMap from "@/components/jobs-find-map"
+import { createClient } from "@/lib/server"
 
 const DEFAULT_COORDS: [number, number] = [50.8058, -1.0872] // Portsmouth
 
@@ -13,6 +14,16 @@ export default async function FindJobsPage({
   const initialIndustries = industries
     ? industries.split(",").map((s) => s.trim()).filter(Boolean)
     : undefined
+
+  // Drives the "sign up" prompts in the list panel — shown to visitors only.
+  let isSignedIn = false
+  try {
+    const supabase = await createClient()
+    const { data } = await supabase.auth.getUser()
+    isSignedIn = !!data.user
+  } catch {
+    // treat as signed out
+  }
 
   let coords: [number, number] = DEFAULT_COORDS
   let coordsAreDefault = true
@@ -46,6 +57,7 @@ export default async function FindJobsPage({
         initialIndustries={initialIndustries}
         animateZoom={!!(lat && lng)}
         coordsAreDefault={coordsAreDefault}
+        isSignedIn={isSignedIn}
       />
     </div>
   )

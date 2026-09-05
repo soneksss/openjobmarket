@@ -43,7 +43,7 @@ export default async function HomeownerJobsPage({
 
   const { data: jobs } = await supabase
     .from("jobs")
-    .select("id, title, location, is_active, created_at, applications_count, views_count, status, completion_status, expires_at, urgency_type, confirmed_tradesperson_id")
+    .select("id, title, location, industry, category, is_active, created_at, applications_count, views_count, status, completion_status, expires_at, urgency_type, confirmed_tradesperson_id")
     .eq("homeowner_id", hp.id)
     .order("created_at", { ascending: false })
     .limit(200)
@@ -176,6 +176,8 @@ export default async function HomeownerJobsPage({
           <FlexibleJobConfirmBanner
             jobId={newlyPostedJob.id}
             jobTitle={newlyPostedJob.title}
+            jobCategory={newlyPostedJob.industry ?? newlyPostedJob.category ?? null}
+            jobLocation={newlyPostedJob.location ?? null}
           />
         )}
 

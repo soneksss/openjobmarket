@@ -672,7 +672,7 @@ export default function JobDetailView({
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
-          <ShareJobButton title={job.title} />
+          <ShareJobButton title={job.title} location={job.location} />
         </div>
 
         {/* Expired / Inactive job notice */}

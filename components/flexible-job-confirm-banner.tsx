@@ -6,13 +6,16 @@ import {
   Bell, Clock, Users, Info, X,
 } from "lucide-react"
 import Link from "next/link"
+import { ShareJobButton } from "@/components/share-job-button"
 
 interface FlexibleJobConfirmBannerProps {
   jobId: string
   jobTitle: string
+  jobCategory?: string | null
+  jobLocation?: string | null
 }
 
-export function FlexibleJobConfirmBanner({ jobId, jobTitle }: FlexibleJobConfirmBannerProps) {
+export function FlexibleJobConfirmBanner({ jobId, jobTitle, jobCategory, jobLocation }: FlexibleJobConfirmBannerProps) {
   const router = useRouter()
 
   const dismiss = () => {
@@ -83,6 +86,25 @@ export function FlexibleJobConfirmBanner({ jobId, jobTitle }: FlexibleJobConfirm
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* ── Share your job (growth loop) ── */}
+      <div className="rounded-2xl border border-orange-500/30 bg-gradient-to-br from-orange-500/10 to-transparent px-5 py-4">
+        <p className="text-sm font-bold text-white">Help the right tradesperson find your job</p>
+        <p className="text-xs font-medium text-slate-200 mt-1.5">Know a tradesperson who could do this job?</p>
+        <p className="text-xs text-slate-400 leading-relaxed mt-1">
+          Share the job directly with them — no need to describe the job yourself. It&apos;s free for tradespeople to join.
+        </p>
+        <ShareJobButton
+          url={`/jobs/${jobId}`}
+          title={jobTitle}
+          category={jobCategory}
+          location={jobLocation}
+          shareSource="homeowner-post"
+          label="Share your job"
+          prominent
+          className="mt-3 w-full"
+        />
       </div>
 
       {/* ── Trust booster ── */}
