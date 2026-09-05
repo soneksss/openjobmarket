@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { StarRating } from "@/components/star-rating"
+import { ShareJobButton } from "@/components/share-job-button"
 import Image from "next/image"
 import {
   Briefcase,
@@ -655,8 +656,8 @@ export default function JobDetailView({
       )}
 
       <div className="relative w-full max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
-        {/* Back Button */}
-        <div className="mb-5">
+        {/* Back Button + Share */}
+        <div className="mb-5 flex items-center justify-between gap-2">
           <Button
             variant="ghost"
             className="text-slate-400 hover:text-white hover:bg-white/10"
@@ -671,6 +672,7 @@ export default function JobDetailView({
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
+          <ShareJobButton title={job.title} />
         </div>
 
         {/* Expired / Inactive job notice */}
