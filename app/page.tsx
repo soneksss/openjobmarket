@@ -17,7 +17,22 @@ export const metadata = generateSEO({
   locale: 'en',
 })
 
-export default async function HomePage() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string; [key: string]: string | string[] | undefined }>
+}) {
+  // A Supabase auth code (password recovery, OAuth, magic link) should NEVER
+  // land here — every real app flow redirects to /auth/callback directly. But
+  // Supabase's own Dashboard ("send recovery" etc.) has no way to set a custom
+  // redirect and falls back to the bare Site URL, i.e. this page. Forward any
+  // stray code to /auth/callback instead of silently discarding it below.
+  const sp = await searchParams
+  if (sp.code) {
+    const qs = new URLSearchParams(sp as Record<string, string>).toString()
+    redirect(`/auth/callback?${qs}`)
+  }
+
   // / is the default entry point — redirect to the live map so users see
   // value immediately. The marketing/info page lives at /home.
   // createClient() has AbortSignal.timeout(3000) on every fetch — no separate withTimeout needed

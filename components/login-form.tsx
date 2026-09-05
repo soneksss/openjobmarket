@@ -33,6 +33,31 @@ export default function LoginForm() {
     return () => clearTimeout(t)
   }, [cooldownSeconds])
 
+  // Surface auth errors that land here instead of their intended destination —
+  // most commonly an expired/already-used password-reset or magic-link.
+  // Supabase reports these as a URL FRAGMENT (#error=...), which /auth/callback
+  // (a server route) can never see — fragments aren't sent over HTTP — so it
+  // falls through to here with the fragment still attached. Some other
+  // failures (e.g. OAuth) arrive as a plain ?error= query param instead.
+  useEffect(() => {
+    const hash = typeof window !== "undefined" ? window.location.hash : ""
+    const hashParams = new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash)
+    const description = hashParams.get("error_description") || searchParams.get("error_description")
+    const code = hashParams.get("error_code") || searchParams.get("error")
+
+    if (description || code) {
+      setError(
+        description
+          ? decodeURIComponent(description.replace(/\+/g, " "))
+          : code === "otp_expired"
+            ? "This link has expired. Please request a new one."
+            : "That link is no longer valid. Please try again or request a new one."
+      )
+      // Clean the error out of the URL so a refresh doesn't re-show it.
+      if (hash) window.history.replaceState(null, "", window.location.pathname + window.location.search)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Locale-aware sign-up URL
   const isOnBrRoute = pathname?.startsWith('/br')
   const signUpUrl = isOnBrRoute
