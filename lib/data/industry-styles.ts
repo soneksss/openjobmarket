@@ -5,9 +5,9 @@
  */
 
 import {
-  Droplets, Zap, Building2, Paintbrush, PaintBucket, HardHat,
-  Hammer, Leaf, Grid3x3, Sparkles, Wrench, Trash2, Shield,
-  Wind, HelpCircle,
+  Droplets, Zap, HardHat, Paintbrush, PaintBucket, House,
+  Hammer, Leaf, Grid3x3, Sparkles, Wrench, Trash2, Fence,
+  Car, Blinds, Wind, HelpCircle,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
@@ -21,17 +21,19 @@ export interface IndustryStyle {
 const STYLES: Record<string, IndustryStyle> = {
   "Plumbing & Heating":             { icon: Droplets,    iconBg: "bg-blue-500/20",    iconColor: "text-blue-400",    pinHex: "#60a5fa" },
   "Electrical":                     { icon: Zap,         iconBg: "bg-yellow-500/20",  iconColor: "text-yellow-400",  pinHex: "#facc15" },
-  "Construction & Renovation":      { icon: Building2,   iconBg: "bg-stone-500/20",   iconColor: "text-stone-400",   pinHex: "#a8a29e" },
+  "Construction & Renovation":      { icon: HardHat,     iconBg: "bg-stone-500/20",   iconColor: "text-stone-400",   pinHex: "#a8a29e" },
   "Plastering & Rendering":         { icon: Paintbrush,  iconBg: "bg-amber-500/20",   iconColor: "text-amber-400",   pinHex: "#fbbf24" },
   "Painting & Decorating":          { icon: PaintBucket, iconBg: "bg-pink-500/20",    iconColor: "text-pink-400",    pinHex: "#f472b6" },
-  "Roofing":                        { icon: HardHat,     iconBg: "bg-cyan-500/20",    iconColor: "text-cyan-400",    pinHex: "#22d3ee" },
+  "Roofing":                        { icon: House,       iconBg: "bg-cyan-500/20",    iconColor: "text-cyan-400",    pinHex: "#22d3ee" },
   "Carpentry & Joinery":            { icon: Hammer,      iconBg: "bg-orange-500/20",  iconColor: "text-orange-400",  pinHex: "#fb923c" },
   "Gardening & Landscaping":        { icon: Leaf,        iconBg: "bg-green-500/20",   iconColor: "text-green-400",   pinHex: "#4ade80" },
   "Flooring & Tiling":              { icon: Grid3x3,     iconBg: "bg-teal-500/20",    iconColor: "text-teal-400",    pinHex: "#2dd4bf" },
   "Cleaning":                       { icon: Sparkles,    iconBg: "bg-violet-500/20",  iconColor: "text-violet-400",  pinHex: "#a78bfa" },
   "Handyman / Small Jobs":          { icon: Wrench,      iconBg: "bg-slate-500/25",   iconColor: "text-slate-300",   pinHex: "#cbd5e1" },
+  "Moving & Transport":             { icon: Car,         iconBg: "bg-indigo-500/20",  iconColor: "text-indigo-400",  pinHex: "#818cf8" },
   "Waste Removal":                  { icon: Trash2,      iconBg: "bg-red-500/15",     iconColor: "text-red-400",     pinHex: "#f87171" },
-  "Fencing & Gates":                { icon: Shield,      iconBg: "bg-emerald-500/20", iconColor: "text-emerald-400", pinHex: "#34d399" },
+  "Fencing & Gates":                { icon: Fence,       iconBg: "bg-emerald-500/20", iconColor: "text-emerald-400", pinHex: "#34d399" },
+  "Windows & Glazing":              { icon: Blinds,      iconBg: "bg-purple-500/20",  iconColor: "text-purple-400",  pinHex: "#c084fc" },
   "Air Conditioning & Ventilation": { icon: Wind,        iconBg: "bg-sky-500/20",     iconColor: "text-sky-400",     pinHex: "#38bdf8" },
   "Not sure / Other":               { icon: HelpCircle,  iconBg: "bg-slate-500/20",   iconColor: "text-slate-400",   pinHex: "#94a3b8" },
 }
@@ -51,13 +53,13 @@ const PIN_PATHS: Record<string, string> = {
   "Electrical":
     `<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>`,
   "Construction & Renovation":
-    `<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/>`,
+    `<path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6"/><path d="M14 6a6 6 0 0 1 6 6v3"/>`,
   "Plastering & Rendering":
     `<path d="M18.37 2.63 14 7l-1.59-1.59a2 2 0 0 0-2.82 0L8 7l9 9 1.59-1.59a2 2 0 0 0 0-2.82L17 10l4.37-4.37a2.12 2.12 0 1 0-3-3Z"/><path d="M9 8c-2 3-4 3.5-7 4l8 10c2-1 6-5 6-7"/><path d="M14.5 17.5 4.5 15"/>`,
   "Painting & Decorating":
     `<path d="m19 11-8-8-8.5 8.5a5.5 5.5 0 0 0 7.78 7.78L19 11Z"/><path d="m5 2 5 5"/><path d="M2 13h15"/><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z"/>`,
   "Roofing":
-    `<path d="M2 18a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v2z"/><path d="M10 10V5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v5"/><path d="M4 15v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3"/>`,
+    `<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>`,
   "Carpentry & Joinery":
     `<path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/><path d="m18 15 4-4"/><path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5"/>`,
   "Gardening & Landscaping":
@@ -70,8 +72,12 @@ const PIN_PATHS: Record<string, string> = {
     `<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`,
   "Waste Removal":
     `<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>`,
+  "Moving & Transport":
+    `<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>`,
   "Fencing & Gates":
-    `<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>`,
+    `<path d="M4 3 2 5v15c0 .6.4 1 1 1h2c.6 0 1-.4 1-1V5Z"/><path d="M6 8h4"/><path d="M6 18h4"/><path d="m12 3-2 2v15c0 .6.4 1 1 1h2c.6 0 1-.4 1-1V5Z"/><path d="M14 8h4"/><path d="M14 18h4"/><path d="m20 3-2 2v15c0 .6.4 1 1 1h2c.6 0 1-.4 1-1V5Z"/>`,
+  "Windows & Glazing":
+    `<path d="M3 3h18"/><path d="M20 7H8"/><path d="M20 11H8"/><path d="M10 19h10"/><path d="M8 15h12"/><path d="M4 3v14"/><circle cx="4" cy="19" r="2"/>`,
   "Air Conditioning & Ventilation":
     `<path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>`,
   "Not sure / Other":
@@ -157,11 +163,15 @@ const SEEDED_CATEGORY_MAP: Record<string, string> = {
   "Garbage collection service":     "Waste Removal",
   "House clearance service":        "Waste Removal",
   "Junk removal service":           "Waste Removal",
-  "Moving and storage service":     "Waste Removal",
-  "Mover":                          "Waste Removal",
   "Garbage dump":                   "Waste Removal",
+  // Moving & transport
+  "Moving and storage service":     "Moving & Transport",
+  "Mover":                          "Moving & Transport",
   // Fencing
   "Fence contractor":               "Fencing & Gates",
+  // Windows & glazing
+  "Glazier":                        "Windows & Glazing",
+  "Window installation service":    "Windows & Glazing",
   // HVAC
   "Air conditioning service":       "Air Conditioning & Ventilation",
   // Flooring

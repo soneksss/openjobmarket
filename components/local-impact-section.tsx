@@ -37,8 +37,9 @@ type StatCard = {
   value: string
   label: string
   icon: React.ElementType
-  /** "platform" = Open Job Market data · "uk" = UK Government statistic */
-  kind: "platform" | "uk"
+  /** "platform" = Open Job Market data · "uk" = UK Government statistic ·
+   *  "industry" = external industry figure (not government-sourced, not OJM's own). */
+  kind: "platform" | "uk" | "industry"
 }
 
 function buildCards(stats: PlatformImpactStats): StatCard[] {
@@ -87,9 +88,13 @@ function buildCards(stats: PlatformImpactStats): StatCard[] {
     })
   }
 
+  // The problem we exist to fix — how far tradespeople currently have to drive.
+  cards.push(
+    { value: "88.37 mi", label: "Driven every day by the average tradesperson — our mission is to cut that significantly", icon: Route, kind: "industry" },
+  )
+
   // Published UK Government statistics — fixed, evidence-based context.
   cards.push(
-    { value: "70%", label: "Of trips in England are under 5 miles", icon: Route, kind: "uk" },
     { value: "17%", label: "Of motor-vehicle traffic in Great Britain is vans", icon: Truck, kind: "uk" },
     { value: "32%", label: "Of UK greenhouse-gas emissions came from transport in 2024", icon: Fuel, kind: "uk" },
   )
@@ -165,6 +170,10 @@ export function LocalImpactSection({
           {cards.map((c) => {
             const Icon = c.icon
             const isPlatform = c.kind === "platform"
+            const badgeText =
+              c.kind === "platform" ? "Open Job Market data" :
+              c.kind === "uk"       ? "UK Government data" :
+                                       "Industry data"
             return (
               <div
                 key={c.label}
@@ -189,7 +198,7 @@ export function LocalImpactSection({
                         : "bg-slate-700/60 text-slate-300"
                     }`}
                   >
-                    {isPlatform ? "Open Job Market data" : "UK Government data"}
+                    {badgeText}
                   </span>
                 </div>
                 <div className="text-2xl sm:text-3xl font-bold text-white leading-none">{c.value}</div>

@@ -171,27 +171,14 @@ export async function POST(request: NextRequest) {
         }
 
         if (lat !== null && lng !== null) {
-          const locationType: string = payload.location_type ?? 'exact'
-          let latApprox: number
-          let lngApprox: number
-
-          if (locationType === 'approx') {
-            // User already chose an approximate point — no further offset needed
-            latApprox = lat
-            lngApprox = lng
-          } else {
-            // Exact address — offset by 300–500 m for privacy on the public map
-            const angle  = Math.random() * 2 * Math.PI
-            const radius = 0.003 + Math.random() * 0.002  // ~330–550 m in degrees
-            latApprox = lat + radius * Math.sin(angle)
-            lngApprox = lng + radius * Math.cos(angle)
-          }
-
+          // Pins are precise now — no privacy offset. latitude_approx/longitude_approx
+          // are kept in sync (= exact) only because other queries still read them
+          // (map bbox filter, distance calcs); they no longer fuzz the location.
           await admin.from("jobs").update({
             latitude:         lat,
             longitude:        lng,
-            latitude_approx:  latApprox,
-            longitude_approx: lngApprox,
+            latitude_approx:  lat,
+            longitude_approx: lng,
           } as any).eq("id", payload.id)
         }
       } catch (err) {

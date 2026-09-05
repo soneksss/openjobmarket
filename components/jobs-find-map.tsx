@@ -17,7 +17,6 @@ const TileLayer    = dynamic(() => import("react-leaflet").then(m => m.TileLayer
 const Marker       = dynamic(() => import("react-leaflet").then(m => m.Marker),       { ssr: false })
 const Popup        = dynamic(() => import("react-leaflet").then(m => m.Popup),        { ssr: false })
 const ZoomControl  = dynamic(() => import("react-leaflet").then(m => m.ZoomControl),  { ssr: false })
-const Circle       = dynamic(() => import("react-leaflet").then(m => m.Circle),       { ssr: false })
 
 const MapSizeHandler = dynamic(
   () => import("react-leaflet").then(mod => {
@@ -516,11 +515,11 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))).toFixed(1)
   }
 
-  // Use approx coords for map markers to protect homeowner privacy.
-  // Fall back to exact coords only if approx are not yet computed (legacy jobs).
+  // Precise pin location. Falls back to the (legacy) approx coords only for
+  // old jobs that never got exact latitude/longitude backfilled.
   const jobMarkerCoords = (j: Job): [number, number] | null => {
-    if (j.latitude_approx && j.longitude_approx) return [j.latitude_approx, j.longitude_approx]
     if (j.latitude && j.longitude) return [j.latitude, j.longitude]
+    if (j.latitude_approx && j.longitude_approx) return [j.latitude_approx, j.longitude_approx]
     return null
   }
   const jobsWithCoords = jobs.filter(j => jobMarkerCoords(j) !== null)
@@ -569,14 +568,10 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               {selectedJob.urgency_type === "asap" ? "Urgent / ASAP" : selectedJob.urgency_type.charAt(0).toUpperCase() + selectedJob.urgency_type.slice(1)}
             </span>
           )}
-          {(selectedJob.latitude_approx ?? selectedJob.latitude) && (selectedJob.longitude_approx ?? selectedJob.longitude) && (
+          {(selectedJob.latitude ?? selectedJob.latitude_approx) && (selectedJob.longitude ?? selectedJob.longitude_approx) && (
             <span className="text-[10px] text-slate-500">
-              {distanceMi(selectedJob.latitude_approx ?? selectedJob.latitude!, selectedJob.longitude_approx ?? selectedJob.longitude!)} mi away
-              {selectedJob.location_type === 'approx' && " (approx)"}
+              {distanceMi(selectedJob.latitude ?? selectedJob.latitude_approx!, selectedJob.longitude ?? selectedJob.longitude_approx!)} mi away
             </span>
-          )}
-          {selectedJob.location_type === 'approx' && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 font-medium">~ Approximate</span>
           )}
           <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
             <Clock className="w-3 h-3" />{timeAgo(selectedJob.bumped_at ?? selectedJob.created_at)}
@@ -653,10 +648,9 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                 {formatBudget(job.budget_min, job.budget_max) && (
                   <span className="text-[10px] font-semibold text-orange-400">{formatBudget(job.budget_min, job.budget_max)}</span>
                 )}
-                {(job.latitude_approx ?? job.latitude) && (job.longitude_approx ?? job.longitude) && (
+                {(job.latitude ?? job.latitude_approx) && (job.longitude ?? job.longitude_approx) && (
                   <span className="text-[10px] text-slate-500">
-                    {distanceMi(job.latitude_approx ?? job.latitude!, job.longitude_approx ?? job.longitude!)} mi
-                    {job.location_type === 'approx' && <span className="text-slate-600"> ~</span>}
+                    {distanceMi(job.latitude ?? job.latitude_approx!, job.longitude ?? job.longitude_approx!)} mi
                   </span>
                 )}
                 {job.urgency_type === "asap" && <span className="text-[10px] font-medium text-red-400">Urgent</span>}
@@ -792,34 +786,27 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               />
               {leafletL && jobsWithCoords.map(job => {
                 const pos = jobMarkerCoords(job)!
-                const isApprox = job.location_type === 'approx' || (job.latitude_approx !== null && job.latitude_approx !== job.latitude)
                 return (
-                  <React.Fragment key={job.id}>
-                    {isApprox && (
-                      <Circle center={pos} radius={350}
-                        pathOptions={{ color: '#6366f1', fillColor: '#6366f1', fillOpacity: 0.10, weight: 1, opacity: 0.4 }} />
-                    )}
-                    <Marker position={pos}
-                      icon={createJobIcon(leafletL, selectedJob?.id === job.id, job.industry, job.urgency_type === "asap") as any}
-                      eventHandlers={{ click: () => setSelectedJob(p => p?.id === job.id ? null : job) }}>
-                      <Popup className="job-popup-compact" minWidth={110} maxWidth={280}>
-                        {/* Line 1: title + budget */}
-                        <div className="text-[11px] leading-snug">
-                          <b>{job.title}</b>
-                          {formatBudget(job.budget_min, job.budget_max) && (
-                            <span className="text-orange-400 font-semibold whitespace-nowrap">{"  "}{formatBudget(job.budget_min, job.budget_max)}</span>
-                          )}
-                        </div>
-                        {/* Line 2: replies + time left — social proof + urgency */}
-                        <div className="text-[10px] leading-snug text-slate-400 mt-0.5 whitespace-nowrap">
-                          <span className="font-semibold">Replies ({job.applications_count ?? 0})</span>
-                          {timeLeft(job.expires_at) && (
-                            <span className="text-slate-500">{" · "}{timeLeft(job.expires_at)}</span>
-                          )}
-                        </div>
-                      </Popup>
-                    </Marker>
-                  </React.Fragment>
+                  <Marker key={job.id} position={pos}
+                    icon={createJobIcon(leafletL, selectedJob?.id === job.id, job.industry, job.urgency_type === "asap") as any}
+                    eventHandlers={{ click: () => setSelectedJob(p => p?.id === job.id ? null : job) }}>
+                    <Popup className="job-popup-compact" minWidth={110} maxWidth={280}>
+                      {/* Line 1: title + budget */}
+                      <div className="text-[11px] leading-snug">
+                        <b>{job.title}</b>
+                        {formatBudget(job.budget_min, job.budget_max) && (
+                          <span className="text-orange-400 font-semibold whitespace-nowrap">{"  "}{formatBudget(job.budget_min, job.budget_max)}</span>
+                        )}
+                      </div>
+                      {/* Line 2: replies + time left — social proof + urgency */}
+                      <div className="text-[10px] leading-snug text-slate-400 mt-0.5 whitespace-nowrap">
+                        <span className="font-semibold">Replies ({job.applications_count ?? 0})</span>
+                        {timeLeft(job.expires_at) && (
+                          <span className="text-slate-500">{" · "}{timeLeft(job.expires_at)}</span>
+                        )}
+                      </div>
+                    </Popup>
+                  </Marker>
                 )
               })}
             </MapContainer>
@@ -883,9 +870,9 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             style={{ paddingTop: "max(env(safe-area-inset-top,0px),10px)" }}>
             {selectedJob ? (
               <button onClick={() => setSelectedJob(null)}
-                className="flex items-center gap-1.5 text-slate-400 hover:text-white transition-colors">
-                <ArrowLeft className="w-4 h-4" />
-                <span className="text-xs font-medium">All jobs</span>
+                className="flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors">
+                <ArrowLeft className="w-8 h-8" />
+                <span className="text-[24px] font-semibold">All jobs</span>
               </button>
             ) : (
               <span className="text-xs font-semibold text-white flex items-center gap-1.5 min-w-0">
@@ -924,8 +911,10 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             onPointerCancel={handleSheetPointerUp}>
             {selectedJob ? (
               <>
-                <button className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
-                  <ArrowLeft className="w-4 h-4" /><span className="text-xs">All jobs</span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setSelectedJob(null); setSheetHeightPx(null) }}
+                  className="flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors">
+                  <ArrowLeft className="w-8 h-8" /><span className="text-[24px] font-semibold">All jobs</span>
                 </button>
                 <div className="w-10 h-1 rounded-full bg-slate-600 absolute left-1/2 -translate-x-1/2" />
                 <div className="w-20" />

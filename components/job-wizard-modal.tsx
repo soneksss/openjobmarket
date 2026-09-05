@@ -1714,28 +1714,10 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
               </div>
             )}
 
-            {/* Location privacy — only shown once coords are set */}
-            {formData.locationCoords && (
-              <div className="mt-3">
-                <label className="text-xs font-medium text-slate-400 uppercase tracking-wide block mb-2">Location privacy</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <label className={`flex items-start gap-2 p-3 border-2 rounded-xl cursor-pointer transition-all text-xs ${formData.locationAddressType === 'exact' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 hover:border-slate-600'}`}>
-                    <input type="radio" name="locationAddressType" className="mt-0.5 accent-emerald-500" checked={formData.locationAddressType === 'exact'} onChange={() => setFormData(p => ({ ...p, locationAddressType: 'exact' }))} />
-                    <div>
-                      <div className="font-semibold text-white">Exact address</div>
-                      <div className="text-slate-400 mt-0.5">Revealed to tradesperson only after job accepted</div>
-                    </div>
-                  </label>
-                  <label className={`flex items-start gap-2 p-3 border-2 rounded-xl cursor-pointer transition-all text-xs ${formData.locationAddressType === 'approx' ? 'border-blue-500 bg-blue-500/10' : 'border-slate-700 hover:border-slate-600'}`}>
-                    <input type="radio" name="locationAddressType" className="mt-0.5 accent-blue-500" checked={formData.locationAddressType === 'approx'} onChange={() => setFormData(p => ({ ...p, locationAddressType: 'approx' }))} />
-                    <div>
-                      <div className="font-semibold text-white">Approximate only</div>
-                      <div className="text-slate-400 mt-0.5">Your exact street stays private</div>
-                    </div>
-                  </label>
-                </div>
-              </div>
-            )}
+            {/* Location is always the exact address — your full street address is
+                only revealed to the tradesperson once they're confirmed for the
+                job; the public map always shows the precise pin. No separate
+                "approximate" choice — one less decision, same privacy guarantee. */}
 
           </div>
         )
