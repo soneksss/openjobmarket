@@ -1,0 +1,164 @@
+# ============================================================================
+# Codemagic CI/CD — OpenJobMarket iOS (Capacitor 8, Swift Package Manager)
+# ----------------------------------------------------------------------------
+# This is a Next.js + Capacitor app. It is NOT React Native — do not use a
+# React Native workflow.
+#
+# iOS integration model: Capacitor 8 SPM (there is NO Podfile / .xcworkspace).
+#   • Build target:  ios/App/App.xcodeproj   (scheme "App")
+#   • Dependencies:  ios/App/CapApp-SPM/Package.swift  (resolved by `cap sync`
+#                    and then by xcodebuild)
+#   • CocoaPods:     not used — no `pod install` step.
+#
+# Runtime model: capacitor.config.ts sets server.url = https://www.openjobmarket.com,
+# so the WebView loads the LIVE site. The static `out/` bundle is only the
+# offline fallback that `cap sync` copies into the .ipa; its contents are never
+# served to end users.
+#
+# Signing: Codemagic *automatic* code signing via the App Store Connect API key
+# integration (see `environment.ios_signing` + `integrations.app_store_connect`).
+# ============================================================================
+
+workflows:
+  ios-testflight:
+    name: iOS – TestFlight (Capacitor 8 / SPM)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    integrations:
+      # Name of the App Store Connect API key you add in the Codemagic UI:
+      #   Teams → <team> → Integrations → Developer Portal → App Store Connect
+      # (or, for a personal account: User settings → Integrations).
+      # Replace the value below with that integration's exact name.
+      app_store_connect: OJM_APP_STORE_CONNECT
+
+    environment:
+      node: 20
+      xcode: latest          # pin later if you want reproducibility (e.g. 16.2)
+      # Codemagic automatic signing: with distribution_type + bundle_identifier
+      # it creates/fetches the Apple Distribution certificate and the App Store
+      # provisioning profile for the bundle id, using the API key integration
+      # named above. No manual certificates/profiles required.
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.openjobmarket.app
+      vars:
+        XCODE_PROJECT: "ios/App/App.xcodeproj"
+        XCODE_SCHEME: "App"
+
+    cache:
+      cache_paths:
+        - $HOME/.npm
+        - $HOME/Library/Caches/org.swift.swiftpm
+        - $HOME/Library/Developer/Xcode/DerivedData/**/SourcePackages
+
+    scripts:
+      - name: Install npm dependencies (npm ci — uses package-lock.json)
+        script: |
+          node --version
+          npm --version
+          npm ci
+
+      - name: Generate Capacitor webDir (offline stub)
+        script: |
+          set -e
+          # ----------------------------------------------------------------
+          # OpenJobMarket ships as a REMOTE Capacitor shell: capacitor.config.ts
+          # sets server.url = https://www.openjobmarket.com, so the WebView
+          # ALWAYS loads the live site. Capacitor only serves the `webDir`
+          # (out/) bundle when server.url is unset — in this configuration the
+          # bundle is never used at runtime. It exists solely to give
+          # `cap sync` a directory to copy into the native project.
+          #
+          # `npm run build:mobile` (CAPACITOR_BUILD=true next build ->
+          # output:"export") cannot succeed here: the app has many dynamic
+          # Next.js API routes that cannot be statically exported. Running it
+          # and swallowing the non-zero exit would also mask unrelated
+          # failures, so the stub is generated directly instead —
+          # deterministic and fast.
+          #
+          # If server.url is ever removed to ship a genuine offline build,
+          # replace this step with `npm run build:mobile` (and make the API
+          # routes exportable — an application change, out of scope for CI).
+          # ----------------------------------------------------------------
+          mkdir -p out
+          printf '%s\n' \
+            '<!doctype html>' \
+            '<html>' \
+            '  <head>' \
+            '    <meta charset="utf-8">' \
+            '    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">' \
+            '    <title>OpenJobMarket</title>' \
+            '  </head>' \
+            '  <body></body>' \
+            '</html>' > out/index.html
+          echo "webDir stub written: $(pwd)/out/index.html"
+
+      - name: Capacitor sync (iOS)
+        script: |
+          set -e
+          # Regenerates ios/App/App/capacitor.config.json + ios/App/App/public/
+          # (both git-ignored) and rewrites ios/App/CapApp-SPM/Package.swift with
+          # macOS-correct paths (the committed copy has Windows backslashes from
+          # a Windows dev machine — do NOT hand-edit it; `cap sync` fixes it).
+          npx cap sync ios
+
+      - name: Resolve Swift Package dependencies
+        script: |
+          set -e
+          # `xcodebuild -list` is also what auto-creates the (non-shared) "App"
+          # scheme on a fresh checkout so the archive step below can find it.
+          xcodebuild -list -project "$XCODE_PROJECT"
+          xcodebuild -resolvePackageDependencies \
+            -project "$XCODE_PROJECT" \
+            -scheme "$XCODE_SCHEME"
+
+      - name: Set up code signing (automatic)
+        script: |
+          # Applies the Apple Distribution cert + App Store provisioning profile
+          # (created/fetched by the ios_signing block above) to the Xcode target.
+          xcode-project use-profiles
+
+      - name: Build & archive IPA
+        script: |
+          set -e
+          # No `--workspace` — this is an .xcodeproj (SPM), not a Pods workspace.
+          xcode-project build-ipa \
+            --project "$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        # Uses the same API key integration referenced above.
+        auth: integration
+        submit_to_testflight: true
+        # Leave App Store review submission off for the first build.
+        submit_to_app_store: false
+
+    # ------------------------------------------------------------------------
+    # Optional: auto-increment the build number from App Store Connect for
+    # builds AFTER the first. For the FIRST upload the project's hardcoded
+    # CURRENT_PROJECT_VERSION (16) is used. To enable, move this into `scripts`
+    # right after "Capacitor sync (iOS)":
+    #
+    #   - name: Set build number from App Store Connect
+    #     script: |
+    #       LATEST=$(app-store-connect get-latest-app-store-build-number "$APP_STORE_APP_ID" || echo 0)
+    #       cd ios/App
+    #       agvtool new-version -all $(( LATEST + 1 ))
+    #
+    # (requires an APP_STORE_APP_ID env var = the numeric App Store Connect app id)
+    # ------------------------------------------------------------------------
+
+    # Optional auto-trigger — leave commented for manual first build:
+    # triggering:
+    #   events:
+    #     - push
+    #   branch_patterns:
+    #     - pattern: main
+    #       include: true
