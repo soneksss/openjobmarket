@@ -476,26 +476,30 @@ export async function deleteProfessionalAccount(professionalProfileId: string) {
       console.warn("[DELETE_ACCOUNT] CV storage cleanup error (non-critical):", storageError)
     }
 
-    // Step 3: Use admin client to delete the auth user
+    // ── Point of no return — delete_user_comprehensive succeeded. Everything
+    // below is best-effort; never surface it as an error (see deleteCompanyAccount).
+
+    // Step 3: Delete the auth user (best-effort — public data already gone)
     try {
       const adminClient = createAdminClient()
       const { error: authError } = await adminClient.auth.admin.deleteUser(user.id)
-
       if (authError) {
-        console.error("[DELETE_ACCOUNT] Admin delete user error:", authError)
-        return { error: `Failed to delete user account: ${authError.message}` }
+        console.error("[DELETE_ACCOUNT] Admin delete user error (non-critical):", authError.message)
+      } else {
+        console.log("[DELETE_ACCOUNT] Auth user deleted successfully")
       }
-
-      console.log("[DELETE_ACCOUNT] Auth user deleted successfully")
     } catch (adminError) {
-      console.error("[DELETE_ACCOUNT] Admin client error:", adminError)
-      return { error: "Failed to complete account deletion. Please contact support." }
+      console.error("[DELETE_ACCOUNT] Admin client error (non-critical):", adminError)
     }
 
-    // Step 4: Sign out and redirect
-    await supabase.auth.signOut()
-    console.log("[DELETE_ACCOUNT] Account deletion completed successfully")
+    // Step 4: Sign out (best-effort — token now references a deleted user)
+    try {
+      await supabase.auth.signOut()
+    } catch (signOutError) {
+      console.warn("[DELETE_ACCOUNT] Sign-out after deletion failed (expected):", signOutError)
+    }
 
+    console.log("[DELETE_ACCOUNT] Account deletion completed")
     return { success: true }
   } catch (error) {
     console.error("[DELETE_ACCOUNT] Unexpected error:", error)
@@ -543,7 +547,13 @@ export async function deleteCompanyAccount(companyProfileId: string) {
 
     console.log("[DELETE_ACCOUNT] Database deletion result:", deletionResult)
 
-    // Step 2: Delete all files from storage
+    // ── Point of no return ──────────────────────────────────────────────────
+    // delete_user_comprehensive succeeded — the account's data is gone. Every
+    // step below is best-effort cleanup; a failure here must NOT surface as an
+    // error, or the client shows "deletion failed" for an account that IS
+    // deleted and then leaves the user stranded on a dead session.
+
+    // Step 2: Delete logo files from storage (best-effort)
     try {
       const { data: profileFiles } = await supabase.storage
         .from('company-logos')
@@ -551,35 +561,34 @@ export async function deleteCompanyAccount(companyProfileId: string) {
 
       if (profileFiles && profileFiles.length > 0) {
         const profileFileNames = profileFiles.map(file => `${user.id}/${file.name}`)
-        await supabase.storage
-          .from('company-logos')
-          .remove(profileFileNames)
+        await supabase.storage.from('company-logos').remove(profileFileNames)
         console.log("[DELETE_ACCOUNT] Deleted company logos:", profileFileNames)
       }
     } catch (storageError) {
       console.warn("[DELETE_ACCOUNT] Storage cleanup error (non-critical):", storageError)
     }
 
-    // Step 3: Use admin client to delete the auth user
+    // Step 3: Delete the auth user (best-effort — public data already gone)
     try {
       const adminClient = createAdminClient()
       const { error: authError } = await adminClient.auth.admin.deleteUser(user.id)
-
       if (authError) {
-        console.error("[DELETE_ACCOUNT] Admin delete user error:", authError)
-        return { error: `Failed to delete user account: ${authError.message}` }
+        console.error("[DELETE_ACCOUNT] Admin delete user error (non-critical):", authError.message)
+      } else {
+        console.log("[DELETE_ACCOUNT] Auth user deleted successfully")
       }
-
-      console.log("[DELETE_ACCOUNT] Auth user deleted successfully")
     } catch (adminError) {
-      console.error("[DELETE_ACCOUNT] Admin client error:", adminError)
-      return { error: "Failed to complete account deletion. Please contact support." }
+      console.error("[DELETE_ACCOUNT] Admin client error (non-critical):", adminError)
     }
 
-    // Step 4: Sign out and redirect
-    await supabase.auth.signOut()
-    console.log("[DELETE_ACCOUNT] Account deletion completed successfully")
+    // Step 4: Sign out (best-effort — session token now references a deleted user)
+    try {
+      await supabase.auth.signOut()
+    } catch (signOutError) {
+      console.warn("[DELETE_ACCOUNT] Sign-out after deletion failed (expected):", signOutError)
+    }
 
+    console.log("[DELETE_ACCOUNT] Account deletion completed")
     return { success: true }
   } catch (error) {
     console.error("[DELETE_ACCOUNT] Unexpected error:", error)

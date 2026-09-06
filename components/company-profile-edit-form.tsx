@@ -355,13 +355,15 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
       let publicUrl: string | null = null
       const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-      const shouldCompress = file.size > 300 * 1024 // compress anything above 300KB
+      // A logo is never shown larger than ~100px (≈300px retina), so always
+      // shrink it to a small webp unless it's already tiny.
+      const shouldCompress = file.size > 60 * 1024
 
       if (shouldCompress) {
-        console.log("[v0] File is above 300KB, compressing before upload...")
+        console.log("[v0] Compressing logo before upload...")
         setUploadStatus("Optimizing image...")
         try {
-          const resizedFile = await resizeImage(file, 800)
+          const resizedFile = await resizeImage(file, 512)
           console.log("[v0] Image compressed:", "New size:", (resizedFile.size / 1024).toFixed(2) + "KB")
           setUploadStatus("Uploading...")
           publicUrl = await uploadToStorage(resizedFile, "webp")
@@ -446,27 +448,27 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
 
     setUploadingInsurance(true)
     try {
-      const ext = file.name.split(".").pop() || (file.type === "application/pdf" ? "pdf" : "jpg")
-      const path = `${user.id}/certificate-${Date.now()}.${ext}`
+      // Upload via the server route (service-role) so it doesn't depend on the
+      // insurance-documents storage RLS policy being present — a missing policy
+      // was causing "new row violates row-level security policy" on the old
+      // direct client upload. The file still lands under {auth.uid()}/ and the
+      // bucket stays private.
+      const fd = new FormData()
+      fd.append("file", file)
 
-      // 30-second timeout — same defensive pattern as the logo upload, so a
-      // stalled request can't leave the button stuck on "Uploading…" forever.
-      const uploadPromise = supabase.storage
-        .from("insurance-documents")
-        .upload(path, file, { upsert: true, contentType: file.type })
+      const uploadPromise = fetch("/api/company/insurance-document", {
+        method: "POST",
+        body: fd,
+        credentials: "include",
+      })
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("Upload timed out. Please check your connection and try again.")), 30_000)
       )
-      const { error: upErr } = await Promise.race([uploadPromise, timeoutPromise])
-      if (upErr) throw upErr
+      const res = await Promise.race([uploadPromise, timeoutPromise])
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok || !body?.path) throw new Error(body?.error || "Upload failed")
 
-      // Fire-and-forget delete of the previous certificate — don't await,
-      // mirrors the logo upload's approach to avoid hanging on cleanup.
-      if (insuranceDocPath && insuranceDocPath !== path) {
-        supabase.storage.from("insurance-documents").remove([insuranceDocPath]).catch(() => {})
-      }
-
-      setInsuranceDocPath(path)
+      setInsuranceDocPath(body.path)
       toast({ title: "Document uploaded", description: "Insurance certificate saved.", duration: 3000 })
     } catch (err: any) {
       toast({ title: "Upload failed", description: err?.message || "Please try again.", variant: "destructive", duration: 4000 })
@@ -594,33 +596,27 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
       const result = await deleteCompanyAccount(profile.id)
 
       if (result.error) {
-        console.warn("[COMPANY_EDIT] Account deletion error:", result.error)
-        toast({
-          title: "Deletion Failed",
-          description: `Error deleting account: ${result.error}`,
-          variant: "destructive",
-          duration: 5000,
-        })
-        setDeleting(false)
-        return
+        // Deletion may still have gone through server-side (the data-deletion
+        // RPC runs before any step that can produce `error`). Either way the
+        // session is now unusable — log out rather than stranding the user on a
+        // dead page. Only "not authenticated" means nothing was deleted, and
+        // even then a clean redirect is the right move.
+        console.warn("[COMPANY_EDIT] Account deletion returned an error, logging out anyway:", result.error)
+      } else {
+        console.log("[COMPANY_EDIT] Account deletion completed successfully")
       }
 
-      console.log("[COMPANY_EDIT] Account deletion completed successfully")
-
-      // Import and use manualLogout to properly clear client-side session
+      // Always clear client-side session + hard-redirect to "/"
       const { manualLogout } = await import("@/hooks/use-auto-logout")
       await manualLogout()
-
-      // manualLogout will redirect to "/" and clear all storage
     } catch (error) {
-      console.warn("[COMPANY_EDIT] Unexpected error during account deletion:", error)
-      toast({
-        title: "Unexpected Error",
-        description: "An unexpected error occurred while deleting your account. Please try again.",
-        variant: "destructive",
-        duration: 5000,
-      })
-      setDeleting(false)
+      console.warn("[COMPANY_EDIT] Unexpected error during account deletion — logging out:", error)
+      try {
+        const { manualLogout } = await import("@/hooks/use-auto-logout")
+        await manualLogout()
+      } catch {
+        if (typeof window !== "undefined") window.location.href = "/"
+      }
     }
   }
 
@@ -679,6 +675,14 @@ export default function CompanyProfileEditForm({ user, profile }: CompanyProfile
                   <div className="absolute inset-0 flex items-center justify-center bg-transparent group-hover:bg-black/40 rounded-lg transition-colors">
                     <Upload className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
+                  {uploading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg bg-slate-900/70 backdrop-blur-[1px]">
+                      <span className="h-7 w-7 rounded-full border-2 border-emerald-400/30 border-t-emerald-400 animate-spin" />
+                      <span className="text-[9px] font-medium text-slate-200 leading-none">
+                        {uploadStatus === "Optimizing image..." ? "Resizing…" : "Uploading…"}
+                      </span>
+                    </div>
+                  )}
                 </Label>
                 <div className="space-y-2">
                   <Label htmlFor="logo-upload" className="cursor-pointer">

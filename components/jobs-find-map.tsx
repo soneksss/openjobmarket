@@ -8,6 +8,7 @@ import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
 import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, LocateFixed, Loader2 } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
+import { ShareJobButton } from "@/components/share-job-button"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import { useToast } from "@/hooks/use-toast"
 
@@ -909,11 +910,23 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                 {!loading && <span className="text-slate-500 font-normal flex-shrink-0">({jobs.length})</span>}
               </span>
             )}
-            <button onClick={() => { setDraftFilters(filters); setShowFilters(true) }}
-              className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center relative transition-colors ${hasActiveFilters ? "bg-indigo-500 border-indigo-400 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
-              <SlidersHorizontal className="w-3 h-3" />
-              {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full border border-slate-800" />}
-            </button>
+            {selectedJob ? (
+              <ShareJobButton
+                url={`/jobs/${selectedJob.id}`}
+                title={selectedJob.title}
+                category={selectedJob.category ?? selectedJob.industry}
+                location={selectedJob.location}
+                shareSource="jobs-map"
+                label="Share job"
+                className="flex-shrink-0"
+              />
+            ) : (
+              <button onClick={() => { setDraftFilters(filters); setShowFilters(true) }}
+                className={`flex-shrink-0 w-7 h-7 rounded-full border flex items-center justify-center relative transition-colors ${hasActiveFilters ? "bg-indigo-500 border-indigo-400 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
+                <SlidersHorizontal className="w-3 h-3" />
+                {hasActiveFilters && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-orange-500 rounded-full border border-slate-800" />}
+              </button>
+            )}
           </div>
           {selectedJob ? detailPanel : listPanel}
         </div>
@@ -942,7 +955,17 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                   <ArrowLeft className="w-8 h-8" /><span className="text-[24px] font-semibold">All jobs</span>
                 </button>
                 <div className="w-10 h-1 rounded-full bg-slate-600 absolute left-1/2 -translate-x-1/2" />
-                <div className="w-20" />
+                <div onClick={(e) => e.stopPropagation()}>
+                  <ShareJobButton
+                    url={`/jobs/${selectedJob.id}`}
+                    title={selectedJob.title}
+                    category={selectedJob.category ?? selectedJob.industry}
+                    location={selectedJob.location}
+                    shareSource="jobs-map"
+                    label="Share job"
+                    className="flex-shrink-0"
+                  />
+                </div>
               </>
             ) : (
               <div className="w-full flex justify-center">

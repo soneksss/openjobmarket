@@ -498,16 +498,27 @@ export default function ProfileEditForm({ user, userData, professionalProfile }:
       const result = await deleteProfessionalAccount(professionalProfile?.id ?? "")
 
       if (result.error) {
-        console.error("[PROFILE_EDIT] Account deletion error:", result.error)
-        alert(`Error deleting account: ${result.error}`)
-        return
+        // The data-deletion RPC runs before any step that can return `error`,
+        // so the account may already be gone and the session dead. Log out and
+        // redirect rather than leaving the user stranded on a broken page.
+        console.warn("[PROFILE_EDIT] Account deletion returned an error, signing out anyway:", result.error)
+      } else {
+        console.log("[PROFILE_EDIT] Account deletion completed successfully")
       }
 
-      console.log("[PROFILE_EDIT] Account deletion completed successfully")
-      router.push(locale === 'pt-BR' ? '/br' : '/')
+      try {
+        const { manualLogout } = await import("@/hooks/use-auto-logout")
+        await manualLogout()
+      } catch {
+        if (typeof window !== "undefined") {
+          window.location.href = locale === 'pt-BR' ? '/br' : '/'
+        }
+      }
     } catch (error) {
-      console.error("[PROFILE_EDIT] Unexpected error during account deletion:", error)
-      alert("An unexpected error occurred while deleting your account. Please try again.")
+      console.error("[PROFILE_EDIT] Unexpected error during account deletion — redirecting:", error)
+      if (typeof window !== "undefined") {
+        window.location.href = locale === 'pt-BR' ? '/br' : '/'
+      }
     } finally {
       setIsDeleting(false)
     }
