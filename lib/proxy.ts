@@ -8,6 +8,10 @@ import { rateLimit } from "./rate-limit";
 const locales = ['en', 'pt-BR'] as const
 type Locale = typeof locales[number]
 
+// /br/* is disabled: next.config.mjs redirects it back to /. Redirecting there
+// from here would loop forever, so auto-detection stays off until it returns.
+const BR_ROUTES_ENABLED = false
+
 // Paths that should not trigger any middleware logic
 const ignoredPaths = [
   '/api',
@@ -62,6 +66,10 @@ function detectBrowserLocale(req: NextRequest): Locale {
 // Canonical domain: always redirect to www.openjobmarket.com
 const CANONICAL_HOST = "www.openjobmarket.com"
 const NON_CANONICAL_HOSTS = ["openjobmarket.com", "openjobmarket.vercel.app"]
+
+function hasAuthCookie(req: NextRequest): boolean {
+  return req.cookies.getAll().some(({ name }) => name.startsWith('sb-') && name.includes('-auth-token'))
+}
 
 function getIp(req: NextRequest): string {
   return (
@@ -146,7 +154,7 @@ export async function middleware(req: NextRequest) {
   const userPreference = req.cookies.get('USER_LOCALE_PREFERENCE')?.value
 
   // Auto-redirect Brazilian users to /br (if no manual preference set)
-  if (!isOnBrRoute && !userPreference && !localeParam) {
+  if (BR_ROUTES_ENABLED && !isOnBrRoute && !userPreference && !localeParam) {
     const preferredLocale = detectBrowserLocale(req)
 
     // Redirect to /br + current path if browser prefers Portuguese
@@ -180,10 +188,12 @@ export async function middleware(req: NextRequest) {
     // Only update cookie if:
     // 1. We're on /br route (always set to pt-BR), OR
     // 2. There's no existing cookie, OR
-    // 3. We're explicitly on a non-BR route AND user was on English site
+    // 3. We're explicitly on a non-BR route AND user was on English site, OR
+    // 4. The pt-BR cookie came from auto-detection, not a choice, while /br/* is disabled
     const shouldUpdateCookie = isOnBrRoute ||
                                 !existingLocaleCookie ||
-                                (currentLocale === 'en' && userPreference === 'en')
+                                (currentLocale === 'en' && userPreference === 'en') ||
+                                (!BR_ROUTES_ENABLED && existingLocaleCookie === 'pt-BR' && userPreference !== 'pt-BR')
 
     if (shouldUpdateCookie) {
       res.cookies.set('NEXT_LOCALE', currentLocale, {
@@ -199,6 +209,16 @@ export async function middleware(req: NextRequest) {
         })
       }
     }
+  }
+
+  // Signed-out visitors always land on /find-trades (see app/page.tsx), so skip
+  // rendering the page first. Query strings (?code=, ?locale=) still go through it.
+  if (pathname === '/' && !req.nextUrl.search && !hasAuthCookie(req)) {
+    const url = req.nextUrl.clone()
+    url.pathname = '/find-trades'
+    const redirect = NextResponse.redirect(url)
+    res.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie))
+    return redirect
   }
 
   // === AUTH PROTECTION ===

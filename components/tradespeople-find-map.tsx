@@ -219,7 +219,6 @@ type Trader = {
   open_for_business?: boolean; service_24_7?: boolean
   is_live?: boolean
   is_verified?: boolean
-  claim_token?: string | null
   phone_number?: string | null
   normalised_categories?: string[] | null
   spoken_languages?: string[] | null
@@ -433,13 +432,37 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
   // Poll the current viewport every ~20s so "Available now" green vans move as
   // their live GPS updates. Silent — no loading spinner, keeps last data on error.
+  // Paused while the tab is hidden; refreshes as soon as it's visible again.
   useEffect(() => {
-    const id = setInterval(() => {
+    const refresh = () => {
       if (currentBoundsRef.current) {
         fetchByViewport(currentBoundsRef.current, filtersRef.current, true)
       }
-    }, 20_000)
-    return () => clearInterval(id)
+    }
+    let id: ReturnType<typeof setInterval> | null = null
+    const stop = () => {
+      if (id) clearInterval(id)
+      id = null
+    }
+    const start = () => {
+      stop()
+      id = setInterval(refresh, 20_000)
+    }
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refresh()
+        start()
+      } else {
+        stop()
+      }
+    }
+
+    if (document.visibilityState === "visible") start()
+    document.addEventListener("visibilitychange", onVisibility)
+    return () => {
+      stop()
+      document.removeEventListener("visibilitychange", onVisibility)
+    }
   }, [fetchByViewport])
 
   const onBoundsChange = useCallback((bounds: BBox) => {
