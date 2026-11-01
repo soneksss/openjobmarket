@@ -120,6 +120,11 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url, { status: 301 })
   }
 
+  // Sentry's uptime check hits / every minute. Answer here so it doesn't render a page each time.
+  if (pathname === "/" && req.headers.get("user-agent")?.startsWith("SentryUptimeBot")) {
+    return new NextResponse("ok", { status: 200, headers: { "Content-Type": "text/plain" } })
+  }
+
   // Skip ignored paths completely
   if (shouldIgnorePath(pathname)) {
     return NextResponse.next();

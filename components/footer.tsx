@@ -48,7 +48,7 @@ export function Footer() {
       <div className="container mx-auto px-4">
         <div className="flex flex-wrap justify-center gap-x-5 gap-y-2 mb-4">
           {links.map((link) => (
-            <Link
+            <Link prefetch={false}
               key={link.href}
               href={link.href}
               className="text-sm text-slate-400 hover:text-white transition-colors"

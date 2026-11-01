@@ -451,7 +451,7 @@ function BottomNav({ items, unreadMessages, unreadNotifications }: { items: NavI
           }
 
           return (
-            <Link key={item.key} href={item.href} className={itemClass}>
+            <Link prefetch={false} key={item.key} href={item.href} className={itemClass}>
               {inner}
             </Link>
           )

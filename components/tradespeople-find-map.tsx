@@ -1201,7 +1201,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
         {/* Home button — desktop only, top-left corner of map.
             Container already sits below the global header, so this is just a small local offset. */}
-        <Link href="/home"
+        <Link prefetch={false} href="/home"
           className="absolute left-3 hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/95 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 hover:border-slate-500 transition-colors"
           style={{ zIndex: 200, top: "16px" }}>
           <ArrowLeft className="w-3.5 h-3.5" />

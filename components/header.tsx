@@ -345,7 +345,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                   className="w-52 z-[100] bg-slate-800 border border-slate-700/60 rounded-2xl p-1.5 shadow-xl shadow-black/30"
                 >
                   <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-700/60 cursor-pointer">
-                    <Link href={getLocalePath(currentUserType === "company" ? "/find-jobs" : "/find-trades")} className="flex items-center gap-3 px-3 py-2.5">
+                    <Link prefetch={false} href={getLocalePath(currentUserType === "company" ? "/find-jobs" : "/find-trades")} className="flex items-center gap-3 px-3 py-2.5">
                       <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center flex-shrink-0">
                         <MapIcon className="h-4 w-4 text-emerald-400" />
                       </div>
@@ -356,7 +356,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-700/60 cursor-pointer">
-                    <Link href={getLocalePath("/about")} className="flex items-center gap-3 px-3 py-2.5">
+                    <Link prefetch={false} href={getLocalePath("/about")} className="flex items-center gap-3 px-3 py-2.5">
                       <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center flex-shrink-0">
                         <Info className="h-4 w-4 text-blue-400" />
                       </div>
@@ -367,7 +367,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild className="rounded-xl focus:bg-slate-700/60 cursor-pointer">
-                    <Link href={getLocalePath("/help")} className="flex items-center gap-3 px-3 py-2.5">
+                    <Link prefetch={false} href={getLocalePath("/help")} className="flex items-center gap-3 px-3 py-2.5">
                       <div className="w-8 h-8 rounded-lg bg-purple-500/15 flex items-center justify-center flex-shrink-0">
                         <HelpCircle className="h-4 w-4 text-purple-400" />
                       </div>
@@ -382,19 +382,19 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
             </div>
 
             <nav className="hidden md:flex items-center space-x-2">
-<Link href={getLocalePath(currentUserType === "company" ? "/find-jobs" : "/find-trades")}>
+<Link prefetch={false} href={getLocalePath(currentUserType === "company" ? "/find-jobs" : "/find-trades")}>
                 <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
                   Map
                 </Button>
               </Link>
 
-              <Link href={getLocalePath("/about")}>
+              <Link prefetch={false} href={getLocalePath("/about")}>
                 <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
                   {t('header.about')}
                 </Button>
               </Link>
 
-              <Link href={getLocalePath("/help")}>
+              <Link prefetch={false} href={getLocalePath("/help")}>
                 <Button variant="ghost" className={dark ? "text-slate-300 hover:text-white hover:bg-white/10" : ""}>
                   {t('header.help')}
                 </Button>
@@ -405,11 +405,11 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
             {showProfessionalsPageButtons && currentUser && (
               <div className="flex items-center space-x-4">
                 <Button variant="ghost" asChild>
-                  <Link href={getLocalePath("/dashboard")}>{t('header.dashboard')}</Link>
+                  <Link prefetch={false} href={getLocalePath("/dashboard")}>{t('header.dashboard')}</Link>
                 </Button>
                 {currentUserType === "homeowner" && (
                   <Button asChild className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700">
-                    <Link href={getLocalePath("/jobs/new")}>{t('header.postJob')}</Link>
+                    <Link prefetch={false} href={getLocalePath("/jobs/new")}>{t('header.postJob')}</Link>
                   </Button>
                 )}
               </div>
@@ -437,7 +437,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                   {/* Desktop: Full navigation */}
                   <div className={`hidden md:flex items-center space-x-4 ${dark ? "text-slate-200" : ""}`}>
                     <Button asChild size="sm" className="bg-green-600 hover:bg-green-700 text-xs">
-                      <Link href={getLocalePath(
+                      <Link prefetch={false} href={getLocalePath(
                         currentUserType === "homeowner"    ? "/dashboard/homeowner" :
                         currentUserType === "professional" ? "/dashboard/professional" :
                         currentUserType === "contractor"   ? "/dashboard/contractor" :
@@ -521,25 +521,25 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                       {currentUserType === "professional" && (
                         <>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
                               <User className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard/professional")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard/professional")} className="flex items-center gap-2.5 px-3 py-2">
                               <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard/professional/saved")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard/professional/saved")} className="flex items-center gap-2.5 px-3 py-2">
                               <BookmarkIcon className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.savedJobs')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/account/settings")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/account/settings")} className="flex items-center gap-2.5 px-3 py-2">
                               <Settings className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.accountSettings')}
                             </Link>
@@ -551,31 +551,31 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                       {currentUserType === "company" && (
                         <>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/company/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/company/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
                               <Building2 className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard/company")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard/company")} className="flex items-center gap-2.5 px-3 py-2">
                               <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard/company/my-applications")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard/company/my-applications")} className="flex items-center gap-2.5 px-3 py-2">
                               <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.myApplications')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard/company/saved")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard/company/saved")} className="flex items-center gap-2.5 px-3 py-2">
                               <BookmarkIcon className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.savedJobs')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/account/settings")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/account/settings")} className="flex items-center gap-2.5 px-3 py-2">
                               <Settings className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.accountSettings')}
                             </Link>
@@ -587,25 +587,25 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                       {currentUserType === "homeowner" && (
                         <>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard/homeowner/profile")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard/homeowner/profile")} className="flex items-center gap-2.5 px-3 py-2">
                               <User className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard/homeowner")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard/homeowner")} className="flex items-center gap-2.5 px-3 py-2">
                               <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard/homeowner/jobs")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard/homeowner/jobs")} className="flex items-center gap-2.5 px-3 py-2">
                               <Home className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               My Jobs
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/account/settings")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/account/settings")} className="flex items-center gap-2.5 px-3 py-2">
                               <Settings className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.accountSettings')}
                             </Link>
@@ -617,13 +617,13 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                       {currentUserType === "contractor" && (
                         <>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/contractor/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/contractor/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
                               <User className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard")} className="flex items-center gap-2.5 px-3 py-2">
                               <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
@@ -635,13 +635,13 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                       {!currentUserType && (
                         <>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/profile/edit")} className="flex items-center gap-2.5 px-3 py-2">
                               <User className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.editProfile')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg text-slate-200 hover:bg-slate-800 hover:text-white focus:bg-slate-800 focus:text-white cursor-pointer">
-                            <Link href={getLocalePath("/dashboard")} className="flex items-center gap-2.5 px-3 py-2">
+                            <Link prefetch={false} href={getLocalePath("/dashboard")} className="flex items-center gap-2.5 px-3 py-2">
                               <Briefcase className="h-4 w-4 text-slate-400 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
@@ -657,25 +657,25 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                             <p className="text-[10px] font-semibold text-purple-400 uppercase tracking-wider">Admin</p>
                           </div>
                           <DropdownMenuItem asChild className="rounded-lg hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
-                            <Link href={getLocalePath("/admin/dashboard")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
+                            <Link prefetch={false} href={getLocalePath("/admin/dashboard")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
                               <Shield className="h-4 w-4 flex-shrink-0" />
                               {t('header.dashboard')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
-                            <Link href={getLocalePath("/admin/analytics")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
+                            <Link prefetch={false} href={getLocalePath("/admin/analytics")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
                               <BarChart3 className="h-4 w-4 flex-shrink-0" />
                               {t('header.analytics')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
-                            <Link href={getLocalePath("/admin/users")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
+                            <Link prefetch={false} href={getLocalePath("/admin/users")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
                               <User className="h-4 w-4 flex-shrink-0" />
                               {t('header.manageUsers')}
                             </Link>
                           </DropdownMenuItem>
                           <DropdownMenuItem asChild className="rounded-lg hover:bg-slate-800 focus:bg-slate-800 cursor-pointer">
-                            <Link href={getLocalePath("/admin/jobs")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
+                            <Link prefetch={false} href={getLocalePath("/admin/jobs")} className="flex items-center gap-2.5 px-3 py-2 text-purple-300">
                               <Briefcase className="h-4 w-4 flex-shrink-0" />
                               {t('header.manageJobs')}
                             </Link>
@@ -706,7 +706,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                 </>
               ) : (
                 <div className="flex items-center gap-1 sm:gap-2">
-                  <Link href={getLocalePath("/for-tradespeople")}>
+                  <Link prefetch={false} href={getLocalePath("/for-tradespeople")}>
                     <Button
                       variant="outline"
                       size="sm"
@@ -716,7 +716,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                       <span className="hidden sm:inline">For Tradespeople</span>
                     </Button>
                   </Link>
-                  <Link href={loginUrl} className="hidden sm:block">
+                  <Link prefetch={false} href={loginUrl} className="hidden sm:block">
                     <Button
                       variant="outline"
                       size="sm"
@@ -725,7 +725,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
                       {t('header.signIn')}
                     </Button>
                   </Link>
-                  <Link href={signUpUrl}>
+                  <Link prefetch={false} href={signUpUrl}>
                     <Button
                       size="sm"
                       className="h-auto text-[10px] sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5"
@@ -785,7 +785,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
             <div className="p-4 space-y-4">
               {/* About */}
               <div>
-                <Link
+                <Link prefetch={false}
                   href={getLocalePath("/about")}
                   onClick={() => setMobileMenuOpen(false)}
                   className="block w-full text-left font-semibold text-blue-600 hover:text-blue-700 transition-colors"
@@ -796,7 +796,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
 
               {/* Help */}
               <div>
-                <Link
+                <Link prefetch={false}
                   href={getLocalePath("/help")}
                   onClick={() => setMobileMenuOpen(false)}
                   className="block w-full text-left font-semibold text-blue-600 hover:text-blue-700 transition-colors"

@@ -618,7 +618,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   const listPanel = (
     <>
       {!isSignedIn && (
-        <Link
+        <Link prefetch={false}
           href="/auth/sign-up?returnUrl=%2Ffind-jobs"
           className="flex-shrink-0 mx-2 mt-2 mb-1 flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-[11px] font-medium text-orange-300 transition-colors hover:bg-orange-500/15 hover:text-orange-200"
         >
@@ -652,7 +652,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               <p className="text-xs text-slate-400 leading-relaxed mt-1.5">
                 Jobs come and go quickly. Sign up so you don&apos;t miss new opportunities — and let homeowners contact you directly.
               </p>
-              <Link
+              <Link prefetch={false}
                 href="/auth/sign-up?returnUrl=%2Ffind-jobs"
                 className="mt-3 inline-flex items-center justify-center rounded-xl bg-orange-500 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-orange-500/30 transition-colors hover:bg-orange-600"
               >
@@ -841,7 +841,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
 
         {/* Home button — desktop only, top-left corner of map.
             Container already sits below the global header, so this is just a small local offset. */}
-        <Link href="/home"
+        <Link prefetch={false} href="/home"
           className="absolute left-3 hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/95 border border-slate-700 text-white text-xs font-semibold shadow-md hover:bg-slate-700 hover:border-slate-500 transition-colors"
           style={{ zIndex: 200, top: "16px" }}>
           <ArrowLeft className="w-3.5 h-3.5" />
