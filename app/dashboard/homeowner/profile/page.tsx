@@ -16,10 +16,8 @@ export default async function HomeownerProfilePage() {
   }
 
   const { data: profile, error: profileError } = await supabase
-    .from("homeowner_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle()
+    .rpc("get_my_homeowner_profile")
+    .maybeSingle<any>()
 
   if (profileError) {
     console.warn("[HOMEOWNER-PROFILE] Error fetching profile:", profileError)

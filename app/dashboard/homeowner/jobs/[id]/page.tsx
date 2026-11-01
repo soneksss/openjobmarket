@@ -30,10 +30,8 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
   if (!user) redirect("/auth/login")
 
   const { data: profile } = await supabase
-    .from("homeowner_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single()
+    .rpc("get_my_homeowner_profile")
+    .single<any>()
 
   if (!profile) redirect("/onboarding")
 

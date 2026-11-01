@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   const { data: homeowner } = await supabase
     .from("homeowner_profiles")
-    .select("*")
+    .select("id, user_id, first_name, last_name, profile_photo_url, bio, average_rating, reviews_count, created_at, updated_at")
     .eq("id", id)
     .single()
 
@@ -25,18 +25,17 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const fullName = `${homeowner.first_name} ${homeowner.last_name}`
 
   return {
-    title: `${fullName} - Homeowner in ${homeowner.location || 'UK'} | OpenJobMarket`,
+    title: `${fullName} - Homeowner | OpenJobMarket`,
     description: `${homeowner.bio?.substring(0, 150) || `${fullName} - Homeowner posting jobs on OpenJobMarket`}`,
     keywords: [
       fullName,
-      homeowner.location,
       "homeowner",
       "jobs",
       "tasks"
     ].filter(Boolean),
     openGraph: {
       title: `${fullName} - Homeowner`,
-      description: homeowner.bio?.substring(0, 200) || `Homeowner in ${homeowner.location}`,
+      description: homeowner.bio?.substring(0, 200) || `${fullName} - Homeowner on OpenJobMarket`,
       url: `${baseUrl}/homeowners/${id}`,
       type: "profile",
       siteName: "OpenJobMarket",
@@ -62,7 +61,7 @@ export default async function HomeownerDetailPage({ params }: { params: Promise<
   // Get homeowner profile details
   const { data: homeowner, error: homeownerError } = await supabase
     .from("homeowner_profiles")
-    .select("*")
+    .select("id, user_id, first_name, last_name, profile_photo_url, bio, average_rating, reviews_count, created_at, updated_at")
     .eq("id", id)
     .single()
 

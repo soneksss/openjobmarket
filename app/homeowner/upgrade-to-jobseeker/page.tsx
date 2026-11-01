@@ -27,10 +27,8 @@ export default async function HomeownerUpgradePage() {
 
   // Get homeowner profile
   const { data: homeownerProfile } = await supabase
-    .from("homeowner_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single()
+    .rpc("get_my_homeowner_profile")
+    .single<any>()
 
   if (!homeownerProfile) {
     redirect("/onboarding/homeowner")

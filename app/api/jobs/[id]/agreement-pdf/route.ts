@@ -20,10 +20,8 @@ export async function GET(
 
   // Verify homeowner owns this job
   const { data: hp } = await supabase
-    .from("homeowner_profiles")
-    .select("id, first_name, last_name, location")
-    .eq("user_id", user.id)
-    .maybeSingle()
+    .rpc("get_my_homeowner_profile")
+    .maybeSingle<any>()
 
   if (!hp) return NextResponse.json({ error: "Not a homeowner" }, { status: 403 })
 

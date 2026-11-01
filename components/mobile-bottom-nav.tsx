@@ -240,7 +240,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
   // Fetch homeowner profile for the job wizard
   useEffect(() => {
     if (!userId || userType !== "homeowner") return
-    supabase.from("homeowner_profiles").select("*").eq("user_id", userId).maybeSingle()
+    supabase.rpc("get_my_homeowner_profile").maybeSingle()
       .then(({ data }) => setHomeownerProfile(data))
   }, [userId, userType])
 

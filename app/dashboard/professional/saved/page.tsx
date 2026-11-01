@@ -73,7 +73,6 @@ export default async function SavedJobsPage() {
             homeowner_profiles!homeowner_id (
               first_name,
               last_name,
-              location,
               user_id
             )
           )
@@ -192,8 +191,6 @@ export default async function SavedJobsPage() {
 
               const posterLocation = isCompanyJob
                 ? job.company_profiles.location
-                : isHomeownerJob
-                ? job.homeowner_profiles.location
                 : job.location
 
               const logoUrl = isCompanyJob ? job.company_profiles.logo_url : null

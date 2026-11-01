@@ -33,10 +33,8 @@ export default async function HomeownerDashboardPage() {
   let profile: any = null
   {
     const { data: profileData, error: profileError } = await supabase
-      .from("homeowner_profiles")
-      .select("*")
-      .eq("user_id", user.id)
-      .maybeSingle()
+      .rpc("get_my_homeowner_profile")
+      .maybeSingle<any>()
 
     if (profileError) {
       console.warn("[HOMEOWNER] Profile error:", profileError)
@@ -48,16 +46,14 @@ export default async function HomeownerDashboardPage() {
       await supabase.rpc("complete_user_profile_after_verification", { p_user_id: user.id })
       // Re-fetch after creation attempt
       const { data: retryData } = await supabase
-        .from("homeowner_profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle()
+        .rpc("get_my_homeowner_profile")
+        .maybeSingle<any>()
 
       if (!retryData) {
         // RPC failed — insert minimal profile directly from auth metadata
         console.log("[HOMEOWNER] RPC failed, inserting minimal profile directly")
         const metadata = user.user_metadata || {}
-        const { data: insertedProfile, error: insertError } = await supabase
+        const { error: insertError } = await supabase
           .from("homeowner_profiles")
           .insert({
             user_id: user.id,
@@ -65,11 +61,10 @@ export default async function HomeownerDashboardPage() {
             last_name: metadata.last_name || metadata.name?.split(" ").slice(1).join(" ") || user.email?.split("@")[0] || "User",
             location: metadata.location || null,
           })
-          .select()
-          .single()
         if (insertError) {
           console.error("[HOMEOWNER] Direct insert failed:", insertError)
         }
+        const { data: insertedProfile } = await supabase.rpc("get_my_homeowner_profile").maybeSingle<any>()
         profile = insertedProfile
       } else {
         profile = retryData

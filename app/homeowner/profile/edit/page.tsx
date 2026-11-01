@@ -13,10 +13,8 @@ export default async function HomeownerProfileEditPage() {
 
   // Get homeowner profile
   const { data: profile } = await supabase
-    .from("homeowner_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single()
+    .rpc("get_my_homeowner_profile")
+    .single<any>()
 
   if (!profile) {
     redirect("/onboarding/homeowner")

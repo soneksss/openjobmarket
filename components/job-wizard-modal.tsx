@@ -853,15 +853,10 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           setLoading(false)
           return
         }
-        const table = userType === "homeowner" ? "homeowner_profiles" : "company_profiles"
-        const nameFields = userType === "homeowner"
-          ? "id, user_id, latitude, longitude, location, first_name, last_name"
-          : "id, user_id, latitude, longitude, location, company_name"
-        const { data: fetchedProfile } = await supabase
-          .from(table)
-          .select(nameFields)
-          .eq("user_id", sessionUser.id)
-          .maybeSingle()
+        const { data: fetchedProfile } = await (userType === "homeowner"
+          ? supabase.rpc("get_my_homeowner_profile")
+          : supabase.from("company_profiles").select("id, user_id, latitude, longitude, location, company_name").eq("user_id", sessionUser.id)
+        ).maybeSingle()
         resolvedProfile = fetchedProfile ?? { user_id: sessionUser.id, id: null, latitude: null, longitude: null, location: null }
       }
 

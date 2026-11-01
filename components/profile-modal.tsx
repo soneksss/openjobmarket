@@ -75,7 +75,7 @@ export default function ProfileModal({ isOpen, onClose, profileType, profileId }
         case "homeowner":
           ({ data, error } = await supabase
             .from("homeowner_profiles")
-            .select("*")
+            .select("id, user_id, first_name, last_name, profile_photo_url, bio, average_rating, reviews_count, created_at")
             .eq("id", profileId)
             .single())
           break

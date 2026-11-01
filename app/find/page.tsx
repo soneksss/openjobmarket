@@ -38,10 +38,8 @@ export default async function FindPage({
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase
-          .from("homeowner_profiles")
-          .select("latitude, longitude, latitude_approx, longitude_approx")
-          .eq("user_id", user.id)
-          .maybeSingle()
+          .rpc("get_my_homeowner_profile")
+          .maybeSingle<any>()
         const profileLat = profile?.latitude ?? profile?.latitude_approx
         const profileLon = profile?.longitude ?? profile?.longitude_approx
         if (profileLat && profileLon) {

@@ -335,9 +335,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         .then(({ data: userRow }) => {
           const type = userRow?.user_type === "company" ? "company" : "homeowner"
           setPosterUserType(type)
-          const table = type === "company" ? "company_profiles" : "homeowner_profiles"
-          supabase.from(table).select("*").eq("user_id", user.id)
-            .maybeSingle().then(({ data }) => {
+          const query = type === "company"
+            ? supabase.from("company_profiles").select("*").eq("user_id", user.id)
+            : supabase.rpc("get_my_homeowner_profile")
+          query.maybeSingle().then(({ data }) => {
               if (type === "company") setPosterCompanyProfile(data)
               else setHomeownerProfile(data)
             })

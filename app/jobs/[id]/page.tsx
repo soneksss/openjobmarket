@@ -8,7 +8,7 @@ import { isUUID } from "@/lib/slug"
 
 // Use FK column hints to disambiguate: jobs has two FKs to company_profiles
 // (company_id and confirmed_tradesperson_id) — without a hint PostgREST errors.
-const JOB_SELECT = `*, company_profiles!company_id (id, company_name, description, industry, company_size, website_url, location, logo_url, user_id), homeowner_profiles!homeowner_id (id, user_id, first_name, last_name, profile_photo_url, location, full_address, address_line1, city, latitude, longitude, latitude_approx, longitude_approx)`
+const JOB_SELECT = `*, company_profiles!company_id (id, company_name, description, industry, company_size, website_url, location, logo_url, user_id), homeowner_profiles!homeowner_id (id, user_id, first_name, last_name, profile_photo_url, latitude_approx, longitude_approx)`
 
 /**
  * Resolve a URL param (UUID or slug) to a job row.
@@ -306,6 +306,17 @@ export default async function JobDetailPage({
   }
 
   // Get poster status (company or homeowner)
+  // Everything passed to JobDetailView reaches the browser, so the homeowner's address is only
+  // loaded for the viewers JobLocationMap shows it to: the job's owner and the confirmed tradesperson.
+  if (job.homeowner_profiles && (isJobOwner || applicationStatus === "CONFIRMED" || applicationStatus === "JOB_COMPLETED")) {
+    const { data: homeownerAddress } = await createAdminClient()
+      .from("homeowner_profiles")
+      .select("address_line1, city, location")
+      .eq("id", job.homeowner_id)
+      .maybeSingle()
+    job.homeowner_profiles = { ...job.homeowner_profiles, ...homeownerAddress }
+  }
+
   const posterUserId = job.company_profiles?.user_id || job.homeowner_profiles?.user_id
 
   try {

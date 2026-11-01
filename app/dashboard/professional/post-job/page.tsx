@@ -41,14 +41,12 @@ export default async function ProfessionalPostJobPage() {
   // Get or create homeowner profile for this user
   // (Professionals with is_homeowner=true should have a homeowner_profile)
   let { data: homeownerProfile } = await supabase
-    .from("homeowner_profiles")
-    .select("*")
-    .eq("user_id", user.id)
-    .single()
+    .rpc("get_my_homeowner_profile")
+    .single<any>()
 
   // If no homeowner profile exists, create one from professional profile
   if (!homeownerProfile) {
-    const { data: newProfile, error: createError } = await supabase
+    const { error: createError } = await supabase
       .from("homeowner_profiles")
       .insert({
         user_id: user.id,
@@ -57,14 +55,13 @@ export default async function ProfessionalPostJobPage() {
         profile_photo_url: profile.profile_photo_url,
         location: profile.location || '',
       })
-      .select()
-      .single()
 
     if (createError) {
       console.error("Failed to create homeowner profile:", createError)
       redirect("/dashboard/professional")
     }
 
+    const { data: newProfile } = await supabase.rpc("get_my_homeowner_profile").maybeSingle<any>()
     homeownerProfile = newProfile
   }
 

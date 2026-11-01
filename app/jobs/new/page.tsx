@@ -30,7 +30,7 @@ export default async function NewJobPage({ searchParams }: { searchParams: Promi
 
     const [{ data: userData }, { data: homeownerProfile }, { data: companyProfile }] = await Promise.all([
       supabase.from("users").select("user_type").eq("id", user.id).single(),
-      supabase.from("homeowner_profiles").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.rpc("get_my_homeowner_profile").maybeSingle<any>(),
       supabase.from("company_profiles").select("*").eq("user_id", user.id).maybeSingle(),
     ])
 
