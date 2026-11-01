@@ -17,7 +17,6 @@ export interface SeededTrade {
   address: string | null
   postcode: string | null
   created_at: string
-  claim_token: string
 }
 
 export default function SeededDetailView({ trade }: { trade: SeededTrade }) {
@@ -99,7 +98,7 @@ export default function SeededDetailView({ trade }: { trade: SeededTrade }) {
           {/* Mobile CTA */}
           <div className="flex gap-2 mt-5 lg:hidden">
             <button
-              onClick={() => router.push(`/claim/${trade.claim_token}`)}
+              onClick={() => window.location.assign(`/seeded/${trade.id}/claim`)}
               className="flex-1 bg-amber-500 hover:bg-amber-400 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm shadow-lg shadow-amber-500/20"
             >
               <Building2 className="h-4 w-4" />
@@ -146,7 +145,7 @@ export default function SeededDetailView({ trade }: { trade: SeededTrade }) {
                 to manage your profile, toggle your availability, and receive trade job notifications.
               </p>
               <button
-                onClick={() => router.push(`/claim/${trade.claim_token}`)}
+                onClick={() => window.location.assign(`/seeded/${trade.id}/claim`)}
                 className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-amber-300 hover:text-amber-200 transition-colors"
               >
                 <Building2 className="h-4 w-4" />
@@ -173,7 +172,7 @@ export default function SeededDetailView({ trade }: { trade: SeededTrade }) {
             {/* CTA */}
             <div className="bg-slate-800 rounded-2xl border border-slate-700/50 p-5">
               <button
-                onClick={() => router.push(`/claim/${trade.claim_token}`)}
+                onClick={() => window.location.assign(`/seeded/${trade.id}/claim`)}
                 className="w-full bg-amber-500 hover:bg-amber-400 text-white font-semibold py-2.5 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm shadow-lg shadow-amber-500/20"
               >
                 <Building2 className="h-4 w-4" />

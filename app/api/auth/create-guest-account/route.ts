@@ -1,5 +1,6 @@
 import { createAdminWriteClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
+import { isUnclaimedListingEmail } from "@/lib/seeded-email"
 
 /**
  * POST /api/auth/create-guest-account
@@ -44,6 +45,9 @@ export async function POST(request: NextRequest) {
     }
     if (!jobData) {
       return NextResponse.json({ error: "Missing job data" }, { status: 400 })
+    }
+    if (await isUnclaimedListingEmail(email)) {
+      return NextResponse.json({ error: "This email is linked to a business listing. Please sign up with a business account to verify it." }, { status: 403 })
     }
 
     const admin = createAdminWriteClient()

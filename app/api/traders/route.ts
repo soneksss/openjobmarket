@@ -33,7 +33,6 @@ function mapCompany(c: CompanyRow, live?: { lat: number; lng: number }, verified
     phone_number:     (c.phone_number ?? null) as string | null,
     spoken_languages: (c.spoken_languages ?? null) as string[] | null,
     is_live:          !!live,
-    claim_token:      null as null,
   }
 }
 
@@ -79,7 +78,7 @@ export async function GET(req: NextRequest) {
   // ── Seeded trades ─────────────────────────────────────────────────────────
   let sq = admin
     .from("seeded_trades")
-    .select("id, company_name, trade_category, normalised_categories, lat, lng, phone, address, postcode, claim_token")
+    .select("id, company_name, trade_category, normalised_categories, lat, lng, phone, address, postcode")
     .eq("claimed", false)
     .gte("lat", south).lte("lat", north)
     .gte("lng", west).lte("lng", east)
@@ -184,7 +183,6 @@ export async function GET(req: NextRequest) {
       services:         null as null,
       phone_number:     (s.phone ?? null) as string | null,
       is_live:          false,
-      claim_token:      s.claim_token as string,
     }))
 
   // Also deduplicate within each source by id (guard against DB-level dupes)

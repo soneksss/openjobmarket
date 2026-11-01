@@ -1,12 +1,12 @@
 export const dynamic = 'force-dynamic'
 
-import { createClient } from "@/lib/server"
+import { createAdminClient } from "@/lib/server"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import SeededDetailView from "@/components/seeded-detail-view"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { id } = await params
 
   const { data } = await supabase
@@ -27,12 +27,12 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function SeededTradePage({ params }: { params: Promise<{ id: string }> }) {
-  const supabase = await createClient()
+  const supabase = createAdminClient()
   const { id } = await params
 
   const { data: trade, error } = await supabase
     .from("seeded_trades")
-    .select("id, company_name, trade_category, email, phone, address, postcode, created_at, claim_token")
+    .select("id, company_name, trade_category, email, phone, address, postcode, created_at")
     .eq("id", id)
     .eq("claimed", false)
     .single()

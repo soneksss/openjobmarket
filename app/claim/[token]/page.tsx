@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/server"
+import { createAdminClient, createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import ClaimClient from "./claim-client"
 
@@ -14,8 +14,8 @@ export default async function ClaimPage({
   const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!uuidRe.test(token)) redirect("/")
 
-  // Fetch the unclaimed listing (RLS allows anon SELECT where claimed=false)
-  const { data: trade } = await supabase
+  // Fetch the unclaimed listing server-side, so email and token needn't be readable with the public key
+  const { data: trade } = await createAdminClient()
     .from("seeded_trades")
     .select("id, company_name, trade_category, address, postcode, phone, email, claim_token")
     .eq("claim_token", token)
