@@ -1120,8 +1120,12 @@ function JobLightbox({ photos, index, onClose, onPrev, onNext }: {
   }, [onClose])
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center" style={{ zIndex: 70, background: "rgba(0,0,0,0.95)" }}>
-      <button onClick={onClose} className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/60 border border-white/20 flex items-center justify-center text-white z-10">
+    // Starts below the site header (which sits above the map) so the close button is never covered.
+    <div className="fixed left-0 right-0 bottom-0 flex items-center justify-center"
+      style={{ top: "var(--global-header-h, 0px)", zIndex: 70, background: "rgba(0,0,0,0.95)" }}>
+      <button onClick={onClose} aria-label="Close photo"
+        className="absolute right-4 w-11 h-11 rounded-full bg-black/70 border border-white/30 flex items-center justify-center text-white z-10 hover:bg-black"
+        style={{ top: "max(env(safe-area-inset-top, 0px), 16px)" }}>
         <X className="w-5 h-5" />
       </button>
       <img src={photos[index].photo_url} alt="Job photo" className="max-w-full max-h-full object-contain select-none" draggable={false} />
