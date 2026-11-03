@@ -1,5 +1,6 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { type NextRequest, NextResponse } from "next/server"
+import { safeReturnUrl } from "@/lib/safe-return-url"
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -103,6 +104,12 @@ export async function GET(request: NextRequest) {
     // Incomplete profiles are handled with dashboard banners, not redirect loops.
     if (resolvedUserType === "admin") {
       return NextResponse.redirect(`${origin}/admin/dashboard`)
+    }
+    // Set by the sign-up form when the user started from somewhere specific
+    // (e.g. "Staff for my business" → the vacancy form).
+    const returnUrl = safeReturnUrl(searchParams.get("returnUrl"))
+    if (returnUrl) {
+      return NextResponse.redirect(`${origin}${returnUrl}`)
     }
     if (resolvedUserType === "company") {
       return NextResponse.redirect(`${origin}/dashboard/company`)

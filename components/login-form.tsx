@@ -10,6 +10,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/context"
+import { safeReturnUrl } from "@/lib/safe-return-url"
 
 export default function LoginForm() {
   const { t } = useTranslation()
@@ -60,9 +61,10 @@ export default function LoginForm() {
 
   // Locale-aware sign-up URL
   const isOnBrRoute = pathname?.startsWith('/br')
+  const loginReturnUrl = safeReturnUrl(searchParams?.get("returnUrl"))
   const signUpUrl = isOnBrRoute
     ? `/auth/sign-up?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
-    : '/auth/sign-up'
+    : loginReturnUrl ? `/auth/sign-up?returnUrl=${encodeURIComponent(loginReturnUrl)}` : '/auth/sign-up'
 
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -177,7 +179,7 @@ export default function LoginForm() {
           return
         }
 
-        const returnUrl = searchParams?.get("returnUrl")
+        const returnUrl = safeReturnUrl(searchParams?.get("returnUrl"))
         if (userData.user_type === "admin") {
           router.push("/admin/dashboard")
         } else if (returnUrl) {

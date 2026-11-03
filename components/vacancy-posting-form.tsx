@@ -4,7 +4,8 @@ import { useState } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import MapLocationPicker from "./map-location-picker"
-import { X, ArrowLeft, ArrowRight, Briefcase, Plus, XIcon } from "lucide-react"
+import { X, ArrowLeft, ArrowRight, Briefcase, Check, Plus, XIcon } from "lucide-react"
+import { BrandPanel } from "@/components/brand-panel"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -134,7 +135,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
 
   const closeModal = () => {
     setOpen(false)
-    router.push("/dashboard/company")
+    router.push("/find-vacancies")
   }
 
   const handleMapLocationSelect = (location: { latitude: number; longitude: number; address: string } | null) => {
@@ -323,41 +324,13 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
     }, 30000)
 
     try {
-      // Check subscription limits
+      // Posting is free (same as trade jobs); the server checks this company belongs to the user.
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) {
         clearTimeout(timeoutId)
         setErr("Authentication required.")
         setLoading(false)
         return
-      }
-
-      const { data: canPost, error: checkError } = await supabase
-        .rpc("can_user_post_job", { user_id_param: user.id })
-
-      if (checkError) {
-        clearTimeout(timeoutId)
-        console.error("[VACANCY-FORM] Error checking job posting permission:", checkError)
-        setErr("Failed to verify posting permissions.")
-        setLoading(false)
-        return
-      }
-
-      if (!canPost.can_post) {
-        clearTimeout(timeoutId)
-        if (canPost.reason === 'no_subscription') {
-          setErr("You need an active subscription to post jobs. Please visit the Subscription page.")
-          setLoading(false)
-          return
-        } else if (canPost.reason === 'job_limit_exceeded') {
-          setErr(`You have reached your job posting limit (${canPost.jobs_used}/${canPost.jobs_limit}). Please upgrade your subscription.`)
-          setLoading(false)
-          return
-        } else {
-          setErr("You are not authorized to post jobs at this time.")
-          setLoading(false)
-          return
-        }
       }
 
       // Calculate expiration date
@@ -372,7 +345,24 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
       const daysToAdd = planDays[formData.activeDuration as keyof typeof planDays] || 7
       expirationDate.setDate(expirationDate.getDate() + daysToAdd)
 
+      // jobs has no columns for these any more, so keep them in the description
+      // rather than silently dropping what the employer entered.
+      const jobTypeLabel = JOB_TYPE_OPTIONS.find(o => o.value === formData.jobType)?.label
+      const experienceLabels = formData.noExperienceRequired
+        ? ["No experience needed (training provided)"]
+        : formData.experienceLevels.map(l => EXPERIENCE_LEVEL_OPTIONS.find(o => o.value === l)?.label ?? l)
+      const detailSections = [
+        jobTypeLabel && `Job type: ${jobTypeLabel}`,
+        experienceLabels.length > 0 && `Experience: ${experienceLabels.join(", ")}`,
+        formData.responsibilities.length > 0 && `Responsibilities:\n${formData.responsibilities.map(r => `• ${r}`).join("\n")}`,
+        formData.requirements.length > 0 && `Requirements:\n${formData.requirements.map(r => `• ${r}`).join("\n")}`,
+        formData.benefits.length > 0 && `Benefits:\n${formData.benefits.map(b => `• ${b}`).join("\n")}`,
+      ].filter(Boolean)
+      const fullDescription = [formData.description.trim(), ...detailSections].join("\n\n")
+
+      const vacancyId = crypto.randomUUID()
       const payload = {
+        id: vacancyId,
         company_id: companyProfile.id,
         homeowner_id: null,
         title: formData.title.trim(),
@@ -383,7 +373,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         country: formData.country || null,
         formatted_address: formData.fullAddress,
         work_location: formData.jobType === "remote" ? "remote" : "onsite",
-        description: formData.description.trim(),
+        description: fullDescription,
         short_description: formData.description.trim().substring(0, 200),
         is_tradespeople_job: false,
         budget_min: formData.salaryMin ? Number.parseInt(formData.salaryMin) : null,
@@ -392,47 +382,39 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         skills_required: formData.skills.length > 0 ? formData.skills : null,
         languages: formData.languages.length > 0 ? formData.languages : null,
         is_active: true,
-        status: 'open',  // Set status to 'open' so job appears in search
+        status: "POSTED",  // job_status enum; the old 'open' value no longer exists
         expires_at: expirationDate.toISOString(),
         created_at: new Date().toISOString(),
       }
 
-      console.log("[VACANCY-FORM] Submitting vacancy:", payload)
+      // Same server route as trade jobs: verifies the company belongs to this user.
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      })
+      const result = await res.json().catch(() => ({}))
 
-      const { data, error } = await supabase.from("jobs").insert(payload).select().limit(1).single()
-
-      if (error) {
+      if (!res.ok) {
         clearTimeout(timeoutId)
-        console.error("[VACANCY-FORM] Insert vacancy error:", error)
-        setErr(error.message)
+        console.error("[VACANCY-FORM] Insert vacancy error:", result?.error)
+        setErr(result?.error ?? "Could not publish your vacancy. Please try again.")
         setLoading(false)
         return
       }
 
-      // Increment job usage counter
-      const { error: incrementError } = await supabase.rpc("increment_subscription_usage", {
-        user_id_param: user.id,
-        usage_type: "job"
-      })
-
-      if (incrementError) {
-        console.error("[VACANCY-FORM] Error incrementing subscription usage:", incrementError)
-        // Don't fail the whole operation, job is already posted
-        // Just log the error
-      }
-
-      console.log("[VACANCY-FORM] Vacancy posted successfully:", data)
       clearTimeout(timeoutId)
 
       // Send vacancy job notifications to matching professionals
-      if (data && formData.locationCoords) {
+      if (formData.locationCoords) {
         try {
           console.log("[VACANCY-FORM] Sending vacancy job notifications...")
           const notifResponse = await fetch("/api/notifications/send-vacancy-job-notification", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              jobId: data.id,
+              jobId: vacancyId,
               jobTitle: formData.title.trim(),
               jobLat: formData.locationCoords.lat,
               jobLon: formData.locationCoords.lon,
@@ -459,17 +441,10 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
       // Reset loading before redirect
       setLoading(false)
 
-      console.log("[VACANCY-FORM] Redirecting to dashboard...")
-
-      setTimeout(() => {
-        try {
-          router.push("/dashboard/company")
-        } catch (pushError) {
-          console.error("[VACANCY-FORM] Router push failed:", pushError)
-          // Fallback to direct navigation
-          window.location.href = "/dashboard/company"
-        }
-      }, 1000)
+      // Show the new vacancy on the map so the employer can see it live.
+      const pin = formData.locationCoords
+      const dest = pin ? `/find-vacancies?lat=${pin.lat}&lng=${pin.lon}` : "/find-vacancies"
+      setTimeout(() => router.push(dest), 1000)
     } catch (err: any) {
       clearTimeout(timeoutId)
       console.error("[VACANCY-FORM] Unexpected error during vacancy submission:", err)
@@ -489,14 +464,14 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         return (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold">How long do you want your vacancy to be active?</h3>
-            <p className="text-sm text-gray-600">Select the duration based on your subscription plan</p>
+            <p className="text-sm text-gray-600">How long should people be able to apply? Posting is free.</p>
             <div className="space-y-3">
               {ACTIVE_DURATION_OPTIONS.map((option) => (
                 <label
                   key={option.value}
-                  className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-blue-300 shadow-sm hover:shadow-md ${
+                  className={`flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-emerald-300 shadow-sm hover:shadow-md ${
                     formData.activeDuration === option.value
-                      ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md"
+                      ? "border-emerald-500 bg-emerald-50 shadow-md"
                       : "border-gray-200 hover:bg-gray-50"
                   }`}
                 >
@@ -512,7 +487,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                           activeDuration: e.target.value,
                         }))
                       }}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-4 h-4 text-emerald-600"
                     />
                     <span className="font-medium">{option.label}</span>
                   </div>
@@ -548,7 +523,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
               <textarea
                 value={formData.description}
                 onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                className="w-full h-48 border rounded-lg p-3 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full h-48 border rounded-lg p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none bg-white text-slate-900 placeholder:text-slate-400"
                 placeholder="Describe the role, responsibilities, requirements, and what makes this opportunity great..."
               />
               <p className="text-xs text-gray-500 mt-1">{formData.description.length} characters (minimum 50)</p>
@@ -569,9 +544,9 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                 {JOB_TYPE_OPTIONS.map((option) => (
                   <label
                     key={option.value}
-                    className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-blue-300 shadow-sm hover:shadow-md ${
+                    className={`flex flex-col p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-emerald-300 shadow-sm hover:shadow-md ${
                       formData.jobType === option.value
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md"
+                        ? "border-emerald-500 bg-emerald-50 shadow-md"
                         : "border-gray-200 hover:bg-gray-50"
                     }`}
                   >
@@ -602,11 +577,14 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
               </label>
               <div className="space-y-2">
                 {EXPERIENCE_LEVEL_OPTIONS.map((option) => (
-                  <label
+                  // A div, not a label: a label also re-clicks its checkbox, which toggled twice.
+                  <div
                     key={option.value}
-                    className={`flex items-center justify-between p-3 border-2 rounded-lg cursor-pointer transition-all hover:border-blue-300 shadow-sm hover:shadow-md ${
+                    role="checkbox"
+                    aria-checked={formData.experienceLevels.includes(option.value)}
+                    className={`flex items-center justify-between p-3 border-2 rounded-lg cursor-pointer transition-all hover:border-emerald-300 shadow-sm hover:shadow-md ${
                       formData.experienceLevels.includes(option.value)
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-md"
+                        ? "border-emerald-500 bg-emerald-50 shadow-md"
                         : "border-gray-200 hover:bg-gray-50"
                     }`}
                     onClick={() => toggleExperienceLevel(option.value)}
@@ -617,14 +595,15 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                         value={option.value}
                         checked={formData.experienceLevels.includes(option.value)}
                         onChange={() => {}}
-                        className="w-5 h-5 text-blue-600 rounded border-2 border-gray-400 focus:ring-2 focus:ring-blue-500 shadow-sm"
+                        tabIndex={-1}
+                        className="pointer-events-none w-5 h-5 text-emerald-600 rounded border-2 border-gray-400 focus:ring-2 focus:ring-emerald-500 shadow-sm"
                       />
                       <div>
                         <span className="font-medium">{option.label}</span>
                         <span className="text-sm text-gray-600 ml-2">— {option.description}</span>
                       </div>
                     </div>
-                  </label>
+                  </div>
                 ))}
               </div>
               {formData.experienceLevels.length > 0 && (
@@ -650,7 +629,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
             </div>
 
             <div>
-              <label className="flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-green-300 shadow-sm hover:shadow-md bg-green-50 dark:bg-green-900/20 border-green-200">
+              <label className="flex items-center justify-between p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-green-300 shadow-sm hover:shadow-md bg-green-50 border-green-200">
                 <div className="flex items-center space-x-3">
                   <input
                     type="checkbox"
@@ -993,7 +972,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                 <select
                   value={formData.salaryPeriod}
                   onChange={(e) => setFormData((prev) => ({ ...prev, salaryPeriod: e.target.value as any }))}
-                  className="w-full border rounded-lg p-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full border rounded-lg p-2 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 >
                   <option value="hourly">Per hour</option>
                   <option value="daily">Per day</option>
@@ -1003,8 +982,8 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
             </div>
 
             {formData.salaryMin && formData.salaryMax && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800">
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
+                <p className="text-sm text-emerald-800">
                   Salary range: £{Number(formData.salaryMin).toLocaleString()} - £{Number(formData.salaryMax).toLocaleString()} {formData.salaryPeriod === "yearly" ? "per year" : formData.salaryPeriod === "daily" ? "per day" : "per hour"}
                 </p>
               </div>
@@ -1030,8 +1009,8 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                   <label
                     className={`flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
                       locationChoice === "myLocation"
-                        ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                        : "border-gray-200 hover:border-blue-300 hover:bg-gray-50"
+                        ? "border-emerald-500 bg-emerald-50"
+                        : "border-gray-200 hover:border-emerald-300 hover:bg-gray-50"
                     }`}
                   >
                     <input
@@ -1062,7 +1041,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                   <label
                     className={`flex items-center justify-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
                       locationChoice === "differentLocation"
-                        ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
+                        ? "border-orange-500 bg-orange-50"
                         : "border-gray-200 hover:border-orange-300 hover:bg-gray-50"
                     }`}
                   >
@@ -1142,12 +1121,23 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#030a08] p-3 sm:p-4"
         >
+          <div className="pointer-events-none absolute inset-0 bg-[url('/hero-space-mobile.webp')] md:bg-[url('/hero-space.webp')] bg-cover bg-right-bottom opacity-40" />
           <div
-            className="w-full max-w-3xl bg-white dark:bg-slate-900 rounded-lg shadow-lg max-h-[90vh] overflow-hidden flex flex-col"
+            className="relative w-full max-w-3xl lg:max-w-[1200px] lg:w-[78vw] bg-white text-slate-900 rounded-3xl shadow-2xl shadow-black/50 h-[calc(100dvh-1.5rem)] max-h-[860px] overflow-hidden flex"
+            // Native inputs (checkboxes, radios, textareas) follow the light window, not the site's dark scheme.
+            style={{ colorScheme: "light" }}
             onClick={(e) => e.stopPropagation()}
           >
+            <BrandPanel headline={<>Find staff locally, <span className="ojm-glow-text">free.</span></>}>
+              <ul className="space-y-3 text-lg text-white/90">
+                {["No fees to post a vacancy", "Local people apply directly", "Messages and CVs in one place"].map(t => (
+                  <li key={t} className="flex items-center gap-3"><Check className="w-5 h-5 text-emerald-300" />{t}</li>
+                ))}
+              </ul>
+            </BrandPanel>
+            <div className="flex-1 min-w-0 flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b">
               <div className="flex items-center gap-4">
@@ -1175,7 +1165,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
             <div className="px-6 py-4 border-b">
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
                   style={{ width: `${(currentStep / 5) * 100}%` }}
                 />
               </div>
@@ -1203,7 +1193,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                 <button
                   type="button"
                   onClick={nextStep}
-                  className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex items-center gap-2 px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold"
                 >
                   Continue
                   <ArrowRight className="w-4 h-4" />
@@ -1213,11 +1203,12 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                   type="button"
                   onClick={handleSubmit}
                   disabled={loading}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="px-6 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-semibold disabled:opacity-50"
                 >
                   {loading ? "Publishing..." : "Publish Vacancy"}
                 </button>
               )}
+            </div>
             </div>
           </div>
         </div>

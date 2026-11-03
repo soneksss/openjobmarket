@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
+import { safeReturnUrl } from "@/lib/safe-return-url"
 import { createClient } from "@/lib/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -303,7 +304,7 @@ export default function MultiStepSignup() {
         })
         if (signInErr) throw signInErr
 
-        router.push(dashboardUrl)
+        router.push(safeReturnUrl(searchParams?.get('returnUrl')) ?? dashboardUrl)
       } catch (err: any) {
         console.error("[SIGNUP] Homeowner signup error:", err)
         let msg = err.message ?? "An error occurred. Please try again."
@@ -363,9 +364,13 @@ export default function MultiStepSignup() {
       // processes the claim (without this, users who click the link instead of
       // entering the OTP code land on the dashboard without the claim being linked).
       const claimTokenParam = searchParams?.get('claimToken')
-      const callbackUrl = claimTokenParam
-        ? `${window.location.origin}/auth/callback?claimToken=${encodeURIComponent(claimTokenParam)}`
-        : `${window.location.origin}/auth/callback`
+      // Where to land after verifying (e.g. the vacancy form for a new employer).
+      const returnUrl = safeReturnUrl(searchParams?.get('returnUrl'))
+      const callbackParams = new URLSearchParams()
+      if (claimTokenParam) callbackParams.set('claimToken', claimTokenParam)
+      if (returnUrl) callbackParams.set('returnUrl', returnUrl)
+      const callbackQuery = callbackParams.toString()
+      const callbackUrl = `${window.location.origin}/auth/callback${callbackQuery ? `?${callbackQuery}` : ''}`
 
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
         email:    signupData.email.trim().toLowerCase(),
@@ -397,9 +402,10 @@ export default function MultiStepSignup() {
         } else {
           verifyEmailUrl = `/auth/verify-email?email=${encodeURIComponent(signupData.email)}`
         }
+        if (returnUrl && !claimToken) verifyEmailUrl += `&returnUrl=${encodeURIComponent(returnUrl)}`
         router.push(verifyEmailUrl)
       } else {
-        router.push(dashboardUrl)
+        router.push(returnUrl ?? dashboardUrl)
       }
     } catch (err: any) {
       console.error("[SIGNUP] Company signup error:", err)
@@ -872,7 +878,11 @@ export default function MultiStepSignup() {
 
         <div className="mt-6 text-center text-sm">
           <span className="text-slate-500">{t('auth.alreadyHaveAccount')} </span>
-          <Link href={isOnBrRoute ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}` : '/auth/login'} className="text-emerald-600 hover:underline font-medium">
+          <Link href={isOnBrRoute
+              ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}`
+              : safeReturnUrl(searchParams?.get('returnUrl'))
+              ? `/auth/login?returnUrl=${encodeURIComponent(safeReturnUrl(searchParams?.get('returnUrl'))!)}`
+              : '/auth/login'} className="text-emerald-600 hover:underline font-medium">
             {t('nav.signIn')}
           </Link>
         </div>

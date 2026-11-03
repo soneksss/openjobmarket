@@ -222,7 +222,9 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone()
     // Display preference from the welcome guide; never used for access control.
     const role = req.cookies.get('ojm_role')?.value
-    url.pathname = role === 'tradesperson' ? '/find-jobs' : role === 'jobseeker' ? '/find-vacancies' : '/find-trades'
+    url.pathname = role === 'tradesperson' ? '/find-jobs'
+      : role === 'jobseeker' || role === 'employer' ? '/find-vacancies'
+      : '/find-trades'
     const redirect = NextResponse.redirect(url)
     res.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie))
     return redirect

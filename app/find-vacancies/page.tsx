@@ -16,15 +16,23 @@ export default async function FindVacanciesPage({
   const { postcode, lat, lng } = await searchParams
 
   const supabase = await createClient()
-  const [{ data: settings }, { data: auth }] = await Promise.all([
-    supabase.rpc("get_public_admin_settings"),
+  const [{ data: vacanciesOn }, { data: auth }] = await Promise.all([
+    supabase.rpc("is_vacancy_system_enabled"),
     supabase.auth.getUser().catch(() => ({ data: { user: null } })),
   ])
-  // Admin can switch the vacancy system off; the tab then falls back to trade jobs.
-  if (settings && settings.vacancies_jobseekers_enabled === false) {
+  // The vacancy_system feature flag switches vacancies off; the tab then falls back to trade jobs.
+  if (vacanciesOn !== true) {
     redirect(lat && lng ? `/find-jobs?lat=${lat}&lng=${lng}` : "/find-jobs")
   }
-  const isSignedIn = !!auth?.user
+  const user = auth?.user ?? null
+  const isSignedIn = !!user
+
+  // Only business accounts can post vacancies; signed-out visitors are offered the employer sign-up.
+  let canPostVacancy = !isSignedIn
+  if (user) {
+    const { data: row } = await supabase.from("users").select("user_type").eq("id", user.id).maybeSingle()
+    canPostVacancy = row?.user_type === "company"
+  }
 
   let coords: [number, number] = DEFAULT_COORDS
   let coordsAreDefault = true
@@ -57,6 +65,7 @@ export default async function FindVacanciesPage({
         initialPostcode={postcode}
         coordsAreDefault={coordsAreDefault}
         isSignedIn={isSignedIn}
+        canPostVacancy={canPostVacancy}
       />
       {!isSignedIn && <WelcomeGuide page="vacancies" />}
     </div>

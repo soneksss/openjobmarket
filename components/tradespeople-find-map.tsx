@@ -13,7 +13,6 @@ import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Che
 import { MapSearchBar } from "@/components/map-search-bar"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import JobWizardModal from "@/components/job-wizard-modal"
-import { WelcomeSwitch } from "@/components/welcome-guide"
 import { MapTabs } from "@/components/map-tabs"
 import { useToast } from "@/hooks/use-toast"
 
@@ -1246,7 +1245,6 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               </button>
             )}
           </div>{/* end search bar row */}
-          <WelcomeSwitch />
         </div>{/* end header */}
 
         {/* Locate button — mobile only, sits below Leaflet's +/- zoom controls */}

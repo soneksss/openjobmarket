@@ -82,8 +82,16 @@ export async function POST(request: NextRequest) {
     const senderType = userData?.user_type ?? null
     const admin = createAdminClient()
 
+    // Vacancy conversations (company job adverts) don't follow the trade-job
+    // chat-unlock rules below and must not create trade job_applications rows.
+    let isTradeJob = false
+    if (job_id) {
+      const { data: jobKind } = await admin.from("jobs").select("is_tradespeople_job").eq("id", job_id).maybeSingle()
+      isTradeJob = jobKind?.is_tradespeople_job !== false
+    }
+
     // ── Tradesperson sends a message ─────────────────────────────────────────
-    if (senderType === "company" && job_id) {
+    if (senderType === "company" && job_id && isTradeJob) {
       // Find the tradesperson's company profile
       const { data: cp } = await admin
         .from("company_profiles")
@@ -146,7 +154,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Homeowner sends a reply ───────────────────────────────────────────────
-    if (senderType === "homeowner" && job_id) {
+    if (senderType === "homeowner" && job_id && isTradeJob) {
       // Find recipient's company profile
       const { data: recipientCp } = await admin
         .from("company_profiles")
@@ -166,7 +174,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Homeowner first message → notify tradesperson with "Message now" ─────
-    if (senderType === "homeowner" && job_id) {
+    if (senderType === "homeowner" && job_id && isTradeJob) {
       notifyTradespersonMessageReceived(recipient_id, user.id, job_id, admin).catch(console.error)
     }
 

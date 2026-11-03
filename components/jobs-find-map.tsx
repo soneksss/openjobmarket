@@ -6,10 +6,9 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
-import { ArrowLeft, MapPin, Briefcase, Building2, SlidersHorizontal, X, Check, Clock, Banknote, Search, LocateFixed, Loader2, MessageSquare } from "lucide-react"
+import { ArrowLeft, MapPin, Briefcase, Building2, SlidersHorizontal, X, Check, Clock, Banknote, Search, LocateFixed, Loader2, MessageSquare, Plus } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
 import { ShareJobButton } from "@/components/share-job-button"
-import { WelcomeSwitch } from "@/components/welcome-guide"
 import { MapTabs } from "@/components/map-tabs"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import { useToast } from "@/hooks/use-toast"
@@ -248,9 +247,14 @@ type Props = {
   isSignedIn?: boolean
   /** "vacancy" shows company job adverts (the Vacancies tab) instead of homeowner trade jobs. */
   mode?: "trade" | "vacancy"
+  /** Vacancy mode: show "Post a vacancy" (business accounts, or signed-out visitors via sign-up). */
+  canPostVacancy?: boolean
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+const POST_VACANCY_PATH = "/jobs/vacancy/new"
+const EMPLOYER_SIGNUP_PATH = `/auth/sign-up?source=welcome&accountType=company&returnUrl=${encodeURIComponent(POST_VACANCY_PATH)}`
+
 const PERIOD_SUFFIX: Record<string, string> = { hourly: "/hr", daily: "/day", weekly: "/wk", monthly: "/mo", yearly: "/yr" }
 
 function formatBudget(min: number | null, max: number | null, period?: string | null) {
@@ -283,7 +287,7 @@ function timeAgo(iso: string) {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, initialIndustries, animateZoom, coordsAreDefault, isSignedIn = true, mode = "trade" }: Props) {
+export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, initialIndustries, animateZoom, coordsAreDefault, isSignedIn = true, mode = "trade", canPostVacancy = false }: Props) {
   const router = useRouter()
   const { toast } = useToast()
   const isVacancy = mode === "vacancy"
@@ -693,6 +697,18 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
 
   const listPanel = (
     <>
+      {isVacancy && canPostVacancy && (
+        <Link prefetch={false}
+          href={isSignedIn ? POST_VACANCY_PATH : EMPLOYER_SIGNUP_PATH}
+          className="flex-shrink-0 mx-2 mt-2 mb-1 flex items-center gap-3 rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2.5 text-[11px] text-sky-100 transition-colors hover:bg-sky-500/15"
+        >
+          <span className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center flex-shrink-0"><Plus className="w-4 h-4 text-white" /></span>
+          <span className="min-w-0">
+            <span className="block font-semibold text-white">Hiring? Post a vacancy</span>
+            <span className="block text-sky-200/80">Free for businesses. Local people apply directly.</span>
+          </span>
+        </Link>
+      )}
       {!isSignedIn && !isVacancy && (
         <Link prefetch={false}
           href="/auth/sign-up?source=welcome&accountType=company"
@@ -983,7 +999,6 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                 : <LocateFixed className="w-3 h-3" />}
             </button>
           </div>{/* end search row */}
-          {!isSignedIn && <WelcomeSwitch />}
         </div>{/* end header */}
       </div>
 

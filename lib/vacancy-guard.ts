@@ -2,22 +2,22 @@ import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 
 /**
- * Reads the vacancies_jobseekers_enabled flag from admin_settings.
- * Defaults to true if the setting doesn't exist (safe open default).
+ * Reads the vacancy_system feature flag (feature_flags table) — the same switch
+ * the database uses to allow vacancy applications, so the UI and DB agree.
  */
-async function isVacancyEnabled(): Promise<boolean> {
+export async function isVacancyEnabled(): Promise<boolean> {
   const supabase = await createClient()
-  const { data } = await supabase.rpc("get_public_admin_settings")
-  return data?.vacancies_jobseekers_enabled ?? true
+  const { data } = await supabase.rpc("is_vacancy_system_enabled")
+  return data === true
 }
 
 /**
  * Call at the top of any page that is vacancy-only.
- * Redirects to /dashboard if the vacancy system is disabled.
+ * Redirects to the trade jobs map if the vacancy system is disabled.
  */
 export async function requireVacancyEnabled(): Promise<void> {
   const enabled = await isVacancyEnabled()
-  if (!enabled) redirect("/dashboard")
+  if (!enabled) redirect("/find-jobs")
 }
 
 /**
@@ -28,8 +28,8 @@ export async function requireVacancyEnabled(): Promise<void> {
 export async function requireVacancyEnabledForJob(jobId: string): Promise<void> {
   const supabase = await createClient()
 
-  const [settingsResult, jobResult] = await Promise.all([
-    supabase.rpc("get_public_admin_settings"),
+  const [flagResult, jobResult] = await Promise.all([
+    supabase.rpc("is_vacancy_system_enabled"),
     supabase
       .from("jobs")
       .select("is_tradespeople_job")
@@ -37,8 +37,8 @@ export async function requireVacancyEnabledForJob(jobId: string): Promise<void> 
       .maybeSingle(),
   ])
 
-  const enabled = settingsResult.data?.vacancies_jobseekers_enabled ?? true
+  const enabled = flagResult.data === true
   const isVacancy = jobResult.data?.is_tradespeople_job === false
 
-  if (!enabled && isVacancy) redirect("/dashboard")
+  if (!enabled && isVacancy) redirect("/find-jobs")
 }

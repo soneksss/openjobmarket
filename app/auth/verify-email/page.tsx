@@ -5,6 +5,7 @@ import { createClient } from "@/lib/client"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { CheckCircle2, Mail, RefreshCw } from "lucide-react"
+import { safeReturnUrl } from "@/lib/safe-return-url"
 import Image from "next/image"
 
 export default function VerifyEmailPage() {
@@ -121,7 +122,8 @@ export default function VerifyEmailPage() {
           }
 
           setRedirectLabel("Taking you to your dashboard…")
-          const dest = userType ? (dashboardMap[userType] ?? "/dashboard") : "/"
+          const dest = safeReturnUrl(searchParams?.get("returnUrl"))
+            ?? (userType ? (dashboardMap[userType] ?? "/dashboard") : "/")
           setTimeout(() => { router.refresh(); router.push(dest) }, 800)
         }
       }

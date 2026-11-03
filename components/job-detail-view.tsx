@@ -28,6 +28,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { createClient } from "@/lib/client"
 import JobApplicationForm from "./job-application-form"
 import { UrgentJobApplySection } from "./urgent-job-apply-section"
+import { VacancyApplyCard } from "./vacancy-apply-card"
 import { JobCountdownTimer } from "./job-countdown-timer"
 import { JobExpiryBadge } from "./job-expiry-badge"
 import FloatingMessageModal from "./floating-message-modal"
@@ -376,7 +377,7 @@ export default function JobDetailView({
     }
 
     // Auto-open application modal if apply=true in URL
-    if (searchParams?.apply === 'true' && userProfile && !hasApplied) {
+    if (searchParams?.apply === 'true' && job.is_tradespeople_job && userProfile && !hasApplied) {
       handleApplyClick()
     }
   }, [job, user, userProfile, hasApplied, companyStatus, searchParams])
@@ -523,7 +524,8 @@ export default function JobDetailView({
   }
 
   const formatSalary = (min?: number, max?: number) => {
-    const rateType = job.is_tradespeople_job ? "per job" : "per hour"
+    const PERIODS: Record<string, string> = { hourly: "per hour", daily: "per day", weekly: "per week", monthly: "per month", yearly: "per year" }
+    const rateType = job.is_tradespeople_job ? "per job" : (PERIODS[(job as any).budget_period] ?? "per hour")
     if (!min && !max) return "Wages not specified"
     if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()} ${rateType}`
     if (min) return `£${min.toLocaleString()}+ ${rateType}`
@@ -1074,9 +1076,22 @@ export default function JobDetailView({
               )
             })()}
 
+            {/* Vacancies: simple apply — a message to the employer with an optional CV */}
+            {!job.is_tradespeople_job && (!user || userTypeLoaded) && (
+              <VacancyApplyCard
+                vacancyId={job.id}
+                vacancyTitle={job.title}
+                companyName={job.company_profiles?.company_name ?? null}
+                userId={user?.id ?? null}
+                userType={userType}
+                isOwner={!!user && job.company_profiles?.user_id === user.id}
+                autoFocus={searchParams?.apply === "true"}
+              />
+            )}
+
             {/* Apply CTA — wait for userType to resolve before rendering to avoid flicker */}
             {/* Homeowners never see Apply — they post jobs, not apply to them */}
-            {userTypeLoaded && user && job.is_tradespeople_job && (userType === "company" || userType === "contractor") ? (
+            {!job.is_tradespeople_job ? null : userTypeLoaded && user && (userType === "company" || userType === "contractor") ? (
               // Tradesperson viewing a trade job → inline apply with message
               <UrgentJobApplySection
                 jobId={job.id}
@@ -1118,7 +1133,7 @@ export default function JobDetailView({
               </Card>
             ) : null}
 
-            {!user && (
+            {!user && job.is_tradespeople_job && (
               <Card className="border border-white/10 bg-slate-800/60 shadow-none">
                 <CardContent className="p-4 sm:p-6 text-center">
                   <h3 className="text-base font-semibold mb-2 text-white">Ready to Apply?</h3>

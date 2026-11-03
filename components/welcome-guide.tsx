@@ -7,12 +7,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ArrowRight, Bell, Briefcase, Building2, Check, Hammer, Loader2, MapPin, MessagesSquare, Search, ToggleRight, TrendingUp, Users, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, Bell, Briefcase, Building2, Check, Hammer, Loader2, MapPin, MessagesSquare, Search, ToggleRight, TrendingUp, UserPlus, Users, X } from "lucide-react"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { BrandPanel } from "@/components/brand-panel"
 
-// What the visitor said they're looking for: tradespeople, trade jobs, or vacancies.
-type Role = "homeowner" | "tradesperson" | "jobseeker"
+// What the visitor said they're looking for: tradespeople, trade jobs, vacancies, or staff.
+type Role = "homeowner" | "tradesperson" | "jobseeker" | "employer"
 type MapPage = "trades" | "jobs" | "vacancies"
 type Step = "closed" | "welcome" | "homeowner" | "t-postcode" | "t-trades" | "t-name" | "t-join"
 type Seeded = { id: string; name: string }
@@ -20,8 +20,8 @@ type Demand = { jobs: number; businesses: number; seeded: Seeded[] }
 
 const ROLE_COOKIE = "ojm_role"
 const DISMISSED_KEY = "ojm_welcome_dismissed"
-const OPEN_EVENT = "ojm:open-welcome"
-const ROLE_EVENT = "ojm:role-changed"
+// A new employer signs up as a business, then lands straight on the vacancy form.
+const EMPLOYER_SIGNUP = `/auth/sign-up?source=welcome&accountType=company&returnUrl=${encodeURIComponent("/jobs/vacancy/new")}`
 const TRADES = TRADE_INDUSTRIES.filter(t => t.title !== "Not sure / Other")
 const POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i
 // Roughly 20 miles each way around the postcode.
@@ -45,7 +45,7 @@ function hasAuthCookie() {
 }
 
 function readRole(): Role | null {
-  const m = document.cookie.match(/(?:^|; )ojm_role=(homeowner|tradesperson|jobseeker)/)
+  const m = document.cookie.match(/(?:^|; )ojm_role=(homeowner|tradesperson|jobseeker|employer)/)
   return (m?.[1] as Role) ?? null
 }
 
@@ -84,9 +84,6 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
     let dismissed = false
     try { dismissed = localStorage.getItem(DISMISSED_KEY) === "1" } catch { /* storage blocked */ }
     if (!saved && !dismissed) setStep("welcome")
-    const reopen = () => setStep("welcome")
-    window.addEventListener(OPEN_EVENT, reopen)
-    return () => window.removeEventListener(OPEN_EVENT, reopen)
   }, [])
 
   useEffect(() => {
@@ -160,8 +157,8 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
 
   function choose(r: Role) {
     saveRole(r)
-    window.dispatchEvent(new Event(ROLE_EVENT))
     if (r === "jobseeker") goTo("vacancies")
+    else if (r === "employer") { setStep("closed"); router.push(EMPLOYER_SIGNUP) }
     else setStep(r === "homeowner" ? "homeowner" : "t-postcode")
   }
 
@@ -267,13 +264,15 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
                 <h2 id="welcome-title" className="text-3xl lg:text-[42px] lg:leading-tight font-bold tracking-tight">Welcome to Open Job Market</h2>
                 <p className="mt-2 lg:mt-3 text-base lg:text-xl text-slate-600">Find work. Find tradespeople. Get jobs done.</p>
                 <p className="mt-6 lg:mt-8 text-sm lg:text-base font-semibold text-slate-500">What are you looking for?</p>
-                <div className="mt-3 space-y-3">
+                <div className="mt-3 space-y-2.5">
                   <LookingForRow icon={<Users className="w-6 h-6 lg:w-7 lg:h-7" />} tone="emerald" title="Available tradespeople"
                     text="Post a job or contact local trades directly." onClick={() => choose("homeowner")} />
                   <LookingForRow icon={<Hammer className="w-6 h-6 lg:w-7 lg:h-7" />} tone="orange" title="Trade jobs"
                     text="Find work and new customers for your trade business." onClick={() => choose("tradesperson")} />
                   <LookingForRow icon={<Building2 className="w-6 h-6 lg:w-7 lg:h-7" />} tone="sky" title="Job vacancies"
                     text="Find a job with a local business." onClick={() => choose("jobseeker")} />
+                  <LookingForRow icon={<UserPlus className="w-6 h-6 lg:w-7 lg:h-7" />} tone="violet" title="Staff for my business"
+                    text="Post a vacancy for free and hear from local people." onClick={() => choose("employer")} />
                 </div>
                 <div className="mt-6 lg:mt-8 flex flex-wrap items-center justify-between gap-3 text-sm lg:text-base">
                   <a href="/home" className="font-medium text-emerald-700 hover:underline underline-offset-4">What is Open Job Market?</a>
@@ -413,47 +412,20 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
   )
 }
 
-const ROLE_LABEL: Record<Role, string> = { homeowner: "tradespeople", tradesperson: "trade jobs", jobseeker: "vacancies" }
-
-// Small "Looking for tradespeople · change" pill. Rendered inside each map's own layout
-// so the map's overlays (post-a-job, filters) cover it.
-export function WelcomeSwitch() {
-  const [role, setRole] = useState<Role | null>(null)
-
-  useEffect(() => {
-    if (hasAuthCookie()) return
-    const sync = () => setRole(readRole())
-    sync()
-    window.addEventListener(ROLE_EVENT, sync)
-    return () => window.removeEventListener(ROLE_EVENT, sync)
-  }, [])
-
-  if (!role) return null
-  return (
-    <button
-      onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}
-      className="self-center inline-flex items-center gap-1.5 rounded-full ojm-glass px-3 py-1 text-[11px] font-medium text-emerald-100 hover:text-white"
-    >
-      {role === "homeowner" ? <Users className="w-3 h-3" /> : role === "jobseeker" ? <Building2 className="w-3 h-3" /> : <Hammer className="w-3 h-3" />}
-      Looking for {ROLE_LABEL[role]}
-      <span className="text-emerald-400 font-semibold">· change</span>
-    </button>
-  )
-}
-
 const ROW_TONES = {
   emerald: "bg-emerald-100 text-emerald-700",
   orange:  "bg-orange-100 text-orange-700",
   sky:     "bg-sky-100 text-sky-700",
+  violet:  "bg-violet-100 text-violet-700",
 }
 
 function LookingForRow({ icon, tone, title, text, onClick }: { icon: React.ReactNode; tone: keyof typeof ROW_TONES; title: string; text: string; onClick: () => void }) {
   return (
     <button onClick={onClick}
-      className="group w-full flex items-center gap-4 lg:gap-5 text-left rounded-2xl border-2 border-slate-200 bg-white p-4 lg:p-5 transition-all hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-900/10">
-      <span className={`flex-shrink-0 w-12 h-12 lg:w-14 lg:h-14 rounded-2xl flex items-center justify-center ${ROW_TONES[tone]}`}>{icon}</span>
+      className="group w-full flex items-center gap-4 text-left rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 lg:py-3.5 transition-all hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-900/10">
+      <span className={`flex-shrink-0 w-11 h-11 lg:w-12 lg:h-12 rounded-2xl flex items-center justify-center ${ROW_TONES[tone]}`}>{icon}</span>
       <span className="min-w-0 flex-1">
-        <span className="block text-lg lg:text-2xl font-bold text-slate-900">{title}</span>
+        <span className="block text-lg lg:text-xl font-bold text-slate-900">{title}</span>
         <span className="block text-sm lg:text-base text-slate-600">{text}</span>
       </span>
       <ArrowRight className="flex-shrink-0 w-5 h-5 lg:w-6 lg:h-6 text-slate-300 group-hover:text-emerald-600 transition-colors" />

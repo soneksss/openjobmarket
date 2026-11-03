@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Send, User, MapPin, Briefcase, CheckCircle, Clock, Play, PoundSterling, ImageIcon, X as XIcon, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowLeft, Send, User, MapPin, Briefcase, CheckCircle, Clock, Play, PoundSterling, ImageIcon, X as XIcon, ChevronLeft, ChevronRight, FileText, Download } from "lucide-react"
 import { createClient } from "@/lib/client"
 import { compressImage } from "@/lib/compress-image"
 import Link from "next/link"
@@ -54,7 +54,8 @@ interface Message {
   conversation_id?: string
   job_id?: string
   message_type?: string
-  metadata?: { amount?: number; currency?: string }
+  // quote: amount/currency · vacancy_application: vacancy_title, cv_path, cv_name
+  metadata?: { amount?: number; currency?: string; vacancy_title?: string; cv_path?: string; cv_name?: string }
   photo_urls?: string[]
 }
 
@@ -1322,6 +1323,25 @@ export default function ConversationPage() {
                           <p className="text-2xl font-bold leading-none">
                             £{message.metadata?.amount?.toFixed(2) ?? '—'}
                           </p>
+                        </div>
+                      ) : message.message_type === 'vacancy_application' ? (
+                        <div className="min-w-[180px]">
+                          <div className="flex items-center gap-1 mb-1 opacity-80">
+                            <FileText className="h-3 w-3" />
+                            <span className="text-[11px] font-medium uppercase tracking-wide">
+                              Application{message.metadata?.vacancy_title ? ` · ${message.metadata.vacancy_title}` : ''}
+                            </span>
+                          </div>
+                          {message.content && (
+                            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                          )}
+                          {message.metadata?.cv_path && (
+                            <a href={`/api/messages/${message.id}/cv`} target="_blank" rel="noopener noreferrer"
+                              className={`mt-2 inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold ${isSent ? 'bg-white/15 hover:bg-white/25' : 'bg-slate-600 hover:bg-slate-500'}`}>
+                              <Download className="h-3.5 w-3.5" />
+                              <span className="truncate max-w-[200px]">{message.metadata.cv_name ?? 'Download CV'}</span>
+                            </a>
+                          )}
                         </div>
                       ) : (
                         <>
