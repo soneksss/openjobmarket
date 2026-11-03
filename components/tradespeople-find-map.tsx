@@ -14,6 +14,7 @@ import { MapSearchBar } from "@/components/map-search-bar"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import JobWizardModal from "@/components/job-wizard-modal"
 import { MapTabs } from "@/components/map-tabs"
+import { geocodeUrl, visitorCountry } from "@/lib/geo"
 import { useToast } from "@/hooks/use-toast"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
@@ -502,10 +503,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     if (q && q.toUpperCase() !== currentLoc) {
       setGeocoding(true)
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=gb`,
-          { headers: { "User-Agent": "OpenJobMarket/1.0" } }
-        )
+        const res = await fetch(geocodeUrl(q, visitorCountry()))
         const data = await res.json()
         if (data?.[0]) {
           const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon)
@@ -536,10 +534,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     if (!q) return
     setGeocoding(true)
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=gb`,
-        { headers: { "User-Agent": "OpenJobMarket/1.0" } }
-      )
+      const res = await fetch(geocodeUrl(q, visitorCountry()))
       const data = await res.json()
       if (data?.[0]) {
         const lat = parseFloat(data[0].lat), lon = parseFloat(data[0].lon)
@@ -971,7 +966,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               <input
                 value={postcodeInput}
                 onChange={e => setPostcodeInput(e.target.value)}
-                placeholder="Postcode or town…"
+                placeholder="Postcode, ZIP or town…"
                 autoComplete="off"
                 className="flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-500 outline-none min-w-0"
               />

@@ -11,6 +11,7 @@ import { MapSearchBar } from "@/components/map-search-bar"
 import { ShareJobButton } from "@/components/share-job-button"
 import { MapTabs } from "@/components/map-tabs"
 import { formatMoney } from "@/lib/currency"
+import { geocodeUrl, visitorCountry } from "@/lib/geo"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import { useToast } from "@/hooks/use-toast"
 
@@ -454,10 +455,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     if (q) {
       setGeocoding(true)
       try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=1&countrycodes=gb`,
-          { headers: { "User-Agent": "OpenJobMarket/1.0" } }
-        )
+        const res = await fetch(geocodeUrl(q, visitorCountry()))
         const data = await res.json()
         if (data?.[0]) {
           setCoords([parseFloat(data[0].lat), parseFloat(data[0].lon)])
@@ -849,7 +847,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               <input
                 value={postcodeInput}
                 onChange={e => setPostcodeInput(e.target.value)}
-                placeholder="Postcode or town…"
+                placeholder="Postcode, ZIP or town…"
                 autoComplete="off"
                 className="flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-500 outline-none min-w-0"
               />

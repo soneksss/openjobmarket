@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation"
 import { Loader2, Save, Upload } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import pica from "pica"
+import { geocodeUrl, visitorCountry } from "@/lib/geo"
 
 interface HomeownerProfileEditFormProps {
   userId: string
@@ -203,10 +204,7 @@ export function HomeownerProfileEditForm({ userId, profile }: HomeownerProfileEd
       const postcodeChanged = formData.location.trim().toUpperCase() !== (profile.location || "").trim().toUpperCase()
       if (postcodeChanged && formData.location.trim()) {
         try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(formData.location + ", UK")}&limit=1&countrycodes=gb`,
-            { headers: { "User-Agent": "OpenJobMarket/1.0" } }
-          )
+          const res = await fetch(geocodeUrl(formData.location, visitorCountry()))
           const data = await res.json()
           if (data?.[0]) {
             latitudeExact  = parseFloat(data[0].lat)

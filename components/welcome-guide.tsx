@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation"
 import { ArrowLeft, ArrowRight, Bell, Briefcase, Building2, Check, Hammer, Loader2, MapPin, MessagesSquare, Search, ToggleRight, TrendingUp, UserPlus, Users, X } from "lucide-react"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { BrandPanel } from "@/components/brand-panel"
+import { geocodeUrl, postcodeCountry, visitorCountry } from "@/lib/geo"
 
 // What the visitor said they're looking for: tradespeople, trade jobs, vacancies, or staff.
 type Role = "homeowner" | "tradesperson" | "jobseeker" | "employer"
@@ -23,7 +24,8 @@ const DISMISSED_KEY = "ojm_welcome_dismissed"
 // A new employer signs up as a business, then lands straight on the vacancy form.
 const EMPLOYER_SIGNUP = `/auth/sign-up?source=welcome&accountType=company&returnUrl=${encodeURIComponent("/jobs/vacancy/new")}`
 const TRADES = TRADE_INDUSTRIES.filter(t => t.title !== "Not sure / Other")
-const POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i
+// A full UK postcode or US ZIP code (see lib/geo).
+const isPostcode = (s: string) => postcodeCountry(s) !== null
 // Roughly 20 miles each way around the postcode.
 const LAT_SPAN = 0.29
 const LNG_SPAN = 0.46
@@ -67,6 +69,8 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
   const router = useRouter()
   const [step, setStep] = useState<Step>("closed")
   const [signedIn, setSignedIn] = useState(true)
+  // US visitors are asked for a ZIP code. The window only renders after mount, so reading the cookie here is safe.
+  const zipMode = typeof document !== "undefined" && visitorCountry() === "US"
 
   const [postcode, setPostcode] = useState("")
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
@@ -98,11 +102,11 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
   useEffect(() => {
     setCoords(null)
     const pc = postcode.trim()
-    if (!POSTCODE_RE.test(pc)) { setGeoState("idle"); return }
+    if (!isPostcode(pc)) { setGeoState("idle"); return }
     setGeoState("loading")
     const ctrl = new AbortController()
     const t = setTimeout(() => {
-      fetch(`https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(pc)}&country=gb&format=json&limit=1`, { signal: ctrl.signal })
+      fetch(geocodeUrl(pc, null), { signal: ctrl.signal })
         .then(r => r.json())
         .then(rows => {
           if (rows?.[0]) { setCoords({ lat: parseFloat(rows[0].lat), lng: parseFloat(rows[0].lon) }); setGeoState("idle") }
@@ -308,7 +312,7 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
             )}
 
             {step === "t-postcode" && (
-              <form onSubmit={e => { e.preventDefault(); if (POSTCODE_RE.test(pc) && geoState !== "loading") setStep("t-trades") }}>
+              <form onSubmit={e => { e.preventDefault(); if (isPostcode(pc) && geoState !== "loading") setStep("t-trades") }}>
                 <h2 id="welcome-title" className="text-3xl lg:text-[42px] lg:leading-tight font-bold tracking-tight">Where are you based?</h2>
                 <p className="mt-2 lg:mt-3 text-base lg:text-xl text-slate-600">We&apos;ll show you to homeowners nearby.</p>
                 <div className="relative mt-6 lg:mt-10">
@@ -317,16 +321,16 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
                     autoFocus
                     value={postcode}
                     onChange={e => setPostcode(e.target.value.toUpperCase())}
-                    placeholder="Your postcode, e.g. PO1 2AB"
+                    placeholder={zipMode ? "Your ZIP code, e.g. 10001" : "Your postcode, e.g. PO1 2AB"}
                     autoComplete="postal-code"
-                    aria-label="Postcode"
+                    aria-label={zipMode ? "ZIP code" : "Postcode"}
                     className="w-full rounded-2xl border-2 border-slate-200 focus:border-emerald-500 outline-none bg-white pl-12 lg:pl-14 pr-12 py-4 lg:py-5 text-lg lg:text-2xl font-medium placeholder:text-slate-400 placeholder:font-normal"
                   />
                   {geoState === "loading" && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 animate-spin" />}
                   {coords && <Check className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 text-emerald-600" />}
                 </div>
-                {geoState === "notfound" && <p className="mt-2 text-sm text-orange-600">We couldn&apos;t find that postcode, but you can still continue.</p>}
-                <PrimaryButton disabled={!POSTCODE_RE.test(pc) || geoState === "loading"}>Continue</PrimaryButton>
+                {geoState === "notfound" && <p className="mt-2 text-sm text-orange-600">We couldn&apos;t find that {zipMode ? "ZIP code" : "postcode"}, but you can still continue.</p>}
+                <PrimaryButton disabled={!isPostcode(pc) || geoState === "loading"}>Continue</PrimaryButton>
               </form>
             )}
 

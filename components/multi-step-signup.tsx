@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { safeReturnUrl } from "@/lib/safe-return-url"
+import { geocodeUrl, visitorCountry } from "@/lib/geo"
 import { createClient } from "@/lib/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -80,6 +81,9 @@ export default function MultiStepSignup() {
   })
 
   const [isGeocodingPostcode, setIsGeocodingPostcode] = useState(false)
+  // US visitors are asked for a ZIP code (set after mount: the cookie isn't readable on the server).
+  const [zipMode, setZipMode] = useState(false)
+  useEffect(() => { setZipMode(visitorCountry() === "US") }, [])
 
   const updateSignupData = (updates: Partial<SignupData>) => {
     setSignupData(prev => ({ ...prev, ...updates }))
@@ -137,10 +141,8 @@ export default function MultiStepSignup() {
 
     setIsGeocodingPostcode(true)
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?postalcode=${encodeURIComponent(postcode)}&country=gb&format=json&limit=1`,
-        { headers: { 'User-Agent': 'OpenJobMarket/1.0' } }
-      )
+      // UK postcode → GB, US ZIP → US, anything else (a town) → the visitor's country.
+      const response = await fetch(geocodeUrl(postcode, visitorCountry()))
       const data = await response.json()
 
       if (data && data.length > 0) {
@@ -658,7 +660,7 @@ export default function MultiStepSignup() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="postcode" className="text-sm font-medium text-slate-700">{t('signup.postcodeLabel') || 'Postcode'} *</Label>
+                      <Label htmlFor="postcode" className="text-sm font-medium text-slate-700">{zipMode ? 'ZIP code' : (t('signup.postcodeLabel') || 'Postcode')} *</Label>
                       <Input
                         id="postcode"
                         value={signupData.postcode}
@@ -667,7 +669,7 @@ export default function MultiStepSignup() {
                           updateSignupData({ postcode: value })
                         }}
                         onBlur={() => geocodePostcode(signupData.postcode)}
-                        placeholder="SW1A 1AA"
+                        placeholder={zipMode ? "10001" : "SW1A 1AA"}
                         className="mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
                       />
                       {isGeocodingPostcode && <p className="text-xs text-slate-500 mt-0.5">Looking up...</p>}
@@ -764,7 +766,7 @@ export default function MultiStepSignup() {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="postcode" className="text-sm font-medium text-slate-700">{t('signup.postcodeLabel') || 'Postcode'} *</Label>
+                      <Label htmlFor="postcode" className="text-sm font-medium text-slate-700">{zipMode ? 'ZIP code' : (t('signup.postcodeLabel') || 'Postcode')} *</Label>
                       <Input
                         id="postcode"
                         value={signupData.postcode}
@@ -773,7 +775,7 @@ export default function MultiStepSignup() {
                           updateSignupData({ postcode: value })
                         }}
                         onBlur={() => geocodePostcode(signupData.postcode)}
-                        placeholder="SW1A 1AA"
+                        placeholder={zipMode ? "10001" : "SW1A 1AA"}
                         className="mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
                       />
                       {isGeocodingPostcode && <p className="text-xs text-slate-500 mt-0.5">Looking up...</p>}
