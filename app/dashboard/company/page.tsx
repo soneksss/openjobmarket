@@ -2,6 +2,7 @@ import { createClient } from "@/lib/server"
 import { redirect } from "next/navigation"
 import CompanyDashboard from "@/components/company-dashboard"
 import { getDashboardBootstrap } from "@/lib/bootstrap"
+import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 
 export const dynamic = 'force-dynamic'
 
@@ -43,6 +44,19 @@ export default async function CompanyDashboardPage() {
   }
 
   if (!profile) redirect("/onboarding")
+
+  // Trades picked in the map welcome guide arrive in sign-up metadata; the
+  // profile-creation function only stores the main one, so copy the full list once.
+  const signupIndustries = user.user_metadata?.industries
+  if (Array.isArray(signupIndustries) && signupIndustries.length > 0 && !(profile.industries?.length > 0)) {
+    const known = new Set(TRADE_INDUSTRIES.map(t => t.title))
+    const industries = signupIndustries.filter((i: unknown) => typeof i === "string" && known.has(i)).slice(0, 12)
+    if (industries.length > 0) {
+      const { data: updated } = await supabase
+        .from("company_profiles").update({ industries }).eq("id", profile.id).select().maybeSingle()
+      if (updated) profile = updated
+    }
+  }
 
   const missingFields: string[] = []
   if (!profile.company_name) missingFields.push("company_name")

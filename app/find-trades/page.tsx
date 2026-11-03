@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic'
 
 import { Suspense } from "react"
 import TradespeopleFindMap from "@/components/tradespeople-find-map"
+import WelcomeGuide from "@/components/welcome-guide"
 
 const DEFAULT_COORDS: [number, number] = [50.8058, -1.0872] // Portsmouth
 
@@ -45,6 +46,7 @@ export default async function FindTradesPage({
           coordsAreDefault={coordsAreDefault}
         />
       </Suspense>
+      <WelcomeGuide page="trades" />
     </div>
   )
 }

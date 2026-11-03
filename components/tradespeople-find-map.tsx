@@ -13,6 +13,7 @@ import { ArrowLeft, MapPin, Star, MessageSquare, User, SlidersHorizontal, X, Che
 import { MapSearchBar } from "@/components/map-search-bar"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import JobWizardModal from "@/components/job-wizard-modal"
+import { WelcomeSwitch } from "@/components/welcome-guide"
 import { useToast } from "@/hooks/use-toast"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
@@ -316,6 +317,14 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         setLocationLabel("My location")
       })
       .catch(() => { /* denied or unavailable — stay on default */ })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // "Post a job" from the welcome guide: same page fires an event, other pages link here with ?postJob=1.
+  useEffect(() => {
+    if (searchParams.get("postJob") === "1") setShowJobWizard(true)
+    const open = () => setShowJobWizard(true)
+    window.addEventListener("ojm:post-job", open)
+    return () => window.removeEventListener("ojm:post-job", open)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -1247,6 +1256,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
               </button>
             )}
           </div>{/* end search bar row */}
+          <WelcomeSwitch />
         </div>{/* end header */}
 
         {/* Locate button — mobile only, sits below Leaflet's +/- zoom controls */}

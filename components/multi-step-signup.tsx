@@ -25,6 +25,7 @@ interface SignupData {
   // Company fields
   companyName: string
   industry: string
+  industries: string[]
   services: string[]
   // Common fields
   phone: string
@@ -68,6 +69,7 @@ export default function MultiStepSignup() {
     title: "",
     companyName: "",
     industry: "",
+    industries: [],
     services: [],
     phone: "",
     postcode: "",
@@ -110,6 +112,19 @@ export default function MultiStepSignup() {
         ...(postcode         ? { postcode }                      : {}),
       }))
       if (lockEmailParam === 'true') setEmailLocked(true)
+      setCurrentStep(2)
+      if (postcode) geocodePostcode(postcode)
+    } else if (sourceParam === 'welcome') {
+      // Business setup from the welcome guide on the map: carry over what they entered.
+      const postcode   = postcodeParam ? postcodeParam.toUpperCase() : ""
+      const industries = (searchParams?.get('industries') ?? "").split('|').map(s => s.trim()).filter(Boolean).slice(0, 12)
+      setSignupData(prev => ({
+        ...prev,
+        accountType: 'company',
+        ...(companyNameParam ? { companyName: companyNameParam } : {}),
+        ...(postcode         ? { postcode }                      : {}),
+        ...(industries.length ? { industry: industries[0], industries } : {}),
+      }))
       setCurrentStep(2)
       if (postcode) geocodePostcode(postcode)
     } else if (sourceParam === 'quickcheck' && accountTypeParam) {
@@ -319,6 +334,7 @@ export default function MultiStepSignup() {
       metadata.display_name = signupData.companyName || signupData.email.split("@")[0]
       if (signupData.title)    metadata.title    = signupData.title
       if (signupData.industry) metadata.industry = signupData.industry
+      if (signupData.industries.length > 0) metadata.industries = signupData.industries
       if (signupData.services && signupData.services.length > 0) {
         metadata.trade    = signupData.services[0]
         metadata.services = signupData.services.filter(s => s)

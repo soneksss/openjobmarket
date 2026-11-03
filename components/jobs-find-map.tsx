@@ -9,6 +9,7 @@ import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/
 import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, LocateFixed, Loader2, MessageSquare } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
 import { ShareJobButton } from "@/components/share-job-button"
+import { WelcomeSwitch } from "@/components/welcome-guide"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import { useToast } from "@/hooks/use-toast"
 
@@ -619,10 +620,12 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     <>
       {!isSignedIn && (
         <Link prefetch={false}
-          href="/auth/sign-up?returnUrl=%2Ffind-jobs"
-          className="flex-shrink-0 mx-2 mt-2 mb-1 flex items-center gap-2 rounded-xl border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-[11px] font-medium text-orange-300 transition-colors hover:bg-orange-500/15 hover:text-orange-200"
+          href="/auth/sign-up?source=welcome&accountType=company"
+          className="flex-shrink-0 mx-2 mt-2 mb-1 block rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-100 transition-colors hover:bg-emerald-500/15"
         >
-          <span>🔔 Sign up to get new job alerts and be visible to homeowners.</span>
+          <span className="block font-semibold text-white">Looking for more work?</span>
+          <span className="block text-emerald-200/80">Create your free business profile and let local homeowners find you.</span>
+          <span className="mt-1 inline-block font-bold text-emerald-300">Set up my free profile →</span>
         </Link>
       )}
       <div className="flex-shrink-0 px-3 pt-2 pb-1.5">
@@ -900,6 +903,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                 : <LocateFixed className="w-3 h-3" />}
             </button>
           </div>{/* end search row */}
+          {!isSignedIn && <WelcomeSwitch />}
         </div>{/* end header */}
       </div>
 

@@ -220,7 +220,8 @@ export async function middleware(req: NextRequest) {
   // rendering the page first. Query strings (?code=, ?locale=) still go through it.
   if (pathname === '/' && !req.nextUrl.search && !hasAuthCookie(req)) {
     const url = req.nextUrl.clone()
-    url.pathname = '/find-trades'
+    // Display preference from the welcome guide; never used for access control.
+    url.pathname = req.cookies.get('ojm_role')?.value === 'tradesperson' ? '/find-jobs' : '/find-trades'
     const redirect = NextResponse.redirect(url)
     res.cookies.getAll().forEach(cookie => redirect.cookies.set(cookie))
     return redirect

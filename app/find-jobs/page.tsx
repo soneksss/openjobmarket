@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic'
 
 import JobsFindMap from "@/components/jobs-find-map"
+import WelcomeGuide from "@/components/welcome-guide"
 import { createClient } from "@/lib/server"
 
 const DEFAULT_COORDS: [number, number] = [50.8058, -1.0872] // Portsmouth
@@ -59,6 +60,7 @@ export default async function FindJobsPage({
         coordsAreDefault={coordsAreDefault}
         isSignedIn={isSignedIn}
       />
+      {!isSignedIn && <WelcomeGuide page="jobs" />}
     </div>
   )
 }
