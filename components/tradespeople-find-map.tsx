@@ -320,9 +320,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // "Post a job" from the welcome guide: same page fires an event, other pages link here with ?postJob=1.
+  // Opens the trade photo picker first, exactly like "Get Multiple Quotes"; the job form follows.
   useEffect(() => {
-    if (searchParams.get("postJob") === "1") setShowJobWizard(true)
-    const open = () => setShowJobWizard(true)
+    if (searchParams.get("postJob") === "1") setShowCategoryPicker(true)
+    const open = () => setShowCategoryPicker(true)
     window.addEventListener("ojm:post-job", open)
     return () => window.removeEventListener("ojm:post-job", open)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
