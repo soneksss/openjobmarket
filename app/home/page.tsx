@@ -9,8 +9,8 @@ import { HomeClientWrapper } from "@/components/home-client-wrapper"
 export const dynamic = 'force-dynamic'
 
 export const metadata = generateSEO({
-  title: 'Find Local Tradespeople & Post Jobs | Open Job Market',
-  description: 'The fastest way to connect homeowners with local tradespeople. Post jobs in seconds, get fast replies from nearby trades. Free to post, no subscription required.',
+  title: 'Open Job Market – The Free Local Jobs Portal',
+  description: 'Hire a local tradesperson, find trade work, post a vacancy or find a job near you, all free on one live map. No lead fees and no middleman.',
   path: '/home',
   locale: 'en',
 })

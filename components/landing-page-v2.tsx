@@ -11,6 +11,7 @@ import Link from "next/link"
 import dynamic from "next/dynamic"
 import { helpItems } from "@/lib/data/help-items"
 import { LocalImpactSection } from "@/components/local-impact-section"
+import { AudienceExplorer } from "@/components/audience-explorer"
 
 const JobWizardModal = dynamic(() => import("@/components/job-wizard-modal"), { ssr: false })
 
@@ -22,12 +23,12 @@ interface Props {
 }
 
 const TRUST_ITEMS = [
-  { headline: "Verified local trades", sub: "Every trade is vetted",        icon: ShieldCheck },
+  { headline: "Verified local trades", sub: "Look for the Verified badge",  icon: ShieldCheck },
   { headline: "Direct contact",        sub: "No middleman. No spam calls.", icon: MessagesSquare },
   { headline: "No lead selling",       sub: "Fairer prices for everyone",   icon: Tag },
   { headline: "Real reviews",          sub: "See previous work",            icon: Star },
   { headline: "Fast replies",          sub: "Most trades reply same day",   icon: Zap },
-  { headline: "Free for everyone",     sub: "Homeowners & tradespeople",    icon: Gift },
+  { headline: "Free for everyone",     sub: "Homes, trades, jobs & staff",  icon: Gift },
 ] as const
 
 const OTHERS_CONS = [
@@ -253,58 +254,27 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#030a08] to-transparent" />
 
         <div className="container relative mx-auto max-w-6xl px-4 pt-12 pb-10 sm:pt-20 sm:pb-14 lg:pt-24 lg:pb-16">
-          <div className="max-w-2xl text-center md:text-left">
+          <div className="max-w-3xl text-center md:text-left">
             <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300 shadow-[0_0_24px_-6px_rgba(16,185,129,0.6)]">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.8)]" />
-              Free for homeowners and trades
+              Free for everyone · No fees · No lead selling
             </p>
             <h1 className="mb-5 text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-6xl lg:text-7xl">
-              Find local trades,
+              Open Job Market
               <br />
-              <span className="ojm-glow-text">fast.</span>
+              <span className="ojm-glow-text">The free local jobs portal.</span>
             </h1>
-            <p className="mb-8 text-base leading-relaxed text-slate-300 sm:text-lg md:max-w-xl">
-              See who&apos;s available on a live map, then contact a nearby tradesperson directly, request urgent
-              help, or compare quotes. No lead fees, no middleman.
+            <p className="text-base leading-relaxed text-slate-300 sm:text-lg md:max-w-2xl">
+              One live map for everything local: hire a tradesperson, find trade work, fill a vacancy or find a
+              job. Talk to each other directly, with no middleman.
             </p>
-
-            {/* CTA buttons */}
-            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center md:justify-start">
-              <Link href="/find-trades"
-                className="ojm-glow-button flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-base font-bold transition-all active:scale-[0.97]">
-                <Users className="h-4 w-4 flex-shrink-0" />
-                Find a Tradesperson
-              </Link>
-              <button onClick={handlePostJob}
-                className="flex items-center justify-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-950/40 px-7 py-3.5 text-base font-semibold text-emerald-50 backdrop-blur-sm transition-all hover:border-emerald-300/60 hover:bg-emerald-900/40 active:scale-[0.97]">
-                <Briefcase className="h-4 w-4 flex-shrink-0" />
-                Post a Job
-              </button>
-              <button onClick={scrollToHowItWorks}
-                className="flex items-center justify-center gap-2 px-4 py-3.5 text-base font-semibold text-slate-400 transition-all hover:text-white">
-                How it Works ↓
-              </button>
-            </div>
+            <button onClick={scrollToHowItWorks}
+              className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition-colors hover:text-white">
+              How it works ↓
+            </button>
           </div>
 
-          {/* Three ways to hire */}
-          <div className="mt-12 grid gap-3 sm:grid-cols-3 sm:mt-16">
-            {[
-              { icon: MessagesSquare, title: "Contact directly", text: "Message a nearby tradesperson straight from the map." },
-              { icon: Zap, title: "Urgent help", text: "Alert trades who are free right now and get a fast reply." },
-              { icon: ClipboardList, title: "Compare quotes", text: "Post once and compare replies from local trades." },
-            ].map(({ icon: Icon, title, text }) => (
-              <div key={title} className="ojm-glass flex items-start gap-3 rounded-2xl p-4 text-left">
-                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-emerald-400/30 bg-emerald-500/15 shadow-[0_0_20px_-4px_rgba(16,185,129,0.7)]">
-                  <Icon className="h-5 w-5 text-emerald-300" />
-                </span>
-                <div>
-                  <p className="text-sm font-semibold text-white">{title}</p>
-                  <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <AudienceExplorer isSignedIn={isSignedIn} userType={userType} onPostJob={handlePostJob} />
         </div>
       </section>
 
