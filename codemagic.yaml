@@ -33,7 +33,7 @@ workflows:
       app_store_connect: OJM_APP_STORE_CONNECT
 
     environment:
-      node: 20
+      node: 22
       xcode: latest          # pin later if you want reproducibility (e.g. 16.2)
       # Codemagic automatic signing: with distribution_type + bundle_identifier
       # it creates/fetches the Apple Distribution certificate and the App Store
