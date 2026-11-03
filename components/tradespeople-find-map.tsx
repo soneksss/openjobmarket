@@ -14,6 +14,7 @@ import { MapSearchBar } from "@/components/map-search-bar"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import JobWizardModal from "@/components/job-wizard-modal"
 import { WelcomeSwitch } from "@/components/welcome-guide"
+import { MapTabs } from "@/components/map-tabs"
 import { useToast } from "@/hooks/use-toast"
 
 // ── Leaflet dynamic imports ────────────────────────────────────────────────────
@@ -1038,7 +1039,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
             <div className="flex gap-1.5">
               {RADIUS_OPTIONS.map(opt => (
                 <button key={opt.value} onClick={() => setDraftFilters(f => ({ ...f, radius: opt.value }))}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.radius === opt.value ? "bg-emerald-500 border-emerald-500 text-slate-900" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+                  className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.radius === opt.value ? "bg-emerald-500 border-emerald-500 text-white" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                   {opt.label}
                 </button>
               ))}
@@ -1052,7 +1053,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
                 const active = isAny ? draftFilters.language === "" : draftFilters.language === lang
                 return (
                   <button key={lang} onClick={() => setDraftFilters(f => ({ ...f, language: isAny ? "" : (f.language === lang ? "" : lang) }))}
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors ${active ? "bg-emerald-500 border-emerald-500 text-slate-900" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+                    className={`px-2.5 py-1 rounded-full text-[10px] font-medium border transition-colors ${active ? "bg-emerald-500 border-emerald-500 text-white" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                     {lang}
                   </button>
                 )
@@ -1084,7 +1085,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
                   <p className="text-[10px] text-slate-500">{sub}</p>
                 </div>
                 <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${draftFilters[key] ? "bg-emerald-500 border-emerald-500" : "border-slate-300 bg-white"}`}>
-                  {draftFilters[key] && <Check className="w-2.5 h-2.5 text-slate-900" />}
+                  {draftFilters[key] && <Check className="w-2.5 h-2.5 text-white" />}
                 </div>
               </button>
             ))}
@@ -1145,7 +1146,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
                   onClick={() => setPickerSubcats(prev => checked ? prev.filter(s => s !== svc) : [...prev, svc])}
                   className="w-full flex items-center gap-3 px-4 py-2 hover:bg-slate-50 transition-colors text-left">
                   <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${checked ? "bg-emerald-500 border-emerald-500" : "border-slate-300 bg-white"}`}>
-                    {checked && <Check className="w-2.5 h-2.5 text-slate-900" />}
+                    {checked && <Check className="w-2.5 h-2.5 text-white" />}
                   </div>
                   <span className="text-xs text-slate-800">{svc}</span>
                 </button>
@@ -1224,18 +1225,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
         <div ref={headerRef} className="absolute top-0 left-0 right-0 flex flex-col gap-1 px-3 pb-1.5"
           style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top, 0px), 10px)" }}>
           {/* Tab switcher — same footprint as the search bar below it */}
-          <div className="flex self-center w-[264px] lg:w-80 bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
-            <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold bg-emerald-500 text-white shadow-sm">
-              <Users className="w-3.5 h-3.5" />
-              Tradespeople
-            </button>
-            <button
-              onClick={() => router.push(`/find-jobs?lat=${coords[0]}&lng=${coords[1]}`)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
-              <Briefcase className="w-3.5 h-3.5" />
-              Trade Jobs
-            </button>
-          </div>
+          <MapTabs active="trades" coords={coords} />
           {/* Search bar — single tap opens Filters modal */}
           <div className="flex items-center gap-2 self-center w-[264px] lg:w-80">
             <MapSearchBar

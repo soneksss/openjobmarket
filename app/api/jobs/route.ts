@@ -31,18 +31,25 @@ export async function GET(req: NextRequest) {
 
   const admin = createAdminClient()
 
+  // Vacancies (company job adverts) share the jobs table, flagged is_tradespeople_job = false.
+  const isVacancy = sp.get("kind") === "vacancy"
+
   let q = admin
     .from("jobs")
-    .select(
-      "id, title, short_description, location, latitude, longitude, " +
-      "latitude_approx, longitude_approx, location_type, " +
-      "budget_min, budget_max, urgency_type, job_photo_url, industry, category, " +
-      "created_at, bumped_at, expires_at, applications_count, " +
-      "homeowner_profiles!homeowner_id(first_name, last_name, profile_photo_url, user_id)"
+    .select(isVacancy
+      ? "id, title, short_description, location, latitude, longitude, " +
+        "latitude_approx, longitude_approx, budget_min, budget_max, budget_period, " +
+        "created_at, bumped_at, expires_at, applications_count, " +
+        "company_profiles!company_id(company_name, logo_url, user_id)"
+      : "id, title, short_description, location, latitude, longitude, " +
+        "latitude_approx, longitude_approx, location_type, " +
+        "budget_min, budget_max, urgency_type, job_photo_url, industry, category, " +
+        "created_at, bumped_at, expires_at, applications_count, " +
+        "homeowner_profiles!homeowner_id(first_name, last_name, profile_photo_url, user_id)"
     )
     .eq("status", "POSTED")
     .eq("is_active", true)
-    .eq("is_tradespeople_job", true)
+    .eq("is_tradespeople_job", !isVacancy)
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     // match approx coords if available, otherwise exact coords
     .or(

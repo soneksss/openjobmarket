@@ -6,10 +6,11 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
-import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, LocateFixed, Loader2, MessageSquare } from "lucide-react"
+import { ArrowLeft, MapPin, Briefcase, Building2, SlidersHorizontal, X, Check, Clock, Banknote, Search, LocateFixed, Loader2, MessageSquare } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
 import { ShareJobButton } from "@/components/share-job-button"
 import { WelcomeSwitch } from "@/components/welcome-guide"
+import { MapTabs } from "@/components/map-tabs"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import { useToast } from "@/hooks/use-toast"
 
@@ -151,6 +152,20 @@ function createJobIcon(L: any, isSelected: boolean, industry?: string | null, is
   })
 }
 
+// Vacancy pin: sky-blue circle with a building, so vacancies read differently from trade jobs.
+const BUILDING_SVG = (clr: string, s: number) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="${clr}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>`
+function createVacancyIcon(L: any, isSelected: boolean) {
+  const size = isSelected ? 44 : 36
+  const bg   = isSelected ? "#0ea5e9" : "#0f172a"
+  const clr  = isSelected ? "#ffffff" : "#38bdf8"
+  return L.divIcon({
+    className: "",
+    html: `<div style="width:${size}px;height:${size}px;background:${bg};border:2.5px solid #0ea5e9;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(0,0,0,0.4),0 0 0 4px rgba(14,165,233,0.2)">${BUILDING_SVG(clr, Math.round(size * 0.5))}</div>`,
+    iconSize: [size, size], iconAnchor: [size/2, size/2], popupAnchor: [0, -(size/2+4)],
+  })
+}
+
 // ── Static data ────────────────────────────────────────────────────────────────
 const BUDGET_OPTIONS = [
   { label: "Any", value: "" },
@@ -194,7 +209,10 @@ type Job = {
   bumped_at: string | null
   expires_at: string | null
   applications_count: number | null
-  homeowner_profiles: Poster
+  homeowner_profiles?: Poster
+  // Vacancy rows only: the employer and how the salary is paid.
+  company_profiles?: { company_name: string | null; logo_url: string | null; user_id: string } | null
+  budget_period?: string | null
 }
 
 type SheetState = "collapsed" | "peek" | "expanded"
@@ -228,15 +246,20 @@ type Props = {
   coordsAreDefault?: boolean
   /** false → show the "sign up" prompts in the list panel. */
   isSignedIn?: boolean
+  /** "vacancy" shows company job adverts (the Vacancies tab) instead of homeowner trade jobs. */
+  mode?: "trade" | "vacancy"
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-function formatBudget(min: number | null, max: number | null) {
+const PERIOD_SUFFIX: Record<string, string> = { hourly: "/hr", daily: "/day", weekly: "/wk", monthly: "/mo", yearly: "/yr" }
+
+function formatBudget(min: number | null, max: number | null, period?: string | null) {
   if (!min && !max) return null
   const fmt = (n: number) => n >= 1000 ? `£${(n/1000).toFixed(n%1000===0?0:1)}k` : `£${n}`
-  if (min && max) return `${fmt(min)} – ${fmt(max)}`
-  if (max) return `Up to ${fmt(max)}`
-  return `From ${fmt(min!)}`
+  const per = (period && PERIOD_SUFFIX[period]) ?? ""
+  if (min && max) return `${fmt(min)} – ${fmt(max)}${per}`
+  if (max) return `Up to ${fmt(max)}${per}`
+  return `From ${fmt(min!)}${per}`
 }
 
 // "5d left" / "6h left" / "Expired" for a job popup. Null when there's no deadline.
@@ -260,9 +283,11 @@ function timeAgo(iso: string) {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, initialIndustries, animateZoom, coordsAreDefault, isSignedIn = true }: Props) {
+export default function JobsFindMap({ initialJobs, initialCoords, initialPostcode, initialIndustry, initialIndustries, animateZoom, coordsAreDefault, isSignedIn = true, mode = "trade" }: Props) {
   const router = useRouter()
   const { toast } = useToast()
+  const isVacancy = mode === "vacancy"
+  const noun = isVacancy ? "vacancies" : "jobs"
 
   // The tradesperson's own industries — the default match set. Sent to /api/jobs
   // as `industries=` whenever the user hasn't picked an explicit single-industry
@@ -307,7 +332,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   // reading them any earlier made the client's first render diverge from the
   // server's (which has no access to sessionStorage), causing a hydration error.
   useEffect(() => {
-    if (initialIndustry) return // URL-provided industry already wins
+    if (initialIndustry || isVacancy) return // URL-provided industry already wins; vacancies have no trade filters
     const saved = loadSavedFilters(initialIndustry)
     if (saved.industry || saved.budget || saved.urgency) {
       manualFilter.current = true // a saved filter set means the user chose one before
@@ -375,7 +400,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     if (!bbox) return
     currentBoundsRef.current = bbox
     filtersRef.current = f
-    sessionStorage.setItem(JOBS_FILTERS_KEY, JSON.stringify(f))
+    if (!isVacancy) sessionStorage.setItem(JOBS_FILTERS_KEY, JSON.stringify(f))
     if (fetchTimerRef.current) clearTimeout(fetchTimerRef.current)
     fetchTimerRef.current = setTimeout(async () => {
       const b = currentBoundsRef.current!
@@ -386,13 +411,17 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
           north: String(b.north), south: String(b.south),
           east:  String(b.east),  west:  String(b.west),
         })
-        if (ff.industry) {
-          params.set("industry", ff.industry)
-        } else if (!manualFilter.current && profileIndustries.current.length > 0) {
-          params.set("industries", profileIndustries.current.join(","))
+        if (isVacancy) {
+          params.set("kind", "vacancy")
+        } else {
+          if (ff.industry) {
+            params.set("industry", ff.industry)
+          } else if (!manualFilter.current && profileIndustries.current.length > 0) {
+            params.set("industries", profileIndustries.current.join(","))
+          }
+          if (ff.urgency)  params.set("urgency",  ff.urgency)
+          if (ff.budget)   params.set("budget",   ff.budget)
         }
-        if (ff.urgency)  params.set("urgency",  ff.urgency)
-        if (ff.budget)   params.set("budget",   ff.budget)
         const res = await fetch(`/api/jobs?${params}`)
         if (res.ok) {
           const rows = (await res.json()) as Job[]
@@ -404,7 +433,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
         }
       } finally { setLoading(false) }
     }, 600)
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const onBoundsChange = useCallback((b: BBox) => {
     fetchByViewport(b, filtersRef.current)
@@ -432,7 +461,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     }
     setFilters(draftFilters)
     filtersRef.current = draftFilters
-    sessionStorage.setItem(JOBS_FILTERS_KEY, JSON.stringify(draftFilters))
+    if (!isVacancy) sessionStorage.setItem(JOBS_FILTERS_KEY, JSON.stringify(draftFilters))
     setShowFilters(false)
     if (!didGeocode && currentBoundsRef.current) fetchByViewport(currentBoundsRef.current, draftFilters)
   }
@@ -547,7 +576,53 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   const jobPhotos = selectedJob?.job_photo_url ? [{ id: selectedJob.id, photo_url: selectedJob.job_photo_url }] : []
 
   /* ── Shared panel content ─────────────────────────────────────────────── */
-  const detailPanel = selectedJob && (
+  const company = selectedJob?.company_profiles
+  const vacancyDetailPanel = selectedJob && (
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="mx-3 mt-1 flex items-center gap-3 rounded-xl bg-slate-800/60 p-3">
+        <span className="w-14 h-14 rounded-xl overflow-hidden bg-sky-500/15 border border-sky-400/30 flex items-center justify-center flex-shrink-0">
+          {company?.logo_url
+            ? <img src={company.logo_url} alt="" className="w-full h-full object-cover" />
+            : <Building2 className="w-7 h-7 text-sky-300" />}
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs text-slate-400">Hiring now</p>
+          <p className="text-sm font-semibold text-white truncate">{company?.company_name ?? "Local business"}</p>
+        </div>
+      </div>
+      <div className="px-4 pt-3 pb-2">
+        <h3 className="text-base font-bold text-white leading-snug">{selectedJob.title}</h3>
+        <div className="flex flex-wrap items-center gap-2 mt-1.5">
+          {formatBudget(selectedJob.budget_min, selectedJob.budget_max, selectedJob.budget_period) && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-sky-300">
+              <Banknote className="w-3.5 h-3.5" />{formatBudget(selectedJob.budget_min, selectedJob.budget_max, selectedJob.budget_period)}
+            </span>
+          )}
+          {(selectedJob.latitude ?? selectedJob.latitude_approx) && (selectedJob.longitude ?? selectedJob.longitude_approx) && (
+            <span className="text-[10px] text-slate-500">
+              {distanceMi(selectedJob.latitude ?? selectedJob.latitude_approx!, selectedJob.longitude ?? selectedJob.longitude_approx!)} mi away
+            </span>
+          )}
+          <span className="text-[10px] text-slate-500 flex items-center gap-0.5">
+            <Clock className="w-3 h-3" />{timeAgo(selectedJob.bumped_at ?? selectedJob.created_at)}
+          </span>
+          {timeLeft(selectedJob.expires_at) && <span className="text-[10px] text-slate-500">· closes in {timeLeft(selectedJob.expires_at)!.replace(" left", "")}</span>}
+        </div>
+        {selectedJob.location && <p className="text-[11px] text-slate-400 mt-1.5 flex items-center gap-1"><MapPin className="w-3 h-3" />{selectedJob.location}</p>}
+        {selectedJob.short_description && (
+          <p className="text-xs text-slate-300 mt-2.5 leading-relaxed line-clamp-6">{selectedJob.short_description}</p>
+        )}
+      </div>
+      <div className="px-4 pb-4 pt-1">
+        <button onClick={() => router.push(`/jobs/${selectedJob.id}`)}
+          className="w-full py-2.5 bg-sky-500 hover:bg-sky-400 active:bg-sky-600 text-white font-semibold text-sm rounded-xl shadow-lg shadow-sky-500/20 transition-colors">
+          View vacancy
+        </button>
+      </div>
+    </div>
+  )
+
+  const detailPanel = isVacancy ? vacancyDetailPanel : selectedJob && (
     <div className="flex-1 min-h-0 overflow-y-auto">
       {selectedJob.job_photo_url ? (
         <button onClick={() => setLightboxIndex(0)} className="w-full h-40 overflow-hidden flex-shrink-0 focus:outline-none">
@@ -618,7 +693,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
 
   const listPanel = (
     <>
-      {!isSignedIn && (
+      {!isSignedIn && !isVacancy && (
         <Link prefetch={false}
           href="/auth/sign-up?source=welcome&accountType=company"
           className="flex-shrink-0 mx-2 mt-2 mb-1 block rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-100 transition-colors hover:bg-emerald-500/15"
@@ -630,12 +705,12 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
       )}
       <div className="flex-shrink-0 px-3 pt-2 pb-1.5">
         <span className="text-xs font-semibold text-white flex items-center gap-1.5">
-          <Briefcase className="w-3 h-3 text-indigo-400" />
-          {filters.industry && (() => {
+          {isVacancy ? <Building2 className="w-3 h-3 text-sky-400" /> : <Briefcase className="w-3 h-3 text-indigo-400" />}
+          {!isVacancy && filters.industry && (() => {
             const s = getIndustryStyle(filters.industry); const I = s.icon
             return <span className={`w-4 h-4 rounded flex items-center justify-center ${s.iconBg}`}><I className={`w-2.5 h-2.5 ${s.iconColor}`} /></span>
           })()}
-          {filters.industry ? `${filters.industry} jobs` : "Jobs nearby"}
+          {isVacancy ? "Vacancies nearby" : filters.industry ? `${filters.industry} jobs` : "Jobs nearby"}
           {!loading && <span className="text-slate-500 font-normal ml-1">({jobs.length})</span>}
         </span>
       </div>
@@ -645,7 +720,14 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             <div className="animate-spin w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full" />
           </div>
         ) : jobs.length === 0 ? (
-          isSignedIn ? (
+          isVacancy ? (
+            <div className="text-center px-4 py-7">
+              <p className="text-sm font-semibold text-white">No vacancies in this area yet.</p>
+              <p className="text-xs text-slate-400 leading-relaxed mt-1.5">
+                Local businesses post new vacancies all the time. Zoom out or search another town.
+              </p>
+            </div>
+          ) : isSignedIn ? (
             <div className="text-center py-6">
               <p className="text-slate-400 text-xs">No jobs found in this area.</p>
             </div>
@@ -667,15 +749,22 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
           <div key={job.id} onClick={() => setSelectedJob(p => p?.id === job.id ? null : job)}
             className="flex items-start gap-2.5 px-2 py-2 rounded-xl border cursor-pointer ojm-glow-card">
             <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center">
-              {job.job_photo_url
+              {isVacancy
+                ? (job.company_profiles?.logo_url
+                    ? <img src={job.company_profiles.logo_url} alt="" className="w-full h-full object-cover rounded-lg" />
+                    : <span className="w-full h-full rounded-lg bg-sky-500/15 flex items-center justify-center"><Building2 className="w-4.5 h-4.5 text-sky-300" /></span>)
+                : job.job_photo_url
                 ? <img src={job.job_photo_url} alt={job.title} className="w-full h-full object-cover rounded-lg" />
                 : (() => { const s = getIndustryStyle(job.industry ?? ""); const I = s.icon; return <span className={`w-full h-full rounded-lg ${s.iconBg} flex items-center justify-center`}><I className={`w-4.5 h-4.5 ${s.iconColor}`} /></span> })()}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-white truncate">{job.title}</p>
+              {isVacancy && job.company_profiles?.company_name && (
+                <p className="text-[10px] text-slate-400 truncate">{job.company_profiles.company_name}</p>
+              )}
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {formatBudget(job.budget_min, job.budget_max) && (
-                  <span className="text-[10px] font-semibold text-orange-400">{formatBudget(job.budget_min, job.budget_max)}</span>
+                {formatBudget(job.budget_min, job.budget_max, job.budget_period) && (
+                  <span className={`text-[10px] font-semibold ${isVacancy ? "text-sky-300" : "text-orange-400"}`}>{formatBudget(job.budget_min, job.budget_max, job.budget_period)}</span>
                 )}
                 {(job.latitude ?? job.latitude_approx) && (job.longitude ?? job.longitude_approx) && (
                   <span className="text-[10px] text-slate-500">
@@ -686,7 +775,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                 <span className="text-[10px] text-slate-600">{timeAgo(job.bumped_at ?? job.created_at)}</span>
               </div>
             </div>
-            {(() => {
+            {!isVacancy && (() => {
               const replies = job.applications_count ?? 0
               return replies > 0 ? (
                 <span className="flex-shrink-0 self-center inline-flex items-center gap-1 rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300"
@@ -748,6 +837,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               )}
             </div>
           </div>
+          {!isVacancy && (<>
           <div className="mx-3 border-t border-slate-200 mb-1" />
           <div className="px-3 pt-3 pb-1">
             <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Trade / Industry</p>
@@ -774,7 +864,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             <div className="flex flex-wrap gap-1.5">
               {BUDGET_OPTIONS.map(opt => (
                 <button key={opt.value} onClick={() => setDraftFilters(f => ({ ...f, budget: opt.value }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.budget === opt.value ? "bg-indigo-500 border-indigo-500 text-slate-900" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.budget === opt.value ? "bg-indigo-500 border-indigo-500 text-white" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                   {opt.label}
                 </button>
               ))}
@@ -785,12 +875,13 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             <div className="flex flex-wrap gap-1.5">
               {URGENCY_OPTIONS.map(opt => (
                 <button key={opt.value} onClick={() => setDraftFilters(f => ({ ...f, urgency: opt.value }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.urgency === opt.value ? "bg-indigo-500 border-indigo-500 text-slate-900" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.urgency === opt.value ? "bg-indigo-500 border-indigo-500 text-white" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                   {opt.label}
                 </button>
               ))}
             </div>
           </div>
+          </>)}
         </div>
         <div className="flex-shrink-0 px-3 py-3 border-t border-slate-200">
           <button onClick={applyFilters} disabled={geocoding}
@@ -833,19 +924,19 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                 const pos = jobMarkerCoords(job)!
                 return (
                   <Marker key={job.id} position={pos}
-                    icon={createJobIcon(leafletL, selectedJob?.id === job.id, job.industry, job.urgency_type === "asap") as any}
+                    icon={(isVacancy ? createVacancyIcon(leafletL, selectedJob?.id === job.id) : createJobIcon(leafletL, selectedJob?.id === job.id, job.industry, job.urgency_type === "asap")) as any}
                     eventHandlers={{ click: () => setSelectedJob(p => p?.id === job.id ? null : job) }}>
                     <Popup className="job-popup-compact" minWidth={110} maxWidth={280}>
                       {/* Line 1: title + budget */}
                       <div className="text-[11px] leading-snug">
                         <b>{job.title}</b>
-                        {formatBudget(job.budget_min, job.budget_max) && (
-                          <span className="text-orange-400 font-semibold whitespace-nowrap">{"  "}{formatBudget(job.budget_min, job.budget_max)}</span>
+                        {formatBudget(job.budget_min, job.budget_max, job.budget_period) && (
+                          <span className={`${isVacancy ? "text-sky-500" : "text-orange-400"} font-semibold whitespace-nowrap`}>{"  "}{formatBudget(job.budget_min, job.budget_max, job.budget_period)}</span>
                         )}
                       </div>
-                      {/* Line 2: replies + time left — social proof + urgency */}
+                      {/* Line 2: replies (trade jobs) or employer (vacancies) + time left */}
                       <div className="text-[10px] leading-snug text-slate-400 mt-0.5 whitespace-nowrap">
-                        <span className="font-semibold">Replies ({job.applications_count ?? 0})</span>
+                        <span className="font-semibold">{isVacancy ? (job.company_profiles?.company_name ?? "Local business") : `Replies (${job.applications_count ?? 0})`}</span>
                         {timeLeft(job.expires_at) && (
                           <span className="text-slate-500">{" · "}{timeLeft(job.expires_at)}</span>
                         )}
@@ -874,25 +965,14 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
         <div ref={headerRef} className="absolute top-0 left-0 right-0 flex flex-col gap-1.5 px-3 py-2"
           style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top, 0px), 10px)" }}>
           {/* Tab switcher — same footprint as the search bar below it */}
-          <div className="flex self-center w-full lg:w-80 bg-slate-800/95 border border-slate-700/80 rounded-full p-0.5 shadow-lg backdrop-blur-sm">
-            <button
-              onClick={() => router.push(`/find?lat=${coords[0]}&lng=${coords[1]}`)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold text-slate-400 hover:text-white transition-colors">
-              <Users className="w-3.5 h-3.5" />
-              Tradespeople
-            </button>
-            <button className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full text-xs font-semibold bg-orange-500 text-white shadow-sm">
-              <Briefcase className="w-3.5 h-3.5" />
-              Trade Jobs
-            </button>
-          </div>
+          <MapTabs active={isVacancy ? "vacancies" : "jobs"} coords={coords} />
           {/* Search row */}
           <div className="flex items-center gap-2 lg:w-80 lg:self-center">
             <MapSearchBar
               loading={loading}
-              label={filters.industry ?? null}
+              label={isVacancy ? null : filters.industry ?? null}
               count={jobs.length}
-              countSuffix="jobs"
+              countSuffix={noun}
               accentColor="orange"
               onClick={() => { setDraftFilters(filters); setPostcodeInput(""); setShowFilters(true) }}
             />
@@ -918,15 +998,15 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               <button onClick={() => setSelectedJob(null)}
                 className="flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors">
                 <ArrowLeft className="w-8 h-8" />
-                <span className="text-[24px] font-semibold">All jobs</span>
+                <span className="text-[24px] font-semibold">All {noun}</span>
               </button>
             ) : (
               <span className="text-xs font-semibold text-white flex items-center gap-1.5 min-w-0">
-                {filters.industry && (() => {
+                {!isVacancy && filters.industry && (() => {
                   const s = getIndustryStyle(filters.industry); const I = s.icon
                   return <span className={`w-4 h-4 rounded flex items-center justify-center ${s.iconBg} flex-shrink-0`}><I className={`w-2.5 h-2.5 ${s.iconColor}`} /></span>
                 })()}
-                <span className="truncate">{filters.industry ? `${filters.industry} jobs` : "Jobs nearby"}</span>
+                <span className="truncate">{isVacancy ? "Vacancies nearby" : filters.industry ? `${filters.industry} jobs` : "Jobs nearby"}</span>
                 {!loading && <span className="text-slate-500 font-normal flex-shrink-0">({jobs.length})</span>}
               </span>
             )}
@@ -972,7 +1052,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                 <button
                   onClick={(e) => { e.stopPropagation(); setSelectedJob(null); setSheetHeightPx(null) }}
                   className="flex items-center gap-2 text-orange-400 hover:text-orange-300 transition-colors">
-                  <ArrowLeft className="w-8 h-8" /><span className="text-[24px] font-semibold">All jobs</span>
+                  <ArrowLeft className="w-8 h-8" /><span className="text-[24px] font-semibold">All {noun}</span>
                 </button>
                 <div className="w-10 h-1 rounded-full bg-slate-600 absolute left-1/2 -translate-x-1/2" />
                 <div onClick={(e) => e.stopPropagation()}>
