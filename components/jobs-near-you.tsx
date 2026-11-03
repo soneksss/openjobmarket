@@ -415,7 +415,7 @@ export function JobsNearYou({ userLocation, maxJobs = 5, radiusMiles = 10 }: Job
         {/* View More Link */}
         <div className="mt-4 text-center">
           <Link
-            href="/?tab=jobs_tasks"
+            href="/find-jobs"
             className="inline-flex items-center text-emerald-600 hover:text-emerald-700 font-medium"
           >
             {locale === "pt-BR" ? "Ver todos os trabalhos" : "View all jobs"}

@@ -200,67 +200,6 @@ export async function handleAdminLoginRedirect(userId: string): Promise<string> 
   }
 }
 
-/**
- * Get admin navigation items based on permissions
- */
-export function getAdminNavItems(adminUser: AdminUser) {
-  const baseItems = [
-    {
-      label: 'Dashboard',
-      href: '/admin/dashboard',
-      icon: 'LayoutDashboard',
-      available: true
-    },
-    {
-      label: 'Analytics',
-      href: '/admin/analytics',
-      icon: 'BarChart3',
-      available: hasPermission(adminUser, 'can_view_analytics')
-    },
-    {
-      label: 'Messages',
-      href: '/admin/messages',
-      icon: 'MessageSquare',
-      available: hasPermission(adminUser, 'can_reply_messages')
-    }
-  ]
-
-  const adminOnlyItems = [
-    {
-      label: 'Users',
-      href: '/admin/users',
-      icon: 'Users',
-      available: hasPermission(adminUser, 'can_manage_users')
-    },
-    {
-      label: 'Admin Users',
-      href: '/admin/admin-users',
-      icon: 'Shield',
-      available: hasPermission(adminUser, 'can_manage_users')
-    },
-    {
-      label: 'Jobs',
-      href: '/admin/jobs',
-      icon: 'Briefcase',
-      available: hasPermission(adminUser, 'can_manage_settings')
-    },
-    {
-      label: 'Subscriptions',
-      href: '/admin/subscriptions',
-      icon: 'Crown',
-      available: hasPermission(adminUser, 'can_manage_subscriptions')
-    },
-    {
-      label: 'Settings',
-      href: '/admin/settings',
-      icon: 'Settings',
-      available: hasPermission(adminUser, 'can_manage_settings')
-    }
-  ]
-
-  return [...baseItems, ...adminOnlyItems].filter(item => item.available)
-}
-
 // Deprecated functions - kept for compatibility but should not be used
 export async function signInAdmin(email: string, password: string) {
   throw new Error("signInAdmin is deprecated. Use regular Supabase auth with admin roles instead.")

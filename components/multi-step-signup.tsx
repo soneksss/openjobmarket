@@ -34,8 +34,6 @@ interface SignupData {
   location: string
   latitude: number | null
   longitude: number | null
-  // Optional promo code (tradesperson signup only)
-  promoCode: string
   // Legal requirements
   ageConfirmation: boolean
   termsAccepted: boolean
@@ -77,7 +75,6 @@ export default function MultiStepSignup() {
     location: "",
     latitude: null,
     longitude: null,
-    promoCode: "",
     ageConfirmation: false,
     termsAccepted: false,
   })
@@ -98,9 +95,6 @@ export default function MultiStepSignup() {
     const emailParam       = searchParams?.get('email')
     const postcodeParam    = searchParams?.get('postcode')
     const lockEmailParam   = searchParams?.get('lock_email')
-    const promoParam       = searchParams?.get('promo')
-
-    if (promoParam) setSignupData(prev => ({ ...prev, promoCode: promoParam.trim().toUpperCase() }))
 
     if (claimToken) {
       // Claim flow: auto-set company account, pre-fill all known fields, skip to step 2
@@ -348,15 +342,6 @@ export default function MultiStepSignup() {
       else if (signupData.postcode) metadata.location = signupData.postcode
       if (signupData.latitude  !== undefined) metadata.latitude  = signupData.latitude
       if (signupData.longitude !== undefined) metadata.longitude = signupData.longitude
-
-      // Referral link (?ref=CODE) — captured now, applied server-side once the
-      // company profile is created in complete_user_profile_after_verification().
-      const refParam = searchParams?.get('ref')
-      if (refParam) metadata.referral_code = refParam.trim().toUpperCase()
-
-      // Promo code — either typed into the form or prefilled via ?promo=CODE.
-      // Applied server-side (redeem_promo_code) in the same profile-completion step.
-      if (signupData.promoCode.trim()) metadata.promo_code = signupData.promoCode.trim().toUpperCase()
 
       console.log("[SIGNUP] Company metadata:", { email: signupData.email, metadata })
 
@@ -821,18 +806,6 @@ export default function MultiStepSignup() {
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
-                  </div>
-
-                  {/* Promo code (optional) */}
-                  <div>
-                    <Label htmlFor="promoCode" className="text-sm font-medium text-slate-700">Promo code (optional)</Label>
-                    <Input
-                      id="promoCode"
-                      value={signupData.promoCode}
-                      onChange={(e) => updateSignupData({ promoCode: e.target.value.toUpperCase() })}
-                      placeholder="Have a code? Enter it here"
-                      className="mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
-                    />
                   </div>
 
                   {/* Terms Checkbox */}

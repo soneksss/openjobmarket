@@ -51,7 +51,7 @@ export default async function SavedTradersPage() {
               When you find tradespeople you like, click the heart icon to save them here for easy access later.
             </p>
             <Button asChild>
-              <Link href="/?tab=traders">
+              <Link href="/find-trades">
                 Browse Tradespeople
               </Link>
             </Button>

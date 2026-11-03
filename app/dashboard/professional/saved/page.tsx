@@ -154,7 +154,7 @@ export default async function SavedJobsPage() {
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
             asChild
           >
-            <Link href="/?tab=jobs_tasks&autoSearch=true">
+            <Link href="/find-jobs">
               <Briefcase className="h-4 w-4 mr-1.5" />
               Browse Jobs
             </Link>
@@ -169,7 +169,7 @@ export default async function SavedJobsPage() {
               <h3 className="text-base font-medium text-slate-300 mb-1">No Saved Jobs</h3>
               <p className="text-sm mb-4">Browse jobs and tap the bookmark icon to save them here.</p>
               <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" asChild>
-                <Link href="/?tab=jobs_tasks&autoSearch=true">
+                <Link href="/find-jobs">
                   <Briefcase className="h-4 w-4 mr-2" />
                   Browse Jobs
                 </Link>
@@ -304,7 +304,7 @@ export default async function SavedJobsPage() {
                   className="bg-emerald-600 hover:bg-emerald-700 text-white"
                   asChild
                 >
-                  <Link href="/?tab=jobs_tasks&autoSearch=true">
+                  <Link href="/find-jobs">
                     <Briefcase className="h-4 w-4 mr-1.5" />
                     Browse Jobs
                   </Link>

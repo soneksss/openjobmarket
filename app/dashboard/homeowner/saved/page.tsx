@@ -91,7 +91,7 @@ export default async function HomeownerSavedPage() {
               Browse tradespeople and tap "Save Tradesperson" to add them here.
             </p>
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" asChild>
-              <Link href="/?tab=traders&autoSearch=true">
+              <Link href="/find-trades">
                 <Search className="h-4 w-4 mr-2" />
                 Find Tradespeople
               </Link>

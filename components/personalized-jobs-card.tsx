@@ -278,7 +278,7 @@ export function PersonalizedJobsCard() {
                 size="lg"
                 className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl h-12 text-base shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 transition-all"
               >
-                <Link href="/?tab=jobs_tasks">
+                <Link href="/find-jobs">
                   <Briefcase className="w-5 h-5 mr-2" />
                   {locale === "pt-BR" ? "Ver todos os trabalhos" : "Review all jobs"}
                 </Link>
@@ -290,7 +290,7 @@ export function PersonalizedJobsCard() {
                 size="lg"
                 className="flex-1 border-white/20 hover:border-white/40 text-white hover:bg-white/10 rounded-xl h-12 text-base"
               >
-                <Link href="/?tab=jobs_tasks&view=map">
+                <Link href="/find-jobs">
                   <MapPin className="w-5 h-5 mr-2" />
                   {locale === "pt-BR" ? "Ver no mapa" : "See on map"}
                 </Link>

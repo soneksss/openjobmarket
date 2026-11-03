@@ -39,7 +39,6 @@ export default function robots(): MetadataRoute.Robots {
           '/_next/',
           '/test-i18n/',
           '/demo/',
-          '/free-plan-demo/',
         ],
       },
       // Allow major AI crawlers full access to public content

@@ -851,7 +851,7 @@ export function FindingTradesView({ job, userId }: FindingTradesViewProps) {
               </div>
             </button>
             <button
-              onClick={() => router.push(`/?tab=traders&search=${encodeURIComponent(job.title)}&lat=${lat}&lng=${lon}&radius=${radiusMiles}&autoSearch=true`)}
+              onClick={() => router.push(`/find?lat=${lat}&lng=${lon}&radius=${radiusMiles}`)}
               className="w-full flex items-center gap-4 p-4 rounded-2xl bg-emerald-700 hover:bg-emerald-600 active:scale-[0.98] text-white transition-all text-left"
             >
               <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">

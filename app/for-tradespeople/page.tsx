@@ -1,11 +1,11 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   CheckCircle, Zap, Search, Send, MapPin, ArrowRight, Loader2, X, Check, Rocket,
-  Smartphone, Users, Copy, Share2, Clock,
+  Smartphone,
 } from "lucide-react"
 import { LocalImpactSection } from "@/components/local-impact-section"
 
@@ -159,45 +159,6 @@ const HOW_STEPS = [
 export default function ForTradespeoplePageWrapper() {
   const router = useRouter()
   const [locating, setLocating] = useState(false)
-  const [referralCode, setReferralCode] = useState<string | null>(null)
-  const [referralEnabled, setReferralEnabled] = useState(true)
-  const [checkedAuth, setCheckedAuth] = useState(false)
-  const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    fetch("/api/referral-config")
-      .then(r => (r.ok ? r.json() : { enabled: true }))
-      .then(d => setReferralEnabled(d.enabled ?? true))
-      .catch(() => {})
-
-    fetch("/api/tradesperson/membership-status")
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (d?.referral_code) setReferralCode(d.referral_code) })
-      .catch(() => {})
-      .finally(() => setCheckedAuth(true))
-  }, [])
-
-
-  const referralLink = referralCode && typeof window !== "undefined"
-    ? `${window.location.origin}/auth/sign-up?accountType=company&source=quickcheck&ref=${referralCode}`
-    : ""
-
-  const copyReferralLink = () => {
-    if (!referralLink) return
-    navigator.clipboard.writeText(referralLink).then(() => {
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    })
-  }
-
-  const shareReferralLink = () => {
-    if (!referralLink) return
-    if (navigator.share) {
-      navigator.share({ title: "Join Open Job Market", text: "Find local trade work — join me on Open Job Market.", url: referralLink }).catch(() => {})
-    } else {
-      copyReferralLink()
-    }
-  }
 
   const handleBrowseJobs = () => {
     if (!navigator.geolocation) {
@@ -259,8 +220,8 @@ export default function ForTradespeoplePageWrapper() {
             <span className="text-orange-400 whitespace-nowrap">Open Job Market</span>
           </h2>
           <p className="text-slate-300 text-sm text-center max-w-lg mx-auto mb-6 leading-relaxed">
-            A local marketplace built around membership instead of paying for every lead — no bidding wars, no
-            middlemen, no unwanted sales calls.
+            A free local marketplace — no paying for every lead, no bidding wars, no middlemen, no unwanted
+            sales calls.
           </p>
           <div className="rounded-2xl border border-slate-700/50 overflow-hidden">
             <table className="w-full text-sm">
@@ -460,55 +421,6 @@ export default function ForTradespeoplePageWrapper() {
                 </a>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Referral ─────────────────────────────────────────────────────── */}
-      <section className="py-8 border-t border-slate-800/60 px-4">
-        <div className="container mx-auto max-w-lg">
-          <div className="rounded-2xl border border-slate-700/50 bg-slate-800/40 p-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Users className="w-5 h-5 text-orange-400 flex-shrink-0" />
-              <h2 className="text-lg font-bold text-white">Grow Your Network</h2>
-            </div>
-            <p className="text-slate-300 text-sm leading-relaxed mb-4">
-              Help grow your local trade community. Share your invite link with another tradesperson — it's free
-              for them to join.
-            </p>
-
-            {!referralEnabled ? (
-              <div className="flex items-start gap-2.5 rounded-xl bg-slate-900/50 border border-slate-700/40 p-3.5">
-                <Clock className="w-4 h-4 text-slate-400 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Your invite link is ready to share. It always works — anyone who joins through it gets the same
-                  free access you have.
-                </p>
-              </div>
-            ) : referralCode ? (
-              <div className="flex gap-2">
-                <div className="flex-1 flex items-center px-3 py-2.5 rounded-xl bg-slate-900/50 border border-slate-700/50 text-slate-300 text-xs sm:text-sm truncate">
-                  {referralLink}
-                </div>
-                <button onClick={copyReferralLink}
-                  className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 border border-slate-600 text-white text-sm font-medium transition-colors flex-shrink-0">
-                  <Copy className="w-4 h-4" />
-                  {copied ? "Copied!" : ""}
-                </button>
-                <button onClick={shareReferralLink}
-                  className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-white text-sm font-medium transition-colors flex-shrink-0">
-                  <Share2 className="w-4 h-4" />
-                </button>
-              </div>
-            ) : checkedAuth ? (
-              <Link href="/auth/sign-up"
-                className="flex items-center gap-1.5 text-orange-400 hover:text-orange-300 font-semibold text-sm transition-colors">
-                Sign up to get your referral link
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            ) : (
-              <div className="h-10 rounded-xl bg-slate-900/40 animate-pulse" />
-            )}
           </div>
         </div>
       </section>

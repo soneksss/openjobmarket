@@ -208,7 +208,10 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
 
   return (
     // Bottom padding on small screens keeps the window clear of the mobile bottom nav.
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/45 backdrop-blur-[3px] p-3 pb-[calc(env(safe-area-inset-bottom,0px)+76px)] sm:px-4 sm:pt-4 lg:pb-4">
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/45 backdrop-blur-[3px] p-3 pb-[calc(env(safe-area-inset-bottom,0px)+76px)] sm:px-4 sm:pt-4 lg:pb-4"
+      style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)" }}
+      // Clicking the dimmed map around the window closes it.
+      onClick={(e) => { if (e.target === e.currentTarget) dismiss() }}>
       <div
         ref={dialogRef}
         tabIndex={-1}

@@ -1819,13 +1819,16 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           role="dialog"
           aria-modal="true"
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 md:bg-black/40"
+          // Clicking the dim area closes it — only on step 1, so a stray click can't discard a half-written job.
+          onClick={(e) => { if (e.target === e.currentTarget && currentStep === 1) closeModal() }}
         >
           <div
             className="w-full h-full md:h-auto md:max-h-[90vh] max-w-2xl bg-white md:rounded-2xl shadow-2xl ring-1 ring-black/[0.04] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-4 pt-safe pb-4 md:px-6 bg-gradient-to-r from-slate-50 to-white border-b border-white/10">
+            <div className="flex-shrink-0 flex items-center justify-between px-4 pb-3 md:px-6 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100"
+              style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 14px)" }}>
               <div className="flex items-center gap-3">
                 {companyProfile?.logo_url && userType === "company" && (
                   <img
@@ -1839,8 +1842,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   <p className="text-xs text-slate-500 mt-0.5">Step {currentStep} of {totalSteps}</p>
                 </div>
               </div>
-              <button onClick={closeModal} className="text-slate-500 hover:text-slate-900 transition-colors p-1.5 rounded-lg hover:bg-white/10">
-                <X className="w-5 h-5" />
+              <button onClick={closeModal} aria-label="Close"
+                className="w-10 h-10 -mr-2 flex items-center justify-center rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+                <X className="w-6 h-6" />
               </button>
             </div>
 

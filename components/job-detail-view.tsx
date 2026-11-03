@@ -332,12 +332,11 @@ export default function JobDetailView({
   const posterProfileUrl = getPosterProfileUrl()
 
   // Build back URL with search params - redirect to main page with modal open
-  const tabParam = job.is_tradespeople_job ? 'jobs_tasks' : 'vacancies'
-  console.log("[JOB-DETAIL-VIEW] Building back URL with searchParams:", searchParams)
-  const backUrl = searchParams && Object.keys(searchParams).length > 0
-    ? `/?tab=${tabParam}&${new URLSearchParams(searchParams as Record<string, string>).toString()}`
-    : `/?tab=${tabParam}`
-  console.log("[JOB-DETAIL-VIEW] Back URL:", backUrl)
+  // Back always returns to the map this job lives on, centred on it.
+  const mapPath = job.is_tradespeople_job ? "/find-jobs" : "/find-vacancies"
+  const jobLat = (job as any).latitude ?? (job as any).latitude_approx
+  const jobLng = (job as any).longitude ?? (job as any).longitude_approx
+  const backUrl = jobLat && jobLng ? `${mapPath}?lat=${jobLat}&lng=${jobLng}` : mapPath
   const [isSaved, setIsSaved] = useState(false)
   const [sessionValidated, setSessionValidated] = useState(false)
   const [sessionError, setSessionError] = useState<string | null>(null)
@@ -663,13 +662,7 @@ export default function JobDetailView({
           <Button
             variant="ghost"
             className="text-slate-400 hover:text-white hover:bg-white/10"
-            onClick={() => {
-              if (searchParams && Object.keys(searchParams).length > 0) {
-                router.push(backUrl)
-              } else {
-                router.back()
-              }
-            }}
+            onClick={() => router.push(backUrl)}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
@@ -688,7 +681,7 @@ export default function JobDetailView({
               </p>
             </div>
             <Button asChild size="sm" variant="ghost" className="ml-auto shrink-0 text-slate-400 hover:text-white hover:bg-white/10 border border-white/15">
-              <Link href={`/?tab=${job.is_tradespeople_job ? 'jobs_tasks' : 'vacancies'}`}>Browse jobs</Link>
+              <Link href={(job.is_tradespeople_job ? '/find-jobs' : '/find-vacancies')}>Browse jobs</Link>
             </Button>
           </div>
         )}
@@ -1409,7 +1402,7 @@ export default function JobDetailView({
                       : "Browse the Jobs/Tasks section to find opportunities suitable for your business."}
                   </p>
                   <Button asChild className="w-full bg-emerald-600 hover:bg-emerald-700">
-                    <Link href={job.is_tradespeople_job ? "/auth/sign-up" : "/?tab=jobs_tasks"}>
+                    <Link href={job.is_tradespeople_job ? "/auth/sign-up" : "/find-jobs"}>
                       {job.is_tradespeople_job ? t('jobs.blockedModalCreateAccount') : "Browse Jobs/Tasks"}
                     </Link>
                   </Button>
@@ -1423,7 +1416,7 @@ export default function JobDetailView({
             </Button>
             {blockedReason !== 'own_job' && (
               <Button asChild variant="default">
-                <Link href={job.is_tradespeople_job ? "/?tab=vacancies" : "/?tab=jobs_tasks"}>
+                <Link href={job.is_tradespeople_job ? "/find-vacancies" : "/find-jobs"}>
                   {job.is_tradespeople_job ? t('jobs.blockedModalBrowseVacancies') : "Browse Jobs/Tasks"}
                 </Link>
               </Button>

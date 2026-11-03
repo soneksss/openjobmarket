@@ -33,102 +33,15 @@ export default function MessageModal({
   const [success, setSuccess] = useState<string | null>(null)
   const [subject, setSubject] = useState("Job Opportunity Inquiry")
   const [message, setMessage] = useState("")
-  // Default to allowed — updated async after mount; prevents form from hiding during check
-  const [subscriptionInfo, setSubscriptionInfo] = useState<any>({ can_contact: true, reason: 'loading' })
-
   const router = useRouter()
   const supabase = createClient()
 
-  const checkSubscriptionLimits = async () => {
-    try {
-      console.log("[MESSAGE-MODAL] Checking subscription limits...")
-      // First check if subscriptions are even enabled
-      const { data: adminSettings } = await supabase.rpc('get_public_admin_settings')
-
-      // If subscriptions are disabled or not configured, allow contact
-      if (!adminSettings?.subscriptions_enabled) {
-        console.log("[MESSAGE-MODAL] Subscriptions disabled, allowing contact")
-        setSubscriptionInfo({
-          can_contact: true,
-          reason: 'subscriptions_disabled',
-          contacts_used: 0,
-          contacts_limit: null
-        })
-        setError(null)
-        return
-      }
-
-      console.log("[MESSAGE-MODAL] Subscriptions enabled, checking user subscription...")
-      // Check user's subscription
-      const { data: subscription } = await supabase
-        .from('user_subscriptions')
-        .select(`*, subscription_plans!inner(*)`)
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .gt('end_date', new Date().toISOString())
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-
-      if (!subscription) {
-        // Allow contact even without subscription (fallback for development/testing)
-        console.log("[MESSAGE-MODAL] No subscription found, allowing contact as fallback")
-        setSubscriptionInfo({
-          can_contact: true,
-          reason: 'no_subscription_fallback',
-          contacts_used: 0,
-          contacts_limit: null
-        })
-        setError(null)
-        return
-      }
-
-      console.log("[MESSAGE-MODAL] Subscription found, checking limits...")
-      // Has subscription - check limits
-      const contactLimit = subscription.subscription_plans.contact_limit
-      const contactsUsed = subscription.contacts_used || 0
-
-      if (contactLimit !== null && contactsUsed >= contactLimit) {
-        console.log("[MESSAGE-MODAL] Contact limit exceeded")
-        setSubscriptionInfo({
-          can_contact: false,
-          reason: 'contact_limit_exceeded',
-          contacts_used: contactsUsed,
-          contacts_limit: contactLimit
-        })
-        setError(`Contact limit reached (${contactsUsed}/${contactLimit})`)
-        return
-      }
-
-      console.log("[MESSAGE-MODAL] All checks passed, allowing contact")
-      setSubscriptionInfo({
-        can_contact: true,
-        reason: 'subscription_valid',
-        contacts_used: contactsUsed,
-        contacts_limit: contactLimit
-      })
-      setError(null)
-    } catch (err) {
-      console.log("[MESSAGE-MODAL] Exception checking subscription, allowing contact as fallback:", err)
-      // Allow contact on any error (fail open)
-      setSubscriptionInfo({
-        can_contact: true,
-        reason: 'system_fallback',
-        contacts_used: 0,
-        contacts_limit: null
-      })
-      setError(null)
-    }
-  }
-
+  // Messaging is free — no contact limits to check.
   useEffect(() => {
     if (isOpen && user) {
-      setSubscriptionInfo({ can_contact: true, reason: 'loading' })
       setError(null)
       setSuccess(null)
-      checkSubscriptionLimits()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user])
 
   const handleSendMessage = async () => {
@@ -147,13 +60,6 @@ export default function MessageModal({
     setSuccess(null)
 
     try {
-      // Check if user can still contact (subscription might have changed)
-      if (!subscriptionInfo?.can_contact) {
-        setError("You cannot contact professionals at this time.")
-        setLoading(false)
-        return
-      }
-
       // Check if users are blocked
       try {
         const { data: isBlocked, error: blockError } = await supabase
@@ -206,28 +112,6 @@ export default function MessageModal({
       console.log("Message sent successfully:", insertData[0])
       setSuccess("Message sent successfully! Redirecting to conversation...")
 
-      // Increment contact usage counter (only if subscriptions are enabled and user has active subscription)
-      if (subscriptionInfo?.reason === 'subscription_valid') {
-        try {
-          const { error: incrementError } = await supabase
-            .from('user_subscriptions')
-            .update({
-              contacts_used: (subscriptionInfo.contacts_used || 0) + 1,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', user.id)
-            .eq('status', 'active')
-            .gt('end_date', new Date().toISOString())
-
-          if (incrementError) {
-            console.error("Error incrementing usage counter:", incrementError)
-          }
-        } catch (usageError) {
-          console.error("Exception incrementing usage counter:", usageError)
-          // Don't fail the message send if usage increment fails
-        }
-      }
-
       // Close modal and redirect to messages list after a short delay
       setTimeout(() => {
         onClose()
@@ -242,7 +126,7 @@ export default function MessageModal({
 
   if (!isOpen) return null
 
-  const canSend = subscriptionInfo?.can_contact && message.trim() && subject.trim() && !loading
+  const canSend = message.trim() && subject.trim() && !loading
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm">
@@ -274,31 +158,6 @@ export default function MessageModal({
             </p>
           </div>
 
-          {/* Subscription Status - Only show when subscriptions are enabled and user has a meaningful limit (not unlimited/free) */}
-          {subscriptionInfo &&
-           subscriptionInfo.reason === 'subscription_valid' &&
-           subscriptionInfo.contacts_limit !== null &&
-           subscriptionInfo.contacts_limit < 999999 && (
-            <Card className="bg-blue-50 border-blue-200">
-              <CardContent className="pt-4">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-blue-800">Contact Usage:</span>
-                  <Badge variant="outline" className="text-blue-700">
-                    {subscriptionInfo.contacts_used}/{subscriptionInfo.contacts_limit} used
-                  </Badge>
-                </div>
-                {subscriptionInfo.contacts_limit !== null &&
-                 subscriptionInfo.contacts_limit - subscriptionInfo.contacts_used <= 2 &&
-                 subscriptionInfo.contacts_limit - subscriptionInfo.contacts_used > 0 && (
-                  <p className="text-xs text-blue-600 mt-2">
-                    You're approaching your contact limit. Consider upgrading your subscription.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-
           {/* Success Display */}
           {success && (
             <Card className="bg-green-50 border-green-200">
@@ -324,7 +183,7 @@ export default function MessageModal({
           )}
 
           {/* Message Form */}
-          {subscriptionInfo?.can_contact && !success && (
+          {!success && (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -368,29 +227,20 @@ export default function MessageModal({
             >
               Cancel
             </Button>
-            {subscriptionInfo?.can_contact ? (
-              <Button
-                onClick={handleSendMessage}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
-                disabled={!canSend}
-              >
-                {loading ? (
-                  "Sending..."
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Message
-                  </>
-                )}
-              </Button>
-            ) : (
-              <Button
-                onClick={() => router.push("/dashboard/company/subscription")}
-                className="flex-1 bg-green-600 hover:bg-green-700"
-              >
-                View Subscription
-              </Button>
-            )}
+            <Button
+              onClick={handleSendMessage}
+              className="flex-1 bg-blue-600 hover:bg-blue-700"
+              disabled={!canSend}
+            >
+              {loading ? (
+                "Sending..."
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Message
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </div>
