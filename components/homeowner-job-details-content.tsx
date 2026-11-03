@@ -18,6 +18,7 @@ import { HomeownerApplicationActions } from "./homeowner-application-actions"
 import { JobCompletionModal } from "./job-completion-modal"
 import { TrustpilotReviewPrompt } from "./trustpilot-review-prompt"
 import { createClient } from "@/lib/client"
+import { currencySymbol } from "@/lib/currency"
 
 interface Application {
   id: string
@@ -98,10 +99,11 @@ export function HomeownerJobDetailsContent({ job, applications, homeownerUserId,
   }
 
   const formatBudget = (min?: number, max?: number) => {
+    const sym = currencySymbol((job as any).currency)
     if (!min && !max) return undefined
-    if (min && max) return `£${min.toLocaleString()}–£${max.toLocaleString()}`
-    if (min) return `From £${min.toLocaleString()}`
-    if (max) return `Up to £${max.toLocaleString()}`
+    if (min && max) return `${sym}${min.toLocaleString()}–${sym}${max.toLocaleString()}`
+    if (min) return `From ${sym}${min.toLocaleString()}`
+    if (max) return `Up to ${sym}${max.toLocaleString()}`
   }
 
   const handleMarkComplete = () => {

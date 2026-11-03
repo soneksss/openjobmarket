@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import MapLocationPicker from "./map-location-picker"
 import { X, ArrowLeft, ArrowRight, Briefcase, Check, Plus, XIcon } from "lucide-react"
 import { BrandPanel } from "@/components/brand-panel"
+import { CURRENCIES, DEFAULT_CURRENCY, currencySymbol, visitorCurrency, type Currency } from "@/lib/currency"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -104,6 +105,10 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [locationChoice, setLocationChoice] = useState<"myLocation" | "differentLocation" | null>(null)
+  // Pre-selected from the employer's country; changeable on the salary step.
+  // (Set after mount: the page is server-rendered, where the cookie isn't readable.)
+  const [currency, setCurrency] = useState<Currency>(DEFAULT_CURRENCY)
+  useEffect(() => { setCurrency(visitorCurrency()) }, [])
 
   // Tag input states
   const [skillInput, setSkillInput] = useState("")
@@ -379,6 +384,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         budget_min: formData.salaryMin ? Number.parseInt(formData.salaryMin) : null,
         budget_max: formData.salaryMax ? Number.parseInt(formData.salaryMax) : null,
         budget_period: formData.salaryPeriod,
+        currency,
         skills_required: formData.skills.length > 0 ? formData.skills : null,
         languages: formData.languages.length > 0 ? formData.languages : null,
         is_active: true,
@@ -946,9 +952,17 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
             <h3 className="text-lg font-semibold">Salary Information (Optional)</h3>
             <p className="text-sm text-gray-600">Adding salary information helps attract qualified candidates</p>
 
+            <div>
+              <label htmlFor="vacancy-currency" className="block text-sm font-medium mb-2">Currency</label>
+              <select id="vacancy-currency" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}
+                className="h-10 border rounded-md px-3 bg-white text-slate-900">
+                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+              </select>
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Minimum £</label>
+                <label className="block text-sm font-medium mb-2">Minimum {currencySymbol(currency)}</label>
                 <Input
                   type="number"
                   value={formData.salaryMin}
@@ -958,7 +972,7 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Maximum £</label>
+                <label className="block text-sm font-medium mb-2">Maximum {currencySymbol(currency)}</label>
                 <Input
                   type="number"
                   value={formData.salaryMax}

@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/server"
+import { currencySymbol } from "@/lib/currency"
 
 export async function GET(
   req: NextRequest,
@@ -27,7 +28,7 @@ export async function GET(
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, title, description, location, budget_min, budget_max, budget_period, confirmed_tradesperson_id, accepted_contractor_id")
+    .select("id, title, description, location, budget_min, budget_max, budget_period, currency, confirmed_tradesperson_id, accepted_contractor_id")
     .eq("id", jobId)
     .eq("homeowner_id", hp.id)
     .maybeSingle()
@@ -65,9 +66,9 @@ export async function GET(
 
   const budgetDisplay = f.agreedPrice ?? (
     job.budget_min && job.budget_max
-      ? `£${job.budget_min.toLocaleString()} – £${job.budget_max.toLocaleString()}`
-      : job.budget_min ? `From £${job.budget_min.toLocaleString()}`
-      : job.budget_max ? `Up to £${job.budget_max.toLocaleString()}`
+      ? `${currencySymbol((job as any).currency)}${job.budget_min.toLocaleString()} – ${currencySymbol((job as any).currency)}${job.budget_max.toLocaleString()}`
+      : job.budget_min ? `From ${currencySymbol((job as any).currency)}${job.budget_min.toLocaleString()}`
+      : job.budget_max ? `Up to ${currencySymbol((job as any).currency)}${job.budget_max.toLocaleString()}`
       : ""
   )
 

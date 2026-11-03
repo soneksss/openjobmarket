@@ -29,6 +29,7 @@ import { createClient } from "@/lib/client"
 import JobApplicationForm from "./job-application-form"
 import { UrgentJobApplySection } from "./urgent-job-apply-section"
 import { VacancyApplyCard } from "./vacancy-apply-card"
+import { formatMoney } from "@/lib/currency"
 import { JobCountdownTimer } from "./job-countdown-timer"
 import { JobExpiryBadge } from "./job-expiry-badge"
 import FloatingMessageModal from "./floating-message-modal"
@@ -526,9 +527,10 @@ export default function JobDetailView({
     const PERIODS: Record<string, string> = { hourly: "per hour", daily: "per day", weekly: "per week", monthly: "per month", yearly: "per year" }
     const rateType = job.is_tradespeople_job ? "per job" : (PERIODS[(job as any).budget_period] ?? "per hour")
     if (!min && !max) return "Wages not specified"
-    if (min && max) return `£${min.toLocaleString()} - £${max.toLocaleString()} ${rateType}`
-    if (min) return `£${min.toLocaleString()}+ ${rateType}`
-    return `Up to £${max?.toLocaleString()} ${rateType}`
+    const money = (n: number) => formatMoney(n, (job as any).currency)
+    if (min && max) return `${money(min)} - ${money(max)} ${rateType}`
+    if (min) return `${money(min)}+ ${rateType}`
+    return `Up to ${money(max!)} ${rateType}`
   }
 
   const checkIfJobSaved = async () => {

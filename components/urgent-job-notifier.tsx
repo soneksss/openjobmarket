@@ -5,6 +5,7 @@ import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import { X, Briefcase, PartyPopper } from "lucide-react"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
+import { currencySymbol } from "@/lib/currency"
 
 /* ─────────────────────────────────────────────────────────── */
 /* Sound helpers — Web Audio API, no files needed              */
@@ -90,12 +91,13 @@ function markShown(id: string) {
   } catch {}
 }
 
-function formatBudget(min: number | null, max: number | null, period: string | null): string | null {
+function formatBudget(min: number | null, max: number | null, period: string | null, currency?: string | null): string | null {
+  const s = currencySymbol(currency)
   if (!min && !max) return null
   const p = period === "hourly" ? "/hr" : period === "daily" ? "/day" : period === "weekly" ? "/wk" : ""
-  if (min && max) return `£${min}–£${max}${p}`
-  if (min) return `£${min}+${p}`
-  return `Up to £${max}${p}`
+  if (min && max) return `${s}${min}–${s}${max}${p}`
+  if (min) return `${s}${min}+${p}`
+  return `Up to ${s}${max}${p}`
 }
 
 function haversineDistanceMi(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -499,14 +501,14 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
     try {
       const { data: jobData } = await supabase
         .from("jobs")
-        .select("urgency_type, budget_min, budget_max, budget_period, latitude, longitude, expires_at, created_at")
+        .select("urgency_type, budget_min, budget_max, budget_period, currency, latitude, longitude, expires_at, created_at")
         .eq("id", jobId)
         .maybeSingle()
 
       if (!jobData) return
 
       urgencyType = jobData.urgency_type ?? null
-      budget      = formatBudget(jobData.budget_min, jobData.budget_max, jobData.budget_period)
+      budget      = formatBudget(jobData.budget_min, jobData.budget_max, jobData.budget_period, (jobData as any).currency)
       expiresAt   = jobData.expires_at ?? null
       postedAt    = jobData.created_at ?? null
 
@@ -670,7 +672,7 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
 
       const { data: urgentJobs } = await supabase
         .from("jobs")
-        .select("id, title, budget_min, budget_max, budget_period, latitude, longitude, expires_at, urgency_type, created_at")
+        .select("id, title, budget_min, budget_max, budget_period, currency, latitude, longitude, expires_at, urgency_type, created_at")
         .eq("is_active", true)
         .eq("is_tradespeople_job", true)
         .in("urgency_type", ["asap", "today"])
@@ -709,7 +711,7 @@ export function UrgentJobNotifier({ userId }: { userId: string }) {
         const cleanupTimer = setTimeout(() => shownJobIdsRef.current.delete(job.id), 5 * 60 * 1000)
         shownJobIdsRef.current.set(job.id, cleanupTimer)
 
-        const budget = formatBudget(job.budget_min, job.budget_max, job.budget_period)
+        const budget = formatBudget(job.budget_min, job.budget_max, job.budget_period, (job as any).currency)
         let distanceMi: number | null = null
         if (job.latitude && job.longitude && userCoordsRef.current) {
           distanceMi = haversineDistanceMi(

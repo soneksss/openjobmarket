@@ -10,6 +10,7 @@ import { ArrowLeft, MapPin, Briefcase, Building2, SlidersHorizontal, X, Check, C
 import { MapSearchBar } from "@/components/map-search-bar"
 import { ShareJobButton } from "@/components/share-job-button"
 import { MapTabs } from "@/components/map-tabs"
+import { formatMoney } from "@/lib/currency"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import { useToast } from "@/hooks/use-toast"
 
@@ -168,10 +169,11 @@ function createVacancyIcon(L: any, isSelected: boolean) {
 // ── Static data ────────────────────────────────────────────────────────────────
 const BUDGET_OPTIONS = [
   { label: "Any", value: "" },
-  { label: "< £500", value: "0-500" },
-  { label: "£500–1k", value: "500-1k" },
-  { label: "£1k–5k", value: "1k-5k" },
-  { label: "£5k+", value: "5k+" },
+  // No currency symbol: jobs keep the currency they were posted in.
+  { label: "Under 500", value: "0-500" },
+  { label: "500–1k", value: "500-1k" },
+  { label: "1k–5k", value: "1k-5k" },
+  { label: "5k+", value: "5k+" },
 ]
 const URGENCY_OPTIONS = [
   { label: "Any", value: "" },
@@ -213,6 +215,7 @@ type Job = {
   // Vacancy rows only: the employer and how the salary is paid.
   company_profiles?: { company_name: string | null; logo_url: string | null; user_id: string } | null
   budget_period?: string | null
+  currency?: string | null
 }
 
 type SheetState = "collapsed" | "peek" | "expanded"
@@ -258,9 +261,9 @@ const EMPLOYER_SIGNUP_PATH = `/auth/sign-up?source=welcome&accountType=company&r
 
 const PERIOD_SUFFIX: Record<string, string> = { hourly: "/hr", daily: "/day", weekly: "/wk", monthly: "/mo", yearly: "/yr" }
 
-function formatBudget(min: number | null, max: number | null, period?: string | null) {
+function formatBudget(min: number | null, max: number | null, period?: string | null, currency?: string | null) {
   if (!min && !max) return null
-  const fmt = (n: number) => n >= 1000 ? `£${(n/1000).toFixed(n%1000===0?0:1)}k` : `£${n}`
+  const fmt = (n: number) => formatMoney(n, currency, true)
   const per = (period && PERIOD_SUFFIX[period]) ?? ""
   if (min && max) return `${fmt(min)} – ${fmt(max)}${per}`
   if (max) return `Up to ${fmt(max)}${per}`
@@ -598,9 +601,9 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
       <div className="px-4 pt-3 pb-2">
         <h3 className="text-base font-bold text-white leading-snug">{selectedJob.title}</h3>
         <div className="flex flex-wrap items-center gap-2 mt-1.5">
-          {formatBudget(selectedJob.budget_min, selectedJob.budget_max, selectedJob.budget_period) && (
+          {formatBudget(selectedJob.budget_min, selectedJob.budget_max, selectedJob.budget_period, selectedJob.currency) && (
             <span className="flex items-center gap-1 text-xs font-semibold text-sky-300">
-              <Banknote className="w-3.5 h-3.5" />{formatBudget(selectedJob.budget_min, selectedJob.budget_max, selectedJob.budget_period)}
+              <Banknote className="w-3.5 h-3.5" />{formatBudget(selectedJob.budget_min, selectedJob.budget_max, selectedJob.budget_period, selectedJob.currency)}
             </span>
           )}
           {(selectedJob.latitude ?? selectedJob.latitude_approx) && (selectedJob.longitude ?? selectedJob.longitude_approx) && (
@@ -642,9 +645,9 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
       <div className="px-4 pt-3 pb-2">
         <h3 className="text-sm font-bold text-white leading-snug">{selectedJob.title}</h3>
         <div className="flex flex-wrap items-center gap-2 mt-1.5">
-          {formatBudget(selectedJob.budget_min, selectedJob.budget_max) && (
+          {formatBudget(selectedJob.budget_min, selectedJob.budget_max, null, selectedJob.currency) && (
             <span className="flex items-center gap-1 text-xs font-semibold text-indigo-300">
-              <Banknote className="w-3.5 h-3.5" />{formatBudget(selectedJob.budget_min, selectedJob.budget_max)}
+              <Banknote className="w-3.5 h-3.5" />{formatBudget(selectedJob.budget_min, selectedJob.budget_max, null, selectedJob.currency)}
             </span>
           )}
           {selectedJob.urgency_type && (
@@ -780,8 +783,8 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                 <p className="text-[10px] text-slate-400 truncate">{job.company_profiles.company_name}</p>
               )}
               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                {formatBudget(job.budget_min, job.budget_max, job.budget_period) && (
-                  <span className={`text-[10px] font-semibold ${isVacancy ? "text-sky-300" : "text-orange-400"}`}>{formatBudget(job.budget_min, job.budget_max, job.budget_period)}</span>
+                {formatBudget(job.budget_min, job.budget_max, job.budget_period, job.currency) && (
+                  <span className={`text-[10px] font-semibold ${isVacancy ? "text-sky-300" : "text-orange-400"}`}>{formatBudget(job.budget_min, job.budget_max, job.budget_period, job.currency)}</span>
                 )}
                 {(job.latitude ?? job.latitude_approx) && (job.longitude ?? job.longitude_approx) && (
                   <span className="text-[10px] text-slate-500">
@@ -950,8 +953,8 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                       {/* Line 1: title + budget */}
                       <div className="text-[11px] leading-snug">
                         <b>{job.title}</b>
-                        {formatBudget(job.budget_min, job.budget_max, job.budget_period) && (
-                          <span className={`${isVacancy ? "text-sky-500" : "text-orange-400"} font-semibold whitespace-nowrap`}>{"  "}{formatBudget(job.budget_min, job.budget_max, job.budget_period)}</span>
+                        {formatBudget(job.budget_min, job.budget_max, job.budget_period, job.currency) && (
+                          <span className={`${isVacancy ? "text-sky-500" : "text-orange-400"} font-semibold whitespace-nowrap`}>{"  "}{formatBudget(job.budget_min, job.budget_max, job.budget_period, job.currency)}</span>
                         )}
                       </div>
                       {/* Line 2: replies (trade jobs) or employer (vacancies) + time left */}

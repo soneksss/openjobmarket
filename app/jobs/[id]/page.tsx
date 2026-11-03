@@ -5,6 +5,7 @@ import JobDetailView from "@/components/job-detail-view"
 import { generateJobPostingSchema } from "@/lib/schema-markup"
 import { requireVacancyEnabledForJob } from "@/lib/vacancy-guard"
 import { isUUID } from "@/lib/slug"
+import { currencySymbol } from "@/lib/currency"
 
 // Use FK column hints to disambiguate: jobs has two FKs to company_profiles
 // (company_id and confirmed_tradesperson_id) — without a hint PostgREST errors.
@@ -69,7 +70,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const jobPath = `/jobs/${job.slug ?? job.id}`
   const salaryText =
     job.budget_min && job.budget_max
-      ? `£${job.budget_min.toLocaleString()} - £${job.budget_max.toLocaleString()}`
+      ? `${currencySymbol(job.currency)}${job.budget_min.toLocaleString()} - ${currencySymbol(job.currency)}${job.budget_max.toLocaleString()}`
       : ""
 
   return {

@@ -136,6 +136,15 @@ export async function middleware(req: NextRequest) {
     },
   });
 
+  // Visitor's country, from the geo header Vercel adds to every request. Only used
+  // to pre-select a currency when posting (the poster can change it). Set once.
+  if (!req.cookies.get('ojm_country')) {
+    const country = req.headers.get('x-vercel-ip-country')
+    if (country && /^[A-Z]{2}$/.test(country)) {
+      res.cookies.set('ojm_country', country, { maxAge: 60 * 60 * 24 * 30, path: '/', sameSite: 'lax' })
+    }
+  }
+
   // === I18N LOCALE DETECTION & AUTO-REDIRECT ===
   // Handle locale detection, auto-redirect for Brazilian users, and cookie setting
   const currentLocale = getLocaleFromPathname(pathname)

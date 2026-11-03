@@ -78,6 +78,7 @@ import { MessageCircle, Bell } from "lucide-react"
 import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
 import { MarkJobCompleteButton } from "@/components/mark-job-complete-button"
 import { ReviewHomeownerButton } from "@/components/review-homeowner-button"
+import { currencySymbol } from "@/lib/currency"
 
 // Helper to add cache-busting to logo URLs
 const getLogoUrlWithCacheBust = (url: string | undefined) => {
@@ -368,7 +369,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
       const windowStart = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
       const { data } = await supabase
         .from("jobs")
-        .select("id, title, confirmed_at, homeowner_id, budget_min, budget_max, budget_period, location")
+        .select("id, title, confirmed_at, homeowner_id, budget_min, budget_max, budget_period, currency, location")
         .eq("confirmed_tradesperson_id", profile.id)
         .eq("status", "CONFIRMED")
         .gt("confirmed_at", windowStart)
@@ -1097,11 +1098,12 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
   const pendingApplicationsCount = receivedApplications.filter(a => a.status === 'pending').length
 
-  const formatBudget = (min?: number, max?: number) => {
+  const formatBudget = (min?: number, max?: number, currency?: string | null) => {
+    const sym = currencySymbol(currency)
     if (!min && !max) return null
-    if (min && max) return `£${min.toLocaleString()}–£${max.toLocaleString()}`
-    if (min) return `£${min.toLocaleString()}+`
-    return `Up to £${max?.toLocaleString()}`
+    if (min && max) return `${sym}${min.toLocaleString()}–${sym}${max.toLocaleString()}`
+    if (min) return `${sym}${min.toLocaleString()}+`
+    return `Up to ${sym}${max?.toLocaleString()}`
   }
 
   const formatJobDate = (d?: string) => {
@@ -1677,7 +1679,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                     const posterName = homeowner
                       ? `${homeowner.first_name} ${homeowner.last_name}`.trim()
                       : "Homeowner"
-                    const budget = formatBudget(job.budget_min, job.budget_max)
+                    const budget = formatBudget(job.budget_min, job.budget_max, (job as any).currency)
                     const dateLabel = isCompleted
                       ? `Completed ${formatJobDate(job.completed_at)}`
                       : `Confirmed ${formatJobDate(job.confirmed_at)}`

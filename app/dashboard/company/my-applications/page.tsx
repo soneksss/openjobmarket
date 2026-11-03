@@ -5,6 +5,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { JobExpiryBadge } from "@/components/job-expiry-badge"
 import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
+import { currencySymbol } from "@/lib/currency"
 
 export default async function CompanyMyApplicationsPage() {
   const supabase = await createClient()
@@ -24,7 +25,7 @@ export default async function CompanyMyApplicationsPage() {
     .select(`
       id, status, applied_at, cover_letter,
       jobs (
-        id, title, location, budget_min, budget_max, status, expires_at,
+        id, title, location, budget_min, budget_max, currency, status, expires_at,
         is_tradespeople_job, confirmed_tradesperson_id,
         company_profiles!company_id ( company_name, logo_url ),
         homeowner_profiles!homeowner_id ( first_name, last_name )
@@ -56,11 +57,12 @@ export default async function CompanyMyApplicationsPage() {
     return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short" })
   }
 
-  const formatBudget = (min?: number, max?: number) => {
+  const formatBudget = (min?: number, max?: number, currency?: string | null) => {
+    const sym = currencySymbol(currency)
     if (!min && !max) return null
-    if (min && max) return `£${min.toLocaleString()}–£${max.toLocaleString()}`
-    if (min) return `£${min.toLocaleString()}+`
-    return `Up to £${max?.toLocaleString()}`
+    if (min && max) return `${sym}${min.toLocaleString()}–${sym}${max.toLocaleString()}`
+    if (min) return `${sym}${min.toLocaleString()}+`
+    return `Up to ${sym}${max?.toLocaleString()}`
   }
 
   return (
@@ -117,7 +119,7 @@ export default async function CompanyMyApplicationsPage() {
                 ?? "Unknown"
               const logoUrl = job.company_profiles?.logo_url ?? null
               const initials = posterName.slice(0, 2).toUpperCase()
-              const budget = formatBudget(job.budget_min, job.budget_max)
+              const budget = formatBudget(job.budget_min, job.budget_max, (job as any).currency)
 
               // Is this company the confirmed tradesperson?
               const isConfirmedForThisJob = job.confirmed_tradesperson_id === profile.id

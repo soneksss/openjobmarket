@@ -5,6 +5,7 @@ import Link from "next/link"
 import { MarkTradespersonJobsViewed } from "@/components/mark-tradesperson-jobs-viewed"
 import { MarkJobCompleteButton } from "@/components/mark-job-complete-button"
 import { ReviewHomeownerButton } from "@/components/review-homeowner-button"
+import { currencySymbol } from "@/lib/currency"
 
 export const dynamic = "force-dynamic"
 
@@ -35,7 +36,7 @@ export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
   const { data: jobs } = await supabase
     .from("jobs")
     .select(`
-      id, title, location, budget_min, budget_max, status,
+      id, title, location, budget_min, budget_max, currency, status,
       confirmed_at, completed_at,
       homeowner_profiles!homeowner_id ( first_name, last_name, user_id )
     `)
@@ -43,11 +44,12 @@ export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
     .in("status", statusFilter)
     .order("confirmed_at", { ascending: false })
 
-  const formatBudget = (min?: number, max?: number) => {
+  const formatBudget = (min?: number, max?: number, currency?: string | null) => {
+    const sym = currencySymbol(currency)
     if (!min && !max) return null
-    if (min && max) return `£${min.toLocaleString()}–£${max.toLocaleString()}`
-    if (min) return `£${min.toLocaleString()}+`
-    return `Up to £${max?.toLocaleString()}`
+    if (min && max) return `${sym}${min.toLocaleString()}–${sym}${max.toLocaleString()}`
+    if (min) return `${sym}${min.toLocaleString()}+`
+    return `Up to ${sym}${max?.toLocaleString()}`
   }
 
   const formatDate = (d?: string) => {
@@ -132,7 +134,7 @@ export default async function CompanyMyJobsPage({ searchParams }: PageProps) {
               const posterName = homeowner
                 ? `${homeowner.first_name} ${homeowner.last_name}`.trim()
                 : "Homeowner"
-              const budget = formatBudget(job.budget_min, job.budget_max)
+              const budget = formatBudget(job.budget_min, job.budget_max, (job as any).currency)
               const dateLabel = isCompleted
                 ? `Completed ${formatDate(job.completed_at)}`
                 : `Confirmed ${formatDate(job.confirmed_at)}`

@@ -17,6 +17,7 @@ import {
 import { HomeownerJobActions } from "@/components/homeowner-job-actions"
 import { HomeownerJobDetailsContent } from "@/components/homeowner-job-details-content"
 import { JobCountdownTimer } from "@/components/job-countdown-timer"
+import { currencySymbol } from "@/lib/currency"
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -39,7 +40,7 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
     .from("jobs")
     .select(`
       id, title, description, short_description, location, latitude, longitude,
-      budget_min, budget_max, budget_period, is_active, expires_at, created_at,
+      budget_min, budget_max, budget_period, currency, is_active, expires_at, created_at,
       updated_at, is_tradespeople_job, work_location, homeowner_id, job_photo_url,
       accepted_contractor_id, confirmed_tradesperson_id, completed_at, completion_status, status,
       urgency_type, max_responses, applications_count, views_count
@@ -148,10 +149,11 @@ export default async function HomeownerJobDetailsPage({ params }: PageProps) {
       ? `Expires in ${Math.ceil(expiryDiffMs / (1000 * 60 * 60))}h`
     : `Expires in ${Math.ceil(expiryDiffMs / (1000 * 60 * 60 * 24))}d`
 
+  const sym = currencySymbol((job as any).currency)
   const budgetLabel = job.budget_min && job.budget_max
-    ? `£${job.budget_min}–£${job.budget_max}`
-    : job.budget_min ? `£${job.budget_min}+`
-    : job.budget_max ? `Up to £${job.budget_max}`
+    ? `${sym}${job.budget_min}–${sym}${job.budget_max}`
+    : job.budget_min ? `${sym}${job.budget_min}+`
+    : job.budget_max ? `Up to ${sym}${job.budget_max}`
     : null
 
   const displayDescription = (job.short_description || job.description || "").trim()

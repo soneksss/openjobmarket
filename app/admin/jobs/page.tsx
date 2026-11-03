@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { getAdminUser } from "@/lib/admin-auth"
 import { createAdminClient } from "@/lib/server"
 import { setJobListed } from "./actions"
+import { formatMoney } from "@/lib/currency"
 
 export const dynamic = "force-dynamic"
 
@@ -15,9 +16,9 @@ const TABS = [
 
 const PERIOD: Record<string, string> = { hourly: "/hr", daily: "/day", weekly: "/wk", monthly: "/mo", yearly: "/yr" }
 
-function money(min: number | null, max: number | null, period: string | null) {
+function money(min: number | null, max: number | null, period: string | null, currency: string | null) {
   if (!min && !max) return "—"
-  const f = (v: number) => `£${v.toLocaleString("en-GB")}`
+  const f = (v: number) => formatMoney(v, currency)
   const p = (period && PERIOD[period]) ?? ""
   if (min && max) return `${f(min)}–${f(max)}${p}`
   return `${f((min ?? max)!)}${p}`
@@ -30,7 +31,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
   const { type = "all" } = await searchParams
   let q = createAdminClient()
     .from("jobs")
-    .select("id, title, location, status, is_active, is_tradespeople_job, budget_min, budget_max, budget_period, created_at, " +
+    .select("id, title, location, status, is_active, is_tradespeople_job, budget_min, budget_max, budget_period, currency, created_at, " +
       "company_profiles!company_id(company_name), homeowner_profiles!homeowner_id(first_name, last_name)")
     .order("created_at", { ascending: false })
     .limit(200)
@@ -87,7 +88,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
                   </td>
                   <td className="px-3 py-2 text-zinc-400">{poster || "—"}</td>
                   <td className="px-3 py-2 text-zinc-400 max-w-[180px] truncate">{j.location ?? "—"}</td>
-                  <td className="px-3 py-2 text-zinc-400 whitespace-nowrap">{money(j.budget_min, j.budget_max, j.is_tradespeople_job ? null : j.budget_period)}</td>
+                  <td className="px-3 py-2 text-zinc-400 whitespace-nowrap">{money(j.budget_min, j.budget_max, j.is_tradespeople_job ? null : j.budget_period, j.currency)}</td>
                   <td className="px-3 py-2 text-zinc-400 text-xs">{j.is_active ? j.status : "Taken down"}</td>
                   <td className="px-3 py-2 text-zinc-500 text-xs whitespace-nowrap">{new Date(j.created_at).toLocaleDateString("en-GB")}</td>
                   <td className="px-3 py-2 text-right">

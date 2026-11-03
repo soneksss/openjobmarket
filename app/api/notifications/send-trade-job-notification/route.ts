@@ -1,6 +1,7 @@
 import { createClient, createAdminClient } from "@/lib/server"
 import { sendEmail, logNotification } from "@/lib/email/service"
 import { NextRequest, NextResponse } from "next/server"
+import { currencySymbol } from "@/lib/currency"
 
 /**
  * POST /api/notifications/send-trade-job-notification
@@ -17,11 +18,11 @@ import { NextRequest, NextResponse } from "next/server"
  *   urgencyType?: string // "asap" | "today" | "flexible" | null
  * }
  */
-function formatBudget(min?: number | null, max?: number | null, period?: string | null): string {
+function formatBudget(min?: number | null, max?: number | null, period?: string | null, currency?: string | null): string {
   if (!min && !max) return ""
   const periodLabel: Record<string, string> = { per_hour: "/hr", per_day: "/day", per_week: "/wk", per_month: "/mo" }
   const suffix = period ? (periodLabel[period] ?? "") : ""
-  const fmt = (n: number) => `£${n}${suffix}`
+  const fmt = (n: number) => `${currencySymbol(currency)}${n}${suffix}`
   if (min && max && min !== max) return `Budget: ${fmt(min)}–${fmt(max)}`
   return `Budget: ${fmt((min ?? max)!)}`
 }
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
     // Prevents "Urgent job available" → tap → "Job expired" UX.
     const { data: jobCheck } = await adminClient
       .from("jobs")
-      .select("status, is_active, expires_at, budget_min, budget_max, budget_period")
+      .select("status, is_active, expires_at, budget_min, budget_max, budget_period, currency")
       .eq("id", jobId)
       .maybeSingle()
 
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, notificationsSent: 0, message: "Job expired or inactive" })
     }
 
-    const budgetStr = formatBudget(jobCheck.budget_min, jobCheck.budget_max, jobCheck.budget_period)
+    const budgetStr = formatBudget(jobCheck.budget_min, jobCheck.budget_max, jobCheck.budget_period, (jobCheck as any).currency)
 
     // Find matching companies using the database function
     const { data: matchingCompanies, error: matchError } = await adminClient.rpc(

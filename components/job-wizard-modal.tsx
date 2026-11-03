@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import MapLocationPicker from "./map-location-picker"
 import { LocationInput } from "./location-input"
 import { X, ArrowLeft, ArrowRight, Briefcase, Hammer, Zap, Clock, Calendar, ChevronDown, User, Mail, Phone, Lock, Check } from "lucide-react"
+import { CURRENCIES, currencySymbol, visitorCurrency, type Currency } from "@/lib/currency"
 import { useToast } from "@/hooks/use-toast"
 import { useTranslation } from "@/lib/i18n/context"
 import { useActiveSearch } from "@/lib/contexts/active-search-context"
@@ -512,6 +513,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
   const [languageInput, setLanguageInput] = useState("")
   const [langSuggestions, setLangSuggestions] = useState<Array<{ key: string; code: string; name: string }>>([])
   const [showLangSuggestions, setShowLangSuggestions] = useState(false)
+  // Pre-selected from the visitor's country; the poster can change it next to the budget.
+  const [currency, setCurrency] = useState<Currency>(() => visitorCurrency())
 
   const [formData, setFormData] = useState<JobFormData>({
     activeDuration: "",
@@ -774,6 +777,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           budget_min: formData.payMin ? parseInt(formData.payMin) : null,
           budget_max: formData.payMax ? parseInt(formData.payMax) : null,
           budget_period: formData.payFrequency,
+          currency,
           preferred_language: locale ?? "en",
           status: "POSTED",
           is_active: true,
@@ -1048,6 +1052,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         budget_min: budgetMin,
         budget_max: budgetMax,
         budget_period: formData.payFrequency,
+        currency,
         languages: formData.languages.length > 0 ? formData.languages : null,
         preferred_language: locale ?? 'en',
         status: "POSTED",
@@ -1348,9 +1353,16 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
             {/* Budget */}
             <div>
               <label className="block text-sm font-medium mb-1 text-slate-900">Budget (optional)</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-[auto_1fr_1fr] gap-2">
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Min £</label>
+                  <label htmlFor="job-currency" className="block text-xs text-slate-500 mb-1">Currency</label>
+                  <select id="job-currency" value={currency} onChange={(e) => setCurrency(e.target.value as Currency)}
+                    className="h-[46px] border rounded-xl px-2 shadow-sm focus:ring-2 focus:ring-emerald-500 bg-slate-100 border-slate-300 text-slate-900">
+                    {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Min {currencySymbol(currency)}</label>
                   <input
                     type="number"
                     value={formData.payMin}
@@ -1360,7 +1372,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-500 mb-1">Max £</label>
+                  <label className="block text-xs text-slate-500 mb-1">Max {currencySymbol(currency)}</label>
                   <input
                     type="number"
                     value={formData.payMax}

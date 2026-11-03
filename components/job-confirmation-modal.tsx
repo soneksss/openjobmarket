@@ -4,6 +4,7 @@ import { useState } from "react"
 import { createClient } from "@/lib/client"
 import { useRouter } from "next/navigation"
 import { PartyPopper, X } from "lucide-react"
+import { currencySymbol } from "@/lib/currency"
 
 export interface ConfirmedJobOffer {
   id: string
@@ -11,6 +12,7 @@ export interface ConfirmedJobOffer {
   confirmed_at: string
   homeowner_id?: string
   budget_min?: number | null
+  currency?: string | null
   budget_max?: number | null
   budget_period?: string | null
   location?: string | null
@@ -23,13 +25,14 @@ interface JobConfirmationModalProps {
   onDismiss: () => void
 }
 
-function formatBudget(min: number | null | undefined, max: number | null | undefined, period: string | null | undefined): string | null {
+function formatBudget(min: number | null | undefined, max: number | null | undefined, period: string | null | undefined, currency?: string | null): string | null {
+  const s = currencySymbol(currency)
   if (!min && !max) return null
   const p = period === "hourly" ? "/hr" : period === "daily" ? "/day" : period === "weekly" ? "/wk" : ""
-  if (min && max && min !== max) return `£${min}–£${max}${p}`
-  if (min && max && min === max) return `£${min}${p}`
-  if (min) return `£${min}+${p}`
-  return `Up to £${max}${p}`
+  if (min && max && min !== max) return `${s}${min}–${s}${max}${p}`
+  if (min && max && min === max) return `${s}${min}${p}`
+  if (min) return `${s}${min}+${p}`
+  return `Up to ${s}${max}${p}`
 }
 
 // Extract postcode (e.g. "PO9 5AZ") or first part of address
@@ -47,7 +50,7 @@ export function JobConfirmationModal({ job, onAccepted, onDismiss }: JobConfirma
   const [declining, setDeclining] = useState(false)
   const [messaging, setMessaging] = useState(false)
 
-  const budget   = formatBudget(job.budget_min, job.budget_max, job.budget_period)
+  const budget   = formatBudget(job.budget_min, job.budget_max, job.budget_period, job.currency)
   const location = shortLocation(job.location)
 
   const goToJob = () => {

@@ -1,6 +1,7 @@
 import { createClient, createAdminClient, createAdminWriteClient } from "@/lib/server"
 import { NextRequest, NextResponse } from "next/server"
 import { revalidateTag } from "next/cache"
+import { isCurrency } from "@/lib/currency"
 
 // ── GET /api/jobs — viewport-based map loading ──────────────────────────────
 const MAX_SPAN = 2.0  // ~220 km — refuse absurdly large viewports
@@ -38,12 +39,12 @@ export async function GET(req: NextRequest) {
     .from("jobs")
     .select(isVacancy
       ? "id, title, short_description, location, latitude, longitude, " +
-        "latitude_approx, longitude_approx, budget_min, budget_max, budget_period, " +
+        "latitude_approx, longitude_approx, budget_min, budget_max, budget_period, currency, " +
         "created_at, bumped_at, expires_at, applications_count, " +
         "company_profiles!company_id(company_name, logo_url, user_id)"
       : "id, title, short_description, location, latitude, longitude, " +
         "latitude_approx, longitude_approx, location_type, " +
-        "budget_min, budget_max, urgency_type, job_photo_url, industry, category, " +
+        "budget_min, budget_max, currency, urgency_type, job_photo_url, industry, category, " +
         "created_at, bumped_at, expires_at, applications_count, max_responses, " +
         "homeowner_profiles!homeowner_id(first_name, last_name, profile_photo_url, user_id)"
     )
@@ -105,6 +106,10 @@ export async function POST(request: NextRequest) {
     }
 
     const payload = await request.json()
+
+    if (payload.currency !== undefined && !isCurrency(payload.currency)) {
+      return NextResponse.json({ error: "Unsupported currency" }, { status: 400 })
+    }
 
     // ── 2. Verify ownership ──────────────────────────────────────
     const { homeowner_id, company_id } = payload

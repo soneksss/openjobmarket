@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { HomeownerJobActions } from "@/components/homeowner-job-actions"
 import { HomeownerJobDetailsContent } from "@/components/homeowner-job-details-content"
+import { currencySymbol } from "@/lib/currency"
 
 interface PageProps {
   params: Promise<{
@@ -206,7 +207,7 @@ export default async function CompanyJobDetailsPage({ params }: PageProps) {
                   <div>
                     <p className="text-sm font-medium text-gray-700">Budget</p>
                     <p className="text-gray-900">
-                      £{job.budget_min} - £{job.budget_max}
+                      {currencySymbol((job as any).currency)}{job.budget_min} - {currencySymbol((job as any).currency)}{job.budget_max}
                       {job.budget_period && ` ${job.budget_period.replace("_", " ")}`}
                     </p>
                   </div>

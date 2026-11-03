@@ -11,6 +11,7 @@ import MessageModal from "./message-modal"
 import { ReviewsList } from "./reviews-list"
 import { RatingDisplay } from "./rating-display"
 import Link from "next/link"
+import { currencySymbol } from "@/lib/currency"
 
 interface HomeownerProfile {
   id: string
@@ -67,7 +68,7 @@ export default function HomeownerDetailView({
         // differ across migrations ('open' enum vs 'POSTED' text).
         const { data, error } = await supabase
           .from("jobs")
-          .select("id, title, location, budget_min, budget_max, status, urgency_type, created_at")
+          .select("id, title, location, budget_min, budget_max, currency, status, urgency_type, created_at")
           .eq("homeowner_id", homeowner.id)
           .eq("is_tradespeople_job", true)
           .eq("is_active", true)
@@ -234,7 +235,7 @@ export default function HomeownerDetailView({
                         {urgencyBadge(job.urgency_type)}
                         {job.budget_min && job.budget_max && (
                           <span className={`text-xs font-semibold ${isModal ? "text-emerald-400" : "text-green-600"}`}>
-                            £{job.budget_min}–£{job.budget_max}
+                            {currencySymbol(job.currency)}{job.budget_min}–{currencySymbol(job.currency)}{job.budget_max}
                           </span>
                         )}
                       </div>

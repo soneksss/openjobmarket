@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Send, User, MapPin, Briefcase, CheckCircle, Clock, Play, PoundSterling, ImageIcon, X as XIcon, ChevronLeft, ChevronRight, FileText, Download } from "lucide-react"
+import { currencySymbol } from "@/lib/currency"
 import { createClient } from "@/lib/client"
 import { compressImage } from "@/lib/compress-image"
 import Link from "next/link"
@@ -207,6 +208,7 @@ interface JobContext {
   urgency_type?: string | null
   max_responses?: number | null
   confirmed_tradesperson_id?: string | null
+  currency?: string | null
 }
 
 export default function ConversationPage() {
@@ -767,7 +769,7 @@ export default function ConversationPage() {
         console.log('[CONVERSATION] Step 17.5: Fetching job context for:', jobId)
         const { data: jobData, error: jobError } = await supabase
           .from('jobs')
-          .select('id, title, location, created_at, status, matching_status, is_tradespeople_job, urgency_type, max_responses, confirmed_tradesperson_id')
+          .select('id, title, location, created_at, status, matching_status, is_tradespeople_job, urgency_type, max_responses, confirmed_tradesperson_id, currency')
           .eq('id', jobId)
           .maybeSingle()
 
@@ -934,7 +936,9 @@ export default function ConversationPage() {
     }
 
     setSending(true)
-    const quoteContent = `Sent a quote for £${amount.toFixed(2)}`
+    // A quote is in the currency the job was posted in.
+    const quoteCurrency = jobContext?.currency ?? "GBP"
+    const quoteContent = `Sent a quote for ${currencySymbol(quoteCurrency)}${amount.toFixed(2)}`
     const tempId = Date.now().toString()
     try {
       // Optimistic: add temp message immediately so the sender sees it right away
@@ -947,7 +951,7 @@ export default function ConversationPage() {
         is_read: false,
         conversation_id: actualConvId,
         message_type: "quote",
-        metadata: { amount, currency: "GBP" },
+        metadata: { amount, currency: quoteCurrency },
       }
       setMessages(prev => [...prev, tempMessage])
       playMsgSound("send")
@@ -963,7 +967,7 @@ export default function ConversationPage() {
           conversation_id: actualConvId,
           sender_role: senderRole,
           message_type: "quote",
-          metadata: { amount, currency: "GBP" },
+          metadata: { amount, currency: quoteCurrency },
         }),
       })
 
@@ -1321,7 +1325,7 @@ export default function ConversationPage() {
                             <span className="text-[11px] font-medium uppercase tracking-wide">Quote</span>
                           </div>
                           <p className="text-2xl font-bold leading-none">
-                            £{message.metadata?.amount?.toFixed(2) ?? '—'}
+                            {currencySymbol(message.metadata?.currency)}{message.metadata?.amount?.toFixed(2) ?? '—'}
                           </p>
                         </div>
                       ) : message.message_type === 'vacancy_application' ? (
@@ -1373,7 +1377,7 @@ export default function ConversationPage() {
           {showQuoteInput && (
             <div className="flex gap-2 mb-2">
               <div className="relative flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium pointer-events-none">£</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium pointer-events-none">{currencySymbol(jobContext?.currency)}</span>
                 <input
                   type="number"
                   min="1"
