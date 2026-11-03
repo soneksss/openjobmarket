@@ -845,7 +845,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           )
         ) : traders.map(trader => (
           <div key={trader.id} onClick={() => setSelectedTrader(p => p?.id === trader.id ? null : trader)}
-            className={`flex items-center gap-2 px-2 py-1.5 rounded-xl border cursor-pointer transition-all active:bg-slate-700 hover:bg-slate-700/70 ${trader.profile_type === 'seeded' ? 'bg-slate-800/70 border-amber-500/20' : 'bg-slate-800 border-slate-700'}`}>
+            className={`flex items-center gap-2 px-2 py-1.5 rounded-xl border cursor-pointer ojm-glow-card ${trader.profile_type === 'seeded' ? 'opacity-90' : ''}`}>
             <div className="flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden flex items-center justify-center">
               {trader.logo_url
                 ? <img src={trader.logo_url} alt={trader.name} className="w-full h-full object-cover rounded-lg" />
@@ -1267,10 +1267,10 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
       {/* ── RIGHT: Desktop sidebar ──────────────────────────────────────────── */}
       {isDesktop && (
-        <div className="hidden lg:flex flex-col w-[420px] flex-shrink-0 border-l border-slate-700 overflow-hidden"
-          style={{ backgroundColor: "#0f172a", zIndex: 30 }}>
+        <div className="hidden lg:flex flex-col w-[420px] flex-shrink-0 overflow-hidden ojm-glow-panel"
+          style={{ zIndex: 30 }}>
           {/* Sidebar chrome */}
-          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-slate-800"
+          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 ojm-glow-panel-header"
             style={{ paddingTop: "max(env(safe-area-inset-top,0px),10px)" }}>
             {selectedTrader ? (
               <button onClick={() => setSelectedTrader(null)}

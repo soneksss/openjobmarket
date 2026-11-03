@@ -173,7 +173,7 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
 
   return (
     <div
-      className="relative min-h-screen pb-20 md:pb-0 bg-slate-900 bg-cover bg-center bg-fixed bg-no-repeat"
+      className="relative min-h-screen pb-20 md:pb-0 bg-[#030a08] bg-cover bg-center bg-fixed bg-no-repeat"
       style={{
         // A CSS background is always painted behind its own element's content —
         // no z-index or stacking-context games needed (unlike the separate
@@ -182,12 +182,12 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
         // + image are layered natively via CSS's multi-background syntax (first
         // listed paints on top); bg-fixed keeps the pinned-while-scrolling look.
         backgroundImage:
-          "linear-gradient(to bottom, rgba(15,23,42,0.92), rgba(15,23,42,0.88), rgba(15,23,42,0.95)), url('/wallpaper.jpg')",
+          "linear-gradient(to bottom, rgba(3,10,8,0.9), rgba(3,10,8,0.84), rgba(3,10,8,0.94)), url('/hero-space-mobile.webp')",
       }}
     >
 
       {/* ── Trust Strip ──────────────────────────────────────────────────────── */}
-      <div style={{ borderBottom: '1px solid rgba(51,65,85,0.5)', background: 'rgba(15,23,42,0.82)' }}>
+      <div style={{ borderBottom: '1px solid rgba(52,211,153,0.14)', background: 'rgba(3,12,10,0.82)' }}>
         {/* Mobile: 2-col grid */}
         <div className="sm:hidden px-4 py-3 grid grid-cols-2 gap-x-4 gap-y-2.5">
           {TRUST_ITEMS.map(item => {
@@ -242,44 +242,68 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
       </div>
 
       {/* ── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden py-10 sm:py-14 lg:py-16">
-        {/* Ambient glows */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="absolute -top-48 -left-48 w-[480px] h-[480px] bg-emerald-500/6 rounded-full blur-3xl" />
-          <div className="absolute top-10 -right-24 w-96 h-96 bg-emerald-500/4 rounded-full blur-3xl" />
-        </div>
+      <section className="relative overflow-hidden border-b border-emerald-500/10">
+        {/* The planet's lit rim sits bottom-right; the dark sky on the left carries the text */}
+        <picture className="pointer-events-none absolute inset-0">
+          <source media="(min-width: 768px)" srcSet="/hero-space.webp" />
+          <img src="/hero-space-mobile.webp" alt="" aria-hidden="true"
+            className="h-full w-full object-cover object-[70%_center] md:object-right-bottom" />
+        </picture>
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#030a08]/95 via-[#030a08]/70 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#030a08] to-transparent" />
 
-        <div className="container mx-auto px-4 relative max-w-2xl text-center">
-          <h1 className="text-2xl sm:text-4xl xl:text-5xl font-bold text-white leading-[1.2] mb-2">
-            Open Job Market
-          </h1>
-          <p className="text-base sm:text-xl font-semibold text-emerald-400 mb-3">
-            The Smartest Way to Find Local Tradespeople
-          </p>
-          <p className="text-sm sm:text-base text-slate-300 mb-3 leading-relaxed">
-            Choose the option that best suits your job — contact a nearby tradesperson directly, request urgent
-            help, or compare multiple quotations.
-          </p>
-          <p className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1 mb-7">
-            <Gift className="w-3.5 h-3.5" /> A free platform for everyone — homeowners and tradespeople
-          </p>
+        <div className="container relative mx-auto max-w-6xl px-4 pt-12 pb-10 sm:pt-20 sm:pb-14 lg:pt-24 lg:pb-16">
+          <div className="max-w-2xl text-center md:text-left">
+            <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300 shadow-[0_0_24px_-6px_rgba(16,185,129,0.6)]">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_2px_rgba(52,211,153,0.8)]" />
+              Free for homeowners and trades
+            </p>
+            <h1 className="mb-5 text-4xl font-bold leading-[1.05] tracking-tight text-white sm:text-6xl lg:text-7xl">
+              Find local trades,
+              <br />
+              <span className="ojm-glow-text">fast.</span>
+            </h1>
+            <p className="mb-8 text-base leading-relaxed text-slate-300 sm:text-lg md:max-w-xl">
+              See who&apos;s available on a live map, then contact a nearby tradesperson directly, request urgent
+              help, or compare quotes. No lead fees, no middleman.
+            </p>
 
-          {/* CTA buttons */}
-          <div className="flex flex-col sm:flex-row sm:justify-center gap-3">
-            <Link href="/find-trades"
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-[0.97] text-white font-bold rounded-xl text-base transition-all shadow-lg shadow-emerald-500/25">
-              <Users className="w-4 h-4 flex-shrink-0" />
-              Find a Tradesperson
-            </Link>
-            <button onClick={handlePostJob}
-              className="flex items-center justify-center gap-2 px-6 py-3 border border-slate-600 hover:border-slate-400 active:scale-[0.97] text-slate-200 hover:text-white font-semibold rounded-xl text-base transition-all">
-              <Briefcase className="w-4 h-4 flex-shrink-0" />
-              Post a Job
-            </button>
-            <button onClick={scrollToHowItWorks}
-              className="flex items-center justify-center gap-2 px-6 py-3 text-slate-400 hover:text-white font-semibold rounded-xl text-base transition-all">
-              How it Works ↓
-            </button>
+            {/* CTA buttons */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-center md:justify-start">
+              <Link href="/find-trades"
+                className="ojm-glow-button flex items-center justify-center gap-2 rounded-full px-7 py-3.5 text-base font-bold transition-all active:scale-[0.97]">
+                <Users className="h-4 w-4 flex-shrink-0" />
+                Find a Tradesperson
+              </Link>
+              <button onClick={handlePostJob}
+                className="flex items-center justify-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-950/40 px-7 py-3.5 text-base font-semibold text-emerald-50 backdrop-blur-sm transition-all hover:border-emerald-300/60 hover:bg-emerald-900/40 active:scale-[0.97]">
+                <Briefcase className="h-4 w-4 flex-shrink-0" />
+                Post a Job
+              </button>
+              <button onClick={scrollToHowItWorks}
+                className="flex items-center justify-center gap-2 px-4 py-3.5 text-base font-semibold text-slate-400 transition-all hover:text-white">
+                How it Works ↓
+              </button>
+            </div>
+          </div>
+
+          {/* Three ways to hire */}
+          <div className="mt-12 grid gap-3 sm:grid-cols-3 sm:mt-16">
+            {[
+              { icon: MessagesSquare, title: "Contact directly", text: "Message a nearby tradesperson straight from the map." },
+              { icon: Zap, title: "Urgent help", text: "Alert trades who are free right now and get a fast reply." },
+              { icon: ClipboardList, title: "Compare quotes", text: "Post once and compare replies from local trades." },
+            ].map(({ icon: Icon, title, text }) => (
+              <div key={title} className="ojm-glass flex items-start gap-3 rounded-2xl p-4 text-left">
+                <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border border-emerald-400/30 bg-emerald-500/15 shadow-[0_0_20px_-4px_rgba(16,185,129,0.7)]">
+                  <Icon className="h-5 w-5 text-emerald-300" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-white">{title}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-slate-400">{text}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -288,7 +312,7 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
       <section id="sec-available" data-fade
         className={`py-10 border-t border-slate-800/60 ${fade("sec-available")}`}>
         <div className="container mx-auto px-4 max-w-2xl">
-          <div className="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-5 sm:p-7">
+          <div className="ojm-glass rounded-2xl p-5 sm:p-7">
             <h2 className="flex items-center justify-center gap-2.5 text-lg sm:text-xl font-bold text-white text-center mb-4">
               <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />

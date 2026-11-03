@@ -6,7 +6,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 import { getIndustryStyle, getIndustryPinColor, getIndustryPinSvg } from "@/lib/data/industry-styles"
-import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, LocateFixed, Loader2 } from "lucide-react"
+import { ArrowLeft, MapPin, Briefcase, SlidersHorizontal, X, Check, Clock, Banknote, Search, Users, LocateFixed, Loader2, MessageSquare } from "lucide-react"
 import { MapSearchBar } from "@/components/map-search-bar"
 import { ShareJobButton } from "@/components/share-job-button"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
@@ -662,7 +662,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
           )
         ) : jobs.map(job => (
           <div key={job.id} onClick={() => setSelectedJob(p => p?.id === job.id ? null : job)}
-            className="flex items-start gap-2.5 px-2 py-2 rounded-xl border cursor-pointer transition-all bg-slate-800 border-slate-700 active:bg-slate-700">
+            className="flex items-start gap-2.5 px-2 py-2 rounded-xl border cursor-pointer ojm-glow-card">
             <div className="flex-shrink-0 w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center">
               {job.job_photo_url
                 ? <img src={job.job_photo_url} alt={job.title} className="w-full h-full object-cover rounded-lg" />
@@ -683,6 +683,22 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                 <span className="text-[10px] text-slate-600">{timeAgo(job.bumped_at ?? job.created_at)}</span>
               </div>
             </div>
+            {(() => {
+              const replies = job.applications_count ?? 0
+              return replies > 0 ? (
+                <span className="flex-shrink-0 self-center inline-flex items-center gap-1 rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300"
+                  title={`${replies} tradespeople have replied`}>
+                  <MessageSquare className="w-3 h-3" />
+                  {replies} {replies === 1 ? "reply" : "replies"}
+                </span>
+              ) : (
+                <span className="flex-shrink-0 self-center inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300"
+                  title="No replies yet">
+                  <MessageSquare className="w-3 h-3" />
+                  Be first
+                </span>
+              )
+            })()}
           </div>
         ))}
       </div>
@@ -889,10 +905,10 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
 
       {/* ── RIGHT: Desktop sidebar ──────────────────────────────────────────── */}
       {isDesktop && (
-        <div className="hidden lg:flex flex-col w-[420px] flex-shrink-0 border-l border-slate-700 overflow-hidden"
-          style={{ backgroundColor: "#0f172a", zIndex: 30 }}>
+        <div className="hidden lg:flex flex-col w-[420px] flex-shrink-0 overflow-hidden ojm-glow-panel"
+          style={{ zIndex: 30 }}>
           {/* Chrome */}
-          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 border-b border-slate-800"
+          <div className="flex-shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 ojm-glow-panel-header"
             style={{ paddingTop: "max(env(safe-area-inset-top,0px),10px)" }}>
             {selectedJob ? (
               <button onClick={() => setSelectedJob(null)}
