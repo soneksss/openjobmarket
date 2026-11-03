@@ -1779,7 +1779,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   onClick={() => setContactData((p) => ({ ...p, ageConfirmation: !p.ageConfirmation }))}
                   className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${contactData.ageConfirmation ? "bg-emerald-500 border-emerald-500" : "border-slate-300 bg-slate-50"}`}
                 >
-                  {contactData.ageConfirmation && <Check className="w-3 h-3 text-slate-900" />}
+                  {contactData.ageConfirmation && <Check className="w-3 h-3 text-white" />}
                 </button>
                 <span className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">
                   I confirm I am 18 years of age or older <span className="text-red-600">*</span>
@@ -1792,7 +1792,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   onClick={() => setContactData((p) => ({ ...p, termsAccepted: !p.termsAccepted }))}
                   className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${contactData.termsAccepted ? "bg-emerald-500 border-emerald-500" : "border-slate-300 bg-slate-50"}`}
                 >
-                  {contactData.termsAccepted && <Check className="w-3 h-3 text-slate-900" />}
+                  {contactData.termsAccepted && <Check className="w-3 h-3 text-white" />}
                 </button>
                 <span className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">
                   I agree to the <a href="/terms" target="_blank" className="text-emerald-600 underline underline-offset-2">Terms & Conditions</a> and <a href="/privacy" target="_blank" className="text-emerald-600 underline underline-offset-2">Privacy Policy</a> <span className="text-red-600">*</span>
@@ -1851,7 +1851,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   <div key={step} className="flex items-center flex-1">
                     <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-all duration-300 ${
                       step < currentStep
-                        ? "bg-emerald-500 text-slate-900"
+                        ? "bg-emerald-500 text-white"
                         : step === currentStep
                         ? "bg-emerald-500/20 text-emerald-600 ring-2 ring-emerald-500/50"
                         : "bg-slate-50 text-slate-400 ring-1 ring-slate-700"
