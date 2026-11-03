@@ -4,14 +4,13 @@
 // businesses, jobseekers). Picking one fades in a light panel with that
 // group's benefits and the two actions that matter to them.
 
-import { useState } from "react"
 import Link from "next/link"
 import {
   ArrowRight, Bell, Briefcase, Building2, Check, ClipboardList, FileText, Hammer, Home,
   Map as MapIcon, MapPin, MessagesSquare, Search, ToggleRight, UserPlus, Zap,
 } from "lucide-react"
 
-type AudienceId = "homeowners" | "tradespeople" | "businesses" | "jobseekers"
+export type AudienceId = "homeowners" | "tradespeople" | "businesses" | "jobseekers"
 type Action = { label: string; href?: string; onClick?: () => void }
 
 const TONES = {
@@ -25,12 +24,15 @@ const EMPLOYER_SIGNUP = `/auth/sign-up?source=welcome&accountType=company&return
 const HOMEOWNER_SIGNUP = `/auth/sign-up?source=quickcheck&accountType=individual&returnUrl=${encodeURIComponent("/find-trades")}`
 const JOBSEEKER_SIGNUP =`/auth/sign-up?source=quickcheck&accountType=individual&returnUrl=${encodeURIComponent("/find-vacancies")}`
 
-export function AudienceExplorer({ isSignedIn, userType, onPostJob }: {
+// Controlled by the page, so the sections below the panel follow the chosen group too.
+export function AudienceExplorer({ isSignedIn, userType, onPostJob, active, onChange }: {
   isSignedIn: boolean
   userType?: string | null
   onPostJob: () => void
+  active: AudienceId
+  onChange: (id: AudienceId) => void
 }) {
-  const [active, setActive] = useState<AudienceId>("homeowners")
+  const setActive = onChange
   const isBusiness = userType === "company"
 
   const AUDIENCES: {

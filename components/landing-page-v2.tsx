@@ -11,7 +11,8 @@ import Link from "next/link"
 import dynamic from "next/dynamic"
 import { helpItems } from "@/lib/data/help-items"
 import { LocalImpactSection } from "@/components/local-impact-section"
-import { AudienceExplorer } from "@/components/audience-explorer"
+import { AudienceExplorer, type AudienceId } from "@/components/audience-explorer"
+import { AudienceSections } from "@/components/audience-sections"
 
 const JobWizardModal = dynamic(() => import("@/components/job-wizard-modal"), { ssr: false })
 
@@ -155,6 +156,9 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
     document.getElementById("sec-how")?.scrollIntoView({ behavior: "smooth" })
   }
 
+  // ── "Who is it for?" — the rest of the page follows this choice ──────────
+  const [audience, setAudience] = useState<AudienceId>("homeowners")
+
   // ── Scroll-triggered fade-in ─────────────────────────────────────────────
   const [visible, setVisible] = useState<Set<string>>(new Set())
   useEffect(() => {
@@ -167,7 +171,8 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
     )
     document.querySelectorAll("[data-fade]").forEach(el => observer.observe(el))
     return () => observer.disconnect()
-  }, [])
+    // Re-observe when the chosen group changes: its sections are freshly mounted.
+  }, [audience])
 
   const fade = (id: string) =>
     `transition-all duration-700 ease-out ${visible.has(id) ? "opacity-100 translate-y-0" : "opacity-0 translate-y-5"}`
@@ -274,9 +279,18 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
             </button>
           </div>
 
-          <AudienceExplorer isSignedIn={isSignedIn} userType={userType} onPostJob={handlePostJob} />
+          <AudienceExplorer isSignedIn={isSignedIn} userType={userType} onPostJob={handlePostJob}
+            active={audience} onChange={setAudience} />
         </div>
       </section>
+
+      {/* Everything down to the app section follows the group picked above. */}
+      {audience !== "homeowners" ? (
+        <>
+          <AudienceSections audience={audience} />
+          {audience === "tradespeople" && <LocalImpactSection variant="tradesperson" />}
+        </>
+      ) : (<>
 
       {/* ── See Who's Available ─────────────────────────────────────────────── */}
       <section id="sec-available" data-fade
@@ -465,6 +479,7 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
           </p>
         </div>
       </section>
+      </>)}
 
       {/* ── Download App ────────────────────────────────────────────────────── */}
       <section id="sec-app" data-fade
@@ -517,7 +532,7 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
       </section>
 
       {/* ── Why Homeowners Love It ───────────────────────────────────────────── */}
-      <section id="sec-love" data-fade
+      {audience === "homeowners" && <section id="sec-love" data-fade
         className={`py-10 border-t border-slate-800/60 px-4 ${fade("sec-love")}`}>
         <div className="container mx-auto max-w-2xl">
           <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6">
@@ -542,7 +557,7 @@ export function LandingPageV2({ isSignedIn, user, userType }: Props) {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <div className="border-t border-slate-800 pt-5 pb-8 px-4">
