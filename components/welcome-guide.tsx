@@ -7,11 +7,11 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ArrowRight, Bell, Briefcase, Check, Hammer, Home, Loader2, MapPin, MessagesSquare, Search, ToggleRight, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, Bell, Briefcase, Building2, Check, Hammer, Home, Loader2, MapPin, MessagesSquare, Search, ToggleRight, TrendingUp, Truck, X } from "lucide-react"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
 
 type Role = "homeowner" | "tradesperson"
-type Step = "closed" | "welcome" | "homeowner" | "tradesperson" | "trade-setup" | "trade-profile"
+type Step = "closed" | "welcome" | "homeowner" | "t-postcode" | "t-trades" | "t-name" | "t-join"
 type Seeded = { id: string; name: string }
 type Demand = { jobs: number; businesses: number; seeded: Seeded[] }
 
@@ -20,11 +20,22 @@ const DISMISSED_KEY = "ojm_welcome_dismissed"
 const OPEN_EVENT = "ojm:open-welcome"
 const ROLE_EVENT = "ojm:role-changed"
 const TRADES = TRADE_INDUSTRIES.filter(t => t.title !== "Not sure / Other")
+const POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i
 // Roughly 20 miles each way around the postcode.
 const LAT_SPAN = 0.29
 const LNG_SPAN = 0.46
 // Below this many open jobs we talk about competition instead of job volume.
 const MIN_JOBS_TO_SHOW = 5
+
+const TRADE_STEPS: { step: Step; label: string }[] = [
+  { step: "t-postcode", label: "Your area" },
+  { step: "t-trades", label: "Your trades" },
+  { step: "t-name", label: "Your business" },
+  { step: "t-join", label: "Create free profile" },
+]
+const BACK: Partial<Record<Step, Step>> = {
+  homeowner: "welcome", "t-postcode": "welcome", "t-trades": "t-postcode", "t-name": "t-trades", "t-join": "t-name",
+}
 
 function hasAuthCookie() {
   return /(?:^|; )sb-[^=]+-auth-token/.test(document.cookie)
@@ -87,7 +98,7 @@ export default function WelcomeGuide({ page }: { page: "trades" | "jobs" }) {
   useEffect(() => {
     setCoords(null)
     const pc = postcode.trim()
-    if (!/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(pc)) { setGeoState("idle"); return }
+    if (!POSTCODE_RE.test(pc)) { setGeoState("idle"); return }
     setGeoState("loading")
     const ctrl = new AbortController()
     const t = setTimeout(() => {
@@ -147,7 +158,7 @@ export default function WelcomeGuide({ page }: { page: "trades" | "jobs" }) {
   function choose(r: Role) {
     saveRole(r)
     window.dispatchEvent(new Event(ROLE_EVENT))
-    setStep(r)
+    setStep(r === "homeowner" ? "homeowner" : "t-postcode")
   }
 
   function goTo(target: "trades" | "jobs", query = "") {
@@ -182,196 +193,226 @@ export default function WelcomeGuide({ page }: { page: "trades" | "jobs" }) {
 
   if (signedIn || step === "closed") return null
 
+  const pc = postcode.trim().toUpperCase()
   const trade = industries[0]
-  const isTradeFlow = step === "trade-setup" || step === "trade-profile"
+  const tradeIndex = TRADE_STEPS.findIndex(s => s.step === step)
+  const isTradeFlow = tradeIndex >= 0
+  const back = BACK[step]
+  const demandBox = demand && trade ? (
+    <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5 lg:px-5 lg:py-4">
+      <TrendingUp className="flex-shrink-0 w-5 h-5 lg:w-6 lg:h-6 text-emerald-600 mt-0.5" />
+      <p className="text-sm lg:text-base font-medium text-emerald-900 leading-relaxed">{demandMessage(demand, trade, pc)}</p>
+    </div>
+  ) : null
 
   return (
-    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/55 backdrop-blur-[3px] p-4">
+    // Bottom padding on small screens keeps the window clear of the mobile bottom nav.
+    <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/45 backdrop-blur-[3px] p-3 pb-[calc(env(safe-area-inset-bottom,0px)+76px)] sm:px-4 sm:pt-4 lg:pb-4">
       <div
         ref={dialogRef}
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="welcome-title"
-        className="relative w-full max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-2xl ojm-glow-panel border border-emerald-400/25 p-5 sm:p-7 outline-none"
+        className="relative flex w-full max-w-xl lg:max-w-[1200px] lg:w-[70vw] lg:min-h-[70vh] max-h-full lg:max-h-[90vh] overflow-hidden rounded-3xl bg-white text-slate-900 shadow-2xl shadow-black/40 outline-none"
       >
-        <button onClick={dismiss} aria-label="Close" className="absolute right-3 top-3 w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5">
-          <X className="w-4 h-4" />
-        </button>
-
-        {step !== "welcome" && (
-          <button
-            onClick={() => setStep(step === "trade-profile" ? "trade-setup" : step === "trade-setup" ? "tradesperson" : "welcome")}
-            className="mb-3 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back
-          </button>
-        )}
-
-        {isTradeFlow && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider">
-              <span className="text-emerald-300">Free business profile · No lead fees</span>
-              <span className="text-slate-500">Step {step === "trade-setup" ? 1 : 2} of 2</span>
-            </div>
-            <div className="mt-2 h-1 rounded-full bg-white/5 overflow-hidden">
-              <div className="h-full rounded-full bg-emerald-400 transition-all" style={{ width: step === "trade-setup" ? "50%" : "100%" }} />
-            </div>
-          </div>
-        )}
-
-        {step === "welcome" && (
-          <>
-            <h2 id="welcome-title" className="text-2xl sm:text-3xl font-bold text-white pr-8">
-              Welcome to <span className="ojm-glow-text">Open Job Market</span>
-            </h2>
-            <p className="mt-1.5 text-sm text-slate-300">Find work. Find tradespeople. Get jobs done.</p>
-            <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-slate-400">Choose what you want to do</p>
-            <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button onClick={() => choose("homeowner")} className="group text-left rounded-xl border p-4 ojm-glow-card">
-                <span className="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-300"><Home className="w-5 h-5" /></span>
-                <span className="mt-3 block text-base font-bold text-white">I&apos;m a homeowner</span>
-                <span className="mt-0.5 block text-xs text-slate-400">Looking for someone to do a job?</span>
-              </button>
-              <button onClick={() => choose("tradesperson")} className="group text-left rounded-xl border p-4 ojm-glow-card">
-                <span className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300"><Hammer className="w-5 h-5" /></span>
-                <span className="mt-3 block text-base font-bold text-white">I&apos;m a tradesperson</span>
-                <span className="mt-0.5 block text-xs text-slate-400">Looking for trade jobs or new customers?</span>
-              </button>
-            </div>
-            <p className="mt-4 text-center text-xs text-emerald-200/80">No fees to post jobs · No hidden charges · Connect directly</p>
-            <div className="mt-4 flex items-center justify-between text-xs">
-              <a href="/home" className="text-slate-300 hover:text-white underline-offset-2 hover:underline">What is Open Job Market?</a>
-              <button onClick={dismiss} className="text-slate-500 hover:text-slate-300">Just let me look</button>
-            </div>
-          </>
-        )}
-
-        {step === "homeowner" && (
-          <>
-            <h2 id="welcome-title" className="text-xl sm:text-2xl font-bold text-white">What would you like to do?</h2>
-            <div className="mt-4 space-y-2.5">
-              <ChoiceCard icon={<Briefcase className="w-5 h-5" />} tone="emerald" title="Post a job"
-                text="Describe what needs doing and get responses from local tradespeople." onClick={postJob} />
-              <ChoiceCard icon={<Search className="w-5 h-5" />} tone="sky" title="Find local tradespeople"
-                text="Explore the map and contact tradespeople directly." onClick={() => goTo("trades")} />
-            </div>
-          </>
-        )}
-
-        {step === "tradesperson" && (
-          <>
-            <h2 id="welcome-title" className="text-xl sm:text-2xl font-bold text-white">What would you like to do?</h2>
-            <div className="mt-4 space-y-2.5">
-              <ChoiceCard icon={<MapPin className="w-5 h-5" />} tone="emerald" title="Get new customers"
-                text="Put your business on the map for free, so local homeowners can find and contact you." onClick={() => setStep("trade-setup")} />
-              <ChoiceCard icon={<Briefcase className="w-5 h-5" />} tone="sky" title="Find trade jobs"
-                text="Browse jobs posted by homeowners near you." onClick={() => goTo("jobs")} />
-            </div>
-            <p className="mt-4 text-center text-xs text-emerald-200/80">No subscription · No pay-per-lead · No hidden fees</p>
-          </>
-        )}
-
-        {step === "trade-setup" && (
-          <>
-            <h2 id="welcome-title" className="text-xl sm:text-2xl font-bold text-white">Let&apos;s put your business on the map</h2>
-            <label htmlFor="welcome-postcode" className="mt-4 block text-xs font-semibold text-slate-300">Where are you based?</label>
-            <div className="relative mt-1.5">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
-              <input
-                id="welcome-postcode"
-                value={postcode}
-                onChange={e => setPostcode(e.target.value.toUpperCase())}
-                placeholder="Postcode, e.g. PO1 2AB"
-                autoComplete="postal-code"
-                className="w-full rounded-xl bg-black/30 border border-emerald-400/20 focus:border-emerald-400/60 outline-none pl-9 pr-9 py-2.5 text-sm text-white placeholder:text-slate-500"
-              />
-              {geoState === "loading" && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 animate-spin" />}
-              {coords && <Check className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />}
-            </div>
-            {geoState === "notfound" && <p className="mt-1 text-[11px] text-orange-300">We couldn&apos;t find that postcode.</p>}
-
-            <p className="mt-4 text-xs font-semibold text-slate-300">What work do you do? <span className="font-normal text-slate-500">Pick all that apply</span></p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {TRADES.map(t => {
-                const on = industries.includes(t.title)
-                return (
-                  <button key={t.title} onClick={() => toggleIndustry(t.title)}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${on
-                      ? "bg-emerald-500/20 border-emerald-400/60 text-emerald-100"
-                      : "bg-white/[0.03] border-white/10 text-slate-300 hover:border-emerald-400/30"}`}>
-                    {on && <Check className="inline w-3 h-3 mr-1 -mt-0.5" />}{t.title}
-                  </button>
-                )
-              })}
-            </div>
-
-            <div className="mt-4 min-h-[52px]" aria-live="polite">
-              {demand && trade ? (
-                <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2.5 text-xs text-emerald-100 leading-relaxed">
-                  {demandMessage(demand, trade, postcode.trim().toUpperCase())}
-                </div>
-              ) : demandLoading ? (
-                <p className="text-xs text-slate-500 flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Checking demand near you…</p>
-              ) : (
-                <p className="text-xs text-slate-500">Add your postcode and trade to see demand near you.</p>
-              )}
-            </div>
-
-            <button
-              onClick={() => setStep("trade-profile")}
-              disabled={!postcode.trim() || industries.length === 0}
-              className="mt-4 w-full rounded-xl ojm-glow-button py-3 text-sm font-bold disabled:opacity-40 disabled:pointer-events-none inline-flex items-center justify-center gap-1.5"
-            >
-              Continue <ArrowRight className="w-4 h-4" />
-            </button>
-          </>
-        )}
-
-        {step === "trade-profile" && (
-          <>
-            <h2 id="welcome-title" className="text-xl sm:text-2xl font-bold text-white">Your business. More work. <span className="ojm-glow-text">Free.</span></h2>
-
-            <label htmlFor="welcome-business" className="mt-4 block text-xs font-semibold text-slate-300">
-              Business name <span className="font-normal text-slate-500">(optional)</span>
-            </label>
-            <input
-              id="welcome-business"
-              value={businessName}
-              onChange={e => setBusinessName(e.target.value)}
-              placeholder="e.g. Smith Plumbing"
-              autoComplete="organization"
-              className="mt-1.5 w-full rounded-xl bg-black/30 border border-emerald-400/20 focus:border-emerald-400/60 outline-none px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
-            />
-            {listedMatches.length > 0 && (
-              <div className="mt-2 rounded-xl border border-sky-400/25 bg-sky-500/5 p-2">
-                <p className="px-1 pb-1 text-[11px] text-sky-200">Is this your business? It&apos;s already listed. Claim it for free:</p>
-                {listedMatches.map(s => (
-                  <a key={s.id} href={`/seeded/${s.id}/claim`}
-                    className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs text-white hover:bg-white/5">
-                    <span className="truncate">{s.name}</span>
-                    <span className="flex-shrink-0 text-sky-300 font-semibold">Claim →</span>
-                  </a>
+        {/* Left: brand panel with the guide's progress (desktop only) */}
+        <aside className="relative hidden lg:flex flex-col justify-between w-[36%] flex-shrink-0 p-10 text-white bg-[#04120d] overflow-hidden">
+          <img src="/hero-space-mobile.webp" alt="" className="absolute inset-0 w-full h-full object-cover object-bottom opacity-70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#04120d] via-[#04120d]/70 to-transparent" />
+          <div className="relative">
+            <p className="text-sm font-semibold uppercase tracking-widest text-emerald-300">Open Job Market</p>
+            <p className="mt-4 text-3xl xl:text-4xl font-bold leading-tight">
+              {isTradeFlow ? <>Put your business <span className="ojm-glow-text">on the map.</span></> : <>Local trades, <span className="ojm-glow-text">fast.</span></>}
+            </p>
+            {isTradeFlow ? (
+              <ol className="mt-8 space-y-4">
+                {TRADE_STEPS.map((s, i) => (
+                  <li key={s.step} className={`flex items-center gap-3 text-lg ${i === tradeIndex ? "text-white font-semibold" : i < tradeIndex ? "text-emerald-200" : "text-white/50"}`}>
+                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border ${i < tradeIndex ? "bg-emerald-400 border-emerald-400 text-emerald-950" : i === tradeIndex ? "border-emerald-300 text-emerald-200" : "border-white/30"}`}>
+                      {i < tradeIndex ? <Check className="w-4 h-4" /> : i + 1}
+                    </span>
+                    {s.label}
+                  </li>
                 ))}
+              </ol>
+            ) : (
+              <ul className="mt-8 space-y-3 text-lg text-white/90">
+                {["No fees to post jobs", "No pay-per-lead for trades", "Contact each other directly"].map(t => (
+                  <li key={t} className="flex items-center gap-3"><Check className="w-5 h-5 text-emerald-300" />{t}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </aside>
+
+        {/* Right: the current step */}
+        <div className="relative flex-1 min-w-0 flex flex-col overflow-y-auto p-6 sm:p-8 lg:px-12 lg:py-8">
+          <div className="flex items-center justify-between gap-3 min-h-[40px] lg:-mb-2">
+            {back ? (
+              <button onClick={() => setStep(back)} className="inline-flex items-center gap-1.5 text-sm lg:text-base font-medium text-slate-500 hover:text-slate-900">
+                <ArrowLeft className="w-4 h-4 lg:w-5 lg:h-5" /> Back
+              </button>
+            ) : <span />}
+            <button onClick={dismiss} aria-label="Close" className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100">
+              <X className="w-5 h-5 lg:w-6 lg:h-6" />
+            </button>
+          </div>
+
+          {isTradeFlow && (
+            <div className="mt-2 lg:hidden">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span className="text-emerald-700">{TRADE_STEPS[tradeIndex].label}</span>
+                <span className="text-slate-400">Step {tradeIndex + 1} of {TRADE_STEPS.length}</span>
               </div>
+              <div className="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${((tradeIndex + 1) / TRADE_STEPS.length) * 100}%` }} />
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 flex flex-col justify-center py-4 lg:py-2">
+            {step === "welcome" && (
+              <>
+                <h2 id="welcome-title" className="text-3xl lg:text-[42px] lg:leading-tight font-bold tracking-tight">Welcome to Open Job Market</h2>
+                <p className="mt-2 lg:mt-3 text-base lg:text-xl text-slate-600">Find work. Find tradespeople. Get jobs done.</p>
+                <p className="mt-6 lg:mt-10 text-sm lg:text-base font-semibold text-slate-500">Which one are you?</p>
+                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-5">
+                  <RoleCard icon={<Home className="w-7 h-7 lg:w-9 lg:h-9" />} tone="sky" title="I'm a homeowner"
+                    text="I need someone to do a job." onClick={() => choose("homeowner")} />
+                  <RoleCard icon={<Hammer className="w-7 h-7 lg:w-9 lg:h-9" />} tone="emerald" title="I'm a tradesperson"
+                    text="I want new customers and jobs." onClick={() => choose("tradesperson")} />
+                </div>
+                <div className="mt-6 lg:mt-10 flex flex-wrap items-center justify-between gap-3 text-sm lg:text-base">
+                  <a href="/home" className="font-medium text-emerald-700 hover:underline underline-offset-4">What is Open Job Market?</a>
+                  <button onClick={dismiss} className="text-slate-500 hover:text-slate-900">Just let me look around</button>
+                </div>
+              </>
             )}
 
-            <ul className="mt-5 space-y-2.5">
-              <Benefit icon={<MapPin className="w-3.5 h-3.5" />} title="Get discovered locally" text="Homeowners near you can find your business on the map." />
-              <Benefit icon={<MessagesSquare className="w-3.5 h-3.5" />} title="Receive direct enquiries" text="Homeowners can contact you through the platform." />
-              <Benefit icon={<Bell className="w-3.5 h-3.5" />} title="Hear about new jobs" text="Turn on alerts for jobs matching your trade and area." />
-              <Benefit icon={<ToggleRight className="w-3.5 h-3.5" />} title="You control your availability" text="Show when you're available, or that you're busy." />
-            </ul>
-            <p className="mt-4 text-center text-xs font-semibold text-emerald-200">No subscription · No pay-per-lead · No hidden fees</p>
+            {step === "homeowner" && (
+              <>
+                <h2 id="welcome-title" className="text-3xl lg:text-[42px] lg:leading-tight font-bold tracking-tight">What would you like to do?</h2>
+                <div className="mt-6 lg:mt-10 grid grid-cols-1 sm:grid-cols-2 gap-3 lg:gap-5">
+                  <RoleCard icon={<Briefcase className="w-7 h-7 lg:w-9 lg:h-9" />} tone="emerald" title="Post a job"
+                    text="Describe what needs doing and get replies from local tradespeople." onClick={postJob} />
+                  <RoleCard icon={<Search className="w-7 h-7 lg:w-9 lg:h-9" />} tone="sky" title="Find tradespeople"
+                    text="Browse the map and contact tradespeople directly." onClick={() => goTo("trades")} />
+                </div>
+                <div className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3.5 lg:px-5 lg:py-4">
+                  <Truck className="flex-shrink-0 w-6 h-6 lg:w-7 lg:h-7 text-emerald-600 mt-0.5" />
+                  <p className="text-sm lg:text-base text-slate-700">
+                    On the map, <span className="font-semibold text-emerald-700">green vans are tradespeople available now</span>.
+                    Grey vans may be busy, but you can still contact them.
+                  </p>
+                </div>
+                <p className="mt-5 text-sm lg:text-base text-slate-500">Free for homeowners. No fees to post jobs.</p>
+              </>
+            )}
 
-            <button onClick={createProfile} className="mt-4 w-full rounded-xl ojm-glow-button py-3 text-sm font-bold">
-              Create my free business profile
-            </button>
-            <button onClick={browseJobs} className="mt-2 w-full rounded-xl border border-white/15 py-2.5 text-sm font-medium text-slate-200 hover:bg-white/5">
-              No thanks, I just want to browse jobs
-            </button>
-          </>
-        )}
+            {step === "t-postcode" && (
+              <form onSubmit={e => { e.preventDefault(); if (POSTCODE_RE.test(pc) && geoState !== "loading") setStep("t-trades") }}>
+                <h2 id="welcome-title" className="text-3xl lg:text-[42px] lg:leading-tight font-bold tracking-tight">Where are you based?</h2>
+                <p className="mt-2 lg:mt-3 text-base lg:text-xl text-slate-600">We&apos;ll show you to homeowners nearby.</p>
+                <div className="relative mt-6 lg:mt-10">
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 lg:w-6 lg:h-6 text-emerald-600" />
+                  <input
+                    autoFocus
+                    value={postcode}
+                    onChange={e => setPostcode(e.target.value.toUpperCase())}
+                    placeholder="Your postcode, e.g. PO1 2AB"
+                    autoComplete="postal-code"
+                    aria-label="Postcode"
+                    className="w-full rounded-2xl border-2 border-slate-200 focus:border-emerald-500 outline-none bg-white pl-12 lg:pl-14 pr-12 py-4 lg:py-5 text-lg lg:text-2xl font-medium placeholder:text-slate-400 placeholder:font-normal"
+                  />
+                  {geoState === "loading" && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 animate-spin" />}
+                  {coords && <Check className="absolute right-4 top-1/2 -translate-y-1/2 w-6 h-6 text-emerald-600" />}
+                </div>
+                {geoState === "notfound" && <p className="mt-2 text-sm text-orange-600">We couldn&apos;t find that postcode, but you can still continue.</p>}
+                <PrimaryButton disabled={!POSTCODE_RE.test(pc) || geoState === "loading"}>Continue</PrimaryButton>
+              </form>
+            )}
+
+            {step === "t-trades" && (
+              <>
+                <h2 id="welcome-title" className="text-3xl lg:text-[42px] lg:leading-tight font-bold tracking-tight">What work do you do?</h2>
+                <p className="mt-2 lg:mt-3 text-base lg:text-xl text-slate-600">Pick all that apply.</p>
+                <div className="mt-5 lg:mt-6 flex flex-wrap gap-2">
+                  {TRADES.map(t => {
+                    const on = industries.includes(t.title)
+                    return (
+                      <button key={t.title} onClick={() => toggleIndustry(t.title)} aria-pressed={on}
+                        className={`rounded-full border-2 px-3.5 py-2 lg:py-2 text-sm lg:text-[15px] font-medium transition-colors ${on
+                          ? "bg-emerald-600 border-emerald-600 text-white"
+                          : "bg-white border-slate-200 text-slate-700 hover:border-emerald-400"}`}>
+                        {on && <Check className="inline w-4 h-4 mr-1 -mt-0.5" />}{t.title}
+                      </button>
+                    )
+                  })}
+                </div>
+                <div className="mt-5 min-h-[56px]" aria-live="polite">
+                  {demandBox ?? (demandLoading
+                    ? <p className="text-sm lg:text-base text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Checking demand near {pc}…</p>
+                    : industries.length === 0 && <p className="text-sm lg:text-base text-slate-500">Choose a trade to see demand near {pc}.</p>)}
+                </div>
+                <PrimaryButton disabled={industries.length === 0} onClick={() => setStep("t-name")}>Continue</PrimaryButton>
+              </>
+            )}
+
+            {step === "t-name" && (
+              <form onSubmit={e => { e.preventDefault(); setStep("t-join") }}>
+                <h2 id="welcome-title" className="text-3xl lg:text-[42px] lg:leading-tight font-bold tracking-tight">What&apos;s your business called?</h2>
+                <p className="mt-2 lg:mt-3 text-base lg:text-xl text-slate-600">Sole trader? Just use your own name.</p>
+                <div className="relative mt-6 lg:mt-10">
+                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 lg:w-6 lg:h-6 text-emerald-600" />
+                  <input
+                    autoFocus
+                    value={businessName}
+                    onChange={e => setBusinessName(e.target.value)}
+                    placeholder="e.g. Smith Plumbing"
+                    autoComplete="organization"
+                    aria-label="Business name"
+                    className="w-full rounded-2xl border-2 border-slate-200 focus:border-emerald-500 outline-none bg-white pl-12 lg:pl-14 pr-4 py-4 lg:py-5 text-lg lg:text-2xl font-medium placeholder:text-slate-400 placeholder:font-normal"
+                  />
+                </div>
+                {listedMatches.length > 0 && (
+                  <div className="mt-3 rounded-2xl border border-sky-200 bg-sky-50 p-3">
+                    <p className="px-1 pb-1.5 text-sm lg:text-base font-medium text-sky-900">Is this your business? It&apos;s already listed. Claim it for free:</p>
+                    {listedMatches.map(s => (
+                      <a key={s.id} href={`/seeded/${s.id}/claim`}
+                        className="flex items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm lg:text-base text-slate-900 hover:bg-white">
+                        <span className="truncate">{s.name}</span>
+                        <span className="flex-shrink-0 text-sky-700 font-semibold">Claim →</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+                <PrimaryButton>{businessName.trim() ? "Continue" : "Skip for now"}</PrimaryButton>
+              </form>
+            )}
+
+            {step === "t-join" && (
+              <>
+                <h2 id="welcome-title" className="text-3xl lg:text-[42px] lg:leading-tight font-bold tracking-tight">
+                  {businessName.trim() ? `Put ${businessName.trim()} on the map, free` : "Get your free business profile"}
+                </h2>
+                <p className="mt-2 lg:mt-3 text-base lg:text-xl text-slate-600">One free account gives you both: new customers and new jobs.</p>
+                <ul className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Benefit icon={<MapPin />} title="Get found locally" text="Homeowners nearby find you on the map." />
+                  <Benefit icon={<MessagesSquare />} title="Direct enquiries" text="Homeowners message you directly." />
+                  <Benefit icon={<Bell />} title="New job alerts" text="Jobs in your trades and area." />
+                  <Benefit icon={<ToggleRight />} title="You're in control" text="Show if you're available or busy." />
+                </ul>
+                {demandBox && <div className="mt-4">{demandBox}</div>}
+                <p className="mt-4 text-sm lg:text-base font-semibold text-emerald-700">No subscription · No pay-per-lead · No hidden fees</p>
+                <PrimaryButton onClick={createProfile}>Create my free business profile</PrimaryButton>
+                <button onClick={browseJobs} className="mt-2 w-full rounded-2xl py-3 text-base lg:text-lg font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50">
+                  No thanks, I just want to browse jobs
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -403,27 +444,38 @@ export function WelcomeSwitch() {
   )
 }
 
-function ChoiceCard({ icon, tone, title, text, onClick }: { icon: React.ReactNode; tone: "emerald" | "sky"; title: string; text: string; onClick: () => void }) {
-  const toneCls = tone === "emerald"
-    ? "bg-emerald-500/15 border-emerald-400/30 text-emerald-300"
-    : "bg-sky-500/15 border-sky-400/30 text-sky-300"
+function RoleCard({ icon, tone, title, text, onClick }: { icon: React.ReactNode; tone: "emerald" | "sky"; title: string; text: string; onClick: () => void }) {
+  const toneCls = tone === "emerald" ? "bg-emerald-100 text-emerald-700" : "bg-sky-100 text-sky-700"
   return (
-    <button onClick={onClick} className="w-full flex items-center gap-3 text-left rounded-xl border p-3.5 ojm-glow-card">
-      <span className={`flex-shrink-0 w-10 h-10 rounded-xl border flex items-center justify-center ${toneCls}`}>{icon}</span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold text-white">{title}</span>
-        <span className="block text-xs text-slate-400">{text}</span>
+    <button onClick={onClick}
+      className="group text-left rounded-2xl border-2 border-slate-200 bg-white p-5 lg:p-7 transition-all hover:border-emerald-500 hover:shadow-xl hover:shadow-emerald-900/10 hover:-translate-y-0.5">
+      <span className={`w-14 h-14 lg:w-16 lg:h-16 rounded-2xl flex items-center justify-center ${toneCls}`}>{icon}</span>
+      <span className="mt-4 lg:mt-5 flex items-center justify-between gap-2 text-xl lg:text-2xl xl:text-[26px] font-bold text-slate-900">
+        {title}
+        <ArrowRight className="flex-shrink-0 w-5 h-5 lg:w-7 lg:h-7 text-slate-300 group-hover:text-emerald-600 transition-colors" />
       </span>
-      <ArrowRight className="flex-shrink-0 w-4 h-4 text-slate-500" />
+      <span className="mt-1 lg:mt-2 block text-base lg:text-lg text-slate-600">{text}</span>
+    </button>
+  )
+}
+
+function PrimaryButton({ children, disabled, onClick }: { children: React.ReactNode; disabled?: boolean; onClick?: () => void }) {
+  return (
+    <button type={onClick ? "button" : "submit"} onClick={onClick} disabled={disabled}
+      className="mt-5 w-full rounded-2xl bg-emerald-600 hover:bg-emerald-700 py-4 text-base lg:text-xl font-bold text-white shadow-lg shadow-emerald-600/30 disabled:opacity-40 disabled:pointer-events-none inline-flex items-center justify-center gap-2">
+      {children} <ArrowRight className="w-5 h-5 lg:w-6 lg:h-6" />
     </button>
   )
 }
 
 function Benefit({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
   return (
-    <li className="flex items-start gap-2.5">
-      <span className="flex-shrink-0 mt-0.5 w-6 h-6 rounded-full bg-emerald-500/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300">{icon}</span>
-      <span className="text-xs text-slate-400"><span className="block text-sm font-semibold text-white">{title}</span>{text}</span>
+    <li className="flex items-start gap-3 lg:gap-4 rounded-2xl bg-slate-50 p-4">
+      <span className="flex-shrink-0 w-10 h-10 lg:w-12 lg:h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5 lg:[&>svg]:w-6 lg:[&>svg]:h-6">{icon}</span>
+      <span>
+        <span className="block text-base lg:text-lg font-bold text-slate-900">{title}</span>
+        <span className="block text-sm lg:text-base text-slate-600">{text}</span>
+      </span>
     </li>
   )
 }
