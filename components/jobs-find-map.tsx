@@ -208,6 +208,7 @@ type Job = {
   bumped_at: string | null
   expires_at: string | null
   applications_count: number | null
+  max_responses?: number | null
   homeowner_profiles?: Poster
   // Vacancy rows only: the employer and how the salary is paid.
   company_profiles?: { company_name: string | null; logo_url: string | null; user_id: string } | null
@@ -792,18 +793,21 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               </div>
             </div>
             {!isVacancy && (() => {
+              // Flexible jobs take up to max_responses replies (10 if unset, same as apply_to_job);
+              // urgent jobs have no cap, so they show the count alone.
               const replies = job.applications_count ?? 0
-              return replies > 0 ? (
-                <span className="flex-shrink-0 self-center inline-flex items-center gap-1 rounded-full border border-sky-400/30 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold text-sky-300"
-                  title={`${replies} tradespeople have replied`}>
+              const cap = job.urgency_type === "asap" ? null : (job.max_responses ?? 10)
+              const full = cap !== null && replies >= cap
+              const tone = full
+                ? "border-slate-500/40 bg-slate-500/10 text-slate-300"
+                : replies === 0
+                ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"
+                : "border-sky-400/30 bg-sky-500/10 text-sky-300"
+              return (
+                <span className={`flex-shrink-0 self-center inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${tone}`}
+                  title={cap !== null ? `${replies} of ${cap} tradespeople have replied` : `${replies} tradespeople have replied`}>
                   <MessageSquare className="w-3 h-3" />
-                  {replies} {replies === 1 ? "reply" : "replies"}
-                </span>
-              ) : (
-                <span className="flex-shrink-0 self-center inline-flex items-center gap-1 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300"
-                  title="No replies yet">
-                  <MessageSquare className="w-3 h-3" />
-                  Be first
+                  {cap !== null ? `${replies}/${cap}` : replies} {full ? "· full" : replies === 1 && cap === null ? "reply" : "replies"}
                 </span>
               )
             })()}
@@ -952,7 +956,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
                       </div>
                       {/* Line 2: replies (trade jobs) or employer (vacancies) + time left */}
                       <div className="text-[10px] leading-snug text-slate-400 mt-0.5 whitespace-nowrap">
-                        <span className="font-semibold">{isVacancy ? (job.company_profiles?.company_name ?? "Local business") : `Replies (${job.applications_count ?? 0})`}</span>
+                        <span className="font-semibold">{isVacancy ? (job.company_profiles?.company_name ?? "Local business") : `Replies ${job.applications_count ?? 0}${job.urgency_type === "asap" ? "" : `/${job.max_responses ?? 10}`}`}</span>
                         {timeLeft(job.expires_at) && (
                           <span className="text-slate-500">{" · "}{timeLeft(job.expires_at)}</span>
                         )}
