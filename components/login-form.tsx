@@ -239,16 +239,16 @@ export default function LoginForm() {
 
       {/* Full-screen overlay while OAuth browser is loading */}
       {isSocialLoading && (
-        <div className="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
-          <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
-          <p className="text-slate-300 text-sm">Connecting to {isSocialLoading === 'google' ? 'Google' : 'Facebook'}…</p>
+        <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
+          <p className="text-slate-700 text-sm">Connecting to {isSocialLoading === 'google' ? 'Google' : 'Facebook'}…</p>
         </div>
       )}
 
       {/* Back link */}
       <Link
         href={getLocalePath("/")}
-        className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-sm mb-8 transition-colors"
+        className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-900 text-sm mb-8 transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
         Back to home
@@ -261,12 +261,12 @@ export default function LoginForm() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold text-white">{t('auth.welcomeBack')}</h1>
-        <p className="text-slate-400 text-sm mt-1">{t('auth.signInDescription')}</p>
+        <h1 className="text-2xl font-bold text-slate-900">{t('auth.welcomeBack')}</h1>
+        <p className="text-slate-500 text-sm mt-1">{t('auth.signInDescription')}</p>
       </div>
 
       {/* Card */}
-      <div className="bg-slate-800/80 border border-slate-700/50 rounded-2xl p-6 space-y-5">
+      <div className="space-y-5">
         <form
           onSubmit={(e) => {
             e.preventDefault()
@@ -276,7 +276,7 @@ export default function LoginForm() {
         >
           {/* Email */}
           <div className="space-y-1.5">
-            <label htmlFor="email" className="text-sm font-medium text-slate-300">
+            <label htmlFor="email" className="text-sm font-medium text-slate-700">
               {t('common.email')}
             </label>
             <Input
@@ -286,19 +286,19 @@ export default function LoginForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-0 rounded-xl h-11"
+              className="bg-slate-100 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-0 rounded-xl h-11"
             />
           </div>
 
           {/* Password */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <label htmlFor="password" className="text-sm font-medium text-slate-300">
+              <label htmlFor="password" className="text-sm font-medium text-slate-700">
                 {t('common.password')}
               </label>
               <Link
                 href="/auth/forgot-password"
-                className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
+                className="text-xs text-emerald-600 hover:text-emerald-700 transition-colors"
               >
                 {t('auth.forgotPassword')}
               </Link>
@@ -310,12 +310,12 @@ export default function LoginForm() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500 focus:ring-0 rounded-xl h-11 pr-10"
+                className="bg-slate-100 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-emerald-500 focus:ring-0 rounded-xl h-11 pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition-colors"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -328,28 +328,28 @@ export default function LoginForm() {
               id="stay-signed-in"
               checked={staySignedIn}
               onCheckedChange={(checked) => setStaySignedIn(checked === true)}
-              className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 border-slate-600 rounded"
+              className="data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500 border-slate-300 rounded"
             />
             <label
               htmlFor="stay-signed-in"
-              className="text-sm text-slate-400 cursor-pointer select-none"
+              className="text-sm text-slate-500 cursor-pointer select-none"
             >
               {t('auth.staySignedIn')}
-              <span className="text-xs text-slate-600 ml-1">{t('auth.recommended')}</span>
+              <span className="text-xs text-slate-400 ml-1">{t('auth.recommended')}</span>
             </label>
           </div>
 
           {/* Error */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3">
-              <p className="text-sm text-red-400">{error}</p>
+              <p className="text-sm text-red-600">{error}</p>
             </div>
           )}
 
           {/* Brute-force protection — cooldown countdown after 5 failed attempts */}
           {cooldownSeconds > 0 && (
             <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3">
-              <p className="text-sm text-amber-400">
+              <p className="text-sm text-amber-600">
                 Too many failed attempts. Try again in {Math.floor(cooldownSeconds / 60)}:{String(cooldownSeconds % 60).padStart(2, "0")}.
               </p>
             </div>
@@ -376,16 +376,16 @@ export default function LoginForm() {
       {/* Social login */}
       <div className="mt-5">
         <div className="relative flex items-center gap-3 mb-4">
-          <div className="flex-1 h-px bg-slate-700" />
+          <div className="flex-1 h-px bg-slate-100" />
           <span className="text-xs text-slate-500 flex-shrink-0">or continue with</span>
-          <div className="flex-1 h-px bg-slate-700" />
+          <div className="flex-1 h-px bg-slate-100" />
         </div>
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
             disabled={isSocialLoading !== null || isLoading}
             onClick={() => handleSocialLogin('google')}
-            className="flex items-center justify-center gap-2 h-11 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 h-11 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-900 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSocialLoading === 'google' ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -403,7 +403,7 @@ export default function LoginForm() {
             type="button"
             disabled={isSocialLoading !== null || isLoading}
             onClick={() => handleSocialLogin('facebook')}
-            className="flex items-center justify-center gap-2 h-11 rounded-xl border border-slate-600 bg-slate-800 hover:bg-slate-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 h-11 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-900 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSocialLoading === 'facebook' ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -420,7 +420,7 @@ export default function LoginForm() {
       {/* Sign up link */}
       <p className="text-center text-sm text-slate-500 mt-6">
         {t('auth.dontHaveAccount')}{" "}
-        <Link href={signUpUrl} className="text-emerald-400 hover:text-emerald-300 font-medium transition-colors">
+        <Link href={signUpUrl} className="text-emerald-600 hover:text-emerald-700 font-medium transition-colors">
           {t('auth.signUp')}
         </Link>
       </p>

@@ -712,45 +712,45 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   const filterPanel = showFilters && (
     <div className="fixed inset-0" style={{ zIndex: 80 }}>
       <div className="absolute inset-0 backdrop-blur-sm" style={{ background: "rgba(2,6,23,0.65)" }} onClick={() => setShowFilters(false)} />
-      <div className="absolute rounded-3xl shadow-2xl border border-slate-700/60 flex flex-col overflow-hidden"
+      <div className="absolute rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden"
         style={{
           top: HEADER, bottom: isDesktop ? "max(env(safe-area-inset-bottom,0px),10px)" : "calc(3.5rem + max(env(safe-area-inset-bottom,0px),8px))",
           left: isDesktop ? "50%" : "12px", right: isDesktop ? "auto" : "12px",
           transform: isDesktop ? "translateX(-50%)" : undefined,
           width: isDesktop ? "420px" : undefined,
-          backgroundColor: "#0f172a", zIndex: 81,
+          backgroundColor: "#ffffff", zIndex: 81,
         }}>
-        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-800">
-          <span className="text-sm font-bold text-white">Filters</span>
+        <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-slate-200">
+          <span className="text-sm font-bold text-slate-900">Filters</span>
           <div className="flex items-center gap-3">
-            {hasActiveFilters && <button onClick={clearFilters} className="text-xs text-slate-400 hover:text-white">Clear all</button>}
-            <button onClick={() => setShowFilters(false)} className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
+            {hasActiveFilters && <button onClick={clearFilters} className="text-xs text-slate-500 hover:text-slate-900">Clear all</button>}
+            <button onClick={() => setShowFilters(false)} className="w-6 h-6 rounded-full bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500">
               <X className="w-3 h-3" />
             </button>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           <div className="px-3 pt-3 pb-2">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Location</p>
-            <div className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 focus-within:border-indigo-500/60 transition-colors">
-              <MapPin className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Location</p>
+            <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus-within:border-indigo-500/60 transition-colors">
+              <MapPin className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
               <input
                 value={postcodeInput}
                 onChange={e => setPostcodeInput(e.target.value)}
                 placeholder="Postcode or town…"
                 autoComplete="off"
-                className="flex-1 bg-transparent text-sm text-white placeholder-slate-500 outline-none min-w-0"
+                className="flex-1 bg-transparent text-sm text-slate-900 placeholder-slate-500 outline-none min-w-0"
               />
               {postcodeInput.trim() && (
-                <button onClick={() => setPostcodeInput("")} className="flex-shrink-0 text-slate-500 hover:text-white transition-colors">
+                <button onClick={() => setPostcodeInput("")} className="flex-shrink-0 text-slate-500 hover:text-slate-900 transition-colors">
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
           </div>
-          <div className="mx-3 border-t border-slate-800/80 mb-1" />
+          <div className="mx-3 border-t border-slate-200 mb-1" />
           <div className="px-3 pt-3 pb-1">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Trade / Industry</p>
+            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Trade / Industry</p>
             {[{ title: "All trades" } as const, ...TRADE_INDUSTRIES].map((ind, i) => {
               const isAll = i === 0
               const active = isAll ? draftFilters.industry === null : draftFilters.industry === ind.title
@@ -759,40 +759,40 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
               return (
                 <button key={ind.title}
                   onClick={() => setDraftFilters(f => ({ ...f, industry: isAll ? null : (f.industry === ind.title ? null : ind.title) }))}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl mb-1 border text-left transition-colors ${active ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300" : "bg-slate-800 border-slate-700/60 text-slate-300"}`}>
-                  <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${isAll ? "bg-slate-700" : (active ? "bg-white/10" : style!.iconBg)}`}>
-                    {isAll ? <Search className="w-3 h-3 text-slate-300" /> : Icon && <Icon className={`w-3 h-3 ${active ? "text-indigo-300" : style!.iconColor}`} />}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl mb-1 border text-left transition-colors ${active ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-700" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
+                  <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${isAll ? "bg-slate-200" : (active ? "bg-white" : style!.iconBg)}`}>
+                    {isAll ? <Search className="w-3 h-3 text-slate-700" /> : Icon && <Icon className={`w-3 h-3 ${active ? "text-indigo-700" : style!.iconColor}`} />}
                   </span>
                   <span className="flex-1 text-xs font-medium">{ind.title}</span>
-                  {active && <Check className="w-3 h-3 text-indigo-400 flex-shrink-0" />}
+                  {active && <Check className="w-3 h-3 text-indigo-600 flex-shrink-0" />}
                 </button>
               )
             })}
           </div>
           <div className="px-3 pt-2 pb-1">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Budget</p>
+            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Budget</p>
             <div className="flex flex-wrap gap-1.5">
               {BUDGET_OPTIONS.map(opt => (
                 <button key={opt.value} onClick={() => setDraftFilters(f => ({ ...f, budget: opt.value }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.budget === opt.value ? "bg-indigo-500 border-indigo-500 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.budget === opt.value ? "bg-indigo-500 border-indigo-500 text-slate-900" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                   {opt.label}
                 </button>
               ))}
             </div>
           </div>
           <div className="px-3 pt-2 pb-3">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Urgency</p>
+            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Urgency</p>
             <div className="flex flex-wrap gap-1.5">
               {URGENCY_OPTIONS.map(opt => (
                 <button key={opt.value} onClick={() => setDraftFilters(f => ({ ...f, urgency: opt.value }))}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.urgency === opt.value ? "bg-indigo-500 border-indigo-500 text-white" : "bg-slate-800 border-slate-700 text-slate-300"}`}>
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${draftFilters.urgency === opt.value ? "bg-indigo-500 border-indigo-500 text-slate-900" : "bg-slate-50 border-slate-200 text-slate-700"}`}>
                   {opt.label}
                 </button>
               ))}
             </div>
           </div>
         </div>
-        <div className="flex-shrink-0 px-3 py-3 border-t border-slate-800">
+        <div className="flex-shrink-0 px-3 py-3 border-t border-slate-200">
           <button onClick={applyFilters} disabled={geocoding}
             className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-400 disabled:opacity-70 text-white font-bold rounded-2xl text-sm transition-colors shadow-lg shadow-indigo-500/30 flex items-center justify-center gap-2">
             {geocoding ? <><Loader2 className="w-4 h-4 animate-spin" /> Locating…</> : "Search"}

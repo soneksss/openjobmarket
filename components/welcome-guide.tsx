@@ -7,8 +7,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, ArrowRight, Bell, Briefcase, Building2, Check, Hammer, Home, Loader2, MapPin, MessagesSquare, Search, ToggleRight, TrendingUp, Truck, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, Bell, Briefcase, Building2, Check, Hammer, Home, Loader2, MapPin, MessagesSquare, Search, ToggleRight, TrendingUp, X } from "lucide-react"
 import { TRADE_INDUSTRIES } from "@/lib/data/trade-industries"
+import { BrandPanel } from "@/components/brand-panel"
 
 type Role = "homeowner" | "tradesperson"
 type Step = "closed" | "welcome" | "homeowner" | "t-postcode" | "t-trades" | "t-name" | "t-join"
@@ -217,34 +218,20 @@ export default function WelcomeGuide({ page }: { page: "trades" | "jobs" }) {
         className="relative flex w-full max-w-xl lg:max-w-[1200px] lg:w-[70vw] lg:min-h-[70vh] max-h-full lg:max-h-[90vh] overflow-hidden rounded-3xl bg-white text-slate-900 shadow-2xl shadow-black/40 outline-none"
       >
         {/* Left: brand panel with the guide's progress (desktop only) */}
-        <aside className="relative hidden lg:flex flex-col justify-between w-[36%] flex-shrink-0 p-10 text-white bg-[#04120d] overflow-hidden">
-          <img src="/hero-space-mobile.webp" alt="" className="absolute inset-0 w-full h-full object-cover object-bottom opacity-70" />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#04120d] via-[#04120d]/70 to-transparent" />
-          <div className="relative">
-            <p className="text-sm font-semibold uppercase tracking-widest text-emerald-300">Open Job Market</p>
-            <p className="mt-4 text-3xl xl:text-4xl font-bold leading-tight">
-              {isTradeFlow ? <>Put your business <span className="ojm-glow-text">on the map.</span></> : <>Local trades, <span className="ojm-glow-text">fast.</span></>}
-            </p>
-            {isTradeFlow ? (
-              <ol className="mt-8 space-y-4">
-                {TRADE_STEPS.map((s, i) => (
-                  <li key={s.step} className={`flex items-center gap-3 text-lg ${i === tradeIndex ? "text-white font-semibold" : i < tradeIndex ? "text-emerald-200" : "text-white/50"}`}>
-                    <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border ${i < tradeIndex ? "bg-emerald-400 border-emerald-400 text-emerald-950" : i === tradeIndex ? "border-emerald-300 text-emerald-200" : "border-white/30"}`}>
-                      {i < tradeIndex ? <Check className="w-4 h-4" /> : i + 1}
-                    </span>
-                    {s.label}
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <ul className="mt-8 space-y-3 text-lg text-white/90">
-                {["No fees to post jobs", "No pay-per-lead for trades", "Contact each other directly"].map(t => (
-                  <li key={t} className="flex items-center gap-3"><Check className="w-5 h-5 text-emerald-300" />{t}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </aside>
+        <BrandPanel headline={isTradeFlow ? <>Put your business <span className="ojm-glow-text">on the map.</span></> : <>Local trades, <span className="ojm-glow-text">fast.</span></>}>
+          {isTradeFlow ? (
+            <ol className="space-y-4">
+              {TRADE_STEPS.map((s, i) => (
+                <li key={s.step} className={`flex items-center gap-3 text-lg ${i === tradeIndex ? "text-white font-semibold" : i < tradeIndex ? "text-emerald-200" : "text-white/50"}`}>
+                  <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border ${i < tradeIndex ? "bg-emerald-400 border-emerald-400 text-emerald-950" : i === tradeIndex ? "border-emerald-300 text-emerald-200" : "border-white/30"}`}>
+                    {i < tradeIndex ? <Check className="w-4 h-4" /> : i + 1}
+                  </span>
+                  {s.label}
+                </li>
+              ))}
+            </ol>
+          ) : undefined}
+        </BrandPanel>
 
         {/* Right: the current step */}
         <div className="relative flex-1 min-w-0 flex flex-col overflow-y-auto p-6 sm:p-8 lg:px-12 lg:py-8">
@@ -299,12 +286,15 @@ export default function WelcomeGuide({ page }: { page: "trades" | "jobs" }) {
                   <RoleCard icon={<Search className="w-7 h-7 lg:w-9 lg:h-9" />} tone="sky" title="Find tradespeople"
                     text="Browse the map and contact tradespeople directly." onClick={() => goTo("trades")} />
                 </div>
-                <div className="mt-5 flex items-start gap-3 rounded-2xl bg-slate-50 px-4 py-3.5 lg:px-5 lg:py-4">
-                  <Truck className="flex-shrink-0 w-6 h-6 lg:w-7 lg:h-7 text-emerald-600 mt-0.5" />
-                  <p className="text-sm lg:text-base text-slate-700">
-                    On the map, <span className="font-semibold text-emerald-700">green vans are tradespeople available now</span>.
-                    Grey vans may be busy, but you can still contact them.
-                  </p>
+                <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-2xl bg-slate-50 px-4 py-3.5 lg:px-5 lg:py-4">
+                  <div className="flex items-center gap-3">
+                    <img src="/Van2.png" alt="Green van" className="flex-shrink-0 w-16 h-8 lg:w-20 lg:h-10 object-contain" />
+                    <p className="text-sm lg:text-base text-slate-700"><span className="font-semibold text-emerald-700">Green van:</span> available now</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <img src="/Van1.png" alt="Grey van" className="flex-shrink-0 w-16 h-8 lg:w-20 lg:h-10 object-contain" />
+                    <p className="text-sm lg:text-base text-slate-700"><span className="font-semibold text-slate-900">Grey van:</span> may be busy, you can still contact them</p>
+                  </div>
                 </div>
                 <p className="mt-5 text-sm lg:text-base text-slate-500">Free for homeowners. No fees to post jobs.</p>
               </>

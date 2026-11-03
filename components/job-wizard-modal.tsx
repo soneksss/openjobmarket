@@ -1224,37 +1224,37 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 <button
                   type="button"
                   onClick={() => router.push("/jobs/vacancy/new")}
-                  className="text-sm text-slate-400 hover:text-blue-500 hover:underline"
+                  className="text-sm text-slate-500 hover:text-blue-500 hover:underline"
                 >
                   Posting a long-term role? <span className="font-medium">Switch to Vacancy →</span>
                 </button>
               </div>
             )}
 
-            <h3 className="text-base font-semibold text-white">Job / Task Details</h3>
+            <h3 className="text-base font-semibold text-slate-900">Job / Task Details</h3>
 
             {/* Industry dropdown */}
             <div>
-              <label className="block text-sm font-medium mb-1 text-white">
-                Type of trade needed <span className="text-red-400">*</span>
+              <label className="block text-sm font-medium mb-1 text-slate-900">
+                Type of trade needed <span className="text-red-600">*</span>
               </label>
               <div className="relative">
                 {/* Custom trade picker — larger touch targets than native <select> */}
                 <button
                   type="button"
                   onClick={() => { setShowIndustryDropdown((v) => !v); setShowServiceDropdown(false) }}
-                  className="w-full flex items-center justify-between border rounded-xl px-4 py-3 shadow-sm bg-slate-700 border-slate-600 text-white text-base focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full flex items-center justify-between border rounded-xl px-4 py-3 shadow-sm bg-slate-100 border-slate-300 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
-                  <span className={formData.industry ? "text-white" : "text-slate-400"}>
+                  <span className={formData.industry ? "text-slate-900" : "text-slate-500"}>
                     {formData.industry
                       ? `${TRADE_INDUSTRIES.find(i => i.title === formData.industry)?.icon ?? ""} ${formData.industry}`
                       : "Select a trade…"}
                   </span>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showIndustryDropdown ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showIndustryDropdown ? "rotate-180" : ""}`} />
                 </button>
 
                 {showIndustryDropdown && (
-                  <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-y-auto max-h-[calc(70vh-5rem)]">
+                  <div className="absolute z-50 mt-1 w-full bg-slate-50 border border-slate-300 rounded-xl shadow-xl overflow-y-auto max-h-[calc(70vh-5rem)]">
                     {TRADE_INDUSTRIES.map((ind) => (
                       <button
                         key={ind.title}
@@ -1265,10 +1265,10 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                           setShowIndustryDropdown(false)
                           if (hasServices) setShowServiceDropdown(true)
                         }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-700/50 last:border-0 ${
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-200 last:border-0 ${
                           formData.industry === ind.title
-                            ? "bg-emerald-600/20 text-emerald-300"
-                            : "text-slate-100 hover:bg-slate-700 active:bg-slate-600"
+                            ? "bg-emerald-600/20 text-emerald-700"
+                            : "text-slate-800 hover:bg-slate-100 active:bg-slate-200"
                         }`}
                       >
                         <span className="text-lg">{ind.icon}</span>
@@ -1286,27 +1286,27 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
               if (!selectedInd || selectedInd.services.length === 0) return null
               return (
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-white">
+                  <label className="block text-sm font-medium mb-1 text-slate-900">
                     Specific service{" "}
-                    <span className="text-slate-400 font-normal text-xs">(recommended)</span>
+                    <span className="text-slate-500 font-normal text-xs">(recommended)</span>
                   </label>
                   <div className="relative">
                     <button
                       type="button"
                       onClick={() => setShowServiceDropdown((v) => !v)}
-                      className="w-full flex items-center justify-between border rounded-xl px-4 py-3 shadow-sm bg-slate-700 border-slate-600 text-white text-base focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-full flex items-center justify-between border rounded-xl px-4 py-3 shadow-sm bg-slate-100 border-slate-300 text-slate-900 text-base focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
-                      <span className={formData.service ? "text-white" : "text-slate-400"}>
+                      <span className={formData.service ? "text-slate-900" : "text-slate-500"}>
                         {formData.service || "Not sure / Any"}
                       </span>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showServiceDropdown ? "rotate-180" : ""}`} />
+                      <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform ${showServiceDropdown ? "rotate-180" : ""}`} />
                     </button>
                     {showServiceDropdown && (
-                      <div className="absolute z-50 mt-1 w-full bg-slate-800 border border-slate-600 rounded-xl shadow-xl overflow-y-auto max-h-[calc(70vh-5rem)]">
+                      <div className="absolute z-50 mt-1 w-full bg-slate-50 border border-slate-300 rounded-xl shadow-xl overflow-y-auto max-h-[calc(70vh-5rem)]">
                         <button
                           type="button"
                           onClick={() => { setFormData((prev) => ({ ...prev, service: "" })); setShowServiceDropdown(false) }}
-                          className={`w-full flex items-center px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-700/50 ${!formData.service ? "bg-emerald-600/20 text-emerald-300" : "text-slate-400 hover:bg-slate-700"}`}
+                          className={`w-full flex items-center px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-200 ${!formData.service ? "bg-emerald-600/20 text-emerald-700" : "text-slate-500 hover:bg-slate-100"}`}
                         >
                           Not sure / Any
                         </button>
@@ -1315,7 +1315,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                             key={svc}
                             type="button"
                             onClick={() => { setFormData((prev) => ({ ...prev, service: svc })); setShowServiceDropdown(false) }}
-                            className={`w-full flex items-center px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-700/50 last:border-0 ${formData.service === svc ? "bg-emerald-600/20 text-emerald-300" : "text-slate-100 hover:bg-slate-700 active:bg-slate-600"}`}
+                            className={`w-full flex items-center px-4 py-2.5 text-left text-sm font-medium transition-colors border-b border-slate-200 last:border-0 ${formData.service === svc ? "bg-emerald-600/20 text-emerald-700" : "text-slate-800 hover:bg-slate-100 active:bg-slate-200"}`}
                           >
                             {svc}
                           </button>
@@ -1323,7 +1323,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                       </div>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">
+                  <p className="text-xs text-slate-500 mt-1">
                     Helps match you with tradespeople who specialise in this service
                   </p>
                 </div>
@@ -1332,13 +1332,13 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
 
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium mb-1 text-white">
-                Description <span className="text-red-400">*</span>
+              <label className="block text-sm font-medium mb-1 text-slate-900">
+                Description <span className="text-red-600">*</span>
               </label>
               <textarea
                 value={formData.shortDescription}
                 onChange={(e) => setFormData((prev) => ({ ...prev, shortDescription: e.target.value }))}
-                className="w-full h-28 border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 text-sm"
+                className="w-full h-28 border rounded-xl p-3 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent resize-none bg-slate-100 border-slate-300 text-slate-900 placeholder:text-slate-400 text-sm"
                 placeholder="Describe the job (size, problem, location in house)"
                 maxLength={1000}
               />
@@ -1347,25 +1347,25 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
 
             {/* Budget */}
             <div>
-              <label className="block text-sm font-medium mb-1 text-white">Budget (optional)</label>
+              <label className="block text-sm font-medium mb-1 text-slate-900">Budget (optional)</label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Min £</label>
+                  <label className="block text-xs text-slate-500 mb-1">Min £</label>
                   <input
                     type="number"
                     value={formData.payMin}
                     onChange={(e) => setFormData((prev) => ({ ...prev, payMin: e.target.value }))}
-                    className="w-full border rounded-xl p-2.5 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                    className="w-full border rounded-xl p-2.5 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-100 border-slate-300 text-slate-900 placeholder:text-slate-400"
                     placeholder="0"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-slate-400 mb-1">Max £</label>
+                  <label className="block text-xs text-slate-500 mb-1">Max £</label>
                   <input
                     type="number"
                     value={formData.payMax}
                     onChange={(e) => setFormData((prev) => ({ ...prev, payMax: e.target.value }))}
-                    className="w-full border rounded-xl p-2.5 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-700 border-slate-600 text-white placeholder:text-slate-400"
+                    className="w-full border rounded-xl p-2.5 shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-slate-100 border-slate-300 text-slate-900 placeholder:text-slate-400"
                     placeholder="0"
                   />
                 </div>
@@ -1374,15 +1374,15 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
 
             {/* Photo */}
             <div>
-              <label className="block text-sm font-medium mb-1 text-white">
+              <label className="block text-sm font-medium mb-1 text-slate-900">
                 Photo <span className="text-slate-500 font-normal text-xs">(optional)</span>
               </label>
               {!formData.jobPhotoUrl ? (
-                <div className="border-2 border-dashed border-slate-600 rounded-xl p-3 text-center bg-slate-800/50">
+                <div className="border-2 border-dashed border-slate-300 rounded-xl p-3 text-center bg-slate-50">
                   <input type="file" accept="image/*" onChange={handlePhotoSelect} className="hidden" id="job-photo-gallery" />
                   <input type="file" accept="image/*" capture="environment" onChange={handlePhotoSelect} className="hidden" id="job-photo-camera" />
                   <div className="flex gap-3 justify-center">
-                    <label htmlFor="job-photo-gallery" className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg cursor-pointer text-sm font-medium">
+                    <label htmlFor="job-photo-gallery" className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg cursor-pointer text-sm font-medium">
                       Gallery
                     </label>
                     <label htmlFor="job-photo-camera" className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg cursor-pointer text-sm font-medium">
@@ -1392,7 +1392,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 </div>
               ) : (
                 <div className="relative">
-                  <img src={formData.jobPhotoUrl} alt="Job preview" className="w-full h-48 object-cover rounded-xl border border-slate-700" />
+                  <img src={formData.jobPhotoUrl} alt="Job preview" className="w-full h-48 object-cover rounded-xl border border-slate-200" />
                   <button type="button" onClick={handleRemovePhoto} className="absolute top-2 right-2 bg-red-500 text-white p-2 rounded-full hover:bg-red-600">
                     <X className="w-4 h-4" />
                   </button>
@@ -1408,8 +1408,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         if (formData.postingType === "tradespeople") {
           return (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-white">How urgently do you need this done?</h3>
-              <p className="text-sm text-slate-400">Select the urgency level for your job/task</p>
+              <h3 className="text-lg font-semibold text-slate-900">How urgently do you need this done?</h3>
+              <p className="text-sm text-slate-500">Select the urgency level for your job/task</p>
 
               <div className="space-y-3">
                 {/* ASAP Option */}
@@ -1417,7 +1417,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   className={`flex items-center justify-between p-4 border-2 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${
                     formData.urgencyType === "asap"
                       ? "border-red-500 bg-red-500/20 shadow-md"
-                      : "border-slate-700 hover:border-red-400 hover:bg-slate-800"
+                      : "border-slate-200 hover:border-red-400 hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -1437,15 +1437,15 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                     />
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-red-500/20 rounded-full">
-                        <Zap className="w-5 h-5 text-red-400" />
+                        <Zap className="w-5 h-5 text-red-600" />
                       </div>
                       <div>
-                        <span className="font-semibold text-white">Urgent (ASAP)</span>
-                        <p className="text-sm text-slate-400">Find available tradespeople in minutes</p>
+                        <span className="font-semibold text-slate-900">Urgent (ASAP)</span>
+                        <p className="text-sm text-slate-500">Find available tradespeople in minutes</p>
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 py-1 bg-red-500/20 text-red-400 text-sm font-medium rounded-full">
+                  <div className="px-3 py-1 bg-red-500/20 text-red-600 text-sm font-medium rounded-full">
                     Urgent
                   </div>
                 </label>
@@ -1453,8 +1453,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 {/* ASAP info banner — shown immediately below when selected */}
                 {formData.urgencyType === "asap" && (
                   <div className="flex items-start gap-3 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                    <Zap className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-red-300 leading-snug">
+                    <Zap className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700 leading-snug">
                       We will notify nearby tradespeople immediately.<br />
                       You may start receiving responses within minutes.
                     </p>
@@ -1466,7 +1466,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   className={`flex items-center justify-between p-4 border-2 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${
                     formData.urgencyType === "flexible"
                       ? "border-blue-500 bg-blue-500/20 shadow-md"
-                      : "border-slate-700 hover:border-blue-400 hover:bg-slate-800"
+                      : "border-slate-200 hover:border-blue-400 hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -1486,15 +1486,15 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                     />
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-blue-500/20 rounded-full">
-                        <Calendar className="w-5 h-5 text-blue-400" />
+                        <Calendar className="w-5 h-5 text-blue-600" />
                       </div>
                       <div>
-                        <span className="font-semibold text-white">Flexible (1–7 days)</span>
-                        <p className="text-sm text-slate-400">Tradespeople will see your job on the map</p>
+                        <span className="font-semibold text-slate-900">Flexible (1–7 days)</span>
+                        <p className="text-sm text-slate-500">Tradespeople will see your job on the map</p>
                       </div>
                     </div>
                   </div>
-                  <div className="px-3 py-1 bg-blue-500/20 text-blue-400 text-sm font-medium rounded-full">
+                  <div className="px-3 py-1 bg-blue-500/20 text-blue-600 text-sm font-medium rounded-full">
                     Flexible
                   </div>
                 </label>
@@ -1502,7 +1502,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 {/* Days dropdown for Flexible option */}
                 {formData.urgencyType === "flexible" && (
                   <div className="ml-4 md:ml-12 mt-2 p-4 bg-blue-500/20 border border-blue-500/30 rounded-xl">
-                    <label className="block text-sm font-medium text-blue-300 mb-2">
+                    <label className="block text-sm font-medium text-blue-700 mb-2">
                       Select number of days
                     </label>
                     <div className="relative">
@@ -1516,7 +1516,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                             activeDuration: `${days}_days`,
                           }))
                         }}
-                        className="w-full appearance-none bg-slate-700 border border-slate-600 rounded-lg p-3 pr-10 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full appearance-none bg-slate-100 border border-slate-300 rounded-lg p-3 pr-10 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         {[1, 2, 3, 4, 5, 6, 7].map((day) => (
                           <option key={day} value={day}>
@@ -1524,7 +1524,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                           </option>
                         ))}
                       </select>
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
+                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-500 pointer-events-none" />
                     </div>
                   </div>
                 )}
@@ -1532,9 +1532,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
 
               {/* Info box — only shown for flexible (ASAP has its own banner above) */}
               {formData.urgencyType === "flexible" && (
-                <div className="mt-4 p-4 bg-slate-800 border border-slate-700/50 rounded-xl">
-                  <p className="text-sm text-slate-300">
-                    <strong className="text-white">Note:</strong> Your job will be visible on the map to nearby tradespeople for the selected number of days.
+                <div className="mt-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                  <p className="text-sm text-slate-700">
+                    <strong className="text-slate-900">Note:</strong> Your job will be visible on the map to nearby tradespeople for the selected number of days.
                   </p>
                 </div>
               )}
@@ -1548,18 +1548,18 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
 
         return (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-white">Location</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Location</h3>
 
             {/* Location Choice Radio Buttons */}
             {hasProfileLocation && (
               <div className="space-y-3 mb-6">
-                <label className="block text-sm font-medium mb-2 text-white">Where is this job?</label>
+                <label className="block text-sm font-medium mb-2 text-slate-900">Where is this job?</label>
                 <div className="grid grid-cols-2 gap-3 md:gap-4">
                   <label
                     className={`flex items-center justify-center p-3 md:p-4 border-2 rounded-xl cursor-pointer transition-all text-sm md:text-base ${
                       locationChoice === "myLocation"
                         ? "border-emerald-500 bg-emerald-500/20"
-                        : "border-slate-700 hover:border-emerald-400 hover:bg-slate-800"
+                        : "border-slate-200 hover:border-emerald-400 hover:bg-slate-50"
                     }`}
                   >
                     <input
@@ -1583,14 +1583,14 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                       }}
                       className="mr-2"
                     />
-                    <span className="font-medium text-white">At my location</span>
+                    <span className="font-medium text-slate-900">At my location</span>
                   </label>
 
                   <label
                     className={`flex items-center justify-center p-3 md:p-4 border-2 rounded-xl cursor-pointer transition-all text-sm md:text-base ${
                       locationChoice === "differentLocation"
                         ? "border-orange-500 bg-orange-500/20"
-                        : "border-slate-700 hover:border-orange-400 hover:bg-slate-800"
+                        : "border-slate-200 hover:border-orange-400 hover:bg-slate-50"
                     }`}
                   >
                     <input
@@ -1608,7 +1608,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                       }}
                       className="mr-2"
                     />
-                    <span className="font-medium text-white">Other location</span>
+                    <span className="font-medium text-slate-900">Other location</span>
                   </label>
                 </div>
               </div>
@@ -1617,8 +1617,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
             {/* Show location confirmation if "myLocation" selected with coords */}
             {locationChoice === "myLocation" && hasProfileCoords && (
               <div className="flex items-center gap-2.5 px-3 py-2.5 bg-emerald-500/10 border border-emerald-500/25 rounded-xl">
-                <svg className="w-4 h-4 text-emerald-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
-                <p className="text-sm text-emerald-300 truncate">{companyProfile.location || "Using your saved location"}</p>
+                <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                <p className="text-sm text-emerald-700 truncate">{companyProfile.location || "Using your saved location"}</p>
               </div>
             )}
 
@@ -1626,12 +1626,12 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
             {(locationChoice === "differentLocation" || !hasProfileLocation || (locationChoice === "myLocation" && !hasProfileCoords)) && (
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-sm font-medium text-white">
+                  <label className="text-sm font-medium text-slate-900">
                     Pin your location
-                    {locationChoice !== "myLocation" && <span className="text-red-400"> *</span>}
+                    {locationChoice !== "myLocation" && <span className="text-red-600"> *</span>}
                   </label>
                   {formData.locationCoords && (
-                    <span className="text-xs text-emerald-400 flex items-center gap-1">
+                    <span className="text-xs text-emerald-600 flex items-center gap-1">
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
                       Location set
                     </span>
@@ -1655,8 +1655,8 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 </div>
 
                 {isGeocodingPostcode ? (
-                  <div className="flex items-center justify-center gap-2 h-16 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-400 text-xs">
-                    <svg className="animate-spin h-4 w-4 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <div className="flex items-center justify-center gap-2 h-16 rounded-xl border border-slate-300 bg-slate-50 text-slate-500 text-xs">
+                    <svg className="animate-spin h-4 w-4 text-emerald-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
@@ -1665,9 +1665,9 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 ) : (
                   <>
                     {locationChoice === "myLocation" && !formData.locationCoords && !isGeocodingPostcode && (
-                      <p className="text-xs text-amber-400 mb-1.5">Postcode not found — tap the map to set your location</p>
+                      <p className="text-xs text-amber-600 mb-1.5">Postcode not found — tap the map to set your location</p>
                     )}
-                    <div className="rounded-xl overflow-hidden border border-slate-700/60">
+                    <div className="rounded-xl overflow-hidden border border-slate-200">
                       <MapLocationPicker
                         value={formData.locationCoords ? {
                           latitude: formData.locationCoords.lat,
@@ -1697,13 +1697,13 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
         return (
           <div className="space-y-4">
             <div>
-              <h3 className="text-base font-semibold text-white mb-0.5">Create your account</h3>
-              <p className="text-xs text-slate-400">Your job will be posted immediately after sign-up — no email verification required.</p>
+              <h3 className="text-base font-semibold text-slate-900 mb-0.5">Create your account</h3>
+              <p className="text-xs text-slate-500">Your job will be posted immediately after sign-up — no email verification required.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-slate-300 mb-1 block">First name <span className="text-red-400">*</span></label>
+                <label className="text-xs font-medium text-slate-700 mb-1 block">First name <span className="text-red-600">*</span></label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
@@ -1711,12 +1711,12 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                     value={contactData.firstName}
                     onChange={(e) => setContactData((p) => ({ ...p, firstName: e.target.value }))}
                     placeholder="Jane"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-300 mb-1 block">Last name <span className="text-red-400">*</span></label>
+                <label className="text-xs font-medium text-slate-700 mb-1 block">Last name <span className="text-red-600">*</span></label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                   <input
@@ -1724,14 +1724,14 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                     value={contactData.lastName}
                     onChange={(e) => setContactData((p) => ({ ...p, lastName: e.target.value }))}
                     placeholder="Smith"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
                   />
                 </div>
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-1 block">Email address <span className="text-red-400">*</span></label>
+              <label className="text-xs font-medium text-slate-700 mb-1 block">Email address <span className="text-red-600">*</span></label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
@@ -1739,13 +1739,13 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   value={contactData.email}
                   onChange={(e) => setContactData((p) => ({ ...p, email: e.target.value }))}
                   placeholder="jane@example.com"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-1 block">Phone <span className="text-slate-500">(optional)</span></label>
+              <label className="text-xs font-medium text-slate-700 mb-1 block">Phone <span className="text-slate-500">(optional)</span></label>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
@@ -1753,13 +1753,13 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   value={contactData.phone}
                   onChange={(e) => setContactData((p) => ({ ...p, phone: e.target.value }))}
                   placeholder="+44 7700 000000"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
                 />
               </div>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-300 mb-1 block">Password <span className="text-red-400">*</span></label>
+              <label className="text-xs font-medium text-slate-700 mb-1 block">Password <span className="text-red-600">*</span></label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                 <input
@@ -1767,7 +1767,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   value={contactData.password}
                   onChange={(e) => setContactData((p) => ({ ...p, password: e.target.value }))}
                   placeholder="Min. 6 characters"
-                  className="w-full pl-9 pr-3 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50"
                 />
               </div>
             </div>
@@ -1777,12 +1777,12 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 <button
                   type="button"
                   onClick={() => setContactData((p) => ({ ...p, ageConfirmation: !p.ageConfirmation }))}
-                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${contactData.ageConfirmation ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-800"}`}
+                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${contactData.ageConfirmation ? "bg-emerald-500 border-emerald-500" : "border-slate-300 bg-slate-50"}`}
                 >
-                  {contactData.ageConfirmation && <Check className="w-3 h-3 text-white" />}
+                  {contactData.ageConfirmation && <Check className="w-3 h-3 text-slate-900" />}
                 </button>
-                <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
-                  I confirm I am 18 years of age or older <span className="text-red-400">*</span>
+                <span className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">
+                  I confirm I am 18 years of age or older <span className="text-red-600">*</span>
                 </span>
               </label>
 
@@ -1790,19 +1790,19 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                 <button
                   type="button"
                   onClick={() => setContactData((p) => ({ ...p, termsAccepted: !p.termsAccepted }))}
-                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${contactData.termsAccepted ? "bg-emerald-500 border-emerald-500" : "border-slate-600 bg-slate-800"}`}
+                  className={`mt-0.5 flex-shrink-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${contactData.termsAccepted ? "bg-emerald-500 border-emerald-500" : "border-slate-300 bg-slate-50"}`}
                 >
-                  {contactData.termsAccepted && <Check className="w-3 h-3 text-white" />}
+                  {contactData.termsAccepted && <Check className="w-3 h-3 text-slate-900" />}
                 </button>
-                <span className="text-xs text-slate-400 group-hover:text-slate-300 transition-colors">
-                  I agree to the <a href="/terms" target="_blank" className="text-emerald-400 underline underline-offset-2">Terms & Conditions</a> and <a href="/privacy" target="_blank" className="text-emerald-400 underline underline-offset-2">Privacy Policy</a> <span className="text-red-400">*</span>
+                <span className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">
+                  I agree to the <a href="/terms" target="_blank" className="text-emerald-600 underline underline-offset-2">Terms & Conditions</a> and <a href="/privacy" target="_blank" className="text-emerald-600 underline underline-offset-2">Privacy Policy</a> <span className="text-red-600">*</span>
                 </span>
               </label>
             </div>
 
             <p className="text-xs text-slate-500 pt-1">
               Already have an account?{" "}
-              <a href="/auth/login" className="text-emerald-400 underline underline-offset-2">Sign in</a>
+              <a href="/auth/login" className="text-emerald-600 underline underline-offset-2">Sign in</a>
             </p>
           </div>
         )
@@ -1821,11 +1821,11 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 md:bg-black/40"
         >
           <div
-            className="w-full h-full md:h-auto md:max-h-[90vh] max-w-2xl bg-slate-900 md:rounded-2xl shadow-2xl ring-1 ring-white/10 overflow-hidden flex flex-col"
+            className="w-full h-full md:h-auto md:max-h-[90vh] max-w-2xl bg-white md:rounded-2xl shadow-2xl ring-1 ring-black/[0.04] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex-shrink-0 flex items-center justify-between px-4 pt-safe pb-4 md:px-6 bg-gradient-to-r from-slate-800 to-slate-900 border-b border-white/10">
+            <div className="flex-shrink-0 flex items-center justify-between px-4 pt-safe pb-4 md:px-6 bg-gradient-to-r from-slate-50 to-white border-b border-white/10">
               <div className="flex items-center gap-3">
                 {companyProfile?.logo_url && userType === "company" && (
                   <img
@@ -1835,31 +1835,31 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   />
                 )}
                 <div>
-                  <h2 className="text-base md:text-lg font-bold text-white tracking-tight">Post a Job</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">Step {currentStep} of {totalSteps}</p>
+                  <h2 className="text-base md:text-lg font-bold text-slate-900 tracking-tight">Post a Job</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Step {currentStep} of {totalSteps}</p>
                 </div>
               </div>
-              <button onClick={closeModal} className="text-slate-500 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/10">
+              <button onClick={closeModal} className="text-slate-500 hover:text-slate-900 transition-colors p-1.5 rounded-lg hover:bg-white/10">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Progress bar + step indicators */}
-            <div className="flex-shrink-0 px-4 md:px-6 pt-3 pb-2 bg-slate-900 border-b border-white/5">
+            <div className="flex-shrink-0 px-4 md:px-6 pt-3 pb-2 bg-white border-b border-white/5">
               <div className="flex items-center justify-between mb-2">
                 {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
                   <div key={step} className="flex items-center flex-1">
                     <div className={`flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold transition-all duration-300 ${
                       step < currentStep
-                        ? "bg-emerald-500 text-white"
+                        ? "bg-emerald-500 text-slate-900"
                         : step === currentStep
-                        ? "bg-emerald-500/20 text-emerald-400 ring-2 ring-emerald-500/50"
-                        : "bg-slate-800 text-slate-600 ring-1 ring-slate-700"
+                        ? "bg-emerald-500/20 text-emerald-600 ring-2 ring-emerald-500/50"
+                        : "bg-slate-50 text-slate-400 ring-1 ring-slate-700"
                     }`}>
                       {step < currentStep ? "✓" : step}
                     </div>
                     {step < totalSteps && (
-                      <div className="flex-1 h-0.5 mx-1.5 rounded-full overflow-hidden bg-slate-800">
+                      <div className="flex-1 h-0.5 mx-1.5 rounded-full overflow-hidden bg-slate-50">
                         <div className={`h-full rounded-full transition-all duration-500 ${step < currentStep ? "bg-emerald-500 w-full" : "w-0"}`} />
                       </div>
                     )}
@@ -1869,10 +1869,10 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
             </div>
 
             {/* Content + footer inside the scroll area — user must scroll to reach buttons */}
-            <div className="flex-1 min-h-0 overflow-y-auto bg-slate-900 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
+            <div className="flex-1 min-h-0 overflow-y-auto bg-white scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent">
               <div className="p-4 md:p-6">
                 {renderStep()}
-                {err && <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 text-red-400 text-sm rounded-lg">{err}</div>}
+                {err && <div className="mt-4 p-3 bg-red-500/20 border border-red-500/30 text-red-600 text-sm rounded-lg">{err}</div>}
               </div>
 
               {/* Navigation buttons — at the bottom of scrollable content */}
@@ -1881,7 +1881,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                   type="button"
                   onClick={prevStep}
                   disabled={currentStep === 1}
-                  className="flex items-center gap-2 px-4 py-2.5 border border-slate-700/80 text-slate-400 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-800 hover:text-slate-200 transition-all text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2.5 border border-slate-200 text-slate-500 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 hover:text-slate-800 transition-all text-sm font-medium"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back
@@ -1894,7 +1894,7 @@ export default function JobWizardModal({ companyProfile, userType, redirectPath,
                     disabled={currentStep === 3 && !formData.locationCoords}
                     className={`flex items-center gap-2 px-7 py-2.5 rounded-xl transition-all text-sm font-semibold shadow-lg ${
                       currentStep === 3 && !formData.locationCoords
-                        ? "bg-slate-700 text-slate-500 cursor-not-allowed shadow-none"
+                        ? "bg-slate-100 text-slate-500 cursor-not-allowed shadow-none"
                         : "bg-emerald-500 text-white hover:bg-emerald-400 active:bg-emerald-600 shadow-emerald-500/25"
                     }`}
                   >

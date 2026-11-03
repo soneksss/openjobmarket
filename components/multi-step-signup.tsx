@@ -447,32 +447,28 @@ export default function MultiStepSignup() {
     <div className="w-full max-w-md mx-auto">
       {/* Full-screen overlay while OAuth browser is loading */}
       {isSocialLoading && (
-        <div className="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
-          <Loader2 className="w-10 h-10 text-emerald-400 animate-spin" />
-          <p className="text-slate-300 text-sm">
+        <div className="fixed inset-0 z-50 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center gap-4">
+          <Loader2 className="w-10 h-10 text-emerald-600 animate-spin" />
+          <p className="text-slate-700 text-sm">
             Connecting to {isSocialLoading === 'google' ? 'Google' : 'Facebook'}…
           </p>
         </div>
       )}
 
-      <div className="hidden sm:flex items-center justify-center gap-2 mb-6">
-        <span className="text-white font-bold text-lg tracking-tight">Open Job Market</span>
-      </div>
 
-      <Card className="bg-slate-900 border border-slate-700/60 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_32px_64px_rgba(0,0,0,0.6)] ring-1 ring-white/[0.04]">
-        {/* Thin emerald top accent */}
-        <div className="h-px w-full bg-gradient-to-r from-transparent via-emerald-500/60 to-transparent rounded-t-xl" />
-        <CardHeader className="pb-1 pt-2 sm:pb-4 sm:pt-6">
-          <CardTitle className="text-sm sm:text-2xl text-white text-center leading-tight">{t('signup.title')}</CardTitle>
-          <CardDescription className="text-slate-400 text-center text-xs sm:text-sm mt-0.5">
+      {/* The page supplies the white window; the card is just structure here. */}
+      <Card className="bg-transparent border-0 shadow-none text-slate-900">
+        <CardHeader className="px-0 pb-1 pt-0 sm:pb-4">
+          <CardTitle className="text-2xl sm:text-3xl font-bold text-slate-900 text-center leading-tight">{t('signup.title')}</CardTitle>
+          <CardDescription className="text-slate-500 text-center text-xs sm:text-sm mt-0.5">
             {t('signup.step')} {currentStep} {t('signup.of')} 2
           </CardDescription>
         </CardHeader>
-        <CardContent className="px-4 pb-4 sm:px-6 sm:pb-6">
+        <CardContent className="px-0 pb-0">
           {emailAlreadyExists && (
-            <div className="mb-4 p-4 bg-amber-900/40 border border-amber-600/60 rounded-xl space-y-3">
-              <p className="text-sm font-semibold text-amber-300">This email already has an account.</p>
-              <p className="text-xs text-amber-400/80">Sign in to your existing account, or resend the verification email if you haven't confirmed it yet.</p>
+            <div className="mb-4 p-4 bg-amber-50 border border-amber-600/60 rounded-xl space-y-3">
+              <p className="text-sm font-semibold text-amber-700">This email already has an account.</p>
+              <p className="text-xs text-amber-600">Sign in to your existing account, or resend the verification email if you haven't confirmed it yet.</p>
               <Link
                 href="/auth/login"
                 className="inline-flex items-center justify-center w-full py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-colors"
@@ -491,15 +487,15 @@ export default function MultiStepSignup() {
                     router.push(url)
                   } catch { /* ignore */ }
                 }}
-                className="w-full py-2 rounded-lg border border-amber-600/60 text-amber-300 text-sm font-medium hover:bg-amber-900/30 transition-colors"
+                className="w-full py-2 rounded-lg border border-amber-600/60 text-amber-700 text-sm font-medium hover:bg-amber-50 transition-colors"
               >
                 Resend verification email
               </button>
             </div>
           )}
           {error && !emailAlreadyExists && (
-            <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-md">
-              <p className="text-sm text-red-300">{error}</p>
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+              <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
@@ -509,7 +505,7 @@ export default function MultiStepSignup() {
 
             {/* Account type — MUST be selected first ──────────────────── */}
             <div>
-              <p className="text-sm font-semibold text-slate-200 text-center mb-3">
+              <p className="text-sm font-semibold text-slate-800 text-center mb-3">
                 First, choose your account type
               </p>
               <div className="grid grid-cols-2 gap-2 sm:gap-4">
@@ -518,16 +514,16 @@ export default function MultiStepSignup() {
                   className={`p-2.5 sm:p-4 border-2 rounded-xl text-center transition-all overflow-hidden ${
                     signupData.accountType === "individual"
                       ? "border-blue-500 bg-blue-500/20 shadow-lg shadow-blue-500/20"
-                      : "border-slate-700 hover:border-slate-500 bg-slate-800/50"
+                      : "border-slate-200 hover:border-slate-400 bg-white"
                   }`}
                 >
-                  <div className={`mx-auto w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center mb-1.5 ${
-                    signupData.accountType === "individual" ? "bg-blue-500" : "bg-slate-700"
+                  <div className={`mx-auto w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-2 ${
+                    signupData.accountType === "individual" ? "bg-blue-500" : "bg-sky-100"
                   }`}>
-                    <User className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${signupData.accountType === "individual" ? "text-white" : "text-slate-400"}`} />
+                    <User className={`h-5 w-5 sm:h-7 sm:w-7 ${signupData.accountType === "individual" ? "text-white" : "text-sky-700"}`} />
                   </div>
-                  <h4 className="font-semibold text-[11px] sm:text-xs mb-0.5 text-white break-words leading-tight">{t('signup.individual')}</h4>
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 leading-tight break-words">{t('signup.individualDesc')}</p>
+                  <h4 className="font-bold text-sm sm:text-base mb-0.5 text-slate-900 break-words leading-tight">{t('signup.individual')}</h4>
+                  <p className="text-xs sm:text-sm text-slate-500 leading-snug break-words">{t('signup.individualDesc')}</p>
                 </button>
 
                 <button
@@ -535,23 +531,23 @@ export default function MultiStepSignup() {
                   className={`p-2.5 sm:p-4 border-2 rounded-xl text-center transition-all overflow-hidden ${
                     signupData.accountType === "company"
                       ? "border-orange-500 bg-orange-500/20 shadow-lg shadow-orange-500/20"
-                      : "border-slate-700 hover:border-slate-500 bg-slate-800/50"
+                      : "border-slate-200 hover:border-slate-400 bg-white"
                   }`}
                 >
-                  <div className={`mx-auto w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center mb-1.5 ${
-                    signupData.accountType === "company" ? "bg-orange-500" : "bg-slate-700"
+                  <div className={`mx-auto w-11 h-11 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center mb-2 ${
+                    signupData.accountType === "company" ? "bg-orange-500" : "bg-emerald-100"
                   }`}>
-                    <HardHat className={`h-3.5 w-3.5 sm:h-4 sm:w-4 ${signupData.accountType === "company" ? "text-white" : "text-slate-400"}`} />
+                    <HardHat className={`h-5 w-5 sm:h-7 sm:w-7 ${signupData.accountType === "company" ? "text-white" : "text-emerald-700"}`} />
                   </div>
-                  <h4 className="font-semibold text-[11px] sm:text-xs mb-0.5 text-white break-words leading-tight">{t('signup.business')}</h4>
-                  <p className="text-[9px] sm:text-[10px] text-slate-400 leading-tight break-words">{t('signup.companyDesc')}</p>
+                  <h4 className="font-bold text-sm sm:text-base mb-0.5 text-slate-900 break-words leading-tight">{t('signup.business')}</h4>
+                  <p className="text-xs sm:text-sm text-slate-500 leading-snug break-words">{t('signup.companyDesc')}</p>
                 </button>
               </div>
             </div>
 
             {/* OAuth buttons — role must be selected first ──────────── */}
             {!signupData.accountType && (
-              <p className="text-xs text-amber-400 text-center -mb-1">
+              <p className="text-xs text-amber-600 text-center -mb-1">
                 ↑ Select your account type above to continue
               </p>
             )}
@@ -561,7 +557,7 @@ export default function MultiStepSignup() {
                 variant="outline"
                 onClick={() => handleSocialLogin('google')}
                 disabled={isSocialLoading !== null || !signupData.accountType}
-                className="h-11 border-slate-600 bg-slate-800 text-white hover:bg-slate-700"
+                className="h-11 border-slate-300 bg-slate-50 text-slate-900 hover:bg-slate-100"
               >
                 {isSocialLoading === 'google' ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -582,7 +578,7 @@ export default function MultiStepSignup() {
                 variant="outline"
                 onClick={() => handleSocialLogin('facebook')}
                 disabled={isSocialLoading !== null || !signupData.accountType}
-                className="h-11 border-slate-600 bg-slate-800 text-white hover:bg-slate-700"
+                className="h-11 border-slate-300 bg-slate-50 text-slate-900 hover:bg-slate-100"
               >
                 {isSocialLoading === 'facebook' ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
@@ -600,10 +596,10 @@ export default function MultiStepSignup() {
             {/* Divider ──────────────────────────────────────────────────── */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-700" />
+                <div className="w-full border-t border-slate-200" />
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="px-3 bg-slate-900 text-slate-500">or continue with email</span>
+                <span className="px-3 bg-white text-slate-500">or continue with email</span>
               </div>
             </div>
 
@@ -628,25 +624,25 @@ export default function MultiStepSignup() {
                   {/* Name Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="firstName" className="text-sm font-medium text-slate-300">{t('signup.firstNameLabel')} *</Label>
+                      <Label htmlFor="firstName" className="text-sm font-medium text-slate-700">{t('signup.firstNameLabel')} *</Label>
                       <Input
                         id="firstName"
                         value={signupData.firstName}
                         onChange={(e) => updateSignupData({ firstName: e.target.value })}
                         placeholder={t('signup.firstNamePlaceholder')}
                         required
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                        className="mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="lastName" className="text-sm font-medium text-slate-300">{t('signup.lastNameLabel')} *</Label>
+                      <Label htmlFor="lastName" className="text-sm font-medium text-slate-700">{t('signup.lastNameLabel')} *</Label>
                       <Input
                         id="lastName"
                         value={signupData.lastName}
                         onChange={(e) => updateSignupData({ lastName: e.target.value })}
                         placeholder={t('signup.lastNamePlaceholder')}
                         required
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                        className="mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
                       />
                     </div>
                   </div>
@@ -654,9 +650,9 @@ export default function MultiStepSignup() {
                   {/* Email & Postcode Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="email" className="text-sm font-medium text-slate-300">
+                      <Label htmlFor="email" className="text-sm font-medium text-slate-700">
                         {t('signup.emailLabel')} *
-                        {emailLocked && <span className="ml-1.5 text-[10px] text-amber-400 font-normal">(locked)</span>}
+                        {emailLocked && <span className="ml-1.5 text-[10px] text-amber-600 font-normal">(locked)</span>}
                       </Label>
                       <Input
                         id="email"
@@ -667,11 +663,11 @@ export default function MultiStepSignup() {
                         placeholder="you@email.com"
                         autoComplete="email"
                         required
-                        className={`mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500 ${emailLocked ? 'opacity-75 cursor-not-allowed select-none' : ''}`}
+                        className={`mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 ${emailLocked ? 'opacity-75 cursor-not-allowed select-none' : ''}`}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="postcode" className="text-sm font-medium text-slate-300">{t('signup.postcodeLabel') || 'Postcode'} *</Label>
+                      <Label htmlFor="postcode" className="text-sm font-medium text-slate-700">{t('signup.postcodeLabel') || 'Postcode'} *</Label>
                       <Input
                         id="postcode"
                         value={signupData.postcode}
@@ -681,18 +677,18 @@ export default function MultiStepSignup() {
                         }}
                         onBlur={() => geocodePostcode(signupData.postcode)}
                         placeholder="SW1A 1AA"
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                        className="mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
                       />
-                      {isGeocodingPostcode && <p className="text-xs text-slate-400 mt-0.5">Looking up...</p>}
+                      {isGeocodingPostcode && <p className="text-xs text-slate-500 mt-0.5">Looking up...</p>}
                       {signupData.location && !isGeocodingPostcode && (
-                        <p className="text-xs text-emerald-400 mt-0.5 flex items-center"><Check className="h-3 w-3 mr-1" />{signupData.location.split(',')[0]}</p>
+                        <p className="text-xs text-emerald-600 mt-0.5 flex items-center"><Check className="h-3 w-3 mr-1" />{signupData.location.split(',')[0]}</p>
                       )}
                     </div>
                   </div>
 
                   {/* Password — single field for homeowners, no confirm needed */}
                   <div>
-                    <Label htmlFor="password" className="text-sm font-medium text-slate-300">{t('signup.passwordLabel')} *</Label>
+                    <Label htmlFor="password" className="text-sm font-medium text-slate-700">{t('signup.passwordLabel')} *</Label>
                     <div className="relative mt-1">
                       <Input
                         id="password"
@@ -702,12 +698,12 @@ export default function MultiStepSignup() {
                         placeholder="Min 6 characters"
                         autoComplete="new-password"
                         required
-                        className="h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500 pr-10"
+                        className="h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 pr-10"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800"
                         tabIndex={-1}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -722,20 +718,20 @@ export default function MultiStepSignup() {
                         id="ageConfirmation"
                         checked={signupData.ageConfirmation}
                         onCheckedChange={(checked) => updateSignupData({ ageConfirmation: checked as boolean })}
-                        className="border-slate-500 data-[state=checked]:bg-emerald-500"
+                        className="border-slate-400 data-[state=checked]:bg-emerald-500"
                       />
-                      <span className="text-sm text-slate-300">{t('signup.ageConfirmation')} *</span>
+                      <span className="text-sm text-slate-700">{t('signup.ageConfirmation')} *</span>
                     </label>
                     <label className="flex items-start gap-2 cursor-pointer">
                       <Checkbox
                         id="termsAccepted"
                         checked={signupData.termsAccepted}
                         onCheckedChange={(checked) => updateSignupData({ termsAccepted: checked as boolean })}
-                        className="mt-0.5 border-slate-500 data-[state=checked]:bg-emerald-500"
+                        className="mt-0.5 border-slate-400 data-[state=checked]:bg-emerald-500"
                       />
-                      <span className="text-sm text-slate-300">
+                      <span className="text-sm text-slate-700">
                         {t('signup.agreeToTerms') || 'I agree to the'}{' '}
-                        <Link href="/terms" target="_blank" className="text-emerald-400 hover:underline">
+                        <Link href="/terms" target="_blank" className="text-emerald-600 hover:underline">
                           {t('signup.termsAndConditions') || 'Terms & Conditions'}
                         </Link> *
                       </span>
@@ -746,23 +742,23 @@ export default function MultiStepSignup() {
                 <>
                   {/* Business Name */}
                   <div>
-                    <Label htmlFor="companyName" className="text-sm font-medium text-slate-300">{t('signup.companyNameLabel')} *</Label>
+                    <Label htmlFor="companyName" className="text-sm font-medium text-slate-700">{t('signup.companyNameLabel')} *</Label>
                     <Input
                       id="companyName"
                       value={signupData.companyName}
                       onChange={(e) => updateSignupData({ companyName: e.target.value })}
                       placeholder={t('signup.companyNamePlaceholder')}
                       required
-                      className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                      className="mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
                     />
                   </div>
 
                   {/* Email & Postcode Row */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="email" className="text-sm font-medium text-slate-300">
+                      <Label htmlFor="email" className="text-sm font-medium text-slate-700">
                         {t('signup.emailLabel')} *
-                        {emailLocked && <span className="ml-1.5 text-[10px] text-amber-400 font-normal">(locked)</span>}
+                        {emailLocked && <span className="ml-1.5 text-[10px] text-amber-600 font-normal">(locked)</span>}
                       </Label>
                       <Input
                         id="email"
@@ -773,11 +769,11 @@ export default function MultiStepSignup() {
                         placeholder="you@company.com"
                         autoComplete="email"
                         required
-                        className={`mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500 ${emailLocked ? 'opacity-75 cursor-not-allowed select-none' : ''}`}
+                        className={`mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 ${emailLocked ? 'opacity-75 cursor-not-allowed select-none' : ''}`}
                       />
                     </div>
                     <div>
-                      <Label htmlFor="postcode" className="text-sm font-medium text-slate-300">{t('signup.postcodeLabel') || 'Postcode'} *</Label>
+                      <Label htmlFor="postcode" className="text-sm font-medium text-slate-700">{t('signup.postcodeLabel') || 'Postcode'} *</Label>
                       <Input
                         id="postcode"
                         value={signupData.postcode}
@@ -787,18 +783,18 @@ export default function MultiStepSignup() {
                         }}
                         onBlur={() => geocodePostcode(signupData.postcode)}
                         placeholder="SW1A 1AA"
-                        className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                        className="mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
                       />
-                      {isGeocodingPostcode && <p className="text-xs text-slate-400 mt-0.5">Looking up...</p>}
+                      {isGeocodingPostcode && <p className="text-xs text-slate-500 mt-0.5">Looking up...</p>}
                       {signupData.location && !isGeocodingPostcode && (
-                        <p className="text-xs text-emerald-400 mt-0.5 flex items-center"><Check className="h-3 w-3 mr-1" />{signupData.location.split(',')[0]}</p>
+                        <p className="text-xs text-emerald-600 mt-0.5 flex items-center"><Check className="h-3 w-3 mr-1" />{signupData.location.split(',')[0]}</p>
                       )}
                     </div>
                   </div>
 
                   {/* Password */}
                   <div>
-                    <Label htmlFor="password" className="text-sm font-medium text-slate-300">{t('signup.passwordLabel')} *</Label>
+                    <Label htmlFor="password" className="text-sm font-medium text-slate-700">{t('signup.passwordLabel')} *</Label>
                     <div className="relative mt-1">
                       <Input
                         id="password"
@@ -808,12 +804,12 @@ export default function MultiStepSignup() {
                         placeholder="Min 6 characters"
                         autoComplete="new-password"
                         required
-                        className="h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500 pr-10"
+                        className="h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 pr-10"
                       />
                       <button
                         type="button"
                         onClick={() => setShowPassword(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800"
                         tabIndex={-1}
                       >
                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -823,13 +819,13 @@ export default function MultiStepSignup() {
 
                   {/* Promo code (optional) */}
                   <div>
-                    <Label htmlFor="promoCode" className="text-sm font-medium text-slate-300">Promo code (optional)</Label>
+                    <Label htmlFor="promoCode" className="text-sm font-medium text-slate-700">Promo code (optional)</Label>
                     <Input
                       id="promoCode"
                       value={signupData.promoCode}
                       onChange={(e) => updateSignupData({ promoCode: e.target.value.toUpperCase() })}
                       placeholder="Have a code? Enter it here"
-                      className="mt-1 h-10 bg-slate-800 border-slate-600 text-white placeholder:text-slate-500"
+                      className="mt-1 h-10 bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400"
                     />
                   </div>
 
@@ -840,11 +836,11 @@ export default function MultiStepSignup() {
                         id="termsAccepted"
                         checked={signupData.termsAccepted}
                         onCheckedChange={(checked) => updateSignupData({ termsAccepted: checked as boolean })}
-                        className="mt-0.5 border-slate-500 data-[state=checked]:bg-emerald-500"
+                        className="mt-0.5 border-slate-400 data-[state=checked]:bg-emerald-500"
                       />
-                      <span className="text-sm text-slate-300">
+                      <span className="text-sm text-slate-700">
                         {t('signup.agreeToTerms') || 'I agree to the'}{' '}
-                        <Link href="/terms" target="_blank" className="text-emerald-400 hover:underline">
+                        <Link href="/terms" target="_blank" className="text-emerald-600 hover:underline">
                           {t('signup.termsAndConditions') || 'Terms & Conditions'}
                         </Link> *
                       </span>
@@ -856,7 +852,7 @@ export default function MultiStepSignup() {
 
             {/* Navigation Buttons */}
             <div className="flex gap-3 pt-4">
-              <Button variant="outline" onClick={prevStep} disabled={isLoading} className="flex-1 h-11 border-slate-600 text-slate-300 hover:bg-slate-800">
+              <Button variant="outline" onClick={prevStep} disabled={isLoading} className="flex-1 h-11 border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 {t('common.back')}
               </Button>
@@ -875,8 +871,8 @@ export default function MultiStepSignup() {
         )}
 
         <div className="mt-6 text-center text-sm">
-          <span className="text-slate-400">{t('auth.alreadyHaveAccount')} </span>
-          <Link href={isOnBrRoute ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}` : '/auth/login'} className="text-emerald-400 hover:underline font-medium">
+          <span className="text-slate-500">{t('auth.alreadyHaveAccount')} </span>
+          <Link href={isOnBrRoute ? `/auth/login?locale=pt-BR&returnUrl=${encodeURIComponent(pathname || '/br')}` : '/auth/login'} className="text-emerald-600 hover:underline font-medium">
             {t('nav.signIn')}
           </Link>
         </div>
