@@ -3,11 +3,13 @@ import { redirect } from "next/navigation"
 import { getAdminUser } from "@/lib/admin-auth"
 import { createAdminClient } from "@/lib/server"
 import { takeDownJob, reopenJob } from "./actions"
+import { jobState, conversationKey } from "./job-state"
 import { formatMoney } from "@/lib/currency"
 
 export const dynamic = "force-dynamic"
 
-// Latest trade jobs and vacancies, rendered once on the server (one query, 200 rows).
+// Latest trade jobs and vacancies, rendered once on the server: one query for
+// 200 rows, one for their messages to count replies.
 const TABS = [
   { id: "all",      label: "All" },
   { id: "trade",    label: "Trade jobs" },
@@ -24,24 +26,13 @@ function money(min: number | null, max: number | null, period: string | null, cu
   return `${f((min ?? max)!)}${p}`
 }
 
-// What the job looks like from the site: open, in progress with a
-// tradesperson (left alone), or closed (can be reopened).
-function jobState(j: { status: string; is_active: boolean; expires_at: string | null }, now: number) {
-  if (j.status === "CONFIRMED" || j.status === "ACTIVE") return { label: "In progress", kind: "busy" as const }
-  if (j.status === "POSTED") {
-    if (!j.is_active) return { label: "Taken down", kind: "closed" as const }
-    if (j.expires_at && new Date(j.expires_at).getTime() < now) return { label: "Expired", kind: "closed" as const }
-    return { label: "Open", kind: "open" as const }
-  }
-  return { label: j.status.charAt(0) + j.status.slice(1).toLowerCase(), kind: "closed" as const }
-}
-
 export default async function AdminJobsPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
   const adminUser = await getAdminUser()
   if (!adminUser) redirect("/admin/login")
 
   const { type = "all" } = await searchParams
-  let q = createAdminClient()
+  const db = createAdminClient()
+  let q = db
     .from("jobs")
     .select("id, title, location, status, is_active, expires_at, is_tradespeople_job, budget_min, budget_max, budget_period, currency, created_at, " +
       "company_profiles!company_id(company_name), homeowner_profiles!homeowner_id(first_name, last_name)")
@@ -52,6 +43,19 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
   const { data, error } = await q
   const jobs = (data ?? []) as any[]
   const now = Date.now()
+
+  // Replies = people who have a conversation with the poster about the job.
+  const replies: Record<string, Set<string>> = {}
+  if (jobs.length > 0) {
+    const { data: msgs } = await db
+      .from("messages")
+      .select("job_id, conversation_id, sender_id, recipient_id")
+      .in("job_id", jobs.map(j => j.id))
+      .limit(20000)
+    for (const m of (msgs ?? []) as any[]) {
+      ;(replies[m.job_id] ??= new Set()).add(conversationKey(m))
+    }
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -80,6 +84,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
               <th className="px-3 py-2 font-medium">Posted by</th>
               <th className="px-3 py-2 font-medium">Location</th>
               <th className="px-3 py-2 font-medium">Pay</th>
+              <th className="px-3 py-2 font-medium">Replies</th>
               <th className="px-3 py-2 font-medium">Status</th>
               <th className="px-3 py-2 font-medium">Posted</th>
               <th className="px-3 py-2" />
@@ -93,7 +98,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
               return (
                 <tr key={j.id} className={state.kind === "closed" ? "opacity-50" : ""}>
                   <td className="px-3 py-2">
-                    <Link href={`/jobs/${j.id}`} prefetch={false} target="_blank" className="text-zinc-100 hover:underline">{j.title}</Link>
+                    <Link href={`/admin/jobs/${j.id}`} prefetch={false} className="text-zinc-100 hover:underline">{j.title}</Link>
                   </td>
                   <td className="px-3 py-2">
                     <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${j.is_tradespeople_job ? "bg-orange-500/15 text-orange-300" : "bg-sky-500/15 text-sky-300"}`}>
@@ -103,6 +108,11 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
                   <td className="px-3 py-2 text-zinc-400">{poster || "—"}</td>
                   <td className="px-3 py-2 text-zinc-400 max-w-[180px] truncate">{j.location ?? "—"}</td>
                   <td className="px-3 py-2 text-zinc-400 whitespace-nowrap">{money(j.budget_min, j.budget_max, j.is_tradespeople_job ? null : j.budget_period, j.currency)}</td>
+                  <td className="px-3 py-2 text-xs">
+                    <Link href={`/admin/jobs/${j.id}`} prefetch={false} className={replies[j.id]?.size ? "text-zinc-100 hover:underline" : "text-zinc-600"}>
+                      {replies[j.id]?.size ?? 0}
+                    </Link>
+                  </td>
                   <td className="px-3 py-2 text-zinc-400 text-xs">{state.label}</td>
                   <td className="px-3 py-2 text-zinc-500 text-xs whitespace-nowrap">{new Date(j.created_at).toLocaleDateString("en-GB")}</td>
                   <td className="px-3 py-2 text-right">
@@ -121,7 +131,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
               )
             })}
             {jobs.length === 0 && !error && (
-              <tr><td colSpan={8} className="px-3 py-8 text-center text-zinc-500">Nothing here yet.</td></tr>
+              <tr><td colSpan={9} className="px-3 py-8 text-center text-zinc-500">Nothing here yet.</td></tr>
             )}
           </tbody>
         </table>

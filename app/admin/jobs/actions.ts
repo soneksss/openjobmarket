@@ -15,7 +15,7 @@ export async function takeDownJob(jobId: string) {
     .eq("id", jobId)
   if (error) throw new Error(error.message)
 
-  revalidatePath("/admin/jobs")
+  revalidatePath("/admin/jobs", "layout")
 }
 
 // Put any closed job back on the site for 14 days — taken down, expired,
@@ -28,5 +28,5 @@ export async function reopenJob(jobId: string) {
   const { error } = await createAdminWriteClient().rpc("admin_reopen_job", { p_job_id: jobId, p_days: 14 })
   if (error) throw new Error(error.message)
 
-  revalidatePath("/admin/jobs")
+  revalidatePath("/admin/jobs", "layout")
 }
