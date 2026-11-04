@@ -1,7 +1,8 @@
 // Dark planet panel used on the left of the light split windows (welcome guide,
 // sign-up, sign-in). Desktop only; small screens show just the white side.
 
-import { Check } from "lucide-react"
+import Link from "next/link"
+import { Check, X } from "lucide-react"
 
 export const BRAND_POINTS = ["No fees to post jobs", "No pay-per-lead for trades", "Contact each other directly"]
 
@@ -28,11 +29,16 @@ export function BrandPanel({ headline, children }: { headline: React.ReactNode; 
 }
 
 // Full-page version for auth pages: the planet behind, a light split card in front.
+// The X goes to "/", which sends each visitor to their own home map.
 export function AuthSplitLayout({ headline, children }: { headline: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="relative min-h-screen bg-[#030a08] flex items-start sm:items-center justify-center px-3 py-4 sm:px-4 sm:py-10">
       <div className="pointer-events-none absolute inset-0 bg-[url('/hero-space-mobile.webp')] md:bg-[url('/hero-space.webp')] bg-cover bg-right-bottom opacity-40" />
       <div className="relative flex w-full max-w-xl lg:max-w-[1100px] lg:w-[70vw] lg:min-h-[640px] overflow-hidden rounded-3xl bg-white text-slate-900 shadow-2xl shadow-black/50">
+        <Link href="/" prefetch={false} aria-label="Close"
+          className="absolute top-3 right-3 z-10 w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors">
+          <X className="w-5 h-5" />
+        </Link>
         <BrandPanel headline={headline} />
         <div className="flex-1 min-w-0 flex flex-col justify-center p-5 sm:p-8 lg:p-12">{children}</div>
       </div>
