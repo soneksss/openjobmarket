@@ -1,6 +1,6 @@
 import type React from "react"
 import { Suspense } from "react"
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
 import NextTopLoader from "nextjs-toploader"
@@ -86,6 +86,16 @@ export const metadata: Metadata = {
   },
 }
 
+// The only viewport tag on the page. Next always emits its own, so a second
+// hand-written <meta name="viewport"> in <head> loses: on iPhone that dropped
+// viewport-fit=cover, env(safe-area-inset-top) read 0 and the map tabs slid
+// under the camera notch.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+}
+
 // Force dynamic rendering since we use cookies
 export const dynamic = 'force-dynamic'
 
@@ -132,7 +142,6 @@ export default async function RootLayout({
   return (
     <html lang={serverLocale === 'pt-BR' ? 'pt-BR' : 'en'} className={`${GeistSans.variable} ${GeistMono.variable} antialiased dark`}>
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
         {/* The UI is dark-only. Tell the browser / Android WebView so its
             "Force Dark" auto-darkening doesn't invert the page — that inversion
             is what turned the grey van markers white on MIUI/Xiaomi WebViews. */}
