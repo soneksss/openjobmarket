@@ -2,7 +2,8 @@ import Link from "next/link"
 import { redirect } from "next/navigation"
 import { getAdminUser } from "@/lib/admin-auth"
 import { createAdminClient } from "@/lib/server"
-import { takeDownJob, reopenJob } from "./actions"
+import { takeDownJob, reopenJob, reopenJobs } from "./actions"
+import { BulkReopenBar } from "./bulk-reopen-bar"
 import { jobState, conversationKey } from "./job-state"
 import { formatMoney } from "@/lib/currency"
 
@@ -61,7 +62,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
     <div className="max-w-6xl mx-auto space-y-4">
       <div>
         <h1 className="text-xl font-bold text-zinc-100">Jobs</h1>
-        <p className="text-xs text-zinc-500 mt-0.5">Latest 200 trade jobs and vacancies. Take down hides one from the site; Reopen puts any closed job back for 14 days.</p>
+        <p className="text-xs text-zinc-500 mt-0.5">Latest 200 trade jobs and vacancies. Take down hides one from the site; Reopen puts any closed job back for 14 days. Tick several closed jobs to reopen them together.</p>
       </div>
 
       <div className="flex gap-1.5">
@@ -75,10 +76,13 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
 
       {error && <p className="text-sm text-red-400">Could not load jobs: {error.message}</p>}
 
+      <BulkReopenBar action={reopenJobs} />
+
       <div className="rounded-xl border border-zinc-800 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-zinc-900 text-left text-xs text-zinc-500">
             <tr>
+              <th className="pl-3 py-2 w-6" />
               <th className="px-3 py-2 font-medium">Title</th>
               <th className="px-3 py-2 font-medium">Type</th>
               <th className="px-3 py-2 font-medium">Posted by</th>
@@ -96,7 +100,12 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
                 ?? [j.homeowner_profiles?.first_name, j.homeowner_profiles?.last_name].filter(Boolean).join(" ")
               const state = jobState(j, now)
               return (
-                <tr key={j.id} className={state.kind === "closed" ? "opacity-50" : ""}>
+                <tr key={j.id} className={state.kind === "closed" ? "opacity-60" : ""}>
+                  <td className="pl-3 py-2">
+                    {state.kind === "closed" && (
+                      <input type="checkbox" name="ids" value={j.id} form="bulk-reopen" aria-label={`Select ${j.title}`} className="accent-emerald-500" />
+                    )}
+                  </td>
                   <td className="px-3 py-2">
                     <Link href={`/admin/jobs/${j.id}`} prefetch={false} className="text-zinc-100 hover:underline">{j.title}</Link>
                   </td>
@@ -131,7 +140,7 @@ export default async function AdminJobsPage({ searchParams }: { searchParams: Pr
               )
             })}
             {jobs.length === 0 && !error && (
-              <tr><td colSpan={9} className="px-3 py-8 text-center text-zinc-500">Nothing here yet.</td></tr>
+              <tr><td colSpan={10} className="px-3 py-8 text-center text-zinc-500">Nothing here yet.</td></tr>
             )}
           </tbody>
         </table>
