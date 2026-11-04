@@ -419,7 +419,7 @@ export function Header({ user, userType, isAdmin: serverIsAdmin, showAuth = true
           {/* Middle — tradesperson-only "Available now" toggle, always visible */}
           {currentUserType === "company" && (
             <div className="flex flex-1 justify-center min-w-0">
-              <AvailableNowToggle />
+              <AvailableNowToggle className="mx-auto" />
             </div>
           )}
 

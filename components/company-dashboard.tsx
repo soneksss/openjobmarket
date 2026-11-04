@@ -70,6 +70,7 @@ import { AdminButton } from "@/components/admin-button"
 import { StarRating } from "@/components/star-rating"
 import { useToast } from "@/hooks/use-toast"
 import { useAvailableNow } from "@/contexts/available-now-context"
+import { AvailableNowToggle } from "@/components/available-now-toggle"
 import { useTranslation } from "@/lib/i18n/context"
 import { DashboardInbox } from "@/components/dashboard-inbox"
 import { JobConfirmationModal, type ConfirmedJobOffer } from "@/components/job-confirmation-modal"
@@ -240,7 +241,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
   const [updatingHiringStatus, setUpdatingHiringStatus] = useState(false)
   // Urgent jobs: available for 24h active window — shared with the header/map
   // toggle via context so both stay mirrored without a page refresh.
-  const { enabled: urgentEnabled, saving: updatingUrgent, toggle: setAvailableNow } = useAvailableNow()
+  const { enabled: urgentEnabled } = useAvailableNow()
   // Flexible jobs: always-optional notifications
   const [flexibleEnabled, setFlexibleEnabled] = useState(profile.flexible_notifications_enabled ?? true)
   const [updatingFlexible, setUpdatingFlexible] = useState(false)
@@ -990,13 +991,6 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
     }
   }
 
-  const handleUrgentToggle = async (enabled: boolean) => {
-    await setAvailableNow(enabled)
-    if (enabled) {
-      toast({ title: "Available now", description: "You'll receive urgent job alerts for the next 24 hours.", duration: 3000 })
-    }
-  }
-
   const handleFlexibleToggle = async (enabled: boolean) => {
     setFlexibleEnabled(enabled)
     setUpdatingFlexible(true)
@@ -1229,17 +1223,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
               <div className="border-t border-slate-600/50" />
 
-              {/* Urgent toggle */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Zap className={`h-4 w-4 ${urgentEnabled ? 'text-emerald-400' : 'text-slate-500'}`} />
-                  <div>
-                    <p className="text-sm font-medium">{urgentEnabled ? 'Available now' : 'Not available'}</p>
-                    <p className="text-[10px] text-slate-400">Turn on when ready to work now</p>
-                  </div>
-                </div>
-                <Switch checked={urgentEnabled} onCheckedChange={handleUrgentToggle} disabled={updatingUrgent} className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-600" />
-              </div>
+              {/* Available now — the same bar as on the maps and in the header */}
+              <AvailableNowToggle variant="card" />
               {urgentEnabled && (
                 <div className="flex items-start gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-2">
                   <Clock className="h-3 w-3 text-amber-400 flex-shrink-0 mt-0.5" />
@@ -1499,17 +1484,8 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
 
                     <div className="border-t border-slate-600/50" />
 
-                    {/* Urgent toggle */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Zap className={`h-4 w-4 ${urgentEnabled ? 'text-emerald-400' : 'text-slate-500'}`} />
-                        <div>
-                          <p className="text-sm font-medium text-white">{urgentEnabled ? 'Available now' : 'Not available'}</p>
-                          <p className="text-[10px] text-slate-400">Turn on when ready to work now</p>
-                        </div>
-                      </div>
-                      <Switch checked={urgentEnabled} onCheckedChange={handleUrgentToggle} disabled={updatingUrgent} className="data-[state=checked]:bg-emerald-500 data-[state=unchecked]:bg-slate-600" />
-                    </div>
+                    {/* Available now — the same bar as on the maps and in the header */}
+                    <AvailableNowToggle variant="card" />
                     {urgentEnabled && (
                       <div className="flex items-start gap-1.5 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-2">
                         <Clock className="h-3 w-3 text-amber-400 flex-shrink-0 mt-0.5" />

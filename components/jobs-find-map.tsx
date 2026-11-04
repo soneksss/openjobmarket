@@ -10,6 +10,7 @@ import { ArrowLeft, MapPin, Briefcase, Building2, SlidersHorizontal, X, Check, C
 import { MapSearchBar } from "@/components/map-search-bar"
 import { ShareJobButton } from "@/components/share-job-button"
 import { MapTabs } from "@/components/map-tabs"
+import { AvailableNowToggle } from "@/components/available-now-toggle"
 import { formatMoney } from "@/lib/currency"
 import { geocodeUrl, visitorCountry } from "@/lib/geo"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
@@ -357,7 +358,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
     const style = document.createElement("style")
     style.id = "find-jobs-zoom-offset"
     const isLg = window.matchMedia(WIDE_LAYOUT_QUERY).matches
-    style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + ${isLg ? "116px" : "86px"}); }`
+    style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + var(--ojm-avail-bar-h, 0px) + ${isLg ? "116px" : "86px"}); }`
     if (!document.getElementById("find-jobs-zoom-offset")) document.head.appendChild(style)
 
     // Pulsing red halo for urgent (ASAP) job pins.
@@ -383,7 +384,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   // Keep the zoom-control offset in sync when rotating the phone, not just on mount.
   useEffect(() => {
     const style = document.getElementById("find-jobs-zoom-offset")
-    if (style) style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + ${isDesktop ? "116px" : "86px"}); }`
+    if (style) style.textContent = `#find-jobs-map .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + var(--ojm-avail-bar-h, 0px) + ${isDesktop ? "116px" : "86px"}); }`
   }, [isDesktop])
 
   // Auto-request geolocation on first load when no explicit location was supplied
@@ -565,7 +566,7 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
   // The global site header is now visible above the map on both sizes (via
   // --global-header-h), so both branches just add this map's own local
   // header-row content height on top of it.
-  const HEADER = isDesktop ? "calc(var(--global-header-h, 0px) + 96px)" : "calc(var(--global-header-h, 0px) + 66px)"
+  const HEADER = isDesktop ? "calc(var(--global-header-h, 0px) + 96px)" : "calc(var(--global-header-h, 0px) + var(--ojm-avail-bar-h, 0px) + 66px)"
 
   // The mobile bottom nav is h-14 (56px) plus its own safe-area padding, so the
   // sheet must clear 56px + env(safe-area-inset-bottom) — otherwise the action
@@ -985,6 +986,8 @@ export default function JobsFindMap({ initialJobs, initialCoords, initialPostcod
             --global-header-h offsets the container and safe-area-inset-top is 0. */}
         <div ref={headerRef} className="absolute top-0 left-0 right-0 flex flex-col gap-1.5 px-3 py-2"
           style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top, 0px), 10px)" }}>
+          {/* Tradespeople only: go-live bar (phones — the site header carries it on wider screens) */}
+          <AvailableNowToggle variant="map" className="md:hidden self-center max-w-[360px]" />
           {/* Tab switcher — same footprint as the search bar below it */}
           <MapTabs active={isVacancy ? "vacancies" : "jobs"} coords={coords} />
           {/* Search row */}

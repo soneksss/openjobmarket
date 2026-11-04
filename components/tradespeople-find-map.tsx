@@ -14,6 +14,7 @@ import { MapSearchBar } from "@/components/map-search-bar"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import JobWizardModal from "@/components/job-wizard-modal"
 import { MapTabs } from "@/components/map-tabs"
+import { AvailableNowToggle } from "@/components/available-now-toggle"
 import { PostVacancyCard, POST_VACANCY_PATH } from "@/components/post-vacancy-card"
 import { geocodeUrl, visitorCountry } from "@/lib/geo"
 import { useToast } from "@/hooks/use-toast"
@@ -360,7 +361,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
     const style = document.createElement("style")
     style.id = "find-map-zoom-offset"
     const isLg = window.matchMedia(WIDE_LAYOUT_QUERY).matches
-    style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + ${isLg ? "116px" : "86px"}); }`
+    style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + var(--ojm-avail-bar-h, 0px) + ${isLg ? "116px" : "86px"}); }`
     if (!document.getElementById("find-map-zoom-offset")) document.head.appendChild(style)
     // Van idle-sway animation
     if (!document.getElementById("van-pin-anim")) {
@@ -394,7 +395,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
   // Keep the zoom-control offset in sync when rotating the phone, not just on mount.
   useEffect(() => {
     const style = document.getElementById("find-map-zoom-offset")
-    if (style) style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + ${isDesktop ? "116px" : "86px"}); }`
+    if (style) style.textContent = `#find-map-container .leaflet-top { margin-top: calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + var(--ojm-avail-bar-h, 0px) + ${isDesktop ? "116px" : "86px"}); }`
   }, [isDesktop])
 
   // Fetch portfolio photos when a trader pin is clicked
@@ -607,7 +608,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
   // Mobile bottom sheet dimensions.
   // Desktop local content ≈ 96px, mobile local content (tab row + search row) ≈ 66px.
-  const HEADER = isDesktop ? "calc(var(--global-header-h, 0px) + 96px)" : "calc(var(--global-header-h, 0px) + 66px)"
+  const HEADER = isDesktop ? "calc(var(--global-header-h, 0px) + 96px)" : "calc(var(--global-header-h, 0px) + var(--ojm-avail-bar-h, 0px) + 66px)"
   // The mobile bottom nav is h-14 (56px) plus its own safe-area padding, so the
   // sheet must clear 56px + env(safe-area-inset-bottom) — otherwise the action
   // buttons at the bottom of the profile panel sit behind the nav with nothing
@@ -1227,6 +1228,8 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
             --global-header-h offsets the container and safe-area-inset-top is 0. */}
         <div ref={headerRef} className="absolute top-0 left-0 right-0 flex flex-col gap-1 px-3 pb-1.5"
           style={{ zIndex: 20, paddingTop: "max(env(safe-area-inset-top, 0px), 10px)" }}>
+          {/* Tradespeople only: go-live bar (phones — the site header carries it on wider screens) */}
+          <AvailableNowToggle variant="map" className="md:hidden self-center max-w-[360px]" />
           {/* Tab switcher — same footprint as the search bar below it */}
           <MapTabs active="trades" coords={coords} />
           {/* Search bar — single tap opens Filters modal */}
@@ -1258,7 +1261,7 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
             disabled={locating}
             title="My location"
             className="absolute w-8 h-8 rounded-lg bg-slate-800/95 border border-slate-700 flex items-center justify-center shadow-md hover:border-slate-500 hover:text-emerald-400 transition-colors text-slate-400"
-            style={{ zIndex: 500, top: "calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + 156px + 5mm)", right: "10px" }}
+            style={{ zIndex: 500, top: "calc(var(--global-header-h, 0px) + env(safe-area-inset-top, 0px) + var(--ojm-avail-bar-h, 0px) + 156px + 5mm)", right: "10px" }}
           >
             {locating
               ? <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />

@@ -13,6 +13,8 @@ interface AvailableNowContextValue {
   saving: boolean
   /** When `enabled`, the fixed daily-reset time (ISO string) — for the countdown display. */
   expiresAt: string | null
+  /** When `enabled`, when they went live (ISO string) — null if unknown. */
+  since: string | null
   toggle: (next: boolean) => Promise<void>
 }
 
@@ -33,6 +35,7 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
   const [profileId, setProfileId] = useState<string | null>(null)
   const [enabled, setEnabled] = useState(false)
   const [expiresAt, setExpiresAt] = useState<string | null>(null)
+  const [since, setSince] = useState<string | null>(null)
   const [isCompany, setIsCompany] = useState(false)
   const [ready, setReady] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -61,6 +64,13 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
       setEnabled(stillActive)
       setExpiresAt(stillActive ? expiry : null)
       setReady(true)
+
+      // Separate, failure-tolerant read: available_since (migration
+      // 20261105000001) only drives the "Live for …" label.
+      if (stillActive) {
+        supabase.from("company_profiles").select("available_since").eq("id", data.id).maybeSingle()
+          .then(({ data: row }) => { if (!cancelled) setSince((row as any)?.available_since ?? null) }, () => {})
+      }
 
       // Client-side expiry guard — DB cron may not have run yet since expiry.
       // Deliberately NOT nulling urgent_notifications_expires_at / availability_expires_at
@@ -91,6 +101,7 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
         setIsCompany(false)
         setEnabled(false)
         setExpiresAt(null)
+        setSince(null)
         setReady(true)
       }
     })
@@ -108,6 +119,7 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
       if (new Date(expiresAt).getTime() <= Date.now()) {
         setEnabled(false)
         setExpiresAt(null)
+        setSince(null)
       }
     }
     check()
@@ -121,6 +133,7 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
     setEnabled(next)
     const expiry = next ? nextNineAM().toISOString() : null
     setExpiresAt(expiry)
+    setSince(next ? new Date().toISOString() : null)
     const { error } = await supabase
       .from("company_profiles")
       .update({
@@ -130,12 +143,12 @@ export function AvailableNowProvider({ children }: { children: ReactNode }) {
         availability_expires_at:         expiry,
       })
       .eq("id", profileId)
-    if (error) { setEnabled(!next); setExpiresAt(null) }
+    if (error) { setEnabled(!next); setExpiresAt(null); setSince(null) }
     setSaving(false)
   }, [profileId, supabase])
 
   return (
-    <AvailableNowContext.Provider value={{ ready, isCompany, enabled, saving, expiresAt, toggle }}>
+    <AvailableNowContext.Provider value={{ ready, isCompany, enabled, saving, expiresAt, since, toggle }}>
       {children}
     </AvailableNowContext.Provider>
   )
