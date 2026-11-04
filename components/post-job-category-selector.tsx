@@ -4,12 +4,15 @@ import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import Image from "next/image"
 import { helpItems } from "@/lib/data/help-items"
+import { PostVacancyCard } from "@/components/post-vacancy-card"
 
 interface PostJobCategorySelectorProps {
   onClose: () => void
+  /** Offer "Post a vacancy" too — signed-out visitors only (individual accounts can't). */
+  showVacancy?: boolean
 }
 
-export function PostJobCategorySelector({ onClose }: PostJobCategorySelectorProps) {
+export function PostJobCategorySelector({ onClose, showVacancy = false }: PostJobCategorySelectorProps) {
   const router = useRouter()
 
   const handleSelect = (industry: string, service: string) => {
@@ -35,6 +38,7 @@ export function PostJobCategorySelector({ onClose }: PostJobCategorySelectorProp
 
       {/* Grid */}
       <div className="flex-1 overflow-y-auto px-3 py-3">
+        {showVacancy && <PostVacancyCard signedIn={false} onNavigate={onClose} />}
         <div className="grid grid-cols-3 gap-2.5 pb-20">
           {helpItems.map((item) => (
             <button

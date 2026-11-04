@@ -14,6 +14,7 @@ import { MapSearchBar } from "@/components/map-search-bar"
 import { getPosition, describeGeoError } from "@/lib/native-geolocation"
 import JobWizardModal from "@/components/job-wizard-modal"
 import { MapTabs } from "@/components/map-tabs"
+import { PostVacancyCard, POST_VACANCY_PATH } from "@/components/post-vacancy-card"
 import { geocodeUrl, visitorCountry } from "@/lib/geo"
 import { useToast } from "@/hooks/use-toast"
 
@@ -755,13 +756,20 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
 
   const listPanel = (
     <>
-      {/* Post a Job — homeowner-only action, hidden for tradesperson accounts */}
-      {posterUserType !== "company" && (
+      {/* Post a Job — individuals get quotes; business accounts post vacancies instead */}
+      {posterUserType !== "company" ? (
         <div className="flex-shrink-0 flex justify-center pt-2 pb-2 px-3">
           <button onClick={() => setShowCategoryPicker(true)}
             className="px-6 py-1 bg-transparent border-2 border-emerald-500 hover:bg-emerald-500/10 hover:border-emerald-400 active:bg-emerald-500/20 text-emerald-400 font-semibold rounded-xl shadow-md shadow-emerald-500/20 transition-colors">
             <span className="text-[16.8px]">Get Multiple Quotes</span>
           </button>
+        </div>
+      ) : user && (
+        <div className="flex-shrink-0 flex justify-center pt-2 pb-2 px-3">
+          <Link prefetch={false} href={POST_VACANCY_PATH}
+            className="px-6 py-1 bg-transparent border-2 border-sky-500 hover:bg-sky-500/10 hover:border-sky-400 active:bg-sky-500/20 text-sky-300 font-semibold rounded-xl shadow-md shadow-sky-500/20 transition-colors">
+            <span className="text-[16.8px]">Post a vacancy</span>
+          </Link>
         </div>
       )}
       {/* Title row — hidden on desktop (shown in sidebar header instead) */}
@@ -1370,6 +1378,9 @@ export default function TradespeopleFindMap({ initialTraders, initialCoords, ini
           </div>
           {/* Scrollable photo grid */}
           <div className="flex-1 overflow-y-auto px-3 py-3">
+            {(!user || posterUserType === "company") && (
+              <PostVacancyCard signedIn={!!user} onNavigate={() => setShowCategoryPicker(false)} />
+            )}
             <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
               {helpItems.map(item => (
                 <button key={item.label}

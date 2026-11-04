@@ -329,7 +329,7 @@ export function MobileBottomNav({ user: serverUser, userType: serverUserType }: 
       <>
         <BottomNav items={guestItems} unreadMessages={0} unreadNotifications={0} />
         {showCategorySelector && (
-          <PostJobCategorySelector onClose={() => setShowCategorySelector(false)} />
+          <PostJobCategorySelector showVacancy onClose={() => setShowCategorySelector(false)} />
         )}
       </>
     )
