@@ -213,7 +213,8 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
   return (
     // Bottom padding on small screens keeps the window clear of the mobile bottom nav.
     <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-slate-900/45 backdrop-blur-[3px] p-3 pb-[calc(env(safe-area-inset-bottom,0px)+76px)] sm:px-4 sm:pt-4 lg:pb-4"
-      style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)" }}
+      // Below the status bar / camera notch plus a clear gap, so the close button is reachable.
+      style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 28px)" }}
       // Clicking the dimmed map around the window closes it.
       onClick={(e) => { if (e.target === e.currentTarget) dismiss() }}>
       <div
@@ -240,6 +241,12 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
           ) : undefined}
         </BrandPanel>
 
+        {/* Close — pinned to the window, outside the scrolling area, so it never scrolls away */}
+        <button onClick={dismiss} aria-label="Close"
+          className="absolute top-3 right-3 z-20 w-11 h-11 rounded-full flex items-center justify-center bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-200">
+          <X className="w-5 h-5 lg:w-6 lg:h-6" />
+        </button>
+
         {/* Right: the current step */}
         <div className="relative flex-1 min-w-0 flex flex-col overflow-y-auto p-6 sm:p-8 lg:px-12 lg:py-8">
           <div className="flex items-center justify-between gap-3 min-h-[40px] lg:-mb-2">
@@ -248,9 +255,8 @@ export default function WelcomeGuide({ page }: { page: MapPage }) {
                 <ArrowLeft className="w-4 h-4 lg:w-5 lg:h-5" /> Back
               </button>
             ) : <span />}
-            <button onClick={dismiss} aria-label="Close" className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-900 hover:bg-slate-100">
-              <X className="w-5 h-5 lg:w-6 lg:h-6" />
-            </button>
+            {/* room for the pinned close button */}
+            <span className="w-11 h-11" aria-hidden="true" />
           </div>
 
           {isTradeFlow && (

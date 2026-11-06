@@ -14,6 +14,8 @@ import { cookies } from "next/headers"
 import { type Locale } from "@/lib/i18n/config"
 import CapacitorInitWrapper from "@/components/capacitor-init-wrapper"
 import { IOSInstallBanner } from "@/components/ios-install-banner"
+import { AndroidAppBanner } from "@/components/android-app-banner"
+import { isIosAppLive, IOS_APP_ID } from "@/lib/app-links"
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.openjobmarket.com"),
@@ -130,7 +132,7 @@ export default async function RootLayout({
   }
 
   // Fetch admin settings + feature flags (unstable_cache — 0 DB queries on hit)
-  const { adminSettings, featureFlags } = await getAdminSettings()
+  const [{ adminSettings, featureFlags }, iosAppLive] = await Promise.all([getAdminSettings(), isIosAppLive()])
 
   // Read locale from cookie set by middleware (server-side)
   const cookieStore = await cookies()
@@ -153,6 +155,8 @@ export default async function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="OpenJobMarket" />
+        {/* Safari on iPhone shows its native "Get / Open" app banner from this. */}
+        {iosAppLive && <meta name="apple-itunes-app" content={`app-id=${IOS_APP_ID}`} />}
         <link rel="apple-touch-icon" href="/Favicon/apple-touch-icon.png" />
         {/* Preconnect to Supabase (profile images, storage) */}
         <link rel="preconnect" href="https://mklxzrvhanlndkyeteog.supabase.co" crossOrigin="anonymous" />
@@ -236,8 +240,11 @@ export default async function RootLayout({
         </FeatureFlagsProvider>
         {/* OTA updater + notifyAppReady — no-op outside Capacitor native context */}
         <CapacitorInitWrapper />
-        {/* iOS Safari "Add to Home Screen" install prompt */}
-        <IOSInstallBanner />
+        {/* iPhone: Apple's own Smart App Banner (meta tag in <head>) once the
+            app is on the App Store; until then the "Add to Home Screen" tip. */}
+        {!iosAppLive && <IOSInstallBanner />}
+        {/* Android: "Get the app" bar */}
+        <AndroidAppBanner />
       </body>
     </html>
   )

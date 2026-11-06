@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from 'react'
+import { PLAY_STORE_URL, APP_STORE_URL } from '@/lib/app-links'
 
 /**
  * AppVersionGate — blocks the app with an "Update Required" screen when:
@@ -75,13 +76,13 @@ export function AppVersionGate({ children, minAppVersion, forceUpdate }: AppVers
 
           <div className="space-y-3">
             <a
-              href="https://play.google.com/store/apps/details?id=com.openjobmarket.app"
+              href={PLAY_STORE_URL}
               className="block w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold py-3 px-6 rounded-lg transition-colors"
             >
               Update on Google Play
             </a>
             <a
-              href="https://apps.apple.com/app/open-job-market/id0000000000"
+              href={APP_STORE_URL}
               className="block w-full bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold py-3 px-6 rounded-lg transition-colors"
             >
               Update on App Store

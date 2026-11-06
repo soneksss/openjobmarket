@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/client"
 import { useTranslation } from "@/lib/i18n/context"
+import { PLAY_STORE_URL } from "@/lib/app-links"
 
 export function Footer() {
   const { t, locale } = useTranslation()
@@ -56,6 +57,10 @@ export function Footer() {
               {link.label}
             </Link>
           ))}
+          <a href={PLAY_STORE_URL} target="_blank" rel="noopener noreferrer"
+            className="text-sm text-emerald-400 hover:text-emerald-300 transition-colors">
+            Android app
+          </a>
         </div>
         <div className="text-center text-xs text-slate-500">
           © 2025 Open Job Market Ltd.
