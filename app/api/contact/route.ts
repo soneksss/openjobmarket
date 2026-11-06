@@ -122,7 +122,8 @@ You can reply directly to this email to respond to ${name}.
     // Send email via Resend
     const resend = getResendInstance()
     const { data, error: sendError } = await resend.emails.send({
-      from: "Open Job Market <onboarding@resend.dev>", // Use verified domain in production
+      // EMAIL_FROM (Vercel) = an address on the domain verified in Resend.
+      from: process.env.EMAIL_FROM || "Open Job Market <onboarding@resend.dev>",
       to: [to],
       replyTo: email, // Allow admin to reply directly to the user
       subject: emailSubject,

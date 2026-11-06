@@ -301,7 +301,8 @@ async function sendEmail(notification: any) {
   try {
     const resend = getResendInstance()
     const { data, error: sendError } = await resend.emails.send({
-      from: "Open Job Market <onboarding@resend.dev>", // Use verified domain in production
+      // EMAIL_FROM (Vercel) = an address on the domain verified in Resend.
+      from: process.env.EMAIL_FROM || "Open Job Market <onboarding@resend.dev>",
       to: [user.email],
       subject: template.subject,
       html: template.html,
