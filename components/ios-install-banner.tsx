@@ -18,6 +18,8 @@ export function IOSInstallBanner() {
   useEffect(() => {
     if (!mounted) return
     if (!isIos()) return
+    // Inside the App Store / TestFlight app the user already has the app.
+    if ((window as any).Capacitor?.isNativePlatform?.()) return
     if (isPwaInstalled()) return
     if (localStorage.getItem(DISMISSED_KEY) === "true") return
 
