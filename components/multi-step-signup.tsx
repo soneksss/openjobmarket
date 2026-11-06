@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react"
 import { useRouter, usePathname, useSearchParams } from "next/navigation"
 import { safeReturnUrl } from "@/lib/safe-return-url"
+import { isIosApp, canUseNativeAppleSignIn } from "@/lib/native-apple-sign-in"
+import { AppleSignInButton } from "@/components/apple-sign-in-button"
 import { geocodeUrl, visitorCountry } from "@/lib/geo"
 import { createClient } from "@/lib/client"
 import { Button } from "@/components/ui/button"
@@ -54,6 +56,10 @@ export default function MultiStepSignup() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | 'facebook' | null>(null)
+  // Read after mount: the server render can't know it's inside the iPhone app.
+  const [iosApp, setIosApp] = useState(false)
+  const [appleNative, setAppleNative] = useState(false)
+  useEffect(() => { setIosApp(isIosApp()); setAppleNative(canUseNativeAppleSignIn()) }, [])
   const [error, setError] = useState<string | null>(null)
   const [emailAlreadyExists, setEmailAlreadyExists] = useState(false)
   const [serviceInput, setServiceInput] = useState('')
@@ -544,6 +550,15 @@ export default function MultiStepSignup() {
                 ↑ Select your account type above to continue
               </p>
             )}
+            {/* In the iPhone app web sign-in pages can't return to the app, so it
+                offers native Sign in with Apple instead of Google/Facebook. */}
+            {iosApp ? (appleNative && (
+              <div className={`transition-opacity ${signupData.accountType ? '' : 'opacity-40 pointer-events-none'}`}>
+                <AppleSignInButton accountType={signupData.accountType}
+                  returnUrl={safeReturnUrl(searchParams?.get('returnUrl'))}
+                  disabled={!signupData.accountType} onError={setError} />
+              </div>
+            )) : (
             <div className={`grid grid-cols-2 gap-3 transition-opacity ${signupData.accountType ? '' : 'opacity-40 pointer-events-none'}`}>
               <Button
                 type="button"
@@ -585,6 +600,7 @@ export default function MultiStepSignup() {
                 )}
               </Button>
             </div>
+            )}
 
             {/* Divider ──────────────────────────────────────────────────── */}
             <div className="relative">

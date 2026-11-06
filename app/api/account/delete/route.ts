@@ -7,17 +7,32 @@ export const runtime = 'nodejs'
 interface DeleteAccountRequest {
   primaryReason: string
   customMessage?: string
-  userEmail: string
-  userPassword: string
+  userEmail?: string
+  /** Accounts with a password (email sign-up) confirm with it. */
+  userPassword?: string
+  /** Accounts made with Apple / Google / Facebook have no password: they type DELETE. */
+  confirmText?: string
+}
+
+// Removes the user's CV files (vacancy-cvs/<user id>/<vacancy id>/<file>).
+async function removeUserCvs(userId: string) {
+  const bucket = createAdminClient().storage.from("vacancy-cvs")
+  const { data: folders } = await bucket.list(userId, { limit: 1000 })
+  const paths: string[] = []
+  for (const folder of folders ?? []) {
+    const { data: files } = await bucket.list(`${userId}/${folder.name}`, { limit: 1000 })
+    for (const file of files ?? []) paths.push(`${userId}/${folder.name}/${file.name}`)
+  }
+  if (paths.length) await bucket.remove(paths)
 }
 
 export async function POST(request: Request) {
   try {
     const body: DeleteAccountRequest = await request.json()
-    const { primaryReason, customMessage, userEmail, userPassword } = body
+    const { primaryReason, customMessage, userEmail, userPassword, confirmText } = body
 
     // Validate required fields
-    if (!primaryReason || !userEmail || !userPassword) {
+    if (!primaryReason) {
       return NextResponse.json(
         { success: false, error: "Missing required fields" },
         { status: 400 }
@@ -70,21 +85,30 @@ export async function POST(request: Request) {
       console.log("[API] Orphaned state detection skipped:", orphanedError)
     }
 
-    // Step 2: Verify password by attempting to sign in
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: userEmail,
-      password: userPassword,
-    })
-
-    if (signInError) {
-      console.log("[API] Password verification failed:", signInError.message)
-      return NextResponse.json(
-        { success: false, error: "Invalid email or password" },
-        { status: 403 }
-      )
+    // Step 2: Confirm it's really them. Password accounts re-enter their
+    // password; Apple / Google / Facebook accounts (no password) type DELETE
+    // while signed in.
+    const hasPassword = (user.identities ?? []).some(i => i.provider === "email")
+    if (hasPassword) {
+      if (!userEmail || !userPassword) {
+        return NextResponse.json({ success: false, error: "Missing required fields" }, { status: 400 })
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: userEmail,
+        password: userPassword,
+      })
+      if (signInError) {
+        console.log("[API] Password verification failed:", signInError.message)
+        return NextResponse.json(
+          { success: false, error: "Invalid email or password" },
+          { status: 403 }
+        )
+      }
+    } else if (confirmText?.trim().toUpperCase() !== "DELETE") {
+      return NextResponse.json({ success: false, error: "Type DELETE to confirm" }, { status: 403 })
     }
 
-    console.log("[API] Password verified, proceeding with deletion")
+    console.log("[API] Identity confirmed, proceeding with deletion")
 
     // Sanitize reason to known enum values; unknown values fall back to 'other'
     // to prevent "invalid input value for enum deletion_reason_type" errors.
@@ -101,8 +125,8 @@ export async function POST(request: Request) {
       {
         p_primary_reason: safePrimaryReason,
         p_custom_message: customMessage || null,
-        p_user_email: userEmail,
-        p_user_password: userPassword,
+        p_user_email: user.email ?? userEmail ?? null,
+        p_user_password: userPassword ?? null,
       }
     )
 
@@ -114,8 +138,8 @@ export async function POST(request: Request) {
         {
           p_primary_reason: 'other',
           p_custom_message: customMessage || null,
-          p_user_email: userEmail,
-          p_user_password: userPassword,
+          p_user_email: user.email ?? userEmail ?? null,
+          p_user_password: userPassword ?? null,
         }
       ))
     }
@@ -142,6 +166,13 @@ export async function POST(request: Request) {
     }
 
     console.log("[API] Account deletion successful:", deleteResult)
+
+    // CV files live in storage, not the database rows the RPC removed.
+    try {
+      await removeUserCvs(user.id)
+    } catch (cvError) {
+      console.error("[API] CV file cleanup failed (non-fatal):", cvError)
+    }
 
     // Step 4: Delete auth user via Admin API (SQL DELETE FROM auth.users in the RPC
     // silently fails because the postgres role lacks permission on auth.users)

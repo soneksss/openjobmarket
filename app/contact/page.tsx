@@ -17,6 +17,8 @@ export default function ContactPage() {
   const [email, setEmail] = useState("")
   const [subject, setSubject] = useState("")
   const [message, setMessage] = useState("")
+  // Honeypot — hidden from people, filled in by spam bots.
+  const [website, setWebsite] = useState("")
 
   const getLocalePath = (path: string) => isOnBrRoute ? `/br${path}` : path
 
@@ -28,7 +30,7 @@ export default function ContactPage() {
       const response = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, subject, message }),
+        body: JSON.stringify({ name, email, subject, message, website }),
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Failed to send message')
@@ -60,6 +62,11 @@ export default function ContactPage() {
           <p className="text-sm text-slate-400 mb-6">{t('contact.weHereToHelp')}</p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div aria-hidden="true" className="absolute -left-[9999px] w-px h-px overflow-hidden">
+              <label htmlFor="website">Website</label>
+              <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off"
+                value={website} onChange={(e) => setWebsite(e.target.value)} />
+            </div>
             <div>
               <label className="text-sm font-medium text-slate-300 mb-1.5 block">{t('contact.name')}</label>
               <Input

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/client"
 import { useTranslation } from "@/lib/i18n/context"
@@ -53,10 +53,21 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
   const [isDeleting, setIsDeleting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showFinalDialog, setShowFinalDialog] = useState(false)
+  // Accounts made with Apple / Google / Facebook have no password: they
+  // confirm by typing DELETE instead (Apple requires every account to be deletable).
+  const [hasPassword, setHasPassword] = useState(true)
+  const [confirmText, setConfirmText] = useState("")
 
   const { t } = useTranslation()
   const router = useRouter()
   const supabase = createClient()
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      const identities = data.user?.identities
+      if (identities?.length) setHasPassword(identities.some(i => i.provider === "email"))
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalSteps = 6
 
@@ -85,12 +96,13 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
 
     // Validation for step 5
     if (step === 5) {
-      if (confirmEmail !== userEmail) {
-        setError(t('accountDeletion.invalidCredentials'))
-        return
-      }
-      if (!confirmPassword) {
-        setError(t('accountDeletion.invalidCredentials'))
+      if (hasPassword) {
+        if (confirmEmail !== userEmail || !confirmPassword) {
+          setError(t('accountDeletion.invalidCredentials'))
+          return
+        }
+      } else if (confirmText.trim().toUpperCase() !== "DELETE") {
+        setError('Type DELETE to confirm')
         return
       }
       if (!confirmCheckbox) {
@@ -135,7 +147,8 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
           primaryReason: selectedReason,
           customMessage: customFeedback || null,
           userEmail: userEmail,
-          userPassword: confirmPassword,
+          userPassword: hasPassword ? confirmPassword : undefined,
+          confirmText: hasPassword ? undefined : confirmText,
         }),
       })
 
@@ -315,6 +328,19 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
       </div>
 
       <div className="space-y-4">
+        {!hasPassword ? (
+          <div className="space-y-2">
+            <Label htmlFor="confirmText">Type DELETE to confirm</Label>
+            <Input
+              id="confirmText"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="DELETE"
+              autoCapitalize="characters"
+              autoComplete="off"
+            />
+          </div>
+        ) : (<>
         <div className="space-y-2">
           <Label htmlFor="confirmEmail">{t('accountDeletion.emailLabel')}</Label>
           <Input
@@ -348,6 +374,7 @@ export function AccountDeletionFlow({ userEmail, onCancel }: AccountDeletionFlow
             </button>
           </div>
         </div>
+        </>)}
 
         <div className="flex items-start space-x-3 border rounded-lg p-4">
           <Checkbox

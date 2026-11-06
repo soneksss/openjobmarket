@@ -11,6 +11,8 @@ import { useEffect, useState } from "react"
 import { Loader2, Eye, EyeOff, ArrowLeft } from "lucide-react"
 import { useTranslation } from "@/lib/i18n/context"
 import { safeReturnUrl } from "@/lib/safe-return-url"
+import { isIosApp, canUseNativeAppleSignIn } from "@/lib/native-apple-sign-in"
+import { AppleSignInButton } from "@/components/apple-sign-in-button"
 
 export default function LoginForm() {
   const { t } = useTranslation()
@@ -20,6 +22,10 @@ export default function LoginForm() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | 'facebook' | null>(null)
+  // Read after mount: the server render can't know it's inside the iPhone app.
+  const [iosApp, setIosApp] = useState(false)
+  const [appleNative, setAppleNative] = useState(false)
+  useEffect(() => { setIosApp(isIosApp()); setAppleNative(canUseNativeAppleSignIn()) }, [])
   const [showPassword, setShowPassword] = useState(false)
   // Brute-force protection — 5 failed attempts locks this email out for a
   // 2-minute cooldown, enforced server-side (see /api/auth/login-guard).
@@ -375,13 +381,18 @@ export default function LoginForm() {
         </form>
       </div>
 
-      {/* Social login */}
+      {/* Social login. In the iPhone app web sign-in pages can't return to the
+          app, so it offers native Sign in with Apple instead of Google/Facebook. */}
+      {(!iosApp || appleNative) && (
       <div className="mt-5">
         <div className="relative flex items-center gap-3 mb-4">
           <div className="flex-1 h-px bg-slate-100" />
           <span className="text-xs text-slate-500 flex-shrink-0">or continue with</span>
           <div className="flex-1 h-px bg-slate-100" />
         </div>
+        {iosApp ? (
+          <AppleSignInButton returnUrl={loginReturnUrl} disabled={isLoading} onError={setError} />
+        ) : (
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
@@ -417,7 +428,9 @@ export default function LoginForm() {
             Facebook
           </button>
         </div>
+        )}
       </div>
+      )}
 
       {/* Sign up link */}
       <p className="text-center text-sm text-slate-500 mt-6">

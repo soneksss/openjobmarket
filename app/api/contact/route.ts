@@ -4,8 +4,9 @@ import { Resend } from "resend"
 // Force Node.js runtime
 export const runtime = 'nodejs'
 
-// Admin email - can be moved to environment variable if needed
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "info@openjobmarket.com"
+// Contact-form messages go to the address in the CONTACT_EMAIL environment
+// variable (set on Vercel). It is never in the code or on the site, so it
+// can't be scraped from the page or from the public repository.
 
 function getResendInstance() {
   const apiKey = process.env.RESEND_API_KEY
@@ -15,44 +16,58 @@ function getResendInstance() {
   return new Resend(apiKey)
 }
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
+}
+
+const LIMITS = { name: 100, email: 200, subject: 200, message: 5000 }
+
 export async function POST(request: NextRequest) {
   try {
-    console.log("[CONTACT-FORM] Processing contact form submission...")
-
     const body = await request.json()
-    const { name, email, subject, message } = body
+    const { name, email, subject, message, website } = body ?? {}
 
-    console.log("[CONTACT-FORM] Request details:", {
-      name,
-      email,
-      subject,
-      messageLength: message?.length,
-    })
+    // Honeypot: a hidden field real visitors never fill in. Bots that do get a
+    // normal-looking success so they don't retry.
+    if (website) {
+      return NextResponse.json({ success: true, message: "Your message has been sent successfully!" })
+    }
 
     // Validate required fields
     if (!name || !email || !subject || !message) {
-      console.log("[CONTACT-FORM] Missing required fields")
       return NextResponse.json(
         { error: "All fields are required: name, email, subject, message" },
         { status: 400 }
       )
     }
+    if ([name, email, subject, message].some(v => typeof v !== "string")
+      || name.length > LIMITS.name || email.length > LIMITS.email
+      || subject.length > LIMITS.subject || message.length > LIMITS.message) {
+      return NextResponse.json({ error: "Message is too long" }, { status: 400 })
+    }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
-      console.log("[CONTACT-FORM] Invalid email format")
       return NextResponse.json(
         { error: "Invalid email address" },
         { status: 400 }
       )
     }
 
+    const to = process.env.CONTACT_EMAIL
+    if (!to) {
+      console.error("[CONTACT-FORM] CONTACT_EMAIL is not set")
+      return NextResponse.json({ error: "Failed to send email. Please try again later." }, { status: 500 })
+    }
+
+    const safe = { name: escapeHtml(name), email: escapeHtml(email), subject: escapeHtml(subject), message: escapeHtml(message) }
+
     // Prepare email content
-    const emailSubject = `[Contact Form] ${subject}`
+    const emailSubject = `[Contact Form] ${subject.replace(/[\r\n]+/g, " ")}`
     const emailHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); padding: 30px; text-align: center;">
+        <div style="background: #059669; padding: 30px; text-align: center;">
           <h1 style="color: white; margin: 0; font-size: 24px;">New Contact Form Submission</h1>
         </div>
 
@@ -61,26 +76,24 @@ export async function POST(request: NextRequest) {
 
           <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
             <p style="margin: 5px 0; color: #666;">
-              <strong style="color: #333;">From:</strong> ${name}
+              <strong style="color: #333;">From:</strong> ${safe.name}
             </p>
             <p style="margin: 5px 0; color: #666;">
-              <strong style="color: #333;">Email:</strong> <a href="mailto:${email}" style="color: #3b82f6;">${email}</a>
+              <strong style="color: #333;">Email:</strong> ${safe.email}
             </p>
             <p style="margin: 5px 0; color: #666;">
-              <strong style="color: #333;">Subject:</strong> ${subject}
+              <strong style="color: #333;">Subject:</strong> ${safe.subject}
             </p>
           </div>
 
-          <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6;">
+          <div style="background: white; padding: 20px; border-radius: 8px;">
             <h3 style="margin-top: 0; color: #333;">Message:</h3>
-            <p style="color: #666; line-height: 1.6; white-space: pre-wrap;">${message}</p>
+            <p style="color: #666; line-height: 1.6; white-space: pre-wrap;">${safe.message}</p>
           </div>
 
-          <div style="margin-top: 20px; padding: 15px; background: #e0f2fe; border-radius: 8px;">
-            <p style="margin: 0; color: #0369a1; font-size: 14px;">
-              💡 <strong>Tip:</strong> You can reply directly to this email to respond to ${name}.
-            </p>
-          </div>
+          <p style="margin-top: 20px; color: #0369a1; font-size: 14px;">
+            Reply to this email to answer ${safe.name}.
+          </p>
         </div>
 
         <div style="background: #e5e7eb; padding: 20px; text-align: center; font-size: 12px; color: #6b7280;">
@@ -106,13 +119,11 @@ This email was sent from the Open Job Market contact form.
 You can reply directly to this email to respond to ${name}.
     `
 
-    console.log("[CONTACT-FORM] Sending email to admin:", ADMIN_EMAIL)
-
     // Send email via Resend
     const resend = getResendInstance()
     const { data, error: sendError } = await resend.emails.send({
       from: "Open Job Market <onboarding@resend.dev>", // Use verified domain in production
-      to: [ADMIN_EMAIL],
+      to: [to],
       replyTo: email, // Allow admin to reply directly to the user
       subject: emailSubject,
       html: emailHtml,
@@ -127,22 +138,14 @@ You can reply directly to this email to respond to ${name}.
       )
     }
 
-    console.log("[CONTACT-FORM] Email sent successfully:", {
-      to: ADMIN_EMAIL,
-      replyTo: email,
-      subject: emailSubject,
-      messageId: data?.id,
-    })
+    console.log("[CONTACT-FORM] Email sent:", { messageId: data?.id })
 
     return NextResponse.json({
       success: true,
       message: "Your message has been sent successfully!",
     })
   } catch (error: any) {
-    console.error("[CONTACT-FORM] Error:", {
-      message: error?.message,
-      stack: error?.stack,
-    })
+    console.error("[CONTACT-FORM] Error:", error?.message)
     return NextResponse.json(
       {
         success: false,

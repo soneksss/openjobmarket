@@ -43,3 +43,5 @@ import { SpeedInsights } from "@vercel/speed-insights/next"
 .env*.local
 #certificates
 /apple-certificates
+# Local-only data (lead lists etc.) — never served, never committed
+/private-data
