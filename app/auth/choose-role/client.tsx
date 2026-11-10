@@ -18,11 +18,11 @@ export default function ChooseRoleClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role }),
       })
-      if (!res.ok) throw new Error("Request failed")
-      const { dashboardUrl } = await res.json()
-      router.replace(dashboardUrl)
-    } catch {
-      setError("Something went wrong. Please try again.")
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body?.error || "Something went wrong. Please try again.")
+      router.replace(body.dashboardUrl)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.")
       setLoading(null)
     }
   }

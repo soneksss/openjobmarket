@@ -30,6 +30,6 @@ export default async function OnboardingPage() {
     admin:        "/admin/dashboard",
   }
 
-  const dest = userData?.user_type ? (dashboardMap[userData.user_type] ?? "/") : "/"
+  const dest = userData?.user_type ? (dashboardMap[userData.user_type] ?? "/") : "/auth/choose-role"
   redirect(dest)
 }

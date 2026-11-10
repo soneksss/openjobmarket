@@ -33,13 +33,31 @@ export async function POST(request: NextRequest) {
       meta.family_name ?? meta.last_name ?? (rawName.split(" ").slice(1).join(" ") || null)
     const avatarUrl: string | null = meta.avatar_url ?? meta.picture ?? null
 
-    // ── 1. Update users table ─────────────────────────────────────────────────
-    const userPatch: Record<string, unknown> = { user_type: role }
+    // ── 1. Upsert users row ───────────────────────────────────────────────────
+    // Upsert, not update: the row is missing when the signup trigger failed.
+    const userPatch: Record<string, unknown> = {
+      id: user.id,
+      email: user.email,
+      user_type: role,
+      account_type: role === "company" ? "business" : "individual",
+    }
     if (avatarUrl) userPatch.profile_photo_url = avatarUrl
     if (firstName || lastName) {
       userPatch.full_name = [firstName, lastName].filter(Boolean).join(" ") || null
     }
-    await admin.from("users").update(userPatch).eq("id", user.id)
+    const { error: userError } = await admin.from("users").upsert(userPatch, { onConflict: "id" })
+    if (userError) {
+      console.error("[SET-ROLE] users upsert failed:", userError.message)
+      const emailTaken = userError.code === "23505"
+      return NextResponse.json(
+        {
+          error: emailTaken
+            ? "This email already belongs to another Open Job Market account. Sign in with your email and password instead."
+            : "Something went wrong. Please try again.",
+        },
+        { status: emailTaken ? 409 : 500 },
+      )
+    }
 
     // ── 2. Upsert the correct profile row ─────────────────────────────────────
     // We use upsert so re-entrant calls are safe (e.g. user taps back and retries).

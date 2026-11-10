@@ -30,9 +30,10 @@ export default async function DashboardPage() {
   const { data: userData, error: userError } = await supabase.from("users").select("user_type").eq("id", user.id).single()
 
   if (!userData || userError) {
-    // User is authenticated but hasn't completed profile - redirect to home where they can browse
-    console.log("[DASHBOARD] User data not found for authenticated user, redirecting to home")
-    redirect("/onboarding")
+    // Signed in but no users row (the signup trigger failed) — the role
+    // picker creates it.
+    console.log("[DASHBOARD] User data not found for authenticated user, redirecting to choose-role")
+    redirect("/auth/choose-role")
   }
 
   if (userData.user_type === "company") {

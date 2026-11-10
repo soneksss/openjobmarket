@@ -18,9 +18,10 @@ export async function afterSignInPath(
     .maybeSingle()
 
   if (!userData) {
-    // Row not found at all — trigger hasn't fired yet; send to onboarding
-    console.log("[AFTER-SIGN-IN] No users row, sending to onboarding")
-    return "/onboarding"
+    // No users row: the signup trigger swallows insert errors (e.g. an older
+    // row still holding this email). The role picker creates the row.
+    console.log("[AFTER-SIGN-IN] No users row, sending to choose-role")
+    return "/auth/choose-role"
   }
 
   // ── Step 2: Fix user_type for new OAuth signups ───────────────────────────
