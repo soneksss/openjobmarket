@@ -72,12 +72,12 @@ export async function POST(request: NextRequest) {
         { onConflict: "user_id", ignoreDuplicates: false }
       )
     } else {
-      // For tradespeople we don't have a company name yet — leave it null and let
-      // the dashboard guide them to complete their profile.
+      // No business name yet — start from their name (pages build initials
+      // from company_name, so it can't be null); they can change it on the dashboard.
       await admin.from("company_profiles").upsert(
         {
           user_id: user.id,
-          company_name: null,
+          company_name: rawName || firstName || user.email?.split("@")[0] || "My Business",
           logo_url: avatarUrl,
         },
         { onConflict: "user_id", ignoreDuplicates: false }

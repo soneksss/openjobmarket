@@ -45,6 +45,15 @@ export default async function CompanyDashboardPage() {
 
   if (!profile) redirect("/onboarding")
 
+  // Older role-picker sign-ups saved no business name; pages build initials from it.
+  if (!profile.company_name) {
+    const metadata = user.user_metadata || {}
+    const company_name = metadata.full_name || metadata.first_name || user.email?.split("@")[0] || "My Business"
+    const { data: named } = await supabase
+      .from("company_profiles").update({ company_name }).eq("id", profile.id).select().maybeSingle()
+    profile = named ?? { ...profile, company_name }
+  }
+
   // Trades picked in the map welcome guide arrive in sign-up metadata; the
   // profile-creation function only stores the main one, so copy the full list once.
   const signupIndustries = user.user_metadata?.industries

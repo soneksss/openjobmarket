@@ -1380,7 +1380,7 @@ export default function CompanyDashboard({ user, profile, jobs, receivedApplicat
                           />
                         ) : (
                           <div className="text-xl sm:text-2xl font-medium text-slate-400">
-                            {profile.company_name.substring(0, 2).toUpperCase()}
+                            {(profile.company_name || "?").substring(0, 2).toUpperCase()}
                           </div>
                         )}
                       </div>
