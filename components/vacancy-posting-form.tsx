@@ -1135,11 +1135,17 @@ export default function VacancyPostingForm({ companyProfile }: Props) {
         <div
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[#030a08] p-3 sm:p-4"
+          // Above the mobile bottom nav (z-50), which otherwise covers the footer
+          // buttons; padded clear of the notch and home indicator.
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-[#030a08] px-3 sm:p-4"
+          style={{
+            paddingTop: "max(0.75rem, env(safe-area-inset-top))",
+            paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+          }}
         >
           <div className="pointer-events-none absolute inset-0 bg-[url('/hero-space-mobile.webp')] md:bg-[url('/hero-space.webp')] bg-cover bg-right-bottom opacity-40" />
           <div
-            className="relative w-full max-w-3xl lg:max-w-[1200px] lg:w-[78vw] bg-white text-slate-900 rounded-3xl shadow-2xl shadow-black/50 h-[calc(100dvh-1.5rem)] max-h-[860px] overflow-hidden flex"
+            className="relative w-full max-w-3xl lg:max-w-[1200px] lg:w-[78vw] bg-white text-slate-900 rounded-3xl shadow-2xl shadow-black/50 h-full max-h-[860px] overflow-hidden flex"
             // Native inputs (checkboxes, radios, textareas) follow the light window, not the site's dark scheme.
             style={{ colorScheme: "light" }}
             onClick={(e) => e.stopPropagation()}
